@@ -43,5 +43,13 @@
     "cancel": "Cancel",
     "preview": "Preview",
     "empty": "Open a note from the explorer."
+  },
+  "graph": {
+    "title": "Graph view",
+    "stats": "{{notes}} notes · {{links}} links",
+    "empty": "No linked notes yet. Add [[links]] to notes.",
+    "hint": "Hover a node",
+    "centerNote": "Hub note",
+    "note": "Note"
   }
 }

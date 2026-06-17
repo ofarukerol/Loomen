@@ -604,7 +604,9 @@ button { font-family: inherit; }
   tab-size: 2;
 }
 .lo-editor__body { flex: 1; display: flex; min-height: 0; }
-.lo-editor__scroll { flex: 1; overflow-y: auto; padding: 40px 0; }
+.lo-editor__scroll { flex: 1; overflow-y: auto; padding: 0; }
+.lo-editor__scroll--preview { padding: 40px 0; }
+.lo-cm { height: 100%; }
 .lo-prose { max-width: 680px; margin: 0 auto; padding: 0 40px; animation: loFade 0.3s ease; }
 
 .lo-prose h1 { margin: 0 0 4px; font-size: 30px; font-weight: 700; color: var(--fg1); letter-spacing: -0.02em; }

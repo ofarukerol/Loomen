@@ -1,54 +1,86 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Move } from "lucide-react";
+import {
+  forceSimulation,
+  forceLink,
+  forceManyBody,
+  forceCenter,
+  forceCollide,
+  type SimulationNodeDatum,
+} from "d3-force";
+import { useAppStore } from "../../store/useAppStore";
+import { extractWikiLinks } from "../../core/markdown/links";
 
-type NodeId =
-  | "proje" | "daily" | "fikirler" | "loomen" | "tasarim"
-  | "toplanti" | "odemeler" | "okul" | "vize";
+const W = 820;
+const H = 520;
 
-// [x, y, çap] — prototipteki el-yerleştirme. Gerçekte force-directed gelecek (docs 04).
-const POS: Record<NodeId, [number, number, number]> = {
-  proje: [440, 258, 64],
-  daily: [248, 150, 54],
-  fikirler: [624, 148, 50],
-  loomen: [196, 360, 50],
-  tasarim: [664, 360, 54],
-  toplanti: [440, 86, 44],
-  odemeler: [150, 250, 44],
-  okul: [440, 452, 48],
-  vize: [702, 470, 44],
-};
+interface GNode extends SimulationNodeDatum {
+  id: string; // path
+  name: string;
+  deg: number;
+}
+interface GLink {
+  source: string | GNode;
+  target: string | GNode;
+}
 
-const LABELS: Record<NodeId, string> = {
-  proje: "Proje X",
-  daily: "2026-06-13",
-  fikirler: "Fikirler",
-  loomen: "Loomen",
-  tasarim: "Tasarım Sistemi",
-  toplanti: "Toplantı Notları",
-  odemeler: "Ödemeler",
-  okul: "Okul",
-  vize: "Vize Başvurusu",
-};
+function nodeRadius(deg: number) {
+  return 16 + Math.min(deg, 6) * 5;
+}
 
-const EDGES: [NodeId, NodeId][] = [
-  ["proje", "daily"], ["proje", "fikirler"], ["proje", "loomen"], ["proje", "toplanti"],
-  ["proje", "tasarim"], ["daily", "fikirler"], ["daily", "odemeler"], ["daily", "okul"],
-  ["loomen", "tasarim"], ["vize", "odemeler"], ["vize", "okul"], ["fikirler", "tasarim"],
-];
+/** Vault notlarından + [[link]]'lerden force-directed graf hesapla (deterministik). */
+function buildGraph(notes: { path: string; name: string }[], contents: Record<string, string>) {
+  const byName = new Map(notes.map((n) => [n.name, n.path]));
+  const nodes: GNode[] = notes.map((n) => ({ id: n.path, name: n.name, deg: 0 }));
+  const index = new Map(nodes.map((n, i) => [n.id, i]));
+  const links: GLink[] = [];
+  const seen = new Set<string>();
 
-const HUB: NodeId = "proje";
+  for (const n of notes) {
+    for (const targetName of extractWikiLinks(contents[n.path] ?? "")) {
+      const tpath = byName.get(targetName);
+      if (!tpath || tpath === n.path) continue;
+      const key = [n.path, tpath].sort().join("→");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      links.push({ source: n.path, target: tpath });
+      nodes[index.get(n.path)!].deg++;
+      nodes[index.get(tpath)!].deg++;
+    }
+  }
+
+  const sim = forceSimulation<GNode>(nodes)
+    .force("link", forceLink<GNode, GLink>(links).id((d) => d.id).distance(95).strength(0.5))
+    .force("charge", forceManyBody().strength(-280))
+    .force("center", forceCenter(W / 2, H / 2))
+    .force("collide", forceCollide<GNode>().radius((d) => nodeRadius(d.deg) + 8))
+    .stop();
+  for (let i = 0; i < 320; i++) sim.tick();
+
+  // En çok bağlantılı düğüm = merkez (hub)
+  const hubId = nodes.reduce((a, b) => (b.deg > a.deg ? b : a), nodes[0])?.id;
+  return { nodes, links, hubId };
+}
 
 export function GraphScreen() {
   const { t } = useTranslation();
-  const [hover, setHover] = useState<NodeId | null>(null);
+  const notes = useAppStore((s) => s.notes);
+  const contents = useAppStore((s) => s.noteContents);
+  const openNote = useAppStore((s) => s.openNote);
+  const [hover, setHover] = useState<string | null>(null);
 
-  const neighbors = new Set<NodeId>();
+  const { nodes, links, hubId } = useMemo(() => buildGraph(notes, contents), [notes, contents]);
+
+  // Hover komşuları
+  const neighbors = new Set<string>();
   if (hover) {
-    EDGES.forEach(([a, b]) => {
-      if (a === hover) neighbors.add(b);
-      if (b === hover) neighbors.add(a);
-    });
+    for (const l of links) {
+      const s = (l.source as GNode).id;
+      const tg = (l.target as GNode).id;
+      if (s === hover) neighbors.add(tg);
+      if (tg === hover) neighbors.add(s);
+    }
     neighbors.add(hover);
   }
 
@@ -56,7 +88,7 @@ export function GraphScreen() {
     <div className="lo-graph">
       <div className="lo-graph__head">
         <span className="lo-graph__title">{t("graph.title")}</span>
-        <span className="lo-graph__stats">{t("graph.stats")}</span>
+        <span className="lo-graph__stats">{t("graph.stats", { notes: nodes.length, links: links.length })}</span>
         <div style={{ flex: 1 }} />
         <span className="lo-graph__hint">
           <Move size={14} strokeWidth={2} />
@@ -65,60 +97,63 @@ export function GraphScreen() {
       </div>
 
       <div className="lo-graph__canvas" onMouseLeave={() => setHover(null)}>
-        <div className="lo-graph__stage">
-          <svg width="860" height="540" viewBox="0 0 860 540" className="lo-graph__edges">
-            {EDGES.map(([a, b], i) => {
-              const [x1, y1] = POS[a];
-              const [x2, y2] = POS[b];
-              const active = !!hover && (a === hover || b === hover);
+        {nodes.length === 0 ? (
+          <div className="lo-placeholder">
+            <p>{t("graph.empty")}</p>
+          </div>
+        ) : (
+          <div className="lo-graph__stage" style={{ width: W, height: H }}>
+            <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="lo-graph__edges">
+              {links.map((l, i) => {
+                const s = l.source as GNode;
+                const tg = l.target as GNode;
+                const active = !!hover && (s.id === hover || tg.id === hover);
+                return (
+                  <line
+                    key={i}
+                    x1={s.x} y1={s.y} x2={tg.x} y2={tg.y}
+                    stroke={active ? "var(--accent)" : "var(--line)"}
+                    strokeWidth={active ? 2 : 1.25}
+                    strokeOpacity={!hover || active ? 1 : 0.35}
+                    style={{ transition: "all .18s" }}
+                  />
+                );
+              })}
+            </svg>
+
+            {nodes.map((n) => {
+              const r = nodeRadius(n.deg);
+              const active = !hover || neighbors.has(n.id);
+              const isHub = n.id === hubId && n.deg > 0;
+              const isFocus = n.id === hover;
               return (
-                <line
-                  key={i}
-                  x1={x1} y1={y1} x2={x2} y2={y2}
-                  stroke={active ? "var(--accent)" : "var(--line)"}
-                  strokeWidth={active ? 2 : 1.25}
-                  strokeOpacity={!hover || active ? 1 : 0.35}
-                  style={{ transition: "all .18s" }}
-                />
+                <div
+                  key={n.id}
+                  className="lo-node"
+                  style={{ left: n.x, top: n.y, opacity: active ? 1 : 0.2 }}
+                  onMouseEnter={() => setHover(n.id)}
+                  onClick={() => openNote(n.id)}
+                >
+                  <div
+                    className="lo-node__dot"
+                    style={{
+                      width: r,
+                      height: r,
+                      background: isFocus ? "var(--accent)" : isHub ? "var(--accent-soft)" : "var(--bg-elev)",
+                      borderColor: isFocus || isHub ? "var(--accent)" : "var(--line)",
+                    }}
+                  />
+                  <div
+                    className="lo-node__label"
+                    style={{ color: isFocus ? "var(--accent)" : "var(--fg2)", fontWeight: isFocus ? 600 : 400 }}
+                  >
+                    {n.name}
+                  </div>
+                </div>
               );
             })}
-          </svg>
-
-          {(Object.keys(POS) as NodeId[]).map((id) => {
-            const [x, y, r] = POS[id];
-            const active = !hover || neighbors.has(id);
-            const isHub = id === HUB;
-            const isFocus = id === hover;
-            return (
-              <div
-                key={id}
-                className="lo-node"
-                style={{ left: x, top: y, opacity: active ? 1 : 0.22 }}
-                onMouseEnter={() => setHover(id)}
-              >
-                <div
-                  className="lo-node__dot"
-                  style={{
-                    width: r,
-                    height: r,
-                    background: isFocus
-                      ? "var(--accent)"
-                      : isHub
-                      ? "var(--accent-soft)"
-                      : "var(--bg-elev)",
-                    borderColor: isFocus || isHub ? "var(--accent)" : "var(--line)",
-                  }}
-                />
-                <div
-                  className="lo-node__label"
-                  style={{ color: isFocus ? "var(--accent)" : "var(--fg2)", fontWeight: isFocus ? 600 : 400 }}
-                >
-                  {LABELS[id]}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+          </div>
+        )}
 
         <div className="lo-graph__legend">
           <span>

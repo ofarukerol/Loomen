@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { FileText, X, Pencil, Save, Eye } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { Markdown } from "./Markdown";
+import { CodeMirrorEditor } from "./CodeMirrorEditor";
 import { BacklinksPanel } from "./BacklinksPanel";
 
 function noteName(path: string): string {
@@ -15,6 +16,7 @@ export function EditorScreen() {
   const activeNote = useAppStore((s) => s.activeNote);
   const editing = useAppStore((s) => s.editing);
   const draft = useAppStore((s) => s.draft);
+  const lineNumbers = useAppStore((s) => s.editorSettings.lineNumbers);
   const setActiveTab = useAppStore((s) => s.setActiveTab);
   const closeTab = useAppStore((s) => s.closeTab);
   const setDraft = useAppStore((s) => s.setDraft);
@@ -70,14 +72,14 @@ export function EditorScreen() {
       </div>
 
       <div className="lo-editor__body">
-        <div className="lo-editor__scroll lo-scroll">
+        <div className={"lo-editor__scroll lo-scroll" + (editing ? "" : " lo-editor__scroll--preview")}>
           {editing ? (
             <div className="lo-editor__editwrap">
-              <textarea
-                className="lo-editor__textarea"
+              <CodeMirrorEditor
+                key={`${activeNote}:${lineNumbers}`}
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                spellCheck={false}
+                onChange={setDraft}
+                lineNumbers={lineNumbers}
               />
             </div>
           ) : (
