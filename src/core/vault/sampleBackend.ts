@@ -8,14 +8,33 @@ const SEED: Record<string, string> = {
 - [ ] Bir ara kitap öner #Kişisel
 - [ ] Ders notlarını gözden geçir 📅 2026-06-18 #Okul
 `,
-  "Daily/2026-06-17-Çarşamba.md": `# 2026-06-17 · Çarşamba
+  "Daily/2026-06-17-Çarşamba.md": `# 2026-06-17-Çarşamba
 
-Bugün [[Proje X]] tasarımını bitirmek öncelikli.
+---
 
-## Görevler
+## 🎯 Yapılacaklar
+
 - [ ] Tasarımı bitir 📅 2026-06-17 #Yapılacaklar 🍅×3
 - [ ] Toplantı notlarını yaz 📅 2026-06-17 #İş 🍅×1
 - [ ] Spor salonu üyeliğini yenile 📅 2026-06-17 #Kişisel
+
+## 💭 Ephemeral Notlar (Gün İçi Notlar)
+
+Bugün [[Proje X]] tasarımını bitirmek öncelikli.
+
+## 📝 Günün Özeti
+
+## 💡 Günün Kattıkları
+
+-
+
+## 📚 Okuduklarım/İzlediklerim
+
+-
+
+---
+
+#günlük 📅 Tarih: 2026-06-17 ⭐ Gün: Çarşamba 📈 Hafta: 25
 `,
   "Daily/2026-06-16-Salı.md": `# 2026-06-16 · Salı
 

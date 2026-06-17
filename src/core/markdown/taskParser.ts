@@ -100,3 +100,14 @@ export function appendTaskToContent(content: string, taskLine: string): string {
   const trimmed = content.replace(/\s*$/, "");
   return (trimmed ? trimmed + "\n" : "") + taskLine + "\n";
 }
+
+/** Görevi belirli bir başlığın hemen altına ekle; başlık yoksa sona ekle. */
+export function insertTaskUnderHeading(content: string, headingRe: RegExp, taskLine: string): string {
+  const lines = content.split("\n");
+  const idx = lines.findIndex((l) => headingRe.test(l));
+  if (idx === -1) return appendTaskToContent(content, taskLine);
+  let at = idx + 1;
+  while (at < lines.length && lines[at].trim() === "") at++; // başlık sonrası boş satırları atla
+  lines.splice(at, 0, taskLine);
+  return lines.join("\n");
+}

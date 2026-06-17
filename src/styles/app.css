@@ -837,9 +837,9 @@ button { font-family: inherit; }
 .lo-explorer__actions { display: flex; gap: 2px; }
 
 /* ince odak kartı (takvim ↔ Pomodoro arası) */
-.lo-focus { padding: 14px 14px 12px; }
-.lo-focus__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.lo-focus__title { font-size: 12.5px; font-weight: 600; color: var(--fg2); letter-spacing: 0.02em; }
+.lo-focus { padding: 12px 12px 10px; }
+.lo-focus__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.lo-focus__title { font-size: 11.5px; font-weight: 600; color: var(--fg3); letter-spacing: 0.04em; text-transform: uppercase; }
 .lo-focus__expand {
   width: 24px;
   height: 24px;
@@ -854,7 +854,7 @@ button { font-family: inherit; }
 }
 .lo-focus__expand:hover { background: var(--line-soft); color: var(--accent); }
 .lo-focus__list { display: flex; flex-direction: column; gap: 1px; }
-.lo-focus__row { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-radius: 7px; }
+.lo-focus__row { display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-radius: 6px; }
 .lo-focus__row:hover { background: var(--line-soft); }
 .lo-focus__check {
   width: 18px;
@@ -869,9 +869,35 @@ button { font-family: inherit; }
   align-items: center;
 }
 .lo-focus__check:hover { color: var(--accent); }
-.lo-focus__text { font-size: 13px; color: var(--fg1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-focus__text { font-size: 12.5px; color: var(--fg1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lo-focus__more { font-size: 11.5px; color: var(--fg3); padding: 5px 4px 0; }
 .lo-focus__empty { font-size: 12.5px; color: var(--fg3); padding: 4px; }
+
+/* kompakt Pomodoro (takvim üstü, ince) */
+.lo-pomoc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.lo-pomoc__ring { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
+.lo-pomoc__ring svg { display: block; }
+.lo-pomoc__ringicon { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--accent); }
+.lo-pomoc__info { flex: 1; min-width: 0; }
+.lo-pomoc__time { font-family: var(--font-mono); font-size: 20px; font-weight: 600; color: var(--fg1); line-height: 1; }
+.lo-pomoc__meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.lo-pomoc__phase { font-size: 11px; color: var(--fg3); }
+.lo-pomoc__dots { display: flex; gap: 4px; }
+.lo-pomoc__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+.lo-pomoc__dot.is-on { background: var(--accent); }
+.lo-pomoc__controls { display: flex; align-items: center; gap: 6px; }
+.lo-pomoc__start {
+  width: 34px; height: 34px; border: none; border-radius: 50%;
+  background: var(--accent); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; box-shadow: var(--sh1);
+}
+.lo-pomoc__start:hover { filter: brightness(0.93); }
+.lo-pomoc__reset {
+  width: 30px; height: 30px; border: 1px solid var(--line); background: var(--bg-elev);
+  border-radius: 50%; color: var(--fg3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.lo-pomoc__reset:hover { background: var(--line-soft); color: var(--fg1); }
 
 /* genişletilmiş odak (orta gövde) */
 .lo-focusx { flex: 1; overflow-y: auto; padding: 26px 36px 40px; }
@@ -901,6 +927,7 @@ button { font-family: inherit; }
 }
 .lo-focusx__close:hover { background: var(--line-soft); color: var(--fg1); }
 .lo-focusx__list { max-width: 760px; }
+.lo-focusx__note { max-width: 760px; }
 
 /* ---- Yer tutucu ekranlar (henüz yapılmadı) ---- */
 .lo-placeholder {

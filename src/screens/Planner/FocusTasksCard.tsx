@@ -7,7 +7,7 @@ export function FocusTasksCard() {
   const { t } = useTranslation();
   const groups = useAppStore((s) => s.groups);
   const toggleTask = useAppStore((s) => s.toggleTask);
-  const setFocusExpanded = useAppStore((s) => s.setFocusExpanded);
+  const expandToday = useAppStore((s) => s.expandToday);
 
   const todayOpen = groups
     .filter((g) => g.kind === "today")
@@ -22,7 +22,7 @@ export function FocusTasksCard() {
         <span className="lo-focus__title">{t("planner.focusList")}</span>
         <button
           className="lo-focus__expand"
-          onClick={() => setFocusExpanded(true)}
+          onClick={() => void expandToday()}
           title={t("planner.expand")}
         >
           <Maximize2 size={13} strokeWidth={2} />

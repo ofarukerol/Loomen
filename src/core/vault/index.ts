@@ -3,7 +3,10 @@ import { watch } from "@tauri-apps/plugin-fs";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { parseTasks } from "../markdown/taskParser";
+import { dailyNoteTemplate } from "./dailyTemplate";
 import type { VaultBackend, VaultData } from "./types";
+
+export { dailyNoteTemplate, dailyNoteTitle, TODO_HEADING } from "./dailyTemplate";
 
 export { createSampleBackend } from "./sampleBackend";
 export { createTauriBackend } from "./tauriBackend";
@@ -44,11 +47,10 @@ export async function watchVaultRoot(root: string, cb: () => void): Promise<() =
   return watch(root, () => cb(), { recursive: true, delayMs: 400 });
 }
 
-/** Daily note yoksa şablonla oluştur. */
+/** Daily note yoksa kullanıcının günlük şablonuyla oluştur. */
 export async function ensureDailyNote(backend: VaultBackend, path: string): Promise<void> {
   if (await backend.exists(path)) return;
   const folder = path.split("/").slice(0, -1).join("/");
   if (folder) await backend.ensureDir(folder);
-  const title = path.split("/").pop()!.replace(/\.md$/i, "");
-  await backend.writeNote(path, `# ${title}\n\n## Görevler\n`);
+  await backend.writeNote(path, dailyNoteTemplate(new Date()));
 }

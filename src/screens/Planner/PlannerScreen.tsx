@@ -87,9 +87,9 @@ export function PlannerScreen() {
 
       {!rightCollapsed && (
         <div className="lo-side lo-scroll">
+          <PomodoroCard />
           <CalendarCard />
           <FocusTasksCard />
-          <PomodoroCard />
         </div>
       )}
     </div>

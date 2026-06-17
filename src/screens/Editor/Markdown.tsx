@@ -79,6 +79,15 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
       continue;
     }
 
+    // Yatay çizgi
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push(
+        <hr key={k()} style={{ border: "none", borderTop: "1px solid var(--line)", margin: "20px 0" }} />
+      );
+      i++;
+      continue;
+    }
+
     // Kod bloğu
     if (trimmed.startsWith("```")) {
       const buf: string[] = [];

@@ -12,9 +12,10 @@ import {
   todayDailyPath,
   watchVaultRoot,
   ensureDailyNote,
+  TODO_HEADING,
 } from "../core/vault";
 import { groupTasks, focusCounts } from "../core/vault/grouping";
-import { toggleTaskInContent, buildTaskLine, appendTaskToContent } from "../core/markdown/taskParser";
+import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
 export type Screen = "planner" | "editor" | "graph" | "settings";
@@ -109,6 +110,8 @@ interface AppState {
   toggleLeft: () => void;
   toggleRight: () => void;
   setFocusExpanded: (v: boolean) => void;
+  expandToday: () => Promise<void>;
+  todayNotePath: () => string;
   setQuick: (v: string) => void;
   selectDay: (n: number) => void;
   togglePomo: () => void;
@@ -229,6 +232,12 @@ export const useAppStore = create<AppState>()(
     toggleLeft: () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
     toggleRight: () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
     setFocusExpanded: (focusExpanded) => set({ focusExpanded }),
+    todayNotePath: () => todayDailyPath(),
+    expandToday: async () => {
+      await ensureDailyNote(backend, todayDailyPath());
+      await loadFromBackend();
+      set({ focusExpanded: true });
+    },
     setQuick: (quickText) => set({ quickText }),
     selectDay: (selectedDay) => set({ selectedDay }),
 
@@ -299,7 +308,8 @@ export const useAppStore = create<AppState>()(
       const target = todayDailyPath();
       await ensureDailyNote(backend, target);
       const content = await backend.readNote(target);
-      await backend.writeNote(target, appendTaskToContent(content, buildTaskLine(text, todayISO())));
+      const next = insertTaskUnderHeading(content, TODO_HEADING, buildTaskLine(text, todayISO()));
+      await backend.writeNote(target, next);
       set({ quickText: "" });
       await loadFromBackend();
     },

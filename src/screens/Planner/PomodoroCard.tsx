@@ -1,15 +1,16 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Timer, Target, Play, Pause, RotateCcw } from "lucide-react";
+import { Timer, Play, Pause, RotateCcw } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 
-const R = 52;
+const R = 18;
 const CIRC = 2 * Math.PI * R;
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
+/** Kompakt Pomodoro — takvimin üstünde, ince yatay kart. */
 export function PomodoroCard() {
   const { t } = useTranslation();
   const pomo = useAppStore((s) => s.pomo);
@@ -21,7 +22,6 @@ export function PomodoroCard() {
   const resetPomo = useAppStore((s) => s.resetPomo);
   const tickPomo = useAppStore((s) => s.tickPomo);
 
-  // Geri sayım: çalışırken her saniye tick.
   useEffect(() => {
     if (!running) return;
     const id = setInterval(() => tickPomo(), 1000);
@@ -35,63 +35,41 @@ export function PomodoroCard() {
   const phaseLabel = phase === "work" ? t("pomodoro.focus") : t("pomodoro.break");
 
   return (
-    <div className="lo-card lo-pomo">
-      <div className="lo-pomo__title">
-        <Timer size={14} strokeWidth={2} color="var(--accent)" />
-        {t("pomodoro.title")}
-      </div>
-
-      <div className="lo-pomo__ringwrap">
-        <svg width="148" height="148" viewBox="0 0 148 148">
-          <circle cx="74" cy="74" r={R} fill="none" stroke="var(--bg-sunken)" strokeWidth="9" />
+    <div className="lo-card lo-pomoc">
+      <div className="lo-pomoc__ring">
+        <svg width="44" height="44" viewBox="0 0 44 44" style={{ transform: "rotate(-90deg)" }}>
+          <circle cx="22" cy="22" r={R} fill="none" stroke="var(--bg-sunken)" strokeWidth="4" />
           <circle
-            cx="74"
-            cy="74"
-            r={R}
-            fill="none"
-            stroke="var(--accent)"
-            strokeWidth="9"
-            strokeLinecap="round"
-            strokeDasharray={CIRC}
-            strokeDashoffset={offset}
+            cx="22" cy="22" r={R}
+            fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round"
+            strokeDasharray={CIRC} strokeDashoffset={offset}
             style={{ transition: "stroke-dashoffset 1s linear" }}
           />
         </svg>
-        <div className="lo-pomo__center">
-          <div className="lo-pomo__time">{label}</div>
-          <div className="lo-pomo__sub">{phaseLabel}</div>
+        <span className="lo-pomoc__ringicon">
+          <Timer size={15} strokeWidth={2} />
+        </span>
+      </div>
+
+      <div className="lo-pomoc__info">
+        <div className="lo-pomoc__time">{label}</div>
+        <div className="lo-pomoc__meta">
+          <span className="lo-pomoc__phase">{phaseLabel}</span>
+          <span className="lo-pomoc__dots">
+            {Array.from({ length: pomo.rounds }, (_, i) => (
+              <span className={"lo-pomoc__dot" + (i < completed ? " is-on" : "")} key={i} />
+            ))}
+          </span>
         </div>
       </div>
 
-      <div className="lo-pomo__dots">
-        {Array.from({ length: pomo.rounds }, (_, i) => (
-          <span className={"lo-pomo__dot" + (i < completed ? " is-on" : "")} key={i} />
-        ))}
-      </div>
-
-      <div className="lo-pomo__controls">
-        <button className="lo-pomo__start" onClick={togglePomo}>
-          {running ? (
-            <>
-              <Pause size={15} fill="currentColor" strokeWidth={0} />
-              {t("pomodoro.pause")}
-            </>
-          ) : (
-            <>
-              <Play size={15} fill="currentColor" strokeWidth={0} />
-              {t("pomodoro.start")}
-            </>
-          )}
+      <div className="lo-pomoc__controls">
+        <button className="lo-pomoc__start" onClick={togglePomo} aria-label={running ? t("pomodoro.pause") : t("pomodoro.start")}>
+          {running ? <Pause size={15} fill="currentColor" strokeWidth={0} /> : <Play size={15} fill="currentColor" strokeWidth={0} />}
         </button>
-        <button className="lo-pomo__reset" onClick={resetPomo} aria-label="Sıfırla">
-          <RotateCcw size={16} strokeWidth={2} />
+        <button className="lo-pomoc__reset" onClick={resetPomo} aria-label="Sıfırla">
+          <RotateCcw size={14} strokeWidth={2} />
         </button>
-      </div>
-
-      <div className="lo-pomo__focus">
-        <Target size={14} strokeWidth={2} color="var(--accent)" />
-        <span className="lo-pomo__focus-label">{t("pomodoro.focusOn")}</span>
-        <span className="lo-pomo__focus-name">{t("pomodoro.currentTask")}</span>
       </div>
     </div>
   );
