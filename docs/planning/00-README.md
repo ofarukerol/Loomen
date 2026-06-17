@@ -49,9 +49,11 @@ Dokümanlar bir **zincir** oluşturur — her biri bir öncekine dayanır. Sıra
 | 5 | [`05-acceptance-criteria.md`](05-acceptance-criteria.md) | Senior QA Engineer | Bir özellik **ne zaman "bitti" sayılır?** Test checklist'i |
 | 6 | [`06-planlayici-pomodoro.md`](06-planlayici-pomodoro.md) | Ürün + Mimari (derinlemesine) | Gömülü **Planlayıcı + Takvim + Pomodoro** detay spesifikasyonu |
 | 7 | [`07-i18n.md`](07-i18n.md) | Senior Frontend (i18n) | **Çok dilli mimari:** TR/EN/AR + RTL, otomatik çeviri pipeline, 20 dile ölçek |
+| 8 | [`08-design-system.md`](08-design-system.md) | Ürün Tasarımcısı | **Tasarım sistemi:** renk/tipografi token'ları, ölçüler, 6 ekran, etkileşimler (Claude Design prototipinden) |
 
-> `06` (planlayıcı) ve `07` (i18n), MVP'nin en ayırt edici / en çok vurgulanan parçaları olduğu için
-> ayrı ve derinlemesine ele alınmıştır; içerikleri `01`–`05` ile çapraz tutarlıdır.
+> `06` (planlayıcı), `07` (i18n) ve `08` (tasarım sistemi), MVP'nin en ayırt edici / en çok
+> vurgulanan parçaları olduğu için ayrı ve derinlemesine ele alınmıştır; `01`–`05` ile çapraz tutarlıdır.
+> Tasarım prototipi `design/` altında; token'lar `design/tokens.css`'te kullanıma hazır.
 
 ---
 

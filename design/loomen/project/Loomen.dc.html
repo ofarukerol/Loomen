@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#FAF9F6; --bg-elev:#FFFFFF; --bg-sunken:#F1EFEA; --rail:#F3F1EC;
+    --fg1:#211F1B; --fg2:#6E6A62; --fg3:#A29D93;
+    --line:#E9E6DF; --line-soft:#F1EFE9;
+    --accent:#C2603A; --accent-soft:#C2603A22; --accent-2:#D89A4E;
+    --danger:#C0473A; --danger-bg:#C0473A12; --success:#3E8E5A;
+    --sh1:0 1px 2px rgba(60,40,25,0.06); --sh2:0 2px 8px rgba(60,40,25,0.08); --sh3:0 8px 28px rgba(60,40,25,0.12);
+  }
+  [data-theme="dark"] {
+    --bg:#191815; --bg-elev:#232220; --bg-sunken:#141311; --rail:#1E1D1B;
+    --fg1:#ECEAE4; --fg2:#A19D95; --fg3:#6C685F;
+    --line:#322F2A; --line-soft:#27241F;
+    --accent:#D67A4E; --accent-soft:#D67A4E26; --accent-2:#E0A85C;
+    --danger:#E0796B; --danger-bg:#E0796B1F; --success:#5DB17F;
+    --sh1:0 1px 2px rgba(0,0,0,0.3); --sh2:0 2px 10px rgba(0,0,0,0.35); --sh3:0 10px 34px rgba(0,0,0,0.5);
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; }
+  body { font-family:'DM Sans',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  ::selection { background:var(--accent-soft); }
+  .lo-scroll::-webkit-scrollbar { width:10px; height:10px; }
+  .lo-scroll::-webkit-scrollbar-thumb { background:var(--line); border-radius:8px; border:3px solid transparent; background-clip:content-box; }
+  .lo-scroll::-webkit-scrollbar-thumb:hover { background:var(--fg3); background-clip:content-box; }
+  @keyframes loPulse { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
+  @keyframes loFade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="{{ rootStyle }} width:100vw;height:100vh;display:flex;background:var(--bg);color:var(--fg1);font-size:14px;overflow:hidden;">
+
+  <!-- ============ RIBBON ============ -->
+  <div style="width:56px;flex-shrink:0;background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;z-index:5;">
+    <div style="width:34px;height:34px;border-radius:10px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;box-shadow:var(--sh2);margin-bottom:8px;">L</div>
+
+    <button onClick="{{ goPlanner }}" title="Planlayıcı" style="width:40px;height:40px;border:none;border-radius:11px;background:transparent;color:var(--fg2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s; {{ ra_planner }}" style-hover="background:var(--line-soft);">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m8.5 14.5 1.8 1.8 3.7-3.7"/></svg>
+    </button>
+    <button onClick="{{ goEditor }}" title="Notlar" style="width:40px;height:40px;border:none;border-radius:11px;background:transparent;color:var(--fg2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s; {{ ra_editor }}" style-hover="background:var(--line-soft);">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 12h8M8 16h6"/></svg>
+    </button>
+    <button onClick="{{ goGraph }}" title="Graf" style="width:40px;height:40px;border:none;border-radius:11px;background:transparent;color:var(--fg2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s; {{ ra_graph }}" style-hover="background:var(--line-soft);">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="7" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M8 7.4 10.4 16M16 9l-3 7M8 6.6 15.6 6.8"/></svg>
+    </button>
+
+    <div style="flex:1;"></div>
+
+    <button onClick="{{ goMobile }}" title="Mobil" style="width:40px;height:40px;border:none;border-radius:11px;background:transparent;color:var(--fg2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s; {{ ra_mobile }}" style-hover="background:var(--line-soft);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg>
+    </button>
+    <button onClick="{{ goRtl }}" title="عربي / RTL" style="width:40px;height:40px;border:none;border-radius:11px;background:transparent;color:var(--fg2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;font-size:16px;font-weight:600; {{ ra_rtl }}" style-hover="background:var(--line-soft);">ع</button>
+    <button onClick="{{ goSettings }}" title="Ayarlar" style="width:40px;height:40px;border:none;border-radius:11px;background:transparent;color:var(--fg2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s; {{ ra_settings }}" style-hover="background:var(--line-soft);">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 2 14a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 4.6 7a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 2.6V2a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8 1.6 1.6 0 0 0 1.5 1H22a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
+    </button>
+    <button onClick="{{ toggleTheme }}" title="Tema" style="width:40px;height:40px;border:none;border-radius:11px;background:transparent;color:var(--fg2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;margin-top:2px;" style-hover="background:var(--line-soft);">
+      <sc-if value="{{ themeIsLight }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></sc-if>
+      <sc-if value="{{ themeIsDark }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg></sc-if>
+    </button>
+  </div>
+
+  <!-- ============ EXPLORER ============ -->
+  <sc-if value="{{ showExplorer }}" hint-placeholder-val="{{ true }}">
+  <div style="width:248px;flex-shrink:0;background:var(--bg-sunken);border-right:1px solid var(--line);display:flex;flex-direction:column;">
+    <div style="padding:16px 16px 12px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:600;font-size:13px;letter-spacing:.02em;color:var(--fg1);">Kasa</span>
+      <span style="font-size:11px;color:var(--fg3);font-family:'JetBrains Mono',monospace;">~/Loomen</span>
+    </div>
+    <div style="padding:0 12px 10px;">
+      <div style="display:flex;align-items:center;gap:8px;background:var(--bg-elev);border:1px solid var(--line);border-radius:10px;padding:8px 10px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input placeholder="Ara…" style="border:none;background:transparent;outline:none;font-family:inherit;font-size:13px;color:var(--fg1);width:100%;" />
+        <kbd style="font-size:10px;color:var(--fg3);background:var(--bg-sunken);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-family:'JetBrains Mono',monospace;">⌘K</kbd>
+      </div>
+    </div>
+    <div class="lo-scroll" style="flex:1;overflow-y:auto;padding:4px 8px 16px;font-size:13px;">
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;color:var(--fg2);font-weight:600;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>
+        Notlar
+      </div>
+      <button onClick="{{ openProje }}" style="display:flex;align-items:center;gap:7px;padding:6px 8px 6px 30px;color:var(--fg2);width:100%;border:none;background:transparent;cursor:pointer;border-radius:7px;font-family:inherit;font-size:13px;text-align:left;" style-hover="background:var(--line-soft);color:var(--fg1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="1.7"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>Proje X</button>
+      <button onClick="{{ openFikirler }}" style="display:flex;align-items:center;gap:7px;padding:6px 8px 6px 30px;color:var(--fg2);width:100%;border:none;background:transparent;cursor:pointer;border-radius:7px;font-family:inherit;font-size:13px;text-align:left;" style-hover="background:var(--line-soft);color:var(--fg1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="1.7"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>Fikirler</button>
+      <button onClick="{{ openDaily }}" style="display:flex;align-items:center;gap:7px;padding:6px 8px 6px 30px;color:var(--fg2);width:100%;border:none;background:transparent;cursor:pointer;border-radius:7px;font-family:inherit;font-size:13px;text-align:left;" style-hover="background:var(--line-soft);color:var(--fg1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="1.7"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>Toplantı Notları</button>
+
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;color:var(--fg2);font-weight:600;margin-top:4px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>
+        Daily
+      </div>
+      <button onClick="{{ openDaily }}" style="display:flex;align-items:center;gap:7px;padding:6px 8px 6px 30px;color:var(--accent);background:var(--accent-soft);width:100%;border:none;cursor:pointer;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;text-align:left;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>2026-06-13-Cumartesi</button>
+      <button onClick="{{ openDaily }}" style="display:flex;align-items:center;gap:7px;padding:6px 8px 6px 30px;color:var(--fg2);width:100%;border:none;background:transparent;cursor:pointer;border-radius:7px;font-family:inherit;font-size:13px;text-align:left;" style-hover="background:var(--line-soft);color:var(--fg1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="1.7"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>2026-06-12-Cuma</button>
+
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;color:var(--fg2);font-weight:600;margin-top:4px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>
+        Projeler
+      </div>
+      <button onClick="{{ openProje }}" style="display:flex;align-items:center;gap:7px;padding:6px 8px 6px 30px;color:var(--fg2);width:100%;border:none;background:transparent;cursor:pointer;border-radius:7px;font-family:inherit;font-size:13px;text-align:left;" style-hover="background:var(--line-soft);color:var(--fg1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="1.7"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>Loomen</button>
+      <button onClick="{{ openProje }}" style="display:flex;align-items:center;gap:7px;padding:6px 8px 6px 30px;color:var(--fg2);width:100%;border:none;background:transparent;cursor:pointer;border-radius:7px;font-family:inherit;font-size:13px;text-align:left;" style-hover="background:var(--line-soft);color:var(--fg1);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="1.7"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>Vize Başvurusu</button>
+    </div>
+    <div style="padding:10px 14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px;color:var(--fg3);font-size:12px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 1.5"/></svg>
+      Yerel · senkron yok
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ MAIN AREA ============ -->
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg);">
+
+    <!-- ===== PLANNER ===== -->
+    <sc-if value="{{ isPlanner }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:flex;min-height:0;">
+      <!-- center -->
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+        <div style="padding:26px 36px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:46px;font-weight:600;line-height:1;color:var(--fg3);letter-spacing:-.02em;">2026</div>
+            <div style="display:flex;align-items:center;gap:9px;margin-top:14px;">
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:var(--fg1);letter-spacing:-.01em;">Bugüne Odaklan</h1>
+              <span style="font-size:13px;color:var(--fg3);margin-top:2px;">Cumartesi, 13 Haziran</span>
+            </div>
+          </div>
+          <div style="display:flex;background:var(--bg-sunken);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;">
+            <button onClick="{{ layTimeline }}" style="border:none;border-radius:8px;padding:6px 13px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .12s; {{ seg_timeline }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Zaman Çizelgesi</button>
+            <button onClick="{{ layBoard }}" style="border:none;border-radius:8px;padding:6px 13px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .12s; {{ seg_board }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="6" height="18" rx="1.5"/><rect x="10.5" y="3" width="6" height="12" rx="1.5"/><rect x="18" y="3" width="3" height="9" rx="1.5"/></svg>Pano</button>
+          </div>
+        </div>
+
+        <!-- stat cards -->
+        <div style="padding:20px 36px 0;display:flex;gap:14px;">
+          <div style="flex:1;background:var(--accent);color:#fff;border-radius:14px;padding:16px 18px;box-shadow:var(--sh2);">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:600;line-height:1;">{{ yapilacak }}</div>
+            <div style="font-size:12.5px;font-weight:500;opacity:.92;margin-top:6px;">Yapılacak</div>
+          </div>
+          <div style="flex:1;background:var(--bg-elev);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh1);">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:600;line-height:1;color:var(--danger);">{{ geciken }}</div>
+            <div style="font-size:12.5px;font-weight:500;color:var(--fg2);margin-top:6px;">Geciken</div>
+          </div>
+          <div style="flex:1;background:var(--bg-elev);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh1);">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:600;line-height:1;color:var(--fg1);">{{ planlanmamis }}</div>
+            <div style="font-size:12.5px;font-weight:500;color:var(--fg2);margin-top:6px;">Planlanmamış</div>
+          </div>
+        </div>
+
+        <!-- quick add -->
+        <div style="padding:16px 36px 4px;">
+          <div style="display:flex;align-items:center;gap:11px;background:var(--bg-elev);border:1px solid var(--line);border-radius:12px;padding:11px 13px;box-shadow:var(--sh1);">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.5z"/></svg>
+            <input value="{{ quickText }}" onInput="{{ setQuick }}" onKeyDown="{{ quickKey }}" placeholder="Görevini buraya yaz…" style="flex:1;border:none;background:transparent;outline:none;font-family:inherit;font-size:14.5px;color:var(--fg1);" />
+            <button onClick="{{ addTask }}" style="width:30px;height:30px;border:none;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="filter:brightness(.93);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg></button>
+          </div>
+        </div>
+
+        <!-- TIMELINE -->
+        <sc-if value="{{ isTimeline }}" hint-placeholder-val="{{ true }}">
+        <div class="lo-scroll" style="flex:1;overflow-y:auto;padding:16px 36px 40px;">
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+          <div style="margin-bottom:18px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;position:sticky;top:0;background:var(--bg);padding:4px 0;z-index:2;">
+              <span style="font-size:13.5px;font-weight:600;color:{{ g.labelColor }};">{{ g.label }}</span>
+              <span style="font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:20px; {{ g.pillStyle }}">{{ g.sub }}</span>
+              <div style="flex:1;height:1px;background:var(--line-soft);"></div>
+            </div>
+            <sc-for list="{{ g.tasks }}" as="t" hint-placeholder-count="2">
+            <div style="display:flex;gap:13px;padding:11px 14px;border-radius:11px;margin-bottom:3px;transition:background .12s; {{ t.rowStyle }}" style-hover="background:var(--line-soft);">
+              <button onClick="{{ t.toggle }}" style="flex-shrink:0;width:22px;height:22px;border:none;background:transparent;cursor:pointer;padding:0;color:{{ t.statusColor }};margin-top:1px;">
+                <sc-if value="{{ t.done }}" hint-placeholder-val="{{ true }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9.5" fill="var(--success)" stroke="var(--success)"/><path d="m8.5 12 2.4 2.4 4.6-4.8" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+                <sc-if value="{{ t.notDone }}" hint-placeholder-val="{{ true }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5V12l3 1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+              </button>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14.5px;font-weight:500;line-height:1.35; {{ t.textStyle }}">{{ t.text }}</div>
+                <div style="display:flex;align-items:center;gap:5px;margin-top:4px;font-size:12px;color:{{ t.relColor }};">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+                  {{ t.rel }}
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap;">
+                  <button onClick="{{ t.open }}" style="display:flex;align-items:center;gap:5px;border:none;background:var(--bg-sunken);color:var(--fg2);font-family:inherit;font-size:11.5px;padding:3px 9px;border-radius:20px;cursor:pointer;" style-hover="color:var(--accent);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>{{ t.source }}</button>
+                  <span style="display:flex;align-items:center;gap:5px;background:var(--accent-soft);color:var(--accent);font-size:11.5px;font-weight:500;padding:3px 9px;border-radius:20px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg>{{ t.tag }}</span>
+                  <sc-if value="{{ t.hasPomo }}" hint-placeholder-val="{{ true }}"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--bg-sunken);color:var(--fg2);padding:3px 8px;border-radius:20px;">{{ t.pomoLabel }}</span></sc-if>
+                </div>
+              </div>
+            </div>
+            </sc-for>
+          </div>
+          </sc-for>
+        </div>
+        </sc-if>
+
+        <!-- BOARD -->
+        <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ true }}">
+        <div class="lo-scroll" style="flex:1;overflow:auto;padding:18px 36px 40px;">
+          <div style="display:flex;gap:16px;align-items:flex-start;min-width:0;">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--danger);"></span><span style="font-weight:600;color:var(--fg1);font-size:14px;">Geciken</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg3);">{{ gecikenCount }}</span></div>
+              <sc-for list="{{ gecikenTasks }}" as="t" hint-placeholder-count="2">
+              <div style="background:var(--bg-elev);border:1px solid var(--line);border-left:2px solid var(--danger);border-radius:12px;padding:13px;margin-bottom:11px;box-shadow:var(--sh1);">
+                <div style="display:flex;gap:9px;"><button onClick="{{ t.toggle }}" style="flex-shrink:0;width:20px;height:20px;border:none;background:transparent;cursor:pointer;padding:0;color:{{ t.statusColor }};"><sc-if value="{{ t.done }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="var(--success)"/><path d="m8.5 12 2.4 2.4 4.6-4.8" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if><sc-if value="{{ t.notDone }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9.5"/></svg></sc-if></button><div style="font-size:13.5px;font-weight:500;line-height:1.35; {{ t.textStyle }}">{{ t.text }}</div></div>
+                <div style="display:flex;align-items:center;gap:7px;margin-top:9px;padding-left:29px;"><span style="font-size:11px;color:var(--danger);">{{ t.rel }}</span><span style="background:var(--accent-soft);color:var(--accent);font-size:10.5px;font-weight:500;padding:2px 8px;border-radius:20px;">{{ t.tag }}</span></div>
+              </div>
+              </sc-for>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent);"></span><span style="font-weight:600;color:var(--fg1);font-size:14px;">Bugün</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg3);">{{ bugunCount }}</span></div>
+              <sc-for list="{{ bugunTasks }}" as="t" hint-placeholder-count="3">
+              <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:11px;box-shadow:var(--sh1);">
+                <div style="display:flex;gap:9px;"><button onClick="{{ t.toggle }}" style="flex-shrink:0;width:20px;height:20px;border:none;background:transparent;cursor:pointer;padding:0;color:{{ t.statusColor }};"><sc-if value="{{ t.done }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="var(--success)"/><path d="m8.5 12 2.4 2.4 4.6-4.8" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if><sc-if value="{{ t.notDone }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5V12l3 1.8" stroke-linecap="round"/></svg></sc-if></button><div style="font-size:13.5px;font-weight:500;line-height:1.35; {{ t.textStyle }}">{{ t.text }}</div></div>
+                <div style="display:flex;align-items:center;gap:7px;margin-top:9px;padding-left:29px;flex-wrap:wrap;"><span style="background:var(--accent-soft);color:var(--accent);font-size:10.5px;font-weight:500;padding:2px 8px;border-radius:20px;">{{ t.tag }}</span><sc-if value="{{ t.hasPomo }}" hint-placeholder-val="{{ true }}"><span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;background:var(--bg-sunken);color:var(--fg2);padding:2px 7px;border-radius:20px;">{{ t.pomoLabel }}</span></sc-if></div>
+              </div>
+              </sc-for>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--fg3);"></span><span style="font-weight:600;color:var(--fg1);font-size:14px;">Yaklaşan</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg3);">{{ yaklasanCount }}</span></div>
+              <sc-for list="{{ yaklasanTasks }}" as="t" hint-placeholder-count="3">
+              <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:11px;box-shadow:var(--sh1);">
+                <div style="display:flex;gap:9px;"><button onClick="{{ t.toggle }}" style="flex-shrink:0;width:20px;height:20px;border:none;background:transparent;cursor:pointer;padding:0;color:{{ t.statusColor }};"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9.5"/></svg></button><div style="font-size:13.5px;font-weight:500;line-height:1.35; {{ t.textStyle }}">{{ t.text }}</div></div>
+                <div style="display:flex;align-items:center;gap:7px;margin-top:9px;padding-left:29px;"><span style="font-size:11px;color:var(--fg3);">{{ t.rel }}</span><span style="background:var(--accent-soft);color:var(--accent);font-size:10.5px;font-weight:500;padding:2px 8px;border-radius:20px;">{{ t.tag }}</span></div>
+              </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+
+      <!-- right panel -->
+      <div style="width:312px;flex-shrink:0;border-left:1px solid var(--line);background:var(--bg-sunken);padding:22px 18px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;" class="lo-scroll">
+        <!-- calendar -->
+        <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--sh1);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <button style="width:26px;height:26px;border:none;background:transparent;border-radius:7px;color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="background:var(--line-soft);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+            <span style="font-weight:600;font-size:14px;color:var(--fg1);">Haziran 2026</span>
+            <button style="width:26px;height:26px;border:none;background:transparent;border-radius:7px;color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="background:var(--line-soft);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px;">
+            <sc-for list="{{ weekdays }}" as="w" hint-placeholder-count="7"><div style="text-align:center;font-size:10.5px;font-weight:600;color:var(--fg3);padding:4px 0;">{{ w.d }}</div></sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">
+            <sc-for list="{{ days }}" as="d" hint-placeholder-count="30">
+            <button onClick="{{ d.select }}" style="aspect-ratio:1;border:none;border-radius:9px;font-family:'JetBrains Mono',monospace;font-size:12.5px;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;transition:all .1s; {{ d.style }}" style-hover="filter:brightness(.96);">
+              {{ d.n }}
+              <sc-if value="{{ d.dot }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:{{ d.dotColor }};"></span></sc-if>
+            </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- pomodoro -->
+        <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:16px;padding:20px 16px;box-shadow:var(--sh1);display:flex;flex-direction:column;align-items:center;">
+          <div style="display:flex;align-items:center;gap:7px;align-self:flex-start;margin-bottom:6px;color:var(--fg2);font-size:12px;font-weight:600;letter-spacing:.02em;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M12 5a3 3 0 0 1 3-3" stroke-linecap="round"/></svg>POMODORO</div>
+          <div style="position:relative;width:148px;height:148px;margin:6px 0 4px;">
+            <svg width="148" height="148" viewBox="0 0 148 148" style="transform:rotate(-90deg);">
+              <circle cx="74" cy="74" r="52" fill="none" stroke="var(--bg-sunken)" stroke-width="9"/>
+              <circle cx="74" cy="74" r="52" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="{{ ringCirc }}" stroke-dashoffset="{{ ringOffset }}" style="transition:stroke-dashoffset 1s linear;"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:600;color:var(--fg1);letter-spacing:-.01em;">{{ pomoLabel }}</div>
+              <div style="font-size:11px;color:var(--fg3);margin-top:2px;">odak</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:5px;margin:6px 0 12px;">
+            <sc-for list="{{ roundDots }}" as="r" hint-placeholder-count="4"><span style="width:8px;height:8px;border-radius:50%; {{ r.style }}"></span></sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button onClick="{{ togglePomo }}" style="display:flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:none;border-radius:24px;padding:9px 20px;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:var(--sh2);" style-hover="filter:brightness(.93);">
+              <sc-if value="{{ pomoRunning }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>Duraklat</sc-if>
+              <sc-if value="{{ pomoStopped }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 7 5.5z"/></svg>Başlat</sc-if>
+            </button>
+            <button onClick="{{ resetPomo }}" style="width:38px;height:38px;border:1px solid var(--line);background:var(--bg-elev);border-radius:50%;color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="background:var(--line-soft);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+          </div>
+          <div style="margin-top:14px;align-self:stretch;background:var(--bg-sunken);border-radius:9px;padding:9px 11px;display:flex;align-items:center;gap:8px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg>
+            <span style="font-size:12px;color:var(--fg3);">Odak:</span>
+            <span style="font-size:12.5px;color:var(--fg1);font-weight:500;">{{ focusName }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===== EDITOR ===== -->
+    <sc-if value="{{ isEditor }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:flex;min-height:0;flex-direction:column;">
+      <div style="display:flex;border-bottom:1px solid var(--line);background:var(--bg-sunken);padding:0 8px;">
+        <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="3">
+        <button onClick="{{ tb.select }}" style="display:flex;align-items:center;gap:8px;border:none;padding:11px 16px;font-family:inherit;font-size:13px;cursor:pointer;transition:all .12s; {{ tb.style }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>{{ tb.name }}</button>
+        </sc-for>
+      </div>
+      <div style="flex:1;display:flex;min-height:0;">
+        <div class="lo-scroll" style="flex:1;overflow-y:auto;padding:40px 0;">
+          <div style="max-width:680px;margin:0 auto;padding:0 40px;animation:loFade .3s ease;">
+            <!-- DAILY -->
+            <sc-if value="{{ editorDaily }}" hint-placeholder-val="{{ true }}">
+            <h1 style="margin:0 0 4px;font-size:30px;font-weight:700;color:var(--fg1);letter-spacing:-.02em;">2026-06-13 · Cumartesi</h1>
+            <div style="font-size:12.5px;color:var(--fg3);margin-bottom:24px;display:flex;gap:14px;"><span>Günlük not</span><span>·</span><span>3 backlink</span><span>·</span><span>238 kelime</span></div>
+            <p style="font-size:15.5px;line-height:1.7;color:var(--fg1);margin:0 0 16px;">Bugün <strong style="font-weight:700;">tasarımı bitirmek</strong> öncelikli. Akşam <span onClick="{{ openProje }}" style="color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:5px;cursor:pointer;font-weight:500;">[[Proje X]]</span> için toplantı notlarını derleyeceğim.</p>
+            <h2 style="font-size:19px;font-weight:600;color:var(--fg1);margin:26px 0 12px;">Bugünün planı</h2>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:20px;">
+              <label style="display:flex;align-items:center;gap:10px;font-size:15px;color:var(--fg3);cursor:pointer;"><span style="width:18px;height:18px;border-radius:5px;background:var(--success);display:flex;align-items:center;justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg></span><span style="text-decoration:line-through;">Sabah koşusu</span></label>
+              <label style="display:flex;align-items:center;gap:10px;font-size:15px;color:var(--fg1);cursor:pointer;"><span style="width:18px;height:18px;border-radius:5px;border:1.8px solid var(--line);"></span>Tasarımı bitir</label>
+              <label style="display:flex;align-items:center;gap:10px;font-size:15px;color:var(--fg1);cursor:pointer;"><span style="width:18px;height:18px;border-radius:5px;border:1.8px solid var(--line);"></span>Toplantı notlarını yaz</label>
+            </div>
+            <blockquote style="margin:20px 0;padding:10px 18px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;font-size:15px;color:var(--fg2);font-style:italic;">"Küçük günlük adımlar, büyük haftalık sıçramalardan iyidir." — kendime not</blockquote>
+            <h2 style="font-size:19px;font-weight:600;color:var(--fg1);margin:26px 0 12px;">Notlar</h2>
+            <ul style="margin:0 0 18px;padding-left:22px;font-size:15px;line-height:1.75;color:var(--fg1);">
+              <li>Fatura takibi için <span onClick="{{ openFikirler }}" style="color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:5px;cursor:pointer;font-weight:500;">[[Fikirler]]</span> notuna bağlandı.</li>
+              <li>3 hattı tekrar dondurma işlemi pazartesiye kaldı.</li>
+            </ul>
+            <pre style="background:var(--bg-sunken);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--fg2);overflow-x:auto;margin:0 0 18px;line-height:1.6;"><span style="color:var(--accent);">## Haftalık özet</span>
+- toplam odak: <span style="color:var(--accent-2);">6 × 25dk</span>
+- tamamlanan: 4 / 9 görev</pre>
+            <p style="font-size:15.5px;line-height:1.7;color:var(--fg1);margin:0;">İlgili: <span onClick="{{ openProje }}" style="color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:5px;cursor:pointer;font-weight:500;">[[Proje X]]</span> · <span onClick="{{ openFikirler }}" style="color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:5px;cursor:pointer;font-weight:500;">[[Fikirler]]</span></p>
+            </sc-if>
+            <!-- PROJE -->
+            <sc-if value="{{ editorProje }}" hint-placeholder-val="{{ true }}">
+            <h1 style="margin:0 0 4px;font-size:30px;font-weight:700;color:var(--fg1);letter-spacing:-.02em;">Proje X</h1>
+            <div style="font-size:12.5px;color:var(--fg3);margin-bottom:24px;display:flex;gap:14px;"><span>Proje</span><span>·</span><span>5 backlink</span></div>
+            <p style="font-size:15.5px;line-height:1.7;color:var(--fg1);margin:0 0 16px;">Loomen'in çekirdek planlama deneyimi. Hedef: <strong style="font-weight:700;">tamamen yerel</strong>, internet gerektirmeyen bir PKM + planlayıcı.</p>
+            <h2 style="font-size:19px;font-weight:600;color:var(--fg1);margin:24px 0 12px;">Kilometre taşları</h2>
+            <ul style="margin:0 0 18px;padding-left:22px;font-size:15px;line-height:1.75;color:var(--fg1);">
+              <li>Vault gezgini + arama</li>
+              <li>Timeline planlayıcı — <span onClick="{{ openDaily }}" style="color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:5px;cursor:pointer;font-weight:500;">[[2026-06-13-Cumartesi]]</span></li>
+              <li>Graf görünümü</li>
+            </ul>
+            <blockquote style="margin:20px 0;padding:10px 18px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;font-size:15px;color:var(--fg2);font-style:italic;">"Obsidian'ın bilgi ağı + Things gibi cilalı planlama."</blockquote>
+            </sc-if>
+            <!-- FIKIRLER -->
+            <sc-if value="{{ editorFikirler }}" hint-placeholder-val="{{ true }}">
+            <h1 style="margin:0 0 4px;font-size:30px;font-weight:700;color:var(--fg1);letter-spacing:-.02em;">Fikirler</h1>
+            <div style="font-size:12.5px;color:var(--fg3);margin-bottom:24px;display:flex;gap:14px;"><span>Serbest not</span><span>·</span><span>2 backlink</span></div>
+            <ul style="margin:0 0 18px;padding-left:22px;font-size:15px;line-height:1.8;color:var(--fg1);">
+              <li>Faturaları otomatik tekrar eden görevlere bağla.</li>
+              <li>Pomodoro bitince günlük nota otomatik özet düş.</li>
+              <li>Graf'ta etikete göre renk kodu.</li>
+            </ul>
+            <p style="font-size:15.5px;line-height:1.7;color:var(--fg1);margin:0;">Bkz: <span onClick="{{ openProje }}" style="color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:5px;cursor:pointer;font-weight:500;">[[Proje X]]</span></p>
+            </sc-if>
+          </div>
+        </div>
+        <!-- backlinks -->
+        <div style="width:288px;flex-shrink:0;border-left:1px solid var(--line);background:var(--bg-sunken);padding:22px 16px;overflow-y:auto;" class="lo-scroll">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;color:var(--fg1);font-weight:600;font-size:13.5px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Bağlantılar</div>
+          <div style="font-size:11.5px;color:var(--fg3);margin-bottom:16px;">Bu nota bağlananlar</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <button onClick="{{ openProje }}" style="text-align:left;background:var(--bg-elev);border:1px solid var(--line);border-radius:11px;padding:12px;cursor:pointer;box-shadow:var(--sh1);font-family:inherit;" style-hover="border-color:var(--accent);">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--fg1);margin-bottom:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>Proje X</div>
+              <div style="font-size:12px;color:var(--fg2);line-height:1.5;">…timeline planlayıcı — <span style="color:var(--accent);">[[2026-06-13…]]</span></div>
+            </button>
+            <button onClick="{{ openFikirler }}" style="text-align:left;background:var(--bg-elev);border:1px solid var(--line);border-radius:11px;padding:12px;cursor:pointer;box-shadow:var(--sh1);font-family:inherit;" style-hover="border-color:var(--accent);">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--fg1);margin-bottom:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>Fikirler</div>
+              <div style="font-size:12px;color:var(--fg2);line-height:1.5;">…Pomodoro bitince günlük nota özet…</div>
+            </button>
+            <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:11px;padding:12px;box-shadow:var(--sh1);">
+              <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--fg1);margin-bottom:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>Toplantı Notları</div>
+              <div style="font-size:12px;color:var(--fg2);line-height:1.5;">…karar: tasarımı <span style="color:var(--accent);">[[bugün]]</span> bitir…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===== GRAPH ===== -->
+    <sc-if value="{{ isGraph }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:flex;flex-direction:column;min-height:0;">
+      <div style="padding:16px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;">
+        <span style="font-weight:600;font-size:15px;color:var(--fg1);">Graf görünümü</span>
+        <span style="font-size:12px;color:var(--fg3);">9 not · 12 bağlantı</span>
+        <div style="flex:1;"></div>
+        <span style="font-size:12px;color:var(--fg3);display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M3 12h6M15 12h6"/></svg>Bir düğümün üzerine gel</span>
+      </div>
+      <div onMouseLeave="{{ leaveNode }}" style="flex:1;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 45%, var(--bg-sunken) 0%, var(--bg) 70%);">
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-52%);width:860px;height:540px;">
+          <svg width="860" height="540" viewBox="0 0 860 540" style="position:absolute;inset:0;">
+            <sc-for list="{{ edgesR }}" as="e" hint-placeholder-count="12"><line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}" stroke="{{ e.stroke }}" stroke-width="{{ e.width }}" stroke-opacity="{{ e.op }}" style="transition:all .18s;"/></sc-for>
+          </svg>
+          <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="9">
+          <div onMouseEnter="{{ n.enter }}" style="position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:opacity .18s; {{ n.wrapStyle }}">
+            <div style="border-radius:50%;border:2px solid;transition:all .18s;box-shadow:var(--sh1); {{ n.dotStyle }}"></div>
+            <div style="margin-top:7px;font-size:12px;white-space:nowrap;transition:color .18s; {{ n.labelStyle }}">{{ n.label }}</div>
+          </div>
+          </sc-for>
+        </div>
+        <div style="position:absolute;bottom:18px;left:24px;display:flex;gap:16px;font-size:11.5px;color:var(--fg3);background:var(--bg-elev);border:1px solid var(--line);border-radius:10px;padding:8px 12px;box-shadow:var(--sh1);">
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:11px;height:11px;border-radius:50%;background:var(--accent-soft);border:2px solid var(--accent);"></span>Merkez not</span>
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:11px;height:11px;border-radius:50%;background:var(--bg-elev);border:2px solid var(--line);"></span>Not</span>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===== SETTINGS ===== -->
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ true }}">
+    <div class="lo-scroll" style="flex:1;overflow-y:auto;">
+      <div style="max-width:680px;margin:0 auto;padding:40px 40px 60px;">
+        <h1 style="margin:0 0 28px;font-size:28px;font-weight:700;color:var(--fg1);letter-spacing:-.02em;">Ayarlar</h1>
+
+        <div style="margin-bottom:14px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fg3);">Görünüm</div>
+        <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh1);margin-bottom:28px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line-soft);">
+            <div><div style="font-size:14.5px;font-weight:500;color:var(--fg1);">Tema</div><div style="font-size:12.5px;color:var(--fg3);margin-top:2px;">Açık ve koyu arasında geçiş yap</div></div>
+            <div style="display:flex;background:var(--bg-sunken);border-radius:9px;padding:3px;gap:2px;">
+              <button onClick="{{ setLight }}" style="border:none;border-radius:7px;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all .12s; {{ seg_lightSel }}">Açık</button>
+              <button onClick="{{ setDark }}" style="border:none;border-radius:7px;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all .12s; {{ seg_darkSel }}">Koyu</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;">
+            <div><div style="font-size:14.5px;font-weight:500;color:var(--fg1);">Vurgu rengi</div><div style="font-size:12.5px;color:var(--fg3);margin-top:2px;">Aktif öğe ve sayaç rengi</div></div>
+            <div style="display:flex;gap:9px;">
+              <span style="width:24px;height:24px;border-radius:50%;background:#C2603A;border:2px solid var(--bg-elev);outline:2px solid var(--accent);"></span>
+              <span style="width:24px;height:24px;border-radius:50%;background:#2E8B7F;"></span>
+              <span style="width:24px;height:24px;border-radius:50%;background:#6C5CE0;"></span>
+              <span style="width:24px;height:24px;border-radius:50%;background:#A4261F;"></span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fg3);">Dil ve Bölge</div>
+        <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh1);margin-bottom:28px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;">
+            <div><div style="font-size:14.5px;font-weight:500;color:var(--fg1);">Uygulama dili</div><div style="font-size:12.5px;color:var(--fg3);margin-top:2px;">Arapça seçilince arayüz sağdan sola döner</div></div>
+            <select onChange="{{ setLang }}" value="{{ lang }}" style="font-family:inherit;font-size:13.5px;color:var(--fg1);background:var(--bg-sunken);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer;outline:none;">
+              <option value="tr">Türkçe</option>
+              <option value="en">English</option>
+              <option value="ar">العربية (RTL)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fg3);">Editör</div>
+        <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh1);margin-bottom:28px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line-soft);">
+            <div style="font-size:14.5px;font-weight:500;color:var(--fg1);">Canlı önizleme</div>
+            <button onClick="{{ toggle_live }}" style="width:40px;height:22px;border:none;border-radius:20px;cursor:pointer;padding:2px;display:flex;transition:background .15s; {{ sw_live }}"><span style="width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:var(--sh1);transition:transform .18s; {{ swk_live }}"></span></button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line-soft);">
+            <div style="font-size:14.5px;font-weight:500;color:var(--fg1);">Satır numaraları</div>
+            <button onClick="{{ toggle_lines }}" style="width:40px;height:22px;border:none;border-radius:20px;cursor:pointer;padding:2px;display:flex;transition:background .15s; {{ sw_lines }}"><span style="width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:var(--sh1);transition:transform .18s; {{ swk_lines }}"></span></button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;">
+            <div style="font-size:14.5px;font-weight:500;color:var(--fg1);">Yazım denetimi</div>
+            <button onClick="{{ toggle_spell }}" style="width:40px;height:22px;border:none;border-radius:20px;cursor:pointer;padding:2px;display:flex;transition:background .15s; {{ sw_spell }}"><span style="width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:var(--sh1);transition:transform .18s; {{ swk_spell }}"></span></button>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fg3);">Pomodoro</div>
+        <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh1);display:flex;margin-bottom:28px;">
+          <div style="flex:1;padding:16px 18px;text-align:center;border-right:1px solid var(--line-soft);"><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:var(--accent);">25</div><div style="font-size:11.5px;color:var(--fg3);margin-top:3px;">Odak dk</div></div>
+          <div style="flex:1;padding:16px 18px;text-align:center;border-right:1px solid var(--line-soft);"><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:var(--fg1);">5</div><div style="font-size:11.5px;color:var(--fg3);margin-top:3px;">Kısa mola</div></div>
+          <div style="flex:1;padding:16px 18px;text-align:center;border-right:1px solid var(--line-soft);"><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:var(--fg1);">15</div><div style="font-size:11.5px;color:var(--fg3);margin-top:3px;">Uzun mola</div></div>
+          <div style="flex:1;padding:16px 18px;text-align:center;"><div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:var(--fg1);">4</div><div style="font-size:11.5px;color:var(--fg3);margin-top:3px;">Tur</div></div>
+        </div>
+
+        <div style="margin-bottom:14px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fg3);">Kasa</div>
+        <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh1);display:flex;align-items:center;justify-content:space-between;padding:16px 18px;">
+          <div><div style="font-size:14.5px;font-weight:500;color:var(--fg1);">Kasa konumu</div><div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--fg3);margin-top:3px;">~/Loomen/Kasa</div></div>
+          <button style="border:1px solid var(--line);background:var(--bg-sunken);color:var(--fg1);font-family:inherit;font-size:13px;font-weight:500;padding:8px 16px;border-radius:9px;cursor:pointer;" style-hover="background:var(--line-soft);">Değiştir</button>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===== MOBILE ===== -->
+    <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,var(--bg-sunken),var(--bg-sunken) 14px,var(--bg) 14px,var(--bg) 28px);overflow:auto;" class="lo-scroll">
+      <div style="width:380px;height:792px;background:#0d0d0c;border-radius:46px;padding:11px;box-shadow:0 30px 70px rgba(0,0,0,.4);flex-shrink:0;margin:30px;">
+        <div data-theme="{{ theme }}" style="width:100%;height:100%;background:var(--bg);border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative;color:var(--fg1);">
+          <!-- status bar -->
+          <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;flex-shrink:0;">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--fg1);">09:41</span>
+            <div style="position:absolute;left:50%;top:9px;transform:translateX(-50%);width:108px;height:26px;background:#0d0d0c;border-radius:14px;"></div>
+            <div style="display:flex;align-items:center;gap:6px;color:var(--fg1);"><svg width="17" height="12" viewBox="0 0 24 16" fill="currentColor"><rect x="0" y="9" width="4" height="6" rx="1"/><rect x="6" y="6" width="4" height="9" rx="1"/><rect x="12" y="3" width="4" height="12" rx="1"/><rect x="18" y="0" width="4" height="15" rx="1" opacity=".35"/></svg><svg width="22" height="12" viewBox="0 0 26 13" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="20" height="11" rx="3"/><rect x="3" y="3" width="13" height="7" rx="1.5" fill="currentColor"/><path d="M23 4.5v4" stroke-linecap="round"/></svg></div>
+          </div>
+          <!-- header -->
+          <div style="padding:8px 22px 14px;flex-shrink:0;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg3);font-weight:500;">CUMARTESİ, 13 HAZİRAN</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;"><h1 style="margin:0;font-size:26px;font-weight:700;color:var(--fg1);letter-spacing:-.02em;">Bugün</h1><div style="display:flex;gap:9px;"><div style="background:var(--accent);color:#fff;border-radius:10px;padding:5px 9px;text-align:center;"><div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;line-height:1;">8</div><div style="font-size:9px;margin-top:1px;">yapılacak</div></div><div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:10px;padding:5px 9px;text-align:center;"><div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;line-height:1;color:var(--danger);">22</div><div style="font-size:9px;margin-top:1px;color:var(--fg2);">geciken</div></div></div></div>
+          </div>
+          <!-- quick add -->
+          <div style="padding:0 18px 12px;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:9px;background:var(--bg-elev);border:1px solid var(--line);border-radius:13px;padding:11px 13px;box-shadow:var(--sh1);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.5z"/></svg>
+              <span style="flex:1;font-size:14px;color:var(--fg3);">Görevini buraya yaz…</span>
+              <span style="width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg></span>
+            </div>
+          </div>
+          <!-- timeline -->
+          <div class="lo-scroll" style="flex:1;overflow-y:auto;padding:4px 18px 14px;">
+            <div style="font-size:12px;font-weight:600;color:var(--danger);margin:6px 0 9px;display:flex;align-items:center;gap:7px;">Cuma, 12 Haz<span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;background:var(--danger-bg);color:var(--danger);padding:2px 7px;border-radius:20px;">Geciken</span></div>
+            <div style="background:var(--bg-elev);border:1px solid var(--line);border-left:2px solid var(--danger);border-radius:12px;padding:12px;margin-bottom:9px;box-shadow:var(--sh1);">
+              <div style="display:flex;gap:9px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.7" style="flex-shrink:0;"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5V12l3 1.8" stroke-linecap="round"/></svg><div style="font-size:14px;font-weight:500;color:var(--fg1);line-height:1.35;">Kredi kartı ekstresi · 2.450,00 ₺</div></div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:9px;padding-left:29px;"><span style="font-size:11px;color:var(--danger);">bir gün önce</span><span style="background:var(--accent-soft);color:var(--accent);font-size:10.5px;padding:2px 8px;border-radius:20px;">Ödemeler</span></div>
+            </div>
+            <div style="font-size:12px;font-weight:600;color:var(--fg2);margin:14px 0 9px;display:flex;align-items:center;gap:7px;">Cumartesi, 13 Haz<span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;background:var(--accent-soft);color:var(--accent);padding:2px 7px;border-radius:20px;">Bugün</span></div>
+            <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;box-shadow:var(--sh1);">
+              <div style="display:flex;gap:9px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="1.7" style="flex-shrink:0;"><circle cx="12" cy="12" r="9.5"/></svg><div style="font-size:14px;font-weight:500;color:var(--fg1);">Tasarımı bitir</div></div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:9px;padding-left:29px;"><span style="background:var(--accent-soft);color:var(--accent);font-size:10.5px;padding:2px 8px;border-radius:20px;">Yapılacaklar</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--bg-sunken);color:var(--fg2);padding:2px 7px;border-radius:20px;">🍅 ×3</span></div>
+            </div>
+            <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:var(--sh1);">
+              <div style="display:flex;gap:9px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="1.7" style="flex-shrink:0;"><circle cx="12" cy="12" r="9.5"/></svg><div style="font-size:14px;font-weight:500;color:var(--fg1);">Toplantı notlarını yaz</div></div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:9px;padding-left:29px;"><span style="background:var(--accent-soft);color:var(--accent);font-size:10.5px;padding:2px 8px;border-radius:20px;">İş</span></div>
+            </div>
+          </div>
+          <!-- bottom tabs -->
+          <div style="flex-shrink:0;border-top:1px solid var(--line);background:var(--bg-elev);padding:9px 8px 22px;display:flex;justify-content:space-around;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--accent);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m8.5 14.5 1.8 1.8 3.7-3.7"/></svg><span style="font-size:10px;font-weight:600;">Planlayıcı</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--fg3);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span style="font-size:10px;">Takvim</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--fg3);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg><span style="font-size:10px;">Notlar</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--fg3);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M12 5a3 3 0 0 1 3-3" stroke-linecap="round"/></svg><span style="font-size:10px;">Pomodoro</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--fg3);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span style="font-size:10px;">Ara</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===== RTL ===== -->
+    <sc-if value="{{ isRtl }}" hint-placeholder-val="{{ true }}">
+    <div dir="rtl" style="flex:1;display:flex;min-height:0;font-family:'Noto Sans Arabic','DM Sans',sans-serif;">
+      <!-- center (RTL) -->
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+        <div style="padding:26px 36px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:46px;font-weight:600;line-height:1;color:var(--fg3);">٢٠٢٦</div>
+            <div style="display:flex;align-items:center;gap:9px;margin-top:14px;"><h1 style="margin:0;font-size:22px;font-weight:700;color:var(--fg1);">ركّز على اليوم</h1><span style="font-size:13px;color:var(--fg3);">السبت، ١٣ يونيو</span></div>
+          </div>
+          <div style="display:flex;background:var(--bg-sunken);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;">
+            <span style="border-radius:8px;padding:6px 13px;font-size:13px;font-weight:500;background:var(--bg-elev);color:var(--fg1);box-shadow:var(--sh1);">الجدول الزمني</span>
+            <span style="border-radius:8px;padding:6px 13px;font-size:13px;font-weight:500;color:var(--fg3);">لوحة</span>
+          </div>
+        </div>
+        <div style="padding:20px 36px 0;display:flex;gap:14px;">
+          <div style="flex:1;background:var(--accent);color:#fff;border-radius:14px;padding:16px 18px;box-shadow:var(--sh2);"><div style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:600;line-height:1;">٨</div><div style="font-size:12.5px;margin-top:6px;">مهام اليوم</div></div>
+          <div style="flex:1;background:var(--bg-elev);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh1);"><div style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:600;line-height:1;color:var(--danger);">٢٢</div><div style="font-size:12.5px;color:var(--fg2);margin-top:6px;">متأخرة</div></div>
+          <div style="flex:1;background:var(--bg-elev);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--sh1);"><div style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:600;line-height:1;color:var(--fg1);">٢٠</div><div style="font-size:12.5px;color:var(--fg2);margin-top:6px;">غير مجدول</div></div>
+        </div>
+        <div style="padding:16px 36px 4px;">
+          <div style="display:flex;align-items:center;gap:11px;background:var(--bg-elev);border:1px solid var(--line);border-radius:12px;padding:11px 13px;box-shadow:var(--sh1);">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1.5z"/></svg>
+            <span style="flex:1;font-size:14.5px;color:var(--fg3);">اكتب مهمتك هنا…</span>
+            <span style="width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:scaleX(-1);"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg></span>
+          </div>
+        </div>
+        <div class="lo-scroll" style="flex:1;overflow-y:auto;padding:16px 36px 40px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><span style="font-size:13.5px;font-weight:600;color:var(--danger);">الجمعة، ١٢ يونيو</span><span style="font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--danger-bg);color:var(--danger);">متأخرة</span><div style="flex:1;height:1px;background:var(--line-soft);"></div></div>
+          <div style="display:flex;gap:13px;padding:11px 14px;border-radius:11px;border-right:2px solid var(--danger);background:var(--danger-bg);margin-bottom:8px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.7" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5V12l3 1.8" stroke-linecap="round"/></svg>
+            <div style="flex:1;"><div style="font-size:14.5px;font-weight:500;color:var(--fg1);">كشف حساب بطاقة الائتمان · ٢٬٤٥٠٫٠٠ ₺</div><div style="margin-top:4px;font-size:12px;color:var(--danger);">قبل يوم واحد</div><div style="display:flex;gap:8px;margin-top:9px;"><span style="background:var(--bg-sunken);color:var(--fg2);font-size:11.5px;padding:3px 9px;border-radius:20px;">٢٠٢٦-٠٦-١٢</span><span style="background:var(--accent-soft);color:var(--accent);font-size:11.5px;padding:3px 9px;border-radius:20px;">مدفوعات</span></div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin:16px 0 10px;"><span style="font-size:13.5px;font-weight:600;color:var(--fg2);">السبت، ١٣ يونيو</span><span style="font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--accent-soft);color:var(--accent);">اليوم</span><div style="flex:1;height:1px;background:var(--line-soft);"></div></div>
+          <div style="display:flex;gap:13px;padding:11px 14px;border-radius:11px;margin-bottom:6px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="1.7" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5V12l3 1.8" stroke-linecap="round"/></svg>
+            <div style="flex:1;"><div style="font-size:14.5px;font-weight:500;color:var(--fg1);">إنهاء التصميم</div><div style="display:flex;gap:8px;margin-top:9px;"><span style="background:var(--accent-soft);color:var(--accent);font-size:11.5px;padding:3px 9px;border-radius:20px;">قائمة المهام</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--bg-sunken);color:var(--fg2);padding:3px 8px;border-radius:20px;">🍅 ×٣</span></div></div>
+          </div>
+          <div style="display:flex;gap:13px;padding:11px 14px;border-radius:11px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="1.7" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5V12l3 1.8" stroke-linecap="round"/></svg>
+            <div style="flex:1;"><div style="font-size:14.5px;font-weight:500;color:var(--fg1);">كتابة ملاحظات الاجتماع</div><div style="display:flex;gap:8px;margin-top:9px;"><span style="background:var(--accent-soft);color:var(--accent);font-size:11.5px;padding:3px 9px;border-radius:20px;">عمل</span></div></div>
+          </div>
+        </div>
+      </div>
+      <!-- right (now mirrored to the left edge) -->
+      <div style="width:300px;flex-shrink:0;border-right:1px solid var(--line);background:var(--bg-sunken);padding:22px 18px;">
+        <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--sh1);margin-bottom:16px;">
+          <div style="text-align:center;font-weight:600;font-size:14px;color:var(--fg1);margin-bottom:12px;">يونيو ٢٠٢٦</div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg2);">
+            <span style="color:var(--fg3);">إث</span><span style="color:var(--fg3);">ث</span><span style="color:var(--fg3);">أر</span><span style="color:var(--fg3);">خ</span><span style="color:var(--fg3);">ج</span><span style="color:var(--fg3);">س</span><span style="color:var(--fg3);">أح</span>
+            <span style="padding:5px 0;">١</span><span style="padding:5px 0;">٢</span><span style="padding:5px 0;">٣</span><span style="padding:5px 0;">٤</span><span style="padding:5px 0;">٥</span><span style="padding:5px 0;">٦</span><span style="padding:5px 0;">٧</span>
+            <span style="padding:5px 0;">٨</span><span style="padding:5px 0;">٩</span><span style="padding:5px 0;">١٠</span><span style="padding:5px 0;">١١</span><span style="padding:5px 0;">١٢</span><span style="padding:5px 0;border-radius:7px;background:var(--accent);color:#fff;">١٣</span><span style="padding:5px 0;">١٤</span>
+          </div>
+        </div>
+        <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:16px;padding:20px 16px;box-shadow:var(--sh1);text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:34px;font-weight:600;color:var(--fg1);">٢٥:٠٠</div>
+          <div style="font-size:12px;color:var(--fg3);margin:4px 0 14px;">التركيز: إنهاء التصميم</div>
+          <span style="display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border-radius:24px;padding:9px 22px;font-size:13.5px;font-weight:600;"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="transform:scaleX(-1);"><path d="M7 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 7 5.5z"/></svg>ابدأ</span>
+        </div>
+      </div>
+      <!-- explorer mirrored to far right -->
+      <div style="width:228px;flex-shrink:0;border-right:1px solid var(--line);background:var(--bg-sunken);padding:16px;">
+        <div style="font-weight:600;font-size:13px;color:var(--fg1);margin-bottom:12px;">الخزنة</div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--bg-elev);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:14px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--fg3)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span style="font-size:13px;color:var(--fg3);">بحث…</span></div>
+        <div style="font-size:13px;color:var(--fg2);font-weight:600;padding:6px 4px;">الملاحظات</div>
+        <div style="font-size:13px;color:var(--fg2);padding:6px 16px 6px 4px;">مشروع X</div>
+        <div style="font-size:13px;color:var(--fg2);padding:6px 16px 6px 4px;">أفكار</div>
+        <div style="font-size:13px;color:var(--fg2);font-weight:600;padding:6px 4px;margin-top:4px;">يومي</div>
+        <div style="font-size:13px;color:var(--accent);background:var(--accent-soft);border-radius:7px;padding:6px 10px;font-weight:600;margin-top:2px;">٢٠٢٦-٠٦-١٣</div>
+      </div>
+    </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;planner&quot;,&quot;editor&quot;,&quot;graph&quot;,&quot;settings&quot;,&quot;mobile&quot;,&quot;rtl&quot;],&quot;default&quot;:&quot;planner&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;plannerLayout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;timeline&quot;,&quot;board&quot;],&quot;default&quot;:&quot;board&quot;,&quot;tsType&quot;:&quot;'timeline' | 'board'&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;#C2603A&quot;,&quot;#2E8B7F&quot;,&quot;#6C5CE0&quot;,&quot;#A4261F&quot;],&quot;default&quot;:&quot;#C2603A&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = {
+    theme: this.props.defaultTheme || 'light',
+    screen: this.props.startScreen || 'planner',
+    layout: this.props.plannerLayout || 'timeline',
+    leftCollapsed: false,
+    quickText: '',
+    selectedDay: 13,
+    editorTab: 'daily',
+    pomoRemaining: 1500,
+    pomoRunning: false,
+    pomoRound: 3,
+    hoverNode: null,
+    settings: { livePreview: true, lineNumbers: false, spellCheck: true, focusMin: 25, shortBreak: 5, longBreak: 15, rounds: 4, lang: 'tr' },
+    groups: [
+      { id: 'g13', label: 'Cumartesi, 13 Haz', sub: 'Bugün', tag: 'today', tasks: [
+        { id: 't1', text: 'Tasarımı bitir', done: false, overdue: false, rel: 'bugün', source: '2026-06-13-Cumartesi', tag: 'Yapılacaklar', pomos: 3 },
+        { id: 't2', text: 'Toplantı notlarını yaz', done: false, overdue: false, rel: 'bugün', source: 'Proje X', tag: 'İş', pomos: 1 },
+        { id: 't3', text: 'Spor salonu üyeliğini yenile', done: false, overdue: false, rel: 'bugün', source: '2026-06-10-Salı', tag: 'Kişisel', pomos: 0 },
+      ]},
+      { id: 'g12', label: 'Cuma, 12 Haz', sub: 'Geciken', tag: 'overdue', tasks: [
+        { id: 't4', text: 'Kredi kartı ekstresi · 2.450,00 ₺', done: false, overdue: true, rel: 'bir gün önce', source: '2026-06-12-Cuma', tag: 'Ödemeler', pomos: 0 },
+        { id: 't5', text: 'Elektrik faturası öde · 640,00 ₺', done: true, overdue: true, rel: 'bir gün önce', source: '2026-06-12-Cuma', tag: 'Ödemeler', pomos: 0 },
+      ]},
+      { id: 'g08', label: 'Pazartesi, 8 Haz', sub: 'Geciken', tag: 'overdue', tasks: [
+        { id: 't6', text: 'Su faturası · 280,00 ₺', done: false, overdue: true, rel: '5 gün önce', source: '2026-06-08-Pazartesi', tag: 'Ödemeler', pomos: 0 },
+        { id: 't7', text: "Ekibe dönüş yap", done: true, overdue: true, rel: '5 gün önce', source: 'Toplantı Notları', tag: 'İş', pomos: 0 },
+      ]},
+      { id: 'g14', label: 'Pazar, 14 Haz', sub: 'Yaklaşan', tag: 'upcoming', tasks: [
+        { id: 't8', text: 'Ders notlarını gözden geçir', done: false, overdue: false, rel: 'bir gün sonra', source: 'Fikirler', tag: 'Okul', pomos: 0 },
+      ]},
+      { id: 'g19', label: 'Cuma, 19 Haz', sub: 'Yaklaşan', tag: 'upcoming', tasks: [
+        { id: 't9', text: 'Kira ödemesi · 12.000 ₺', done: false, overdue: false, rel: '6 gün sonra', source: '2026-06-19-Cuma', tag: 'Ödemeler', pomos: 0 },
+      ]},
+      { id: 'g11t', label: 'Cumartesi, 11 Tem', sub: 'Yaklaşan', tag: 'upcoming', tasks: [
+        { id: 't10', text: 'Sunum hazırlığı', done: false, overdue: false, rel: 'bir ay sonra', source: 'Proje X', tag: 'Yapılacaklar', pomos: 0 },
+      ]},
+    ],
+  };
+
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  toggleTheme = () => this.setState(s => ({ theme: s.theme === 'light' ? 'dark' : 'light' }));
+  go = (screen) => () => this.setState({ screen });
+  setLayout = (layout) => () => this.setState({ layout });
+  toggleLeft = () => this.setState(s => ({ leftCollapsed: !s.leftCollapsed }));
+
+  setQuick = (e) => this.setState({ quickText: e.target.value });
+  addTask = () => {
+    const v = (this.state.quickText || '').trim();
+    if (!v) return;
+    this.setState(s => ({
+      quickText: '',
+      groups: s.groups.map(g => g.tag === 'today'
+        ? { ...g, tasks: [{ id: 'q' + Date.now(), text: v, done: false, overdue: false, rel: 'bugün', source: '2026-06-13-Cumartesi', tag: 'Planlanmamış', pomos: 0 }, ...g.tasks] }
+        : g)
+    }));
+  };
+  quickKey = (e) => { if (e.key === 'Enter') this.addTask(); };
+
+  toggleTask = (id) => this.setState(s => ({
+    groups: s.groups.map(g => ({ ...g, tasks: g.tasks.map(t => t.id === id ? { ...t, done: !t.done } : t) }))
+  }));
+
+  selectDay = (n) => () => this.setState({ selectedDay: n });
+  setTab = (tab) => () => this.setState({ editorTab: tab });
+  openNote = (tab) => () => this.setState({ screen: 'editor', editorTab: tab });
+
+  enterNode = (id) => () => this.setState({ hoverNode: id });
+  leaveNode = () => this.setState({ hoverNode: null });
+
+  togglePomo = () => {
+    if (this.state.pomoRunning) { clearInterval(this.timer); this.setState({ pomoRunning: false }); return; }
+    this.setState({ pomoRunning: true });
+    this.timer = setInterval(() => this.setState(s => {
+      if (s.pomoRemaining <= 1) { clearInterval(this.timer); return { pomoRemaining: 0, pomoRunning: false }; }
+      return { pomoRemaining: s.pomoRemaining - 1 };
+    }), 1000);
+  };
+  resetPomo = () => { clearInterval(this.timer); this.setState(s => ({ pomoRunning: false, pomoRemaining: s.settings.focusMin * 60 })); };
+
+  setTheme = (t) => () => this.setState({ theme: t });
+  toggleSetting = (key) => () => this.setState(s => ({ settings: { ...s.settings, [key]: !s.settings[key] } }));
+  setLang = (e) => { const v = e.target.value; this.setState(s => ({ settings: { ...s.settings, lang: v }, screen: v === 'ar' ? 'rtl' : (s.screen === 'rtl' ? 'planner' : s.screen) })); };
+
+  pad(n) { return String(n).padStart(2, '0'); }
+
+  enrich(t) {
+    const open = !t.done;
+    return {
+      ...t,
+      notDone: !t.done,
+      hasPomo: t.pomos > 0,
+      pomoLabel: '🍅 ×' + t.pomos,
+      statusColor: t.done ? 'var(--success)' : (t.overdue ? 'var(--danger)' : 'var(--fg3)'),
+      textStyle: t.done ? 'color:var(--fg3);text-decoration:line-through;text-decoration-thickness:1.5px;' : 'color:var(--fg1);',
+      relColor: (t.overdue && open) ? 'var(--danger)' : 'var(--fg3)',
+      rowStyle: (t.overdue && open) ? 'border-left:2px solid var(--danger);background:var(--danger-bg);' : 'border-left:2px solid transparent;',
+      toggle: () => this.toggleTask(t.id),
+      open: this.openNote(t.source === 'Proje X' ? 'proje' : t.source === 'Fikirler' ? 'fikirler' : 'daily'),
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const accent = this.props.accent || '#C2603A';
+    const rootStyle = { '--accent': accent, '--accent-soft': accent + '22' };
+
+    const groupsR = s.groups.map(g => ({
+      ...g,
+      labelColor: g.tag === 'overdue' ? 'var(--danger)' : 'var(--fg2)',
+      pillStyle: g.tag === 'today' ? 'background:var(--accent-soft);color:var(--accent);'
+        : g.tag === 'overdue' ? 'background:var(--danger-bg);color:var(--danger);'
+        : 'background:var(--bg-sunken);color:var(--fg3);',
+      tasks: g.tasks.map(t => this.enrich(t)),
+    }));
+
+    const today = groupsR.find(g => g.tag === 'today');
+    const overdueGroups = groupsR.filter(g => g.tag === 'overdue');
+    const upcomingGroups = groupsR.filter(g => g.tag === 'upcoming');
+    const flat = (arr) => arr.flatMap(g => g.tasks);
+    const openOf = (arr) => flat(arr).filter(t => !t.done).length;
+
+    const yapilacak = openOf([today, ...upcomingGroups]) + 2;
+    const geciken = openOf(overdueGroups) + 20;
+    const planlanmamis = 20;
+
+    // calendar June 2026: starts Monday (col 1)
+    const taskDays = { 8: true, 10: true, 12: true, 13: true, 14: true, 19: true };
+    const days = [];
+    for (let n = 1; n <= 30; n++) {
+      const isToday = n === 13, isSel = n === s.selectedDay;
+      let st = 'color:var(--fg1);background:transparent;';
+      if (isSel) st = 'background:var(--accent);color:#fff;font-weight:600;';
+      else if (isToday) st = 'background:var(--accent-soft);color:var(--accent);font-weight:600;';
+      days.push({ n, dot: !!taskDays[n], dotColor: isSel ? '#fff' : 'var(--accent)', style: st, select: this.selectDay(n) });
+    }
+
+    // pomodoro
+    const total = s.settings.focusMin * 60;
+    const circ = 2 * Math.PI * 52;
+    const pomoLabel = this.pad(Math.floor(s.pomoRemaining / 60)) + ':' + this.pad(s.pomoRemaining % 60);
+    const ringOffset = circ * (1 - s.pomoRemaining / total);
+    const roundDots = Array.from({ length: s.settings.rounds }, (_, i) => ({
+      style: i < s.pomoRound ? 'background:var(--accent);' : 'background:var(--line);'
+    }));
+
+    // editor tabs
+    const tabsDef = [
+      { id: 'daily', name: '2026-06-13-Cumartesi' },
+      { id: 'proje', name: 'Proje X' },
+      { id: 'fikirler', name: 'Fikirler' },
+    ];
+    const tabs = tabsDef.map(t => ({
+      ...t,
+      active: s.editorTab === t.id,
+      style: s.editorTab === t.id ? 'background:var(--bg-elev);color:var(--fg1);border-bottom:2px solid var(--accent);' : 'background:transparent;color:var(--fg3);border-bottom:2px solid transparent;',
+      select: this.setTab(t.id),
+    }));
+
+    // graph
+    const pos = {
+      proje: [440, 258, 64], daily: [248, 150, 54], fikirler: [624, 148, 50], loomen: [196, 360, 50],
+      tasarim: [664, 360, 54], toplanti: [440, 86, 44], odemeler: [150, 250, 44], okul: [440, 452, 48], vize: [702, 470, 44],
+    };
+    const labels = { proje: 'Proje X', daily: '2026-06-13', fikirler: 'Fikirler', loomen: 'Loomen', tasarim: 'Tasarım Sistemi', toplanti: 'Toplantı Notları', odemeler: 'Ödemeler', okul: 'Okul', vize: 'Vize Başvurusu' };
+    const edges = [['proje','daily'],['proje','fikirler'],['proje','loomen'],['proje','toplanti'],['proje','tasarim'],['daily','fikirler'],['daily','odemeler'],['daily','okul'],['loomen','tasarim'],['vize','odemeler'],['vize','okul'],['fikirler','tasarim']];
+    const hv = s.hoverNode;
+    const neighbors = new Set();
+    if (hv) { edges.forEach(([a, b]) => { if (a === hv) neighbors.add(b); if (b === hv) neighbors.add(a); }); neighbors.add(hv); }
+    const nodes = Object.keys(pos).map(id => {
+      const [x, y, r] = pos[id];
+      const active = !hv || neighbors.has(id);
+      const isHub = id === 'proje', isFocus = id === hv;
+      return {
+        id, label: labels[id],
+        wrapStyle: `left:${x}px;top:${y}px;opacity:${active ? 1 : 0.22};`,
+        dotStyle: `width:${r}px;height:${r}px;` +
+          (isFocus ? 'background:var(--accent);border-color:var(--accent);' :
+           isHub ? 'background:var(--accent-soft);border-color:var(--accent);' :
+           'background:var(--bg-elev);border-color:var(--line);'),
+        labelStyle: (isFocus ? 'color:var(--accent);font-weight:600;' : 'color:var(--fg2);'),
+        enter: this.enterNode(id),
+      };
+    });
+    const edgesR = edges.map(([a, b]) => {
+      const [x1, y1] = pos[a], [x2, y2] = pos[b];
+      const active = hv && (a === hv || b === hv);
+      return { x1, y1, x2, y2, stroke: active ? 'var(--accent)' : 'var(--line)', width: active ? 2 : 1.25, op: (!hv || active) ? 1 : 0.35 };
+    });
+
+    const set = s.settings;
+    const sw = (on) => on ? 'background:var(--accent);' : 'background:var(--line);';
+    const swKnob = (on) => on ? 'transform:translateX(18px);' : 'transform:translateX(0);';
+
+    return {
+      theme: s.theme, rootStyle,
+      isPlanner: s.screen === 'planner', isEditor: s.screen === 'editor', isGraph: s.screen === 'graph',
+      isSettings: s.screen === 'settings', isMobile: s.screen === 'mobile', isRtl: s.screen === 'rtl',
+      showExplorer: !s.leftCollapsed && ['planner', 'editor', 'graph'].includes(s.screen),
+      isDesktopChrome: ['planner', 'editor', 'graph', 'settings'].includes(s.screen),
+      themeIsLight: s.theme === 'light', themeIsDark: s.theme === 'dark',
+      ra_planner: s.screen === 'planner' ? 'color:var(--accent);background:var(--accent-soft);' : '',
+      ra_editor: s.screen === 'editor' ? 'color:var(--accent);background:var(--accent-soft);' : '',
+      ra_graph: s.screen === 'graph' ? 'color:var(--accent);background:var(--accent-soft);' : '',
+      ra_settings: s.screen === 'settings' ? 'color:var(--accent);background:var(--accent-soft);' : '',
+      ra_mobile: s.screen === 'mobile' ? 'color:var(--accent);background:var(--accent-soft);' : '',
+      ra_rtl: s.screen === 'rtl' ? 'color:var(--accent);background:var(--accent-soft);' : '',
+      isTimeline: s.layout === 'timeline', isBoard: s.layout === 'board',
+      seg_timeline: s.layout === 'timeline' ? 'background:var(--bg-elev);color:var(--fg1);box-shadow:var(--sh1);' : 'background:transparent;color:var(--fg3);',
+      seg_board: s.layout === 'board' ? 'background:var(--bg-elev);color:var(--fg1);box-shadow:var(--sh1);' : 'background:transparent;color:var(--fg3);',
+      groups: groupsR,
+      gecikenTasks: flat(overdueGroups), bugunTasks: today.tasks, yaklasanTasks: flat(upcomingGroups),
+      gecikenCount: flat(overdueGroups).length, bugunCount: today.tasks.length, yaklasanCount: flat(upcomingGroups).length,
+      quickText: s.quickText, setQuick: this.setQuick, quickKey: this.quickKey, addTask: this.addTask,
+      yapilacak, geciken, planlanmamis,
+      weekdays: ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'].map((d, i) => ({ d, isWk: i > 4 })),
+      days,
+      pomoLabel, ringOffset, ringCirc: circ, roundDots, pomoRunning: s.pomoRunning, pomoStopped: !s.pomoRunning,
+      pomoBtnIcon: s.pomoRunning ? 'pause' : 'play', focusName: 'Tasarımı bitir',
+      tabs,
+      editorDaily: s.editorTab === 'daily', editorProje: s.editorTab === 'proje', editorFikirler: s.editorTab === 'fikirler',
+      nodes, edgesR,
+      set,
+      sw_live: sw(set.livePreview), swk_live: swKnob(set.livePreview), toggle_live: this.toggleSetting('livePreview'),
+      sw_lines: sw(set.lineNumbers), swk_lines: swKnob(set.lineNumbers), toggle_lines: this.toggleSetting('lineNumbers'),
+      sw_spell: sw(set.spellCheck), swk_spell: swKnob(set.spellCheck), toggle_spell: this.toggleSetting('spellCheck'),
+      seg_lightSel: s.theme === 'light' ? 'background:var(--bg-elev);color:var(--fg1);box-shadow:var(--sh1);' : 'background:transparent;color:var(--fg3);',
+      seg_darkSel: s.theme === 'dark' ? 'background:var(--bg-elev);color:var(--fg1);box-shadow:var(--sh1);' : 'background:transparent;color:var(--fg3);',
+      setLight: this.setTheme('light'), setDark: this.setTheme('dark'),
+      lang: set.lang, setLang: this.setLang,
+      toggleTheme: this.toggleTheme, toggleLeft: this.toggleLeft,
+      goPlanner: this.go('planner'), goEditor: this.go('editor'), goGraph: this.go('graph'),
+      goSettings: this.go('settings'), goMobile: this.go('mobile'), goRtl: this.go('rtl'),
+      layTimeline: this.setLayout('timeline'), layBoard: this.setLayout('board'),
+      togglePomo: this.togglePomo, resetPomo: this.resetPomo, leaveNode: this.leaveNode,
+      openProje: this.openNote('proje'), openFikirler: this.openNote('fikirler'), openDaily: this.openNote('daily'),
+    };
+  }
+}
+</script>
+</body>
+</html>
