@@ -26,7 +26,14 @@
     "todo": "Yapılacak",
     "overdue": "Geciken",
     "unplanned": "Planlanmamış",
-    "quickAdd": "Görevini buraya yaz…"
+    "quickAdd": "Görevini buraya yaz…",
+    "focusList": "Bugünün Odağı",
+    "expand": "Büyüt",
+    "collapse": "Küçült",
+    "allClear": "Bugün için her şey tamam",
+    "toggleLeft": "Sol paneli aç/kapat",
+    "toggleRight": "Sağ paneli aç/kapat",
+    "moreTasks": "+{{count}} görev daha"
   },
   "board": {
     "overdue": "Geciken",

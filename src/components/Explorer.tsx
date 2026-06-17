@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Search, ChevronRight, Folder, FileText, Clock, FolderOpen } from "lucide-react";
+import { Search, ChevronRight, Folder, FileText, Clock, FolderOpen, PanelLeftClose } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
 import { searchNotes } from "../core/search/search";
@@ -32,6 +32,7 @@ export function Explorer() {
   const vaultPath = useAppStore((s) => s.vaultPath);
   const openVault = useAppStore((s) => s.openVault);
   const openNote = useAppStore((s) => s.openNote);
+  const toggleLeft = useAppStore((s) => s.toggleLeft);
   const [query, setQuery] = useState("");
   const hits = searchNotes(notes, contents, query);
 
@@ -50,13 +51,14 @@ export function Explorer() {
     <div className="lo-explorer">
       <div className="lo-explorer__head">
         <span className="lo-explorer__title">{t("explorer.vault")}</span>
-        <button
-          className="lo-explorer__open"
-          title="Kasa klasörü aç"
-          onClick={() => void openVault()}
-        >
-          <FolderOpen size={14} strokeWidth={1.8} />
-        </button>
+        <div className="lo-explorer__actions">
+          <button className="lo-explorer__open" title="Kasa klasörü aç" onClick={() => void openVault()}>
+            <FolderOpen size={14} strokeWidth={1.8} />
+          </button>
+          <button className="lo-explorer__open" title={t("planner.toggleLeft")} onClick={toggleLeft}>
+            <PanelLeftClose size={14} strokeWidth={1.8} />
+          </button>
+        </div>
       </div>
       <div className="lo-explorer__pathline">{pathLabel}</div>
 

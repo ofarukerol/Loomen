@@ -24,7 +24,14 @@
     "todo": "مهام اليوم",
     "overdue": "متأخرة",
     "unplanned": "غير مجدول",
-    "quickAdd": "اكتب مهمتك هنا…"
+    "quickAdd": "اكتب مهمتك هنا…",
+    "focusList": "تركيز اليوم",
+    "expand": "تكبير",
+    "collapse": "تصغير",
+    "allClear": "كل شيء جاهز لليوم",
+    "toggleLeft": "تبديل اللوحة اليسرى",
+    "toggleRight": "تبديل اللوحة اليمنى",
+    "moreTasks": "+{{count}} مهام أخرى"
   },
   "board": {
     "overdue": "متأخرة",

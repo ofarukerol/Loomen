@@ -24,7 +24,14 @@
     "todo": "To Do",
     "overdue": "Overdue",
     "unplanned": "Unplanned",
-    "quickAdd": "Type your task here…"
+    "quickAdd": "Type your task here…",
+    "focusList": "Today's Focus",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "allClear": "All clear for today",
+    "toggleLeft": "Toggle left panel",
+    "toggleRight": "Toggle right panel",
+    "moreTasks": "+{{count}} more tasks"
   },
   "pomodoro": {
     "title": "POMODORO",

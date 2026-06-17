@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { PanelLeft } from "lucide-react";
 import { useAppStore, ACCENTS } from "./store/useAppStore";
 import { applyDir } from "./i18n";
 import { Ribbon } from "./components/Ribbon";
@@ -15,6 +16,8 @@ export default function App() {
   const screen = useAppStore((s) => s.screen);
   const lang = useAppStore((s) => s.lang);
   const accent = useAppStore((s) => s.accent);
+  const leftCollapsed = useAppStore((s) => s.leftCollapsed);
+  const toggleLeft = useAppStore((s) => s.toggleLeft);
 
   const bootstrap = useAppStore((s) => s.bootstrap);
 
@@ -29,7 +32,8 @@ export default function App() {
     applyDir(lang);
   }, [lang, i18n]);
 
-  const showExplorer = ["planner", "editor", "graph"].includes(screen);
+  const explorerEligible = ["planner", "editor", "graph"].includes(screen);
+  const showExplorer = explorerEligible && !leftCollapsed;
 
   // Vurgu rengini kök seviyede override et (varsayılan dışı seçilirse).
   const accentVars =
@@ -41,6 +45,11 @@ export default function App() {
     <div className="lo-app" data-theme={theme} style={accentVars}>
       <Ribbon />
       {showExplorer && <Explorer />}
+      {explorerEligible && leftCollapsed && (
+        <button className="lo-reopen-left" onClick={toggleLeft} title="Gezgini aç">
+          <PanelLeft size={16} strokeWidth={1.9} />
+        </button>
+      )}
       <div className="lo-main">
         {screen === "planner" && <PlannerScreen />}
         {screen === "editor" && <EditorScreen />}

@@ -64,6 +64,11 @@ interface AppState {
   quickText: string;
   selectedDay: number;
 
+  // Panel görünürlüğü + odak genişletme
+  leftCollapsed: boolean;
+  rightCollapsed: boolean;
+  focusExpanded: boolean;
+
   // Vault
   vaultPath: string | null; // null = tarayıcı/sample modu
   notes: VaultNote[];
@@ -101,6 +106,9 @@ interface AppState {
   setAccent: (hex: string) => void;
   toggleEditorSetting: (key: keyof EditorSettings) => void;
   toggleArabic: () => void;
+  toggleLeft: () => void;
+  toggleRight: () => void;
+  setFocusExpanded: (v: boolean) => void;
   setQuick: (v: string) => void;
   selectDay: (n: number) => void;
   togglePomo: () => void;
@@ -150,6 +158,10 @@ export const useAppStore = create<AppState>()(
     editorSettings: { livePreview: true, lineNumbers: false, spellCheck: true },
     quickText: "",
     selectedDay: Number(todayISO().slice(8, 10)),
+
+    leftCollapsed: false,
+    rightCollapsed: false,
+    focusExpanded: false,
 
     vaultPath: null,
     notes: [],
@@ -214,6 +226,9 @@ export const useAppStore = create<AppState>()(
     toggleEditorSetting: (key) =>
       set((s) => ({ editorSettings: { ...s.editorSettings, [key]: !s.editorSettings[key] } })),
     toggleArabic: () => set((s) => ({ lang: s.lang === "ar" ? "tr" : "ar" })),
+    toggleLeft: () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
+    toggleRight: () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
+    setFocusExpanded: (focusExpanded) => set({ focusExpanded }),
     setQuick: (quickText) => set({ quickText }),
     selectDay: (selectedDay) => set({ selectedDay }),
 
@@ -307,6 +322,8 @@ export const useAppStore = create<AppState>()(
         lang: s.lang,
         accent: s.accent,
         editorSettings: s.editorSettings,
+        leftCollapsed: s.leftCollapsed,
+        rightCollapsed: s.rightCollapsed,
       }),
     }
   )
