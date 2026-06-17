@@ -18,7 +18,7 @@ import { groupTasks, focusCounts } from "../core/vault/grouping";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
-export type Screen = "planner" | "editor" | "graph" | "settings";
+export type Screen = "planner" | "editor" | "graph" | "reports" | "settings";
 export type PlannerLayout = "timeline" | "board";
 export type Lang = "tr" | "en" | "ar";
 export type EditorTab = "daily" | "proje" | "fikirler";
@@ -91,6 +91,7 @@ interface AppState {
   pomoRunning: boolean;
   pomoPhase: PomoPhase;
   pomoCompleted: number; // mevcut turda tamamlanan odak seansı (0..rounds)
+  pomoHistory: Record<string, number>; // ISO tarih → tamamlanan odak seansı (rapor için, kalıcı)
 
   // UI aksiyonları
   toggleTheme: () => void;
@@ -119,6 +120,7 @@ interface AppState {
   togglePomo: () => void;
   resetPomo: () => void;
   tickPomo: () => void;
+  setPomo: (patch: Partial<PomodoroSettings>) => void;
 
   // Vault aksiyonları (dosyaya yazar)
   bootstrap: () => Promise<void>;
@@ -187,6 +189,7 @@ export const useAppStore = create<AppState>()(
     pomoRunning: false,
     pomoPhase: "work",
     pomoCompleted: 0,
+    pomoHistory: {},
 
     toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
     setTheme: (theme) => set({ theme }),
@@ -260,13 +263,23 @@ export const useAppStore = create<AppState>()(
       if (s.pomoPhase === "work") {
         const completed = s.pomoCompleted + 1;
         const next: PomoPhase = completed % s.pomo.rounds === 0 ? "long" : "short";
-        set({ pomoPhase: next, pomoCompleted: completed, pomoRemaining: dur(next), pomoRunning: false });
+        // Tamamlanan odak seansını rapor geçmişine işle (bugünün ISO tarihi).
+        const day = todayISO();
+        const pomoHistory = { ...s.pomoHistory, [day]: (s.pomoHistory[day] ?? 0) + 1 };
+        set({ pomoPhase: next, pomoCompleted: completed, pomoRemaining: dur(next), pomoRunning: false, pomoHistory });
       } else {
         // Mola bitti → odağa dön. Uzun moladan sonra tur sayacını sıfırla.
         const completed = s.pomoPhase === "long" ? 0 : s.pomoCompleted;
         set({ pomoPhase: "work", pomoCompleted: completed, pomoRemaining: dur("work"), pomoRunning: false });
       }
     },
+    setPomo: (patch) =>
+      set((s) => {
+        const pomo = { ...s.pomo, ...patch };
+        // Çalışmıyorken odak süresi değişirse kalan süreyi senkronla.
+        const sync = !s.pomoRunning && s.pomoPhase === "work" && patch.focusMin != null;
+        return { pomo, ...(sync ? { pomoRemaining: pomo.focusMin * 60 } : {}) };
+      }),
 
     // İlk yükleme: önce sample, sonra (Tauri'de) kayıtlı kasa varsa onu yükle.
     bootstrap: async () => {
@@ -339,6 +352,8 @@ export const useAppStore = create<AppState>()(
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
         backlinksCollapsed: s.backlinksCollapsed,
+        pomo: s.pomo,
+        pomoHistory: s.pomoHistory,
       }),
     }
   )

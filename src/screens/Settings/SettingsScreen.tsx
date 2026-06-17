@@ -29,6 +29,7 @@ export function SettingsScreen() {
   const editorSettings = useAppStore((s) => s.editorSettings);
   const toggleEditorSetting = useAppStore((s) => s.toggleEditorSetting);
   const pomo = useAppStore((s) => s.pomo);
+  const setPomo = useAppStore((s) => s.setPomo);
   const vaultPath = useAppStore((s) => s.vaultPath);
   const openVault = useAppStore((s) => s.openVault);
 
@@ -38,11 +39,11 @@ export function SettingsScreen() {
     { key: "spellCheck", label: t("settings.spellCheck") },
   ];
 
-  const pomoStats = [
-    { val: pomo.focusMin, label: t("settings.focusMin"), accent: true },
-    { val: pomo.shortBreak, label: t("settings.shortBreak") },
-    { val: pomo.longBreak, label: t("settings.longBreak") },
-    { val: pomo.rounds, label: t("settings.rounds") },
+  const pomoFields: { key: keyof typeof pomo; label: string; min: number; max: number; accent?: boolean }[] = [
+    { key: "focusMin", label: t("settings.focusMin"), min: 1, max: 90, accent: true },
+    { key: "shortBreak", label: t("settings.shortBreak"), min: 1, max: 30 },
+    { key: "longBreak", label: t("settings.longBreak"), min: 1, max: 60 },
+    { key: "rounds", label: t("settings.rounds"), min: 1, max: 12 },
   ];
 
   return (
@@ -126,9 +127,19 @@ export function SettingsScreen() {
         {/* Pomodoro */}
         <div className="lo-set__section">{t("settings.pomodoro")}</div>
         <div className="lo-card lo-set__pomo">
-          {pomoStats.map((p) => (
-            <div className="lo-set__pomocell" key={p.label}>
-              <div className={"lo-set__pomonum" + (p.accent ? " is-accent" : "")}>{p.val}</div>
+          {pomoFields.map((p) => (
+            <div className="lo-set__pomocell" key={p.key}>
+              <input
+                type="number"
+                className={"lo-set__pomoinput" + (p.accent ? " is-accent" : "")}
+                value={pomo[p.key]}
+                min={p.min}
+                max={p.max}
+                onChange={(e) => {
+                  const v = Math.min(p.max, Math.max(p.min, Math.round(Number(e.target.value) || p.min)));
+                  setPomo({ [p.key]: v });
+                }}
+              />
               <div className="lo-set__pomolabel">{p.label}</div>
             </div>
           ))}

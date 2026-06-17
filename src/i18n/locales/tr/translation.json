@@ -2,12 +2,24 @@
   "app": { "name": "Loomen" },
   "ribbon": {
     "planner": "Planlayıcı",
+    "dayNote": "Günün Notu",
     "notes": "Notlar",
     "graph": "Graf",
+    "reports": "Raporlar",
     "mobile": "Mobil",
     "rtl": "عربي / RTL",
     "settings": "Ayarlar",
     "theme": "Tema"
+  },
+  "reports": {
+    "title": "Raporlar",
+    "pomodoro": "Pomodoro",
+    "today": "Bugün",
+    "thisWeek": "Bu Hafta",
+    "total": "Toplam Seans",
+    "focusTime": "Odak Süresi",
+    "last7": "Son 7 Gün",
+    "empty": "Henüz tamamlanmış Pomodoro seansı yok."
   },
   "explorer": {
     "vault": "Kasa",

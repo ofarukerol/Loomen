@@ -9,6 +9,7 @@ import { RightPanel } from "./components/RightPanel";
 import { PlannerScreen } from "./screens/Planner/PlannerScreen";
 import { EditorScreen } from "./screens/Editor/EditorScreen";
 import { GraphScreen } from "./screens/Graph/GraphScreen";
+import { ReportsScreen } from "./screens/Reports/ReportsScreen";
 import { SettingsScreen } from "./screens/Settings/SettingsScreen";
 
 export default function App() {
@@ -33,7 +34,7 @@ export default function App() {
     applyDir(lang);
   }, [lang, i18n]);
 
-  const explorerEligible = ["planner", "editor", "graph"].includes(screen);
+  const explorerEligible = ["planner", "editor", "graph", "reports"].includes(screen);
   const showExplorer = explorerEligible && !leftCollapsed;
 
   // Vurgu rengini kök seviyede override et (varsayılan dışı seçilirse).
@@ -55,6 +56,7 @@ export default function App() {
         {screen === "planner" && <PlannerScreen />}
         {screen === "editor" && <EditorScreen />}
         {screen === "graph" && <GraphScreen />}
+        {screen === "reports" && <ReportsScreen />}
         {screen === "settings" && <SettingsScreen />}
       </div>
       {/* Sağ blok global — her ekranda kalıcı */}

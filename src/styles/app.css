@@ -749,6 +749,59 @@ button { font-family: inherit; }
 .lo-set__pomonum { font-family: var(--font-mono); font-size: 22px; font-weight: 600; color: var(--fg1); }
 .lo-set__pomonum.is-accent { color: var(--accent); }
 .lo-set__pomolabel { font-size: 11.5px; color: var(--fg3); margin-top: 3px; }
+.lo-set__pomoinput {
+  width: 64px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--fg1);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 5px 4px;
+  outline: none;
+  transition: border-color 0.12s;
+}
+.lo-set__pomoinput:focus { border-color: var(--accent); }
+.lo-set__pomoinput.is-accent { color: var(--accent); }
+
+/* ============================================================
+   Raporlar
+   ============================================================ */
+.lo-reports { flex: 1; overflow-y: auto; }
+.lo-reports__inner { max-width: 680px; margin: 0 auto; padding: 40px 40px 60px; }
+.lo-reports__section {
+  margin: 0 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg3);
+}
+.lo-reports__stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+.lo-rstat { padding: 16px 14px; text-align: center; }
+.lo-rstat__icon {
+  display: inline-flex;
+  width: 30px; height: 30px;
+  align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-sunken);
+  color: var(--fg3);
+  margin-bottom: 10px;
+}
+.lo-rstat__icon.is-accent { background: var(--accent-soft); color: var(--accent); }
+.lo-rstat__val { font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: var(--fg1); line-height: 1.1; }
+.lo-rstat__label { font-size: 11.5px; color: var(--fg3); margin-top: 4px; }
+.lo-rchart { padding: 20px 22px 16px; }
+.lo-rchart__head { font-size: 13px; font-weight: 600; color: var(--fg2); margin-bottom: 18px; }
+.lo-rchart__empty { font-size: 13px; color: var(--fg3); padding: 24px 0; text-align: center; }
+.lo-rchart__bars { display: flex; align-items: flex-end; gap: 10px; height: 160px; }
+.lo-rbar { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
+.lo-rbar__count { font-family: var(--font-mono); font-size: 11px; color: var(--fg3); height: 16px; }
+.lo-rbar__track { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.lo-rbar__fill { width: 100%; min-height: 3px; background: var(--accent); border-radius: 6px 6px 3px 3px; transition: height 0.25s; }
+.lo-rbar__label { font-size: 11px; color: var(--fg3); margin-top: 8px; text-transform: capitalize; }
 .lo-set__change {
   border: 1px solid var(--line);
   background: var(--bg-sunken);

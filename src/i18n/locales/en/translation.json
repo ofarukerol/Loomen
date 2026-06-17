@@ -1,12 +1,24 @@
 {
   "ribbon": {
     "planner": "Planner",
+    "dayNote": "Today's Note",
     "notes": "Notes",
     "graph": "Graph",
+    "reports": "Reports",
     "mobile": "Mobile",
     "rtl": "عربي / RTL",
     "settings": "Settings",
     "theme": "Theme"
+  },
+  "reports": {
+    "title": "Reports",
+    "pomodoro": "Pomodoro",
+    "today": "Today",
+    "thisWeek": "This Week",
+    "total": "Total Sessions",
+    "focusTime": "Focus Time",
+    "last7": "Last 7 Days",
+    "empty": "No completed Pomodoro sessions yet."
   },
   "explorer": {
     "vault": "Vault",
