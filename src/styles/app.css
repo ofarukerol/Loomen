@@ -899,10 +899,22 @@ button { font-family: inherit; }
 }
 .lo-pomoc__reset:hover { background: var(--line-soft); color: var(--fg1); }
 
+/* kompakt sayaç kartları (sağ blok) */
+.lo-stats--compact { padding: 0; gap: 6px; margin-bottom: 8px; }
+.lo-stat--sm { padding: 8px 10px; border-radius: 10px; }
+.lo-stat--sm .lo-stat__num { font-size: 19px; }
+.lo-stat--sm .lo-stat__label { font-size: 10px; margin-top: 2px; }
+
+/* kompakt görev ekleme (sağ blok) */
+.lo-quickwrap--compact { padding: 0; margin-bottom: 4px; }
+.lo-quick--compact { padding: 8px 10px; border-radius: 10px; gap: 8px; }
+.lo-quick--compact input { font-size: 12.5px; }
+.lo-quick--compact .lo-quick__btn { width: 26px; height: 26px; border-radius: 7px; }
+
 /* mini ajanda (takvim altı, kompakt) */
 .lo-mini { padding: 12px 12px 10px; }
-.lo-mini__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.lo-mini__title { font-size: 11.5px; font-weight: 600; color: var(--fg3); letter-spacing: 0.04em; text-transform: uppercase; }
+.lo-mini__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.lo-mini__title { font-size: 13.5px; font-weight: 700; color: var(--fg1); letter-spacing: -0.01em; }
 .lo-mini__list { display: flex; flex-direction: column; }
 .lo-mini__date { font-size: 11px; font-weight: 600; margin: 9px 0 3px; }
 .lo-mini__date:first-child { margin-top: 2px; }

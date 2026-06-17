@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Maximize2, Circle } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import type { GroupKind } from "../../data/sampleVault";
+import { StatCards } from "./StatCards";
+import { QuickAdd } from "./QuickAdd";
 
 const MAX = 6;
 
@@ -52,7 +54,7 @@ export function MiniAgenda() {
   return (
     <div className="lo-card lo-mini">
       <div className="lo-mini__head">
-        <span className="lo-mini__title">{t("planner.focusList")}</span>
+        <span className="lo-mini__title">{t("planner.focusToday")}</span>
         <button
           className="lo-focus__expand"
           onClick={() => setFocusExpanded(true)}
@@ -61,6 +63,10 @@ export function MiniAgenda() {
           <Maximize2 size={13} strokeWidth={2} />
         </button>
       </div>
+
+      <StatCards compact />
+      <QuickAdd compact />
+
       {rows.length > 0 ? (
         <div className="lo-mini__list">{rows}</div>
       ) : (

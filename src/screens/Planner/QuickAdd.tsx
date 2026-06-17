@@ -2,15 +2,15 @@ import { useTranslation } from "react-i18next";
 import { Inbox, CornerDownLeft } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 
-export function QuickAdd() {
+export function QuickAdd({ compact }: { compact?: boolean }) {
   const { t } = useTranslation();
   const quickText = useAppStore((s) => s.quickText);
   const setQuick = useAppStore((s) => s.setQuick);
   const addTask = useAppStore((s) => s.addTask);
 
   return (
-    <div className="lo-quickwrap">
-      <div className="lo-quick">
+    <div className={"lo-quickwrap" + (compact ? " lo-quickwrap--compact" : "")}>
+      <div className={"lo-quick" + (compact ? " lo-quick--compact" : "")}>
         <Inbox size={19} strokeWidth={1.8} color="var(--accent)" />
         <input
           value={quickText}
