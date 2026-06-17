@@ -1,22 +1,27 @@
 import type { VaultBackend, VaultNote } from "./types";
 
 // Tarayıcı/fallback için in-memory kasa. Tauri yokken (veya kasa seçilmeden) UI bununla çalışır.
-// İçerik demo-vault ile aynı; tarihler 2026-06 civarı (bugün ≈ 2026-06-17).
+// Görevler ayrı "Yapılacaklar.md" dosyasında; günlük notlar (Daily) sadece günlük/journal — görev içermez.
 const SEED: Record<string, string> = {
+  "Yapılacaklar.md": `# Yapılacaklar
+
+- [ ] Su faturası · 280,00 ₺ 📅 2026-06-12 #Ödemeler
+- [ ] Kredi kartı ekstresi · 2.450,00 ₺ 📅 2026-06-16 #Ödemeler
+- [x] Elektrik faturası öde · 640,00 ₺ 📅 2026-06-16 ✅ 2026-06-16 #Ödemeler
+- [ ] Tasarımı bitir 📅 2026-06-17 #Yapılacaklar 🍅×3
+- [ ] Toplantı notlarını yaz 📅 2026-06-17 #İş 🍅×1
+- [ ] Spor salonu üyeliğini yenile 📅 2026-06-17 #Kişisel
+- [ ] Ders notlarını gözden geçir 📅 2026-06-18 #Okul
+`,
   "Inbox.md": `# Inbox
 
 - [ ] Bir ara kitap öner #Kişisel
-- [ ] Ders notlarını gözden geçir 📅 2026-06-18 #Okul
 `,
   "Daily/2026-06-17-Çarşamba.md": `# 2026-06-17-Çarşamba
 
 ---
 
 ## 🎯 Yapılacaklar
-
-- [ ] Tasarımı bitir 📅 2026-06-17 #Yapılacaklar 🍅×3
-- [ ] Toplantı notlarını yaz 📅 2026-06-17 #İş 🍅×1
-- [ ] Spor salonu üyeliğini yenile 📅 2026-06-17 #Kişisel
 
 ## 💭 Ephemeral Notlar (Gün İçi Notlar)
 
@@ -36,12 +41,19 @@ Bugün [[Proje X]] tasarımını bitirmek öncelikli.
 
 #günlük 📅 Tarih: 2026-06-17 ⭐ Gün: Çarşamba 📈 Hafta: 25
 `,
-  "Daily/2026-06-16-Salı.md": `# 2026-06-16 · Salı
+  "Daily/2026-06-16-Salı.md": `# 2026-06-16-Salı
 
-## Görevler
-- [ ] Kredi kartı ekstresi · 2.450,00 ₺ 📅 2026-06-16 #Ödemeler
-- [x] Elektrik faturası öde · 640,00 ₺ 📅 2026-06-16 ✅ 2026-06-16 #Ödemeler
-- [ ] Su faturası · 280,00 ₺ 📅 2026-06-12 #Ödemeler
+---
+
+## 💭 Ephemeral Notlar (Gün İçi Notlar)
+
+Yoğun bir gündü.
+
+## 📝 Günün Özeti
+
+---
+
+#günlük 📅 Tarih: 2026-06-16 ⭐ Gün: Salı 📈 Hafta: 25
 `,
   "Notlar/Proje X.md": `# Proje X
 

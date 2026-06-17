@@ -110,7 +110,7 @@ interface AppState {
   toggleLeft: () => void;
   toggleRight: () => void;
   setFocusExpanded: (v: boolean) => void;
-  expandToday: () => Promise<void>;
+  createTodayNote: () => Promise<void>;
   todayNotePath: () => string;
   setQuick: (v: string) => void;
   selectDay: (n: number) => void;
@@ -128,6 +128,7 @@ interface AppState {
 
 const FOCUS_MIN = 25;
 const VAULT_KEY = "loomen.vaultPath";
+const TASKS_FILE = "Yapılacaklar.md"; // görevler günlük nottan ayrı, kendi sayfasında
 
 // Modül seviyesi: serileştirilemeyen backend + watcher (store dışında tutulur).
 let backend: VaultBackend = createSampleBackend();
@@ -233,10 +234,9 @@ export const useAppStore = create<AppState>()(
     toggleRight: () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
     setFocusExpanded: (focusExpanded) => set({ focusExpanded }),
     todayNotePath: () => todayDailyPath(),
-    expandToday: async () => {
+    createTodayNote: async () => {
       await ensureDailyNote(backend, todayDailyPath());
       await loadFromBackend();
-      set({ focusExpanded: true });
     },
     setQuick: (quickText) => set({ quickText }),
     selectDay: (selectedDay) => set({ selectedDay }),
@@ -305,11 +305,11 @@ export const useAppStore = create<AppState>()(
     addTask: async () => {
       const text = get().quickText.trim();
       if (!text) return;
-      const target = todayDailyPath();
-      await ensureDailyNote(backend, target);
-      const content = await backend.readNote(target);
+      // Görevler günlük nottan ayrı: ayrı "Yapılacaklar.md" dosyasına eklenir.
+      if (!(await backend.exists(TASKS_FILE))) await backend.writeNote(TASKS_FILE, "# Yapılacaklar\n");
+      const content = await backend.readNote(TASKS_FILE);
       const next = insertTaskUnderHeading(content, TODO_HEADING, buildTaskLine(text, todayISO()));
-      await backend.writeNote(target, next);
+      await backend.writeNote(TASKS_FILE, next);
       set({ quickText: "" });
       await loadFromBackend();
     },

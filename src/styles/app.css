@@ -899,6 +899,40 @@ button { font-family: inherit; }
 }
 .lo-pomoc__reset:hover { background: var(--line-soft); color: var(--fg1); }
 
+/* mini ajanda (takvim altı, kompakt) */
+.lo-mini { padding: 12px 12px 10px; }
+.lo-mini__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.lo-mini__title { font-size: 11.5px; font-weight: 600; color: var(--fg3); letter-spacing: 0.04em; text-transform: uppercase; }
+.lo-mini__list { display: flex; flex-direction: column; }
+.lo-mini__date { font-size: 11px; font-weight: 600; margin: 9px 0 3px; }
+.lo-mini__date:first-child { margin-top: 2px; }
+.lo-mini__date--overdue { color: var(--danger); }
+.lo-mini__date--today { color: var(--accent); }
+.lo-mini__date--upcoming { color: var(--fg3); }
+.lo-mini__row { display: flex; align-items: center; gap: 7px; padding: 3px 2px; border-radius: 6px; }
+.lo-mini__row:hover { background: var(--line-soft); }
+.lo-mini__check {
+  width: 16px; height: 16px; border: none; background: transparent; color: var(--fg3);
+  cursor: pointer; padding: 0; flex-shrink: 0; display: flex; align-items: center;
+}
+.lo-mini__check:hover { color: var(--accent); }
+.lo-mini__text { flex: 1; min-width: 0; font-size: 12px; color: var(--fg1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-mini__rel { font-size: 10.5px; color: var(--fg3); flex-shrink: 0; }
+.lo-mini__rel.is-overdue { color: var(--danger); }
+
+/* günün planı (orta gövde varsayılan, journal) */
+.lo-dayplan__head { display: flex; align-items: center; gap: 10px; padding: 22px 36px 14px; }
+.lo-dayplan__title { margin: 0; font-size: 22px; font-weight: 700; color: var(--fg1); letter-spacing: -0.01em; }
+.lo-dayplan__body { flex: 1; overflow-y: auto; padding: 0 36px 40px; }
+.lo-dayplan__note { max-width: 740px; }
+.lo-dayplan__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; color: var(--fg3); padding-top: 16px; }
+.lo-dayplan__create {
+  display: flex; align-items: center; gap: 8px; border: 1px solid var(--line);
+  background: var(--bg-elev); color: var(--fg1); font-family: inherit; font-size: 13px;
+  font-weight: 500; padding: 9px 16px; border-radius: 10px; cursor: pointer;
+}
+.lo-dayplan__create:hover { background: var(--line-soft); border-color: var(--accent); color: var(--accent); }
+
 /* genişletilmiş odak (orta gövde) */
 .lo-focusx { flex: 1; overflow-y: auto; padding: 26px 36px 40px; }
 .lo-focusx__head { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
