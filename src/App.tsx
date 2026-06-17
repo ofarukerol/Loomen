@@ -16,6 +16,13 @@ export default function App() {
   const lang = useAppStore((s) => s.lang);
   const accent = useAppStore((s) => s.accent);
 
+  const bootstrap = useAppStore((s) => s.bootstrap);
+
+  // İlk açılışta kasayı yükle (sample veya kayıtlı Tauri kasası).
+  useEffect(() => {
+    void bootstrap();
+  }, [bootstrap]);
+
   // Dil değişince i18next + <html dir> güncelle (RTL).
   useEffect(() => {
     i18n.changeLanguage(lang);

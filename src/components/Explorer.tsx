@@ -1,21 +1,14 @@
 import { useTranslation } from "react-i18next";
-import { Search, ChevronRight, Folder, FileText, Clock } from "lucide-react";
+import { Search, ChevronRight, Folder, FileText, Clock, FolderOpen } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
+import type { VaultNote } from "../core/vault/types";
 
-interface FileItemProps {
-  name: string;
-  active?: boolean;
-}
-
-function FileItem({ name, active }: FileItemProps) {
+function FileItem({ note }: { note: VaultNote }) {
   const openNote = useAppStore((s) => s.openNote);
   return (
-    <button
-      className={"lo-tree__file" + (active ? " is-active" : "")}
-      onClick={() => openNote(name)}
-    >
-      <FileText size={14} strokeWidth={1.7} color={active ? "currentColor" : "var(--fg3)"} />
-      {name}
+    <button className="lo-tree__file" onClick={() => openNote(note.name)}>
+      <FileText size={14} strokeWidth={1.7} color="var(--fg3)" />
+      {note.name}
     </button>
   );
 }
@@ -32,13 +25,34 @@ function GroupHeader({ label }: { label: string }) {
 
 export function Explorer() {
   const { t } = useTranslation();
+  const notes = useAppStore((s) => s.notes);
+  const vaultPath = useAppStore((s) => s.vaultPath);
+  const openVault = useAppStore((s) => s.openVault);
+
+  // Klasöre göre grupla
+  const byFolder = new Map<string, VaultNote[]>();
+  for (const n of notes) {
+    if (!byFolder.has(n.folder)) byFolder.set(n.folder, []);
+    byFolder.get(n.folder)!.push(n);
+  }
+  const rootFiles = (byFolder.get("") ?? []).sort((a, b) => a.name.localeCompare(b.name, "tr"));
+  const folders = [...byFolder.keys()].filter((f) => f !== "").sort((a, b) => a.localeCompare(b, "tr"));
+
+  const pathLabel = vaultPath ? "~/" + vaultPath.split("/").filter(Boolean).pop() : "~/Loomen (örnek)";
 
   return (
     <div className="lo-explorer">
       <div className="lo-explorer__head">
         <span className="lo-explorer__title">{t("explorer.vault")}</span>
-        <span className="lo-explorer__path">~/Loomen</span>
+        <button
+          className="lo-explorer__open"
+          title="Kasa klasörü aç"
+          onClick={() => void openVault()}
+        >
+          <FolderOpen size={14} strokeWidth={1.8} />
+        </button>
       </div>
+      <div className="lo-explorer__pathline">{pathLabel}</div>
 
       <div className="lo-explorer__searchwrap">
         <div className="lo-search">
@@ -49,18 +63,20 @@ export function Explorer() {
       </div>
 
       <div className="lo-tree lo-scroll">
-        <GroupHeader label={t("explorer.notes")} />
-        <FileItem name="Proje X" />
-        <FileItem name="Fikirler" />
-        <FileItem name="Toplantı Notları" />
-
-        <GroupHeader label={t("explorer.daily")} />
-        <FileItem name="2026-06-13-Cumartesi" active />
-        <FileItem name="2026-06-12-Cuma" />
-
-        <GroupHeader label={t("explorer.projects")} />
-        <FileItem name="Loomen" />
-        <FileItem name="Vize Başvurusu" />
+        {rootFiles.map((n) => (
+          <FileItem note={n} key={n.path} />
+        ))}
+        {folders.map((folder) => (
+          <div key={folder}>
+            <GroupHeader label={folder} />
+            {byFolder
+              .get(folder)!
+              .sort((a, b) => a.name.localeCompare(b.name, "tr"))
+              .map((n) => (
+                <FileItem note={n} key={n.path} />
+              ))}
+          </div>
+        ))}
       </div>
 
       <div className="lo-explorer__foot">

@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { List, Columns3 } from "lucide-react";
+import { format } from "date-fns";
+import { tr, ar, enUS } from "date-fns/locale";
 import { useAppStore } from "../../store/useAppStore";
 import { StatCards } from "./StatCards";
 import { QuickAdd } from "./QuickAdd";
@@ -8,10 +10,14 @@ import { Board } from "./Board";
 import { CalendarCard } from "./CalendarCard";
 import { PomodoroCard } from "./PomodoroCard";
 
+const LOCALES = { tr, ar, en: enUS } as const;
+
 export function PlannerScreen() {
   const { t } = useTranslation();
   const layout = useAppStore((s) => s.layout);
   const setLayout = useAppStore((s) => s.setLayout);
+  const lang = useAppStore((s) => s.lang);
+  const todayLabel = format(new Date(), "EEEE, d MMMM", { locale: LOCALES[lang] });
 
   return (
     <div className="lo-planner">
@@ -21,7 +27,7 @@ export function PlannerScreen() {
             <div className="lo-year">2026</div>
             <div className="lo-planner__titlerow">
               <h1 className="lo-planner__title">{t("planner.focusToday")}</h1>
-              <span className="lo-planner__date">{t("planner.today")}</span>
+              <span className="lo-planner__date">{todayLabel}</span>
             </div>
           </div>
 

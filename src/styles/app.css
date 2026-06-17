@@ -85,7 +85,28 @@ button { font-family: inherit; }
   justify-content: space-between;
 }
 .lo-explorer__title { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; color: var(--fg1); }
-.lo-explorer__path { font-size: 11px; color: var(--fg3); font-family: var(--font-mono); }
+.lo-explorer__open {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  color: var(--fg2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lo-explorer__open:hover { background: var(--line-soft); color: var(--accent); }
+.lo-explorer__pathline {
+  padding: 0 16px 10px;
+  font-size: 11px;
+  color: var(--fg3);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .lo-explorer__searchwrap { padding: 0 12px 10px; }
 .lo-search {
   display: flex;
