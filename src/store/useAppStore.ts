@@ -5,6 +5,14 @@ export type Theme = "light" | "dark";
 export type Screen = "planner" | "editor" | "graph" | "settings" | "mobile" | "rtl";
 export type PlannerLayout = "timeline" | "board";
 export type Lang = "tr" | "en" | "ar";
+export type EditorTab = "daily" | "proje" | "fikirler";
+
+/** Kaynak not adını editör sekmesine eşler (görev/gezgin/wiki-link açılışı için). */
+export function noteToTab(source: string): EditorTab {
+  if (source === "Proje X") return "proje";
+  if (source === "Fikirler") return "fikirler";
+  return "daily";
+}
 
 export interface PomodoroSettings {
   focusMin: number;
@@ -18,6 +26,7 @@ interface AppState {
   screen: Screen;
   layout: PlannerLayout;
   lang: Lang;
+  editorTab: EditorTab;
   quickText: string;
   selectedDay: number;
 
@@ -34,6 +43,8 @@ interface AppState {
   setScreen: (s: Screen) => void;
   setLayout: (l: PlannerLayout) => void;
   setLang: (l: Lang) => void;
+  setEditorTab: (t: EditorTab) => void;
+  openNote: (source: string) => void;
   setQuick: (v: string) => void;
   addTask: () => void;
   toggleTask: (id: string) => void;
@@ -50,6 +61,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   screen: "planner",
   layout: "timeline",
   lang: "tr",
+  editorTab: "daily",
   quickText: "",
   selectedDay: 13,
 
@@ -69,6 +81,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Arapça seçilince RTL ekranına geç, çıkınca planlayıcıya dön
       screen: lang === "ar" ? "rtl" : s.screen === "rtl" ? "planner" : s.screen,
     })),
+  setEditorTab: (editorTab) => set({ editorTab }),
+  openNote: (source) => set({ screen: "editor", editorTab: noteToTab(source) }),
   setQuick: (quickText) => set({ quickText }),
 
   addTask: () =>

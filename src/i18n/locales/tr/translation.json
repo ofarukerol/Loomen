@@ -43,5 +43,9 @@
     "pause": "Duraklat",
     "focusOn": "Odak:",
     "currentTask": "Tasarımı bitir"
+  },
+  "editor": {
+    "backlinks": "Bağlantılar",
+    "backlinksSub": "Bu nota bağlananlar"
   }
 }

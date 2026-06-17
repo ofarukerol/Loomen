@@ -4,7 +4,7 @@ import type { Task } from "../../data/sampleVault";
 
 export function TaskRow({ task }: { task: Task }) {
   const toggleTask = useAppStore((s) => s.toggleTask);
-  const setScreen = useAppStore((s) => s.setScreen);
+  const openNote = useAppStore((s) => s.openNote);
 
   const open = !task.done;
   const overdueOpen = task.overdue && open;
@@ -33,7 +33,7 @@ export function TaskRow({ task }: { task: Task }) {
         </div>
 
         <div className="lo-task__meta">
-          <button className="lo-chip lo-chip--source" onClick={() => setScreen("editor")}>
+          <button className="lo-chip lo-chip--source" onClick={() => openNote(task.source)}>
             <FileText size={11} strokeWidth={1.9} />
             {task.source}
           </button>

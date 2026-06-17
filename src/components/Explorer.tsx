@@ -8,11 +8,11 @@ interface FileItemProps {
 }
 
 function FileItem({ name, active }: FileItemProps) {
-  const setScreen = useAppStore((s) => s.setScreen);
+  const openNote = useAppStore((s) => s.openNote);
   return (
     <button
       className={"lo-tree__file" + (active ? " is-active" : "")}
-      onClick={() => setScreen("editor")}
+      onClick={() => openNote(name)}
     >
       <FileText size={14} strokeWidth={1.7} color={active ? "currentColor" : "var(--fg3)"} />
       {name}

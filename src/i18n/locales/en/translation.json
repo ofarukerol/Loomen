@@ -31,5 +31,9 @@
     "start": "Start",
     "pause": "Pause",
     "focusOn": "Focus:"
+  },
+  "editor": {
+    "backlinks": "Links",
+    "backlinksSub": "Notes that link here"
   }
 }

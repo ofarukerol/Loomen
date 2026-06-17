@@ -5,6 +5,7 @@ import { applyDir } from "./i18n";
 import { Ribbon } from "./components/Ribbon";
 import { Explorer } from "./components/Explorer";
 import { PlannerScreen } from "./screens/Planner/PlannerScreen";
+import { EditorScreen } from "./screens/Editor/EditorScreen";
 
 /** Henüz tam yapılmamış ekranlar için geçici yer tutucu. */
 function Placeholder({ title }: { title: string }) {
@@ -36,7 +37,7 @@ export default function App() {
       {showExplorer && <Explorer />}
       <div className="lo-main">
         {screen === "planner" && <PlannerScreen />}
-        {screen === "editor" && <Placeholder title={t("ribbon.notes")} />}
+        {screen === "editor" && <EditorScreen />}
         {screen === "graph" && <Placeholder title={t("ribbon.graph")} />}
         {screen === "settings" && <Placeholder title={t("ribbon.settings")} />}
         {screen === "mobile" && <Placeholder title={t("ribbon.mobile")} />}
