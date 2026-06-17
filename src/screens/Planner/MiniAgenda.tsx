@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Maximize2, Circle } from "lucide-react";
+import { Maximize2, Minimize2, Circle } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import type { GroupKind } from "../../data/sampleVault";
 import { StatCards } from "./StatCards";
@@ -20,6 +20,7 @@ export function MiniAgenda() {
   const groups = useAppStore((s) => s.groups);
   const toggleTask = useAppStore((s) => s.toggleTask);
   const setFocusExpanded = useAppStore((s) => s.setFocusExpanded);
+  const focusExpanded = useAppStore((s) => s.focusExpanded);
 
   const rows: ReactNode[] = [];
   let count = 0;
@@ -56,11 +57,11 @@ export function MiniAgenda() {
       <div className="lo-mini__head">
         <span className="lo-mini__title">{t("planner.focusToday")}</span>
         <button
-          className="lo-focus__expand"
-          onClick={() => setFocusExpanded(true)}
-          title={t("planner.expand")}
+          className={"lo-focus__expand" + (focusExpanded ? " is-active" : "")}
+          onClick={() => setFocusExpanded(!focusExpanded)}
+          title={focusExpanded ? t("planner.collapse") : t("planner.expand")}
         >
-          <Maximize2 size={13} strokeWidth={2} />
+          {focusExpanded ? <Minimize2 size={13} strokeWidth={2} /> : <Maximize2 size={13} strokeWidth={2} />}
         </button>
       </div>
 

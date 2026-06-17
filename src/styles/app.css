@@ -855,6 +855,7 @@ button { font-family: inherit; }
   justify-content: center;
 }
 .lo-focus__expand:hover { background: var(--line-soft); color: var(--accent); }
+.lo-focus__expand.is-active { color: var(--accent); background: var(--accent-soft); }
 .lo-focus__list { display: flex; flex-direction: column; gap: 1px; }
 .lo-focus__row { display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-radius: 6px; }
 .lo-focus__row:hover { background: var(--line-soft); }
