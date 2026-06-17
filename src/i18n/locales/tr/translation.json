@@ -39,6 +39,7 @@
   "pomodoro": {
     "title": "POMODORO",
     "focus": "odak",
+    "break": "mola",
     "start": "Başlat",
     "pause": "Duraklat",
     "focusOn": "Odak:",
@@ -46,7 +47,13 @@
   },
   "editor": {
     "backlinks": "Bağlantılar",
-    "backlinksSub": "Bu nota bağlananlar"
+    "backlinksSub": "Bu nota bağlananlar",
+    "noBacklinks": "Bu nota bağlanan not yok.",
+    "edit": "Düzenle",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "preview": "Önizleme",
+    "empty": "Soldaki gezginden bir not aç."
   },
   "graph": {
     "title": "Graf görünümü",

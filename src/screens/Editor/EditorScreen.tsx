@@ -1,139 +1,94 @@
-import { FileText, Check } from "lucide-react";
-import { useAppStore, type EditorTab } from "../../store/useAppStore";
-import { WikiLink } from "./WikiLink";
+import { useTranslation } from "react-i18next";
+import { FileText, X, Pencil, Save, Eye } from "lucide-react";
+import { useAppStore } from "../../store/useAppStore";
+import { Markdown } from "./Markdown";
 import { BacklinksPanel } from "./BacklinksPanel";
 
-const TABS: { id: EditorTab; name: string }[] = [
-  { id: "daily", name: "2026-06-13-Cumartesi" },
-  { id: "proje", name: "Proje X" },
-  { id: "fikirler", name: "Fikirler" },
-];
-
-function TaskLine({ done, children }: { done?: boolean; children: React.ReactNode }) {
-  return (
-    <label className={done ? "is-done" : ""}>
-      <span className={"lo-checkbox" + (done ? " is-done" : "")}>
-        {done && <Check size={12} strokeWidth={3} color="#fff" />}
-      </span>
-      <span>{children}</span>
-    </label>
-  );
-}
-
-function DailyNote() {
-  return (
-    <div className="lo-prose">
-      <h1>2026-06-13 · Cumartesi</h1>
-      <div className="lo-prose__meta">
-        <span>Günlük not</span>
-        <span>·</span>
-        <span>3 backlink</span>
-        <span>·</span>
-        <span>238 kelime</span>
-      </div>
-      <p>
-        Bugün <strong>tasarımı bitirmek</strong> öncelikli. Akşam <WikiLink to="Proje X" /> için
-        toplantı notlarını derleyeceğim.
-      </p>
-      <h2>Bugünün planı</h2>
-      <div className="lo-tasklist">
-        <TaskLine done>Sabah koşusu</TaskLine>
-        <TaskLine>Tasarımı bitir</TaskLine>
-        <TaskLine>Toplantı notlarını yaz</TaskLine>
-      </div>
-      <blockquote>
-        "Küçük günlük adımlar, büyük haftalık sıçramalardan iyidir." — kendime not
-      </blockquote>
-      <h2>Notlar</h2>
-      <ul>
-        <li>
-          Fatura takibi için <WikiLink to="Fikirler" /> notuna bağlandı.
-        </li>
-        <li>3 hattı tekrar dondurma işlemi pazartesiye kaldı.</li>
-      </ul>
-      <pre>
-        <span style={{ color: "var(--accent)" }}>## Haftalık özet</span>
-        {"\n- toplam odak: "}
-        <span style={{ color: "var(--accent-2)" }}>6 × 25dk</span>
-        {"\n- tamamlanan: 4 / 9 görev"}
-      </pre>
-      <p>
-        İlgili: <WikiLink to="Proje X" /> · <WikiLink to="Fikirler" />
-      </p>
-    </div>
-  );
-}
-
-function ProjeNote() {
-  return (
-    <div className="lo-prose">
-      <h1>Proje X</h1>
-      <div className="lo-prose__meta">
-        <span>Proje</span>
-        <span>·</span>
-        <span>5 backlink</span>
-      </div>
-      <p>
-        Loomen'in çekirdek planlama deneyimi. Hedef: <strong>tamamen yerel</strong>, internet
-        gerektirmeyen bir PKM + planlayıcı.
-      </p>
-      <h2>Kilometre taşları</h2>
-      <ul>
-        <li>Vault gezgini + arama</li>
-        <li>
-          Timeline planlayıcı — <WikiLink to="2026-06-13-Cumartesi" label="2026-06-13-Cumartesi" />
-        </li>
-        <li>Graf görünümü</li>
-      </ul>
-      <blockquote>"Obsidian'ın bilgi ağı + Things gibi cilalı planlama."</blockquote>
-    </div>
-  );
-}
-
-function FikirlerNote() {
-  return (
-    <div className="lo-prose">
-      <h1>Fikirler</h1>
-      <div className="lo-prose__meta">
-        <span>Serbest not</span>
-        <span>·</span>
-        <span>2 backlink</span>
-      </div>
-      <ul>
-        <li>Faturaları otomatik tekrar eden görevlere bağla.</li>
-        <li>Pomodoro bitince günlük nota otomatik özet düş.</li>
-        <li>Graf'ta etikete göre renk kodu.</li>
-      </ul>
-      <p>
-        Bkz: <WikiLink to="Proje X" />
-      </p>
-    </div>
-  );
+function noteName(path: string): string {
+  return (path.split("/").pop() ?? path).replace(/\.md$/i, "");
 }
 
 export function EditorScreen() {
-  const editorTab = useAppStore((s) => s.editorTab);
-  const setEditorTab = useAppStore((s) => s.setEditorTab);
+  const { t } = useTranslation();
+  const contents = useAppStore((s) => s.noteContents);
+  const openTabs = useAppStore((s) => s.openTabs);
+  const activeNote = useAppStore((s) => s.activeNote);
+  const editing = useAppStore((s) => s.editing);
+  const draft = useAppStore((s) => s.draft);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const closeTab = useAppStore((s) => s.closeTab);
+  const setDraft = useAppStore((s) => s.setDraft);
+  const toggleEditing = useAppStore((s) => s.toggleEditing);
+  const saveNote = useAppStore((s) => s.saveNote);
+  const openNote = useAppStore((s) => s.openNote);
+  const toggleTask = useAppStore((s) => s.toggleTask);
+
+  if (!activeNote || openTabs.length === 0) {
+    return (
+      <div className="lo-placeholder">
+        <FileText size={40} strokeWidth={1.4} />
+        <p>{t("editor.empty")}</p>
+      </div>
+    );
+  }
+
+  const content = contents[activeNote] ?? "";
 
   return (
     <div className="lo-editor">
       <div className="lo-tabs">
-        {TABS.map((tb) => (
-          <button
-            className={"lo-tab" + (editorTab === tb.id ? " is-active" : "")}
-            key={tb.id}
-            onClick={() => setEditorTab(tb.id)}
+        {openTabs.map((path) => (
+          <div
+            key={path}
+            className={"lo-tab" + (activeNote === path ? " is-active" : "")}
+            onClick={() => setActiveTab(path)}
           >
             <FileText size={13} strokeWidth={1.7} />
-            {tb.name}
-          </button>
+            {noteName(path)}
+            <span
+              className="lo-tab__close"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeTab(path);
+              }}
+            >
+              <X size={13} strokeWidth={2} />
+            </span>
+          </div>
         ))}
+        <div className="lo-tabs__spacer" />
+        <button className="lo-tab__action" onClick={() => toggleEditing()}>
+          {editing ? <Eye size={14} strokeWidth={1.9} /> : <Pencil size={14} strokeWidth={1.9} />}
+          {editing ? t("editor.preview") : t("editor.edit")}
+        </button>
+        {editing && (
+          <button className="lo-tab__action lo-tab__action--accent" onClick={() => void saveNote()}>
+            <Save size={14} strokeWidth={1.9} />
+            {t("editor.save")}
+          </button>
+        )}
       </div>
+
       <div className="lo-editor__body">
         <div className="lo-editor__scroll lo-scroll">
-          {editorTab === "daily" && <DailyNote />}
-          {editorTab === "proje" && <ProjeNote />}
-          {editorTab === "fikirler" && <FikirlerNote />}
+          {editing ? (
+            <div className="lo-editor__editwrap">
+              <textarea
+                className="lo-editor__textarea"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                spellCheck={false}
+              />
+            </div>
+          ) : (
+            <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 40px" }}>
+              <Markdown
+                content={content}
+                onLink={(name) => openNote(name)}
+                onToggleTask={(line) => void toggleTask(`${activeNote}:${line}`)}
+              />
+            </div>
+          )}
         </div>
         <BacklinksPanel />
       </div>

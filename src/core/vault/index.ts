@@ -19,12 +19,14 @@ export async function pickVaultFolder(): Promise<string | null> {
   return typeof sel === "string" ? sel : null;
 }
 
-/** Backend'den tüm notları + görevleri yükle. */
+/** Backend'den tüm notları + görevleri + içerikleri yükle. */
 export async function loadVaultData(backend: VaultBackend): Promise<VaultData> {
   const notes = await backend.listNotes();
-  const contents = await Promise.all(notes.map((n) => backend.readNote(n.path)));
-  const tasks = notes.flatMap((n, i) => parseTasks(n.path, contents[i]));
-  return { notes, tasks };
+  const raw = await Promise.all(notes.map((n) => backend.readNote(n.path)));
+  const tasks = notes.flatMap((n, i) => parseTasks(n.path, raw[i]));
+  const contents: Record<string, string> = {};
+  notes.forEach((n, i) => (contents[n.path] = raw[i]));
+  return { notes, tasks, contents };
 }
 
 export function todayISO(): string {

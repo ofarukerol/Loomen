@@ -37,6 +37,7 @@
   "pomodoro": {
     "title": "بومودورو",
     "focus": "تركيز",
+    "break": "استراحة",
     "start": "ابدأ",
     "pause": "إيقاف",
     "focusOn": "التركيز:",
@@ -44,7 +45,13 @@
   },
   "editor": {
     "backlinks": "روابط",
-    "backlinksSub": "ملاحظات ترتبط هنا"
+    "backlinksSub": "ملاحظات ترتبط هنا",
+    "noBacklinks": "لا ملاحظات ترتبط هنا.",
+    "edit": "تحرير",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "preview": "معاينة",
+    "empty": "افتح ملاحظة من المستكشف."
   },
   "graph": {
     "title": "عرض الرسم",

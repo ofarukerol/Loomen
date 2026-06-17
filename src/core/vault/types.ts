@@ -33,6 +33,8 @@ export interface VaultNote {
 export interface VaultData {
   notes: VaultNote[];
   tasks: ParsedTask[];
+  /** path → ham içerik (editör + backlink için). */
+  contents: Record<string, string>;
 }
 
 /** Dosya sistemi portu — gerçek (Tauri) ve sahte (test/sample) adapter'lar gerçekler. */

@@ -28,12 +28,19 @@
   "pomodoro": {
     "title": "POMODORO",
     "focus": "focus",
+    "break": "break",
     "start": "Start",
     "pause": "Pause",
     "focusOn": "Focus:"
   },
   "editor": {
     "backlinks": "Links",
-    "backlinksSub": "Notes that link here"
+    "backlinksSub": "Notes that link here",
+    "noBacklinks": "No notes link here.",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "preview": "Preview",
+    "empty": "Open a note from the explorer."
   }
 }

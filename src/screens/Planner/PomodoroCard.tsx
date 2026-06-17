@@ -15,7 +15,8 @@ export function PomodoroCard() {
   const pomo = useAppStore((s) => s.pomo);
   const remaining = useAppStore((s) => s.pomoRemaining);
   const running = useAppStore((s) => s.pomoRunning);
-  const round = useAppStore((s) => s.pomoRound);
+  const phase = useAppStore((s) => s.pomoPhase);
+  const completed = useAppStore((s) => s.pomoCompleted);
   const togglePomo = useAppStore((s) => s.togglePomo);
   const resetPomo = useAppStore((s) => s.resetPomo);
   const tickPomo = useAppStore((s) => s.tickPomo);
@@ -27,9 +28,11 @@ export function PomodoroCard() {
     return () => clearInterval(id);
   }, [running, tickPomo]);
 
-  const total = pomo.focusMin * 60;
+  const phaseMin = phase === "work" ? pomo.focusMin : phase === "short" ? pomo.shortBreak : pomo.longBreak;
+  const total = phaseMin * 60;
   const label = pad(Math.floor(remaining / 60)) + ":" + pad(remaining % 60);
   const offset = CIRC * (1 - remaining / total);
+  const phaseLabel = phase === "work" ? t("pomodoro.focus") : t("pomodoro.break");
 
   return (
     <div className="lo-card lo-pomo">
@@ -56,13 +59,13 @@ export function PomodoroCard() {
         </svg>
         <div className="lo-pomo__center">
           <div className="lo-pomo__time">{label}</div>
-          <div className="lo-pomo__sub">{t("pomodoro.focus")}</div>
+          <div className="lo-pomo__sub">{phaseLabel}</div>
         </div>
       </div>
 
       <div className="lo-pomo__dots">
         {Array.from({ length: pomo.rounds }, (_, i) => (
-          <span className={"lo-pomo__dot" + (i < round ? " is-on" : "")} key={i} />
+          <span className={"lo-pomo__dot" + (i < completed ? " is-on" : "")} key={i} />
         ))}
       </div>
 

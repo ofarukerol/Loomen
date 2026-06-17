@@ -44,6 +44,8 @@ export interface PomodoroSettings {
   rounds: number;
 }
 
+export type PomoPhase = "work" | "short" | "long";
+
 export interface FocusCounts {
   yapilacak: number;
   geciken: number;
@@ -67,12 +69,20 @@ interface AppState {
   groups: TaskGroup[];
   counts: FocusCounts;
   parsedTasks: ParsedTask[];
+  noteContents: Record<string, string>;
+
+  // Editör
+  openTabs: string[]; // açık not yolları
+  activeNote: string | null; // aktif not yolu
+  editing: boolean;
+  draft: string;
 
   // Pomodoro
   pomo: PomodoroSettings;
   pomoRemaining: number;
   pomoRunning: boolean;
-  pomoRound: number;
+  pomoPhase: PomoPhase;
+  pomoCompleted: number; // mevcut turda tamamlanan odak seansı (0..rounds)
 
   // UI aksiyonları
   toggleTheme: () => void;
@@ -81,7 +91,12 @@ interface AppState {
   setLayout: (l: PlannerLayout) => void;
   setLang: (l: Lang) => void;
   setEditorTab: (t: EditorTab) => void;
-  openNote: (source: string) => void;
+  openNote: (nameOrPath: string) => void;
+  setActiveTab: (path: string) => void;
+  closeTab: (path: string) => void;
+  setDraft: (text: string) => void;
+  toggleEditing: () => void;
+  saveNote: () => Promise<void>;
   setAccent: (hex: string) => void;
   toggleEditorSetting: (key: keyof EditorSettings) => void;
   toggleArabic: () => void;
@@ -109,13 +124,14 @@ let unwatch: (() => void) | null = null;
 export const useAppStore = create<AppState>((set, get) => {
   /** Backend'den yükle, gruplandır, state'e yaz. */
   async function loadFromBackend() {
-    const { tasks, notes } = await loadVaultData(backend);
+    const { tasks, notes, contents } = await loadVaultData(backend);
     const today = todayISO();
     const { groups } = groupTasks(tasks, today);
     const c = focusCounts(tasks, today);
     set({
       parsedTasks: tasks,
       notes,
+      noteContents: contents,
       groups,
       counts: { yapilacak: c.yapilacak, geciken: c.geciken, planlanmamis: c.planlanmamis },
     });
@@ -137,11 +153,18 @@ export const useAppStore = create<AppState>((set, get) => {
     groups: [],
     counts: { yapilacak: 0, geciken: 0, planlanmamis: 0 },
     parsedTasks: [],
+    noteContents: {},
+
+    openTabs: [],
+    activeNote: null,
+    editing: false,
+    draft: "",
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoRemaining: FOCUS_MIN * 60,
     pomoRunning: false,
-    pomoRound: 3,
+    pomoPhase: "work",
+    pomoCompleted: 0,
 
     toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
     setTheme: (theme) => set({ theme }),
@@ -149,7 +172,41 @@ export const useAppStore = create<AppState>((set, get) => {
     setLayout: (layout) => set({ layout }),
     setLang: (lang) => set({ lang }),
     setEditorTab: (editorTab) => set({ editorTab }),
-    openNote: (source) => set({ screen: "editor", editorTab: noteToTab(source) }),
+    openNote: (nameOrPath) => {
+      const s = get();
+      // Yol mu yoksa ad mı? Önce yol, sonra ada göre çöz.
+      const byPath = s.notes.find((n) => n.path === nameOrPath);
+      const byName = s.notes.find((n) => n.name === nameOrPath);
+      const note = byPath ?? byName;
+      if (!note) return; // eksik/kırık link
+      const openTabs = s.openTabs.includes(note.path) ? s.openTabs : [...s.openTabs, note.path];
+      set({
+        screen: "editor",
+        activeNote: note.path,
+        openTabs,
+        editing: false,
+        draft: s.noteContents[note.path] ?? "",
+      });
+    },
+    setActiveTab: (path) =>
+      set((s) => ({ activeNote: path, editing: false, draft: s.noteContents[path] ?? "" })),
+    closeTab: (path) =>
+      set((s) => {
+        const openTabs = s.openTabs.filter((p) => p !== path);
+        const activeNote =
+          s.activeNote === path ? openTabs[openTabs.length - 1] ?? null : s.activeNote;
+        return { openTabs, activeNote, draft: activeNote ? s.noteContents[activeNote] ?? "" : "" };
+      }),
+    setDraft: (draft) => set({ draft }),
+    toggleEditing: () =>
+      set((s) => ({ editing: !s.editing, draft: s.noteContents[s.activeNote ?? ""] ?? s.draft })),
+    saveNote: async () => {
+      const s = get();
+      if (!s.activeNote) return;
+      await backend.writeNote(s.activeNote, s.draft);
+      await loadFromBackend();
+      set({ editing: false });
+    },
     setAccent: (accent) => set({ accent }),
     toggleEditorSetting: (key) =>
       set((s) => ({ editorSettings: { ...s.editorSettings, [key]: !s.editorSettings[key] } })),
@@ -158,11 +215,26 @@ export const useAppStore = create<AppState>((set, get) => {
     selectDay: (selectedDay) => set({ selectedDay }),
 
     togglePomo: () => set((s) => ({ pomoRunning: !s.pomoRunning })),
-    resetPomo: () => set((s) => ({ pomoRunning: false, pomoRemaining: s.pomo.focusMin * 60 })),
+    resetPomo: () =>
+      set((s) => ({ pomoRunning: false, pomoPhase: "work", pomoRemaining: s.pomo.focusMin * 60 })),
     tickPomo: () => {
-      const { pomoRemaining } = get();
-      if (pomoRemaining <= 1) set({ pomoRemaining: 0, pomoRunning: false });
-      else set({ pomoRemaining: pomoRemaining - 1 });
+      const s = get();
+      if (s.pomoRemaining > 1) {
+        set({ pomoRemaining: s.pomoRemaining - 1 });
+        return;
+      }
+      // Faz bitti → bir sonraki faza geç (profesyonel döngü: odak → mola → odak…).
+      const dur = (p: PomoPhase) =>
+        (p === "work" ? s.pomo.focusMin : p === "short" ? s.pomo.shortBreak : s.pomo.longBreak) * 60;
+      if (s.pomoPhase === "work") {
+        const completed = s.pomoCompleted + 1;
+        const next: PomoPhase = completed % s.pomo.rounds === 0 ? "long" : "short";
+        set({ pomoPhase: next, pomoCompleted: completed, pomoRemaining: dur(next), pomoRunning: false });
+      } else {
+        // Mola bitti → odağa dön. Uzun moladan sonra tur sayacını sıfırla.
+        const completed = s.pomoPhase === "long" ? 0 : s.pomoCompleted;
+        set({ pomoPhase: "work", pomoCompleted: completed, pomoRemaining: dur("work"), pomoRunning: false });
+      }
     },
 
     // İlk yükleme: önce sample, sonra (Tauri'de) kayıtlı kasa varsa onu yükle.
