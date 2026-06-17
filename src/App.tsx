@@ -1,27 +1,20 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useAppStore } from "./store/useAppStore";
+import { useAppStore, ACCENTS } from "./store/useAppStore";
 import { applyDir } from "./i18n";
 import { Ribbon } from "./components/Ribbon";
 import { Explorer } from "./components/Explorer";
 import { PlannerScreen } from "./screens/Planner/PlannerScreen";
 import { EditorScreen } from "./screens/Editor/EditorScreen";
-
-/** Henüz tam yapılmamış ekranlar için geçici yer tutucu. */
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="lo-placeholder">
-      <h2>{title}</h2>
-      <p>Bu ekran yakında — şu an Planlayıcı odaklı geliştiriliyor.</p>
-    </div>
-  );
-}
+import { GraphScreen } from "./screens/Graph/GraphScreen";
+import { SettingsScreen } from "./screens/Settings/SettingsScreen";
 
 export default function App() {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const theme = useAppStore((s) => s.theme);
   const screen = useAppStore((s) => s.screen);
   const lang = useAppStore((s) => s.lang);
+  const accent = useAppStore((s) => s.accent);
 
   // Dil değişince i18next + <html dir> güncelle (RTL).
   useEffect(() => {
@@ -31,17 +24,21 @@ export default function App() {
 
   const showExplorer = ["planner", "editor", "graph"].includes(screen);
 
+  // Vurgu rengini kök seviyede override et (varsayılan dışı seçilirse).
+  const accentVars =
+    accent === ACCENTS[0]
+      ? undefined
+      : ({ "--accent": accent, "--accent-soft": accent + "22" } as React.CSSProperties);
+
   return (
-    <div className="lo-app" data-theme={theme}>
+    <div className="lo-app" data-theme={theme} style={accentVars}>
       <Ribbon />
       {showExplorer && <Explorer />}
       <div className="lo-main">
         {screen === "planner" && <PlannerScreen />}
         {screen === "editor" && <EditorScreen />}
-        {screen === "graph" && <Placeholder title={t("ribbon.graph")} />}
-        {screen === "settings" && <Placeholder title={t("ribbon.settings")} />}
-        {screen === "mobile" && <Placeholder title={t("ribbon.mobile")} />}
-        {screen === "rtl" && <Placeholder title="عربي / RTL" />}
+        {screen === "graph" && <GraphScreen />}
+        {screen === "settings" && <SettingsScreen />}
       </div>
     </div>
   );

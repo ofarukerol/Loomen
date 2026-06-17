@@ -47,5 +47,37 @@
   "editor": {
     "backlinks": "Bağlantılar",
     "backlinksSub": "Bu nota bağlananlar"
+  },
+  "graph": {
+    "title": "Graf görünümü",
+    "stats": "9 not · 12 bağlantı",
+    "hint": "Bir düğümün üzerine gel",
+    "centerNote": "Merkez not",
+    "note": "Not"
+  },
+  "settings": {
+    "title": "Ayarlar",
+    "appearance": "Görünüm",
+    "theme": "Tema",
+    "themeSub": "Açık ve koyu arasında geçiş yap",
+    "light": "Açık",
+    "dark": "Koyu",
+    "accent": "Vurgu rengi",
+    "accentSub": "Aktif öğe ve sayaç rengi",
+    "langRegion": "Dil ve Bölge",
+    "appLang": "Uygulama dili",
+    "appLangSub": "Arapça seçilince arayüz sağdan sola döner",
+    "editor": "Editör",
+    "livePreview": "Canlı önizleme",
+    "lineNumbers": "Satır numaraları",
+    "spellCheck": "Yazım denetimi",
+    "pomodoro": "Pomodoro",
+    "focusMin": "Odak dk",
+    "shortBreak": "Kısa mola",
+    "longBreak": "Uzun mola",
+    "rounds": "Tur",
+    "vault": "Kasa",
+    "vaultLocation": "Kasa konumu",
+    "change": "Değiştir"
   }
 }

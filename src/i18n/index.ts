@@ -3,6 +3,7 @@ import { initReactI18next } from "react-i18next";
 
 import tr from "./locales/tr/translation.json";
 import en from "./locales/en/translation.json";
+import ar from "./locales/ar/translation.json";
 
 // Çok dilli altyapı (bkz docs 07-i18n.md):
 // - Kaynak dil Türkçe; fallback zinciri daima TR'ye düşer.
@@ -16,8 +17,7 @@ i18n.use(initReactI18next).init({
   resources: {
     tr: { translation: tr },
     en: { translation: en },
-    // ar henüz boş — eksik anahtarlar TR'ye fallback (kırık metin yok)
-    ar: { translation: {} },
+    ar: { translation: ar },
   },
   lng: DEFAULT_LOCALE,
   fallbackLng: DEFAULT_LOCALE,

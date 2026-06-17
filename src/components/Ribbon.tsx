@@ -1,13 +1,5 @@
 import { useTranslation } from "react-i18next";
-import {
-  CalendarCheck,
-  FileText,
-  Share2,
-  Smartphone,
-  Settings,
-  Sun,
-  Moon,
-} from "lucide-react";
+import { CalendarCheck, FileText, Share2, Settings, Sun, Moon } from "lucide-react";
 import { useAppStore, type Screen } from "../store/useAppStore";
 
 const ICON = 21;
@@ -19,6 +11,8 @@ export function Ribbon() {
   const setScreen = useAppStore((s) => s.setScreen);
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
+  const lang = useAppStore((s) => s.lang);
+  const toggleArabic = useAppStore((s) => s.toggleArabic);
 
   const btn = (target: Screen, title: string, node: React.ReactNode) => (
     <button
@@ -40,11 +34,10 @@ export function Ribbon() {
 
       <div className="lo-ribbon__spacer" />
 
-      {btn("mobile", t("ribbon.mobile"), <Smartphone size={20} strokeWidth={SW} />)}
       <button
-        className={"lo-ribbon__btn" + (screen === "rtl" ? " is-active" : "")}
+        className={"lo-ribbon__btn" + (lang === "ar" ? " is-active" : "")}
         title={t("ribbon.rtl")}
-        onClick={() => setScreen("rtl")}
+        onClick={toggleArabic}
         style={{ fontSize: 16, fontWeight: 600 }}
       >
         ع

@@ -1,0 +1,81 @@
+{
+  "ribbon": {
+    "planner": "المخطط",
+    "notes": "الملاحظات",
+    "graph": "الرسم",
+    "rtl": "عربي / RTL",
+    "settings": "الإعدادات",
+    "theme": "السمة"
+  },
+  "explorer": {
+    "vault": "الخزنة",
+    "search": "بحث…",
+    "notes": "ملاحظات",
+    "daily": "يومي",
+    "projects": "مشاريع",
+    "localNoSync": "محلي · بدون مزامنة"
+  },
+  "planner": {
+    "focusToday": "ركّز على اليوم",
+    "today": "السبت، ١٣ يونيو",
+    "timeline": "الجدول الزمني",
+    "board": "لوحة",
+    "todo": "مهام اليوم",
+    "overdue": "متأخرة",
+    "unplanned": "غير مجدول",
+    "quickAdd": "اكتب مهمتك هنا…"
+  },
+  "board": {
+    "overdue": "متأخرة",
+    "today": "اليوم",
+    "upcoming": "قادمة"
+  },
+  "calendar": {
+    "month": "يونيو ٢٠٢٦",
+    "weekdays": ["إث", "ث", "أر", "خ", "ج", "س", "أح"]
+  },
+  "pomodoro": {
+    "title": "بومودورو",
+    "focus": "تركيز",
+    "start": "ابدأ",
+    "pause": "إيقاف",
+    "focusOn": "التركيز:",
+    "currentTask": "إنهاء التصميم"
+  },
+  "editor": {
+    "backlinks": "روابط",
+    "backlinksSub": "ملاحظات ترتبط هنا"
+  },
+  "graph": {
+    "title": "عرض الرسم",
+    "stats": "٩ ملاحظات · ١٢ رابط",
+    "hint": "مرّر فوق عقدة",
+    "centerNote": "ملاحظة مركزية",
+    "note": "ملاحظة"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "appearance": "المظهر",
+    "theme": "السمة",
+    "themeSub": "التبديل بين الفاتح والداكن",
+    "light": "فاتح",
+    "dark": "داكن",
+    "accent": "لون التمييز",
+    "accentSub": "لون العنصر النشط والعداد",
+    "langRegion": "اللغة والمنطقة",
+    "appLang": "لغة التطبيق",
+    "appLangSub": "عند اختيار العربية تتحول الواجهة لليمين",
+    "editor": "المحرر",
+    "livePreview": "معاينة مباشرة",
+    "lineNumbers": "أرقام الأسطر",
+    "spellCheck": "التدقيق الإملائي",
+    "pomodoro": "بومودورو",
+    "focusMin": "دقائق التركيز",
+    "shortBreak": "استراحة قصيرة",
+    "longBreak": "استراحة طويلة",
+    "rounds": "جولات",
+    "vault": "الخزنة",
+    "vaultLocation": "موقع الخزنة",
+    "change": "تغيير"
+  }
+}
