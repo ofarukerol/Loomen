@@ -21,6 +21,18 @@ export function MiniAgenda() {
   const toggleTask = useAppStore((s) => s.toggleTask);
   const setFocusExpanded = useAppStore((s) => s.setFocusExpanded);
   const focusExpanded = useAppStore((s) => s.focusExpanded);
+  const screen = useAppStore((s) => s.screen);
+  const setScreen = useAppStore((s) => s.setScreen);
+
+  const expanded = focusExpanded && screen === "planner";
+  const onExpand = () => {
+    if (expanded) {
+      setFocusExpanded(false);
+    } else {
+      setScreen("planner");
+      setFocusExpanded(true);
+    }
+  };
 
   const rows: ReactNode[] = [];
   let count = 0;
@@ -57,11 +69,11 @@ export function MiniAgenda() {
       <div className="lo-mini__head">
         <span className="lo-mini__title">{t("planner.focusToday")}</span>
         <button
-          className={"lo-focus__expand" + (focusExpanded ? " is-active" : "")}
-          onClick={() => setFocusExpanded(!focusExpanded)}
-          title={focusExpanded ? t("planner.collapse") : t("planner.expand")}
+          className={"lo-focus__expand" + (expanded ? " is-active" : "")}
+          onClick={onExpand}
+          title={expanded ? t("planner.collapse") : t("planner.expand")}
         >
-          {focusExpanded ? <Minimize2 size={13} strokeWidth={2} /> : <Maximize2 size={13} strokeWidth={2} />}
+          {expanded ? <Minimize2 size={13} strokeWidth={2} /> : <Maximize2 size={13} strokeWidth={2} />}
         </button>
       </div>
 
