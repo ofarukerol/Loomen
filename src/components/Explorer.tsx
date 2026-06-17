@@ -55,8 +55,12 @@ export function Explorer() {
           <button className="lo-explorer__open" title="Kasa klasörü aç" onClick={() => void openVault()}>
             <FolderOpen size={14} strokeWidth={1.8} />
           </button>
-          <button className="lo-explorer__open" title={t("planner.toggleLeft")} onClick={toggleLeft}>
-            <PanelLeftClose size={14} strokeWidth={1.8} />
+          <button
+            className="lo-explorer__open lo-explorer__collapse"
+            title={t("planner.toggleLeft")}
+            onClick={toggleLeft}
+          >
+            <PanelLeftClose size={17} strokeWidth={1.9} />
           </button>
         </div>
       </div>

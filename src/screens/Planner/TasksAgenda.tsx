@@ -5,7 +5,6 @@ import { StatCards } from "./StatCards";
 import { QuickAdd } from "./QuickAdd";
 import { Timeline } from "./Timeline";
 import { Board } from "./Board";
-import { PanelToggles } from "./PanelToggles";
 
 /** Görevlerin ayrı sayfası — orta gövdede geniş açılan tam ajanda. */
 export function TasksAgenda() {
@@ -44,7 +43,6 @@ export function TasksAgenda() {
             <Minimize2 size={15} strokeWidth={2} />
             {t("planner.collapse")}
           </button>
-          <PanelToggles />
         </div>
       </div>
 

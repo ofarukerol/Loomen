@@ -3,7 +3,6 @@ import { Pencil, FilePlus } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { todayDailyPath } from "../../core/vault";
 import { Markdown } from "../Editor/Markdown";
-import { PanelToggles } from "./PanelToggles";
 
 /** Orta gövde varsayılanı — günün planı/notu (journal). Görev İÇERMEZ. */
 export function DailyPlanView() {
@@ -25,7 +24,6 @@ export function DailyPlanView() {
             {t("editor.edit")}
           </button>
         )}
-        <PanelToggles />
       </div>
 
       <div className="lo-dayplan__body lo-scroll">

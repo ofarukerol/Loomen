@@ -98,6 +98,8 @@ button { font-family: inherit; }
   justify-content: center;
 }
 .lo-explorer__open:hover { background: var(--line-soft); color: var(--accent); }
+/* sol paneli kapatma — hafifçe büyük, biraz daha belirgin */
+.lo-explorer__collapse { width: 30px; height: 30px; color: var(--fg2); }
 .lo-explorer__pathline {
   padding: 0 16px 10px;
   font-size: 11px;
