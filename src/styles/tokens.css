@@ -1,0 +1,97 @@
+/* ============================================================
+   Loomen — Tasarım Token'ları (Design System)
+   Kaynak: Claude Design prototipi (design/loomen/project/Loomen.dc.html)
+   Vurgu: terra/amber (#C2603A). Açık + koyu tema.
+   Gerçek uygulamada (React/Tauri) doğrudan import edilebilir.
+   ============================================================ */
+
+:root {
+  /* — Zeminler — */
+  --bg: #FAF9F6;          /* uygulama arka planı (asla saf beyaz) */
+  --bg-elev: #FFFFFF;     /* kart/yüzey (yükseltilmiş) */
+  --bg-sunken: #F1EFEA;   /* çökük yüzey: paneller, input, rozet */
+  --rail: #F3F1EC;        /* sol ribbon şeridi */
+
+  /* — Metin — */
+  --fg1: #211F1B;         /* birincil metin (sıcak kömür, saf siyah değil) */
+  --fg2: #6E6A62;         /* ikincil metin */
+  --fg3: #A29D93;         /* üçüncül / ipucu / pasif */
+
+  /* — Çizgiler — */
+  --line: #E9E6DF;        /* standart kenarlık */
+  --line-soft: #F1EFE9;   /* yumuşak ayraç / hover zemini */
+
+  /* — Vurgu (marka) — */
+  --accent: #C2603A;      /* terra/amber: aktif öğe, sayaç, birincil buton */
+  --accent-soft: #C2603A22; /* %13 opaklık: rozet zemini, vurgu yüzeyi */
+  --accent-2: #D89A4E;    /* ikincil amber: klasör ikonu, küçük vurgular */
+
+  /* — Durum — */
+  --danger: #C0473A;      --danger-bg: #C0473A12;  /* geciken görev */
+  --success: #3E8E5A;     /* tamamlanmış görev */
+
+  /* — Gölgeler (sıcak, kahve tabanlı) — */
+  --sh1: 0 1px 2px rgba(60,40,25,0.06);   /* kart durağan */
+  --sh2: 0 2px 8px rgba(60,40,25,0.08);   /* kart hover / buton */
+  --sh3: 0 8px 28px rgba(60,40,25,0.12);  /* modal / drawer */
+
+  /* — Tipografi — */
+  --font-sans: 'DM Sans', system-ui, sans-serif;        /* UI metni */
+  --font-mono: 'JetBrains Mono', monospace;             /* sayı, tarih, kod, sayaç */
+  --font-arabic: 'Noto Sans Arabic', 'DM Sans', sans-serif; /* RTL */
+
+  /* — Köşe yarıçapı — */
+  --radius-sm: 7px;       /* küçük buton, gün hücresi */
+  --radius-md: 11px;      /* kart satırı, ribbon ikon */
+  --radius-lg: 14px;      /* stat kart, ayar grubu */
+  --radius-xl: 16px;      /* takvim/pomodoro kartı */
+  --radius-pill: 24px;    /* pill buton, rozet (veya 20px) */
+
+  /* — Boşluk (4px tabanlı) — */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
+  --space-4: 16px; --space-5: 20px; --space-6: 24px;
+  --space-7: 36px;        /* ana içerik yatay padding */
+
+  /* — Geçiş — */
+  --dur-fast: .12s;       /* hover/press */
+  --dur-base: .18s;       /* genel */
+}
+
+[data-theme="dark"] {
+  --bg: #191815;          --bg-elev: #232220;  --bg-sunken: #141311;  --rail: #1E1D1B;
+  --fg1: #ECEAE4;         --fg2: #A19D95;      --fg3: #6C685F;
+  --line: #322F2A;        --line-soft: #27241F;
+  --accent: #D67A4E;      --accent-soft: #D67A4E26;  --accent-2: #E0A85C;
+  --danger: #E0796B;      --danger-bg: #E0796B1F;    --success: #5DB17F;
+  --sh1: 0 1px 2px rgba(0,0,0,0.3);
+  --sh2: 0 2px 10px rgba(0,0,0,0.35);
+  --sh3: 0 10px 34px rgba(0,0,0,0.5);
+}
+
+/* — Seçenek vurgu renkleri (Ayarlar → Vurgu rengi) —
+   terra #C2603A (vars.) · teal #2E8B7F · mor #6C5CE0 · kırmızı #A4261F
+   Çalışma anında --accent ve --accent-soft override edilerek uygulanır. */
+
+/* — Global temeller — */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--fg1);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--accent-soft); }
+
+/* — İnce kaydırma çubuğu — */
+.lo-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.lo-scroll::-webkit-scrollbar-thumb {
+  background: var(--line); border-radius: 8px;
+  border: 3px solid transparent; background-clip: content-box;
+}
+.lo-scroll::-webkit-scrollbar-thumb:hover { background: var(--fg3); background-clip: content-box; }
+
+/* — Animasyonlar — */
+@keyframes loPulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+@keyframes loFade  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

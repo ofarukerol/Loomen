@@ -1,0 +1,35 @@
+{
+  "ribbon": {
+    "planner": "Planner",
+    "notes": "Notes",
+    "graph": "Graph",
+    "mobile": "Mobile",
+    "rtl": "عربي / RTL",
+    "settings": "Settings",
+    "theme": "Theme"
+  },
+  "explorer": {
+    "vault": "Vault",
+    "search": "Search…",
+    "notes": "Notes",
+    "daily": "Daily",
+    "projects": "Projects",
+    "localNoSync": "Local · no sync"
+  },
+  "planner": {
+    "focusToday": "Focus On Today",
+    "timeline": "Timeline",
+    "board": "Board",
+    "todo": "To Do",
+    "overdue": "Overdue",
+    "unplanned": "Unplanned",
+    "quickAdd": "Type your task here…"
+  },
+  "pomodoro": {
+    "title": "POMODORO",
+    "focus": "focus",
+    "start": "Start",
+    "pause": "Pause",
+    "focusOn": "Focus:"
+  }
+}

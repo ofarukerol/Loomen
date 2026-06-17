@@ -1,0 +1,47 @@
+{
+  "app": { "name": "Loomen" },
+  "ribbon": {
+    "planner": "Planlayıcı",
+    "notes": "Notlar",
+    "graph": "Graf",
+    "mobile": "Mobil",
+    "rtl": "عربي / RTL",
+    "settings": "Ayarlar",
+    "theme": "Tema"
+  },
+  "explorer": {
+    "vault": "Kasa",
+    "search": "Ara…",
+    "notes": "Notlar",
+    "daily": "Daily",
+    "projects": "Projeler",
+    "localNoSync": "Yerel · senkron yok"
+  },
+  "planner": {
+    "focusToday": "Bugüne Odaklan",
+    "today": "Cumartesi, 13 Haziran",
+    "timeline": "Zaman Çizelgesi",
+    "board": "Pano",
+    "todo": "Yapılacak",
+    "overdue": "Geciken",
+    "unplanned": "Planlanmamış",
+    "quickAdd": "Görevini buraya yaz…"
+  },
+  "board": {
+    "overdue": "Geciken",
+    "today": "Bugün",
+    "upcoming": "Yaklaşan"
+  },
+  "calendar": {
+    "month": "Haziran 2026",
+    "weekdays": ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
+  },
+  "pomodoro": {
+    "title": "POMODORO",
+    "focus": "odak",
+    "start": "Başlat",
+    "pause": "Duraklat",
+    "focusOn": "Odak:",
+    "currentTask": "Tasarımı bitir"
+  }
+}
