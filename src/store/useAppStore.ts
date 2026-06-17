@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { TaskGroup } from "../data/sampleVault";
 import type { ParsedTask, VaultBackend, VaultNote } from "../core/vault/types";
 import {
@@ -121,7 +122,9 @@ const VAULT_KEY = "loomen.vaultPath";
 let backend: VaultBackend = createSampleBackend();
 let unwatch: (() => void) | null = null;
 
-export const useAppStore = create<AppState>((set, get) => {
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => {
   /** Backend'den yükle, gruplandır, state'e yaz. */
   async function loadFromBackend() {
     const { tasks, notes, contents } = await loadVaultData(backend);
@@ -294,8 +297,20 @@ export const useAppStore = create<AppState>((set, get) => {
       await backend.writeNote(file, toggleTaskInContent(content, line, todayISO()));
       await loadFromBackend();
     },
-  };
-});
+      };
+    },
+    {
+      name: "loomen.settings",
+      // Yalnızca kullanıcı tercihlerini kalıcı yap (vault verisi her açılışta yeniden türetilir).
+      partialize: (s) => ({
+        theme: s.theme,
+        lang: s.lang,
+        accent: s.accent,
+        editorSettings: s.editorSettings,
+      }),
+    }
+  )
+);
 
 /** "Bugüne Odaklan" sayaçları — gerçek vault verisinden. */
 export function useFocusCounts(): FocusCounts {

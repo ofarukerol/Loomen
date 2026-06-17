@@ -13,7 +13,8 @@
     "notes": "ملاحظات",
     "daily": "يومي",
     "projects": "مشاريع",
-    "localNoSync": "محلي · بدون مزامنة"
+    "localNoSync": "محلي · بدون مزامنة",
+    "results": "{{count}} نتيجة"
   },
   "planner": {
     "focusToday": "ركّز على اليوم",

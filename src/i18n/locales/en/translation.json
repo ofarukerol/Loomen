@@ -14,7 +14,8 @@
     "notes": "Notes",
     "daily": "Daily",
     "projects": "Projects",
-    "localNoSync": "Local · no sync"
+    "localNoSync": "Local · no sync",
+    "results": "{{count}} results"
   },
   "planner": {
     "focusToday": "Focus On Today",

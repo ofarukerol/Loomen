@@ -15,7 +15,8 @@
     "notes": "Notlar",
     "daily": "Daily",
     "projects": "Projeler",
-    "localNoSync": "Yerel · senkron yok"
+    "localNoSync": "Yerel · senkron yok",
+    "results": "{{count}} sonuç"
   },
   "planner": {
     "focusToday": "Bugüne Odaklan",
