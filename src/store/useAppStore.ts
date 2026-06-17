@@ -83,6 +83,7 @@ interface AppState {
   activeNote: string | null; // aktif not yolu
   editing: boolean;
   draft: string;
+  backlinksCollapsed: boolean;
 
   // Pomodoro
   pomo: PomodoroSettings;
@@ -103,6 +104,7 @@ interface AppState {
   closeTab: (path: string) => void;
   setDraft: (text: string) => void;
   toggleEditing: () => void;
+  toggleBacklinks: () => void;
   saveNote: () => Promise<void>;
   setAccent: (hex: string) => void;
   toggleEditorSetting: (key: keyof EditorSettings) => void;
@@ -178,6 +180,7 @@ export const useAppStore = create<AppState>()(
     activeNote: null,
     editing: false,
     draft: "",
+    backlinksCollapsed: false,
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoRemaining: FOCUS_MIN * 60,
@@ -219,6 +222,7 @@ export const useAppStore = create<AppState>()(
     setDraft: (draft) => set({ draft }),
     toggleEditing: () =>
       set((s) => ({ editing: !s.editing, draft: s.noteContents[s.activeNote ?? ""] ?? s.draft })),
+    toggleBacklinks: () => set((s) => ({ backlinksCollapsed: !s.backlinksCollapsed })),
     saveNote: async () => {
       const s = get();
       if (!s.activeNote) return;
@@ -334,6 +338,7 @@ export const useAppStore = create<AppState>()(
         editorSettings: s.editorSettings,
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
+        backlinksCollapsed: s.backlinksCollapsed,
       }),
     }
   )

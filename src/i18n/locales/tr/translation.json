@@ -32,6 +32,7 @@
     "dayPlan": "Günün Planı",
     "noDayNote": "Bugün için günlük not yok.",
     "createDayNote": "Günün notunu oluştur",
+    "week": "Hafta {{n}}",
     "expand": "Büyüt",
     "collapse": "Küçült",
     "allClear": "Bugün için her şey tamam",

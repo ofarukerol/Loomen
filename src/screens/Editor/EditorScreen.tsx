@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { FileText, X, Pencil, Save, Eye } from "lucide-react";
+import { FileText, X, Pencil, Save, Eye, Link2 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { Markdown } from "./Markdown";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
@@ -24,6 +24,8 @@ export function EditorScreen() {
   const saveNote = useAppStore((s) => s.saveNote);
   const openNote = useAppStore((s) => s.openNote);
   const toggleTask = useAppStore((s) => s.toggleTask);
+  const backlinksCollapsed = useAppStore((s) => s.backlinksCollapsed);
+  const toggleBacklinks = useAppStore((s) => s.toggleBacklinks);
 
   if (!activeNote || openTabs.length === 0) {
     return (
@@ -69,6 +71,13 @@ export function EditorScreen() {
             {t("editor.save")}
           </button>
         )}
+        <button
+          className={"lo-tab__action" + (!backlinksCollapsed ? " lo-tab__action--accent" : "")}
+          onClick={toggleBacklinks}
+          title={t("editor.backlinks")}
+        >
+          <Link2 size={14} strokeWidth={1.9} />
+        </button>
       </div>
 
       <div className="lo-editor__body">
@@ -92,7 +101,7 @@ export function EditorScreen() {
             </div>
           )}
         </div>
-        <BacklinksPanel />
+        {!backlinksCollapsed && <BacklinksPanel />}
       </div>
     </div>
   );

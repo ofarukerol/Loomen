@@ -14,12 +14,9 @@ export function dailyNoteTemplate(date: Date): string {
   const iso = format(date, "yyyy-MM-dd");
   const day = format(date, "EEEE", { locale: tr });
   const week = getISOWeek(date);
+  // Minimal günlük şablonu (görevler ayrı 'Yapılacaklar.md'de tutulur).
   return [
     `# ${iso}-${day}`,
-    ``,
-    `---`,
-    ``,
-    `## 🎯 Yapılacaklar`,
     ``,
     `## 💭 Ephemeral Notlar (Gün İçi Notlar)`,
     ``,
@@ -27,11 +24,7 @@ export function dailyNoteTemplate(date: Date): string {
     ``,
     `## 💡 Günün Kattıkları`,
     ``,
-    `- `,
-    ``,
     `## 📚 Okuduklarım/İzlediklerim`,
-    ``,
-    `- `,
     ``,
     `---`,
     ``,

@@ -935,12 +935,29 @@ button { font-family: inherit; }
 .lo-mini__rel { font-size: 10.5px; color: var(--fg3); flex-shrink: 0; }
 .lo-mini__rel.is-overdue { color: var(--danger); }
 
-/* günün planı (orta gövde varsayılan, journal) */
-.lo-dayplan__head { display: flex; align-items: center; gap: 10px; padding: 22px 36px 14px; }
-.lo-dayplan__title { margin: 0; font-size: 22px; font-weight: 700; color: var(--fg1); letter-spacing: -0.01em; }
-.lo-dayplan__body { flex: 1; overflow-y: auto; padding: 0 36px 40px; }
-.lo-dayplan__note { max-width: 740px; }
+/* günün planı (orta gövde varsayılan, journal) — minimal & modern */
+.lo-dayplan__toolbar { display: flex; align-items: center; gap: 10px; padding: 18px 36px 6px; }
+.lo-dayplan__body { flex: 1; overflow-y: auto; padding: 18px 36px 48px; }
 .lo-dayplan__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; color: var(--fg3); padding-top: 16px; }
+
+.lo-dn { max-width: 680px; }
+.lo-dn__header { margin-bottom: 26px; }
+.lo-dn__weekday { font-size: 32px; font-weight: 700; color: var(--fg1); letter-spacing: -0.02em; line-height: 1.1; }
+.lo-dn__date { font-size: 12.5px; color: var(--fg3); margin-top: 6px; font-family: var(--font-mono); letter-spacing: 0.01em; }
+.lo-dn__section { padding: 20px 0; border-top: 1px solid var(--line-soft); }
+.lo-dn__section:first-of-type { border-top: none; padding-top: 4px; }
+.lo-dn__sectitle {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--fg2);
+  letter-spacing: 0.01em;
+}
+.lo-dn__section .lo-prose { font-size: 14px; }
+.lo-dn__section .lo-prose p { font-size: 14.5px; margin: 0 0 10px; }
+.lo-dn__section .lo-prose p:last-child { margin-bottom: 0; }
+.lo-dn__section .lo-prose ul { margin: 0; }
+.lo-dn__empty { font-size: 14px; color: var(--fg3); }
 .lo-dayplan__create {
   display: flex; align-items: center; gap: 8px; border: 1px solid var(--line);
   background: var(--bg-elev); color: var(--fg1); font-family: inherit; font-size: 13px;

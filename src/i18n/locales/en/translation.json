@@ -30,6 +30,7 @@
     "dayPlan": "Daily Plan",
     "noDayNote": "No daily note for today.",
     "createDayNote": "Create today's note",
+    "week": "Week {{n}}",
     "expand": "Expand",
     "collapse": "Collapse",
     "allClear": "All clear for today",

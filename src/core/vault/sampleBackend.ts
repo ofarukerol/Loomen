@@ -19,23 +19,19 @@ const SEED: Record<string, string> = {
 `,
   "Daily/2026-06-17-Çarşamba.md": `# 2026-06-17-Çarşamba
 
----
-
-## 🎯 Yapılacaklar
-
 ## 💭 Ephemeral Notlar (Gün İçi Notlar)
 
 Bugün [[Proje X]] tasarımını bitirmek öncelikli.
 
 ## 📝 Günün Özeti
 
+Tasarım sistemi ve mini ajanda üzerinde ilerledim.
+
 ## 💡 Günün Kattıkları
 
--
+- Görevleri günlük nottan ayırmak akışı netleştirdi.
 
 ## 📚 Okuduklarım/İzlediklerim
-
--
 
 ---
 
