@@ -90,5 +90,10 @@ export function createSampleBackend(): VaultBackend {
     async ensureDir() {
       // in-memory: gerek yok
     },
+    async rename(from, to) {
+      if (!(from in store)) return;
+      store[to] = store[from];
+      delete store[from];
+    },
   };
 }

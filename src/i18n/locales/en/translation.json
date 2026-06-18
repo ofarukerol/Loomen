@@ -30,7 +30,9 @@
     "results": "{{count}} results",
     "newNote": "New note",
     "newFolder": "New folder",
-    "collapseAll": "Collapse all"
+    "collapseAll": "Collapse all",
+    "rename": "Rename",
+    "newNoteHere": "New note here"
   },
   "planner": {
     "focusToday": "Focus On Today",

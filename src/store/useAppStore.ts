@@ -132,6 +132,8 @@ interface AppState {
   reloadVault: () => Promise<void>;
   newNote: (folder?: string) => Promise<void>;
   newFolder: () => Promise<void>;
+  renameNote: (path: string, newName: string) => Promise<void>;
+  renameFolder: (folderPath: string, newName: string) => Promise<void>;
   addTask: () => Promise<void>;
   toggleTask: (id: string) => Promise<void>;
   selectTask: (id: string | null) => void;
@@ -363,6 +365,47 @@ export const useAppStore = create<AppState>()(
       await backend.writeNote(`${name}/Adsız.md`, `# Adsız\n\n`);
       await loadFromBackend();
       get().openNote(`${name}/Adsız.md`, true);
+    },
+
+    // Bir notu yeniden adlandır (aynı klasörde). Açık sekme/aktif not referansları güncellenir.
+    renameNote: async (path, newName) => {
+      const s = get();
+      const note = s.notes.find((n) => n.path === path);
+      if (!note) return;
+      const clean = newName.trim().replace(/[/\\]/g, "").replace(/\.md$/i, "");
+      if (!clean) return;
+      const to = note.folder ? `${note.folder}/${clean}.md` : `${clean}.md`;
+      if (to === path || s.notes.some((n) => n.path === to)) return; // çakışma / değişmedi
+      await backend.rename(path, to);
+      set({
+        openTabs: s.openTabs.map((p) => (p === path ? to : p)),
+        activeNote: s.activeNote === path ? to : s.activeNote,
+      });
+      await loadFromBackend();
+    },
+
+    // Bir klasörü (ve altındaki tüm notları) yeniden adlandır.
+    renameFolder: async (folderPath, newName) => {
+      const s = get();
+      const clean = newName.trim().replace(/[/\\]/g, "");
+      if (!clean) return;
+      const parent = folderPath.includes("/") ? folderPath.slice(0, folderPath.lastIndexOf("/")) : "";
+      const to = parent ? `${parent}/${clean}` : clean;
+      if (to === folderPath) return;
+      const prefix = folderPath + "/";
+      const affected = s.notes.filter((n) => n.path.startsWith(prefix));
+      if (affected.length === 0) return;
+      const map = new Map<string, string>();
+      for (const n of affected) {
+        const np = to + n.path.slice(folderPath.length);
+        map.set(n.path, np);
+        await backend.rename(n.path, np);
+      }
+      set({
+        openTabs: s.openTabs.map((p) => map.get(p) ?? p),
+        activeNote: s.activeNote ? map.get(s.activeNote) ?? s.activeNote : null,
+      });
+      await loadFromBackend();
     },
 
     addTask: async () => {

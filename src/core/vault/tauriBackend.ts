@@ -1,4 +1,4 @@
-import { readDir, readTextFile, writeTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
+import { readDir, readTextFile, writeTextFile, exists, mkdir, rename } from "@tauri-apps/plugin-fs";
 import type { VaultBackend, VaultNote } from "./types";
 
 // Gerçek dosya sistemi adapter'ı (Tauri). Vault kökü mutlak yol; içeride göreli yollar kullanılır.
@@ -29,6 +29,11 @@ export function createTauriBackend(root: string): VaultBackend {
     exists: (p) => exists(abs(p)),
     ensureDir: async (d) => {
       if (d) await mkdir(abs(d), { recursive: true });
+    },
+    rename: async (from, to) => {
+      const dir = to.split("/").slice(0, -1).join("/");
+      if (dir) await mkdir(abs(dir), { recursive: true });
+      await rename(abs(from), abs(to));
     },
   };
 }

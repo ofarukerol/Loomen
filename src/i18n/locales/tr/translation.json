@@ -31,7 +31,9 @@
     "results": "{{count}} sonuç",
     "newNote": "Yeni not",
     "newFolder": "Yeni klasör",
-    "collapseAll": "Tümünü daralt"
+    "collapseAll": "Tümünü daralt",
+    "rename": "Yeniden adlandır",
+    "newNoteHere": "Buraya yeni not"
   },
   "planner": {
     "focusToday": "Bugüne Odaklan",

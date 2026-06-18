@@ -29,7 +29,9 @@
     "results": "{{count}} نتيجة",
     "newNote": "ملاحظة جديدة",
     "newFolder": "مجلد جديد",
-    "collapseAll": "طيّ الكل"
+    "collapseAll": "طيّ الكل",
+    "rename": "إعادة تسمية",
+    "newNoteHere": "ملاحظة جديدة هنا"
   },
   "planner": {
     "focusToday": "ركّز على اليوم",

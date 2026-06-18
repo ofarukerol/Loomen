@@ -1,6 +1,19 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Search, ChevronRight, ChevronDown, Folder, FileText, Clock, SquarePen, FolderPlus, ChevronsDownUp, PanelLeftClose } from "lucide-react";
+import {
+  Search,
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  FileText,
+  Clock,
+  SquarePen,
+  FolderPlus,
+  ChevronsDownUp,
+  PanelLeftClose,
+  Pencil,
+  FilePlus,
+} from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
 import { searchNotes } from "../core/search/search";
@@ -34,14 +47,73 @@ function buildTree(notes: VaultNote[]): TreeNode {
   return root;
 }
 
-function FileItem({ note, depth }: { note: VaultNote; depth: number }) {
+type Renaming = { kind: "file" | "folder"; path: string } | null;
+type Menu = { x: number; y: number; kind: "file" | "folder"; path: string } | null;
+
+interface RowCtx {
+  onContext: (e: React.MouseEvent, kind: "file" | "folder", path: string) => void;
+  renaming: Renaming;
+  commit: (value: string) => void;
+  cancel: () => void;
+}
+
+/** Satır-içi yeniden adlandırma kutusu. */
+function RenameInput({
+  initial,
+  depth,
+  kind,
+  commit,
+  cancel,
+}: {
+  initial: string;
+  depth: number;
+  kind: "file" | "folder";
+  commit: (v: string) => void;
+  cancel: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+  return (
+    <div
+      className={"lo-rename " + (kind === "folder" ? "lo-rename--folder" : "lo-rename--file")}
+      style={{ paddingInlineStart: (kind === "folder" ? 8 : 10) + depth * 14 }}
+    >
+      {kind === "folder" ? (
+        <Folder size={15} strokeWidth={1.8} color="var(--accent-2)" />
+      ) : (
+        <FileText size={14} strokeWidth={1.7} color="var(--fg3)" />
+      )}
+      <input
+        ref={ref}
+        className="lo-rename__input"
+        defaultValue={initial}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
+          else if (e.key === "Escape") cancel();
+        }}
+        onBlur={(e) => commit(e.target.value)}
+      />
+    </div>
+  );
+}
+
+function FileItem({ note, depth, ctx }: { note: VaultNote; depth: number; ctx: RowCtx }) {
   const openNote = useAppStore((s) => s.openNote);
   const activeNote = useAppStore((s) => s.activeNote);
+  if (ctx.renaming?.kind === "file" && ctx.renaming.path === note.path) {
+    return (
+      <RenameInput initial={note.name} depth={depth} kind="file" commit={ctx.commit} cancel={ctx.cancel} />
+    );
+  }
   return (
     <button
       className={"lo-tree__file" + (activeNote === note.path ? " is-active" : "")}
       style={{ paddingInlineStart: 10 + depth * 14 }}
       onClick={() => openNote(note.path)}
+      onContextMenu={(e) => ctx.onContext(e, "file", note.path)}
     >
       <FileText size={14} strokeWidth={1.7} color="var(--fg3)" />
       {note.name}
@@ -54,37 +126,41 @@ function FolderNode({
   depth,
   collapsed,
   toggle,
+  ctx,
 }: {
   node: TreeNode;
   depth: number;
   collapsed: Set<string>;
   toggle: (path: string) => void;
+  ctx: RowCtx;
 }) {
   const open = !collapsed.has(node.path);
   const folders = [...node.folders.values()].sort((a, b) => a.name.localeCompare(b.name, "tr"));
   const files = [...node.files].sort((a, b) => a.name.localeCompare(b.name, "tr"));
+  const isRenaming = ctx.renaming?.kind === "folder" && ctx.renaming.path === node.path;
   return (
     <div>
-      <button
-        className="lo-tree__group"
-        style={{ paddingInlineStart: 8 + depth * 14 }}
-        onClick={() => toggle(node.path)}
-      >
-        {open ? (
-          <ChevronDown size={14} strokeWidth={2} />
-        ) : (
-          <ChevronRight size={14} strokeWidth={2} />
-        )}
-        <Folder size={15} strokeWidth={1.8} color="var(--accent-2)" />
-        {node.name}
-      </button>
+      {isRenaming ? (
+        <RenameInput initial={node.name} depth={depth} kind="folder" commit={ctx.commit} cancel={ctx.cancel} />
+      ) : (
+        <button
+          className="lo-tree__group"
+          style={{ paddingInlineStart: 8 + depth * 14 }}
+          onClick={() => toggle(node.path)}
+          onContextMenu={(e) => ctx.onContext(e, "folder", node.path)}
+        >
+          {open ? <ChevronDown size={14} strokeWidth={2} /> : <ChevronRight size={14} strokeWidth={2} />}
+          <Folder size={15} strokeWidth={1.8} color="var(--accent-2)" />
+          {node.name}
+        </button>
+      )}
       {open && (
         <>
           {folders.map((f) => (
-            <FolderNode key={f.path} node={f} depth={depth + 1} collapsed={collapsed} toggle={toggle} />
+            <FolderNode key={f.path} node={f} depth={depth + 1} collapsed={collapsed} toggle={toggle} ctx={ctx} />
           ))}
           {files.map((n) => (
-            <FileItem note={n} depth={depth + 1} key={n.path} />
+            <FileItem note={n} depth={depth + 1} key={n.path} ctx={ctx} />
           ))}
         </>
       )}
@@ -100,9 +176,13 @@ export function Explorer() {
   const openNote = useAppStore((s) => s.openNote);
   const newNote = useAppStore((s) => s.newNote);
   const newFolder = useAppStore((s) => s.newFolder);
+  const renameNote = useAppStore((s) => s.renameNote);
+  const renameFolder = useAppStore((s) => s.renameFolder);
   const toggleLeft = useAppStore((s) => s.toggleLeft);
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [menu, setMenu] = useState<Menu>(null);
+  const [renaming, setRenaming] = useState<Renaming>(null);
   const hits = searchNotes(notes, contents, query);
 
   const toggle = (path: string) =>
@@ -125,8 +205,37 @@ export function Explorer() {
     }
     return set;
   };
-  const collapseAll = () =>
-    setCollapsed((prev) => (prev.size > 0 ? new Set() : allFolderPaths()));
+  const collapseAll = () => setCollapsed((prev) => (prev.size > 0 ? new Set() : allFolderPaths()));
+
+  // Menü açıkken dışarı tıklamada kapat.
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [menu]);
+
+  const onContext = (e: React.MouseEvent, kind: "file" | "folder", path: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({ x: e.clientX, y: e.clientY, kind, path });
+  };
+  const ctx: RowCtx = {
+    onContext,
+    renaming,
+    commit: (value) => {
+      const r = renaming;
+      setRenaming(null);
+      if (!r) return;
+      if (r.kind === "file") void renameNote(r.path, value);
+      else void renameFolder(r.path, value);
+    },
+    cancel: () => setRenaming(null),
+  };
 
   const root = buildTree(notes);
   const rootFolders = [...root.folders.values()].sort((a, b) => a.name.localeCompare(b.name, "tr"));
@@ -162,11 +271,7 @@ export function Explorer() {
       <div className="lo-explorer__searchwrap">
         <div className="lo-search">
           <Search size={15} strokeWidth={2} color="var(--fg3)" />
-          <input
-            placeholder={t("explorer.search")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+          <input placeholder={t("explorer.search")} value={query} onChange={(e) => setQuery(e.target.value)} />
           {query ? (
             <button className="lo-search__clear" onClick={() => setQuery("")} aria-label="Temizle">
               ✕
@@ -179,9 +284,7 @@ export function Explorer() {
 
       {query ? (
         <div className="lo-tree lo-scroll">
-          <div className="lo-search__count">
-            {t("explorer.results", { count: hits.length })}
-          </div>
+          <div className="lo-search__count">{t("explorer.results", { count: hits.length })}</div>
           {hits.map((h) => (
             <button className="lo-search__hit" key={h.path} onClick={() => openNote(h.path)}>
               <div className="lo-search__hitname">
@@ -195,10 +298,10 @@ export function Explorer() {
       ) : (
         <div className="lo-tree lo-scroll">
           {rootFolders.map((f) => (
-            <FolderNode key={f.path} node={f} depth={0} collapsed={collapsed} toggle={toggle} />
+            <FolderNode key={f.path} node={f} depth={0} collapsed={collapsed} toggle={toggle} ctx={ctx} />
           ))}
           {rootFiles.map((n) => (
-            <FileItem note={n} depth={0} key={n.path} />
+            <FileItem note={n} depth={0} key={n.path} ctx={ctx} />
           ))}
         </div>
       )}
@@ -207,6 +310,38 @@ export function Explorer() {
         <Clock size={13} strokeWidth={2} />
         {t("explorer.localNoSync")}
       </div>
+
+      {/* Sağ-tık bağlam menüsü */}
+      {menu && (
+        <div
+          className="lo-ctxmenu"
+          style={{ left: menu.x, top: menu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="lo-ctxmenu__item"
+            onClick={() => {
+              setRenaming({ kind: menu.kind, path: menu.path });
+              setMenu(null);
+            }}
+          >
+            <Pencil size={13} strokeWidth={1.9} />
+            {t("explorer.rename")}
+          </button>
+          {menu.kind === "folder" && (
+            <button
+              className="lo-ctxmenu__item"
+              onClick={() => {
+                void newNote(menu.path);
+                setMenu(null);
+              }}
+            >
+              <FilePlus size={13} strokeWidth={1.9} />
+              {t("explorer.newNoteHere")}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

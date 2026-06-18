@@ -49,4 +49,6 @@ export interface VaultBackend {
   exists(path: string): Promise<boolean>;
   /** Bir klasörün var olduğundan emin ol (yoksa oluştur). */
   ensureDir(dir: string): Promise<void>;
+  /** Bir dosyayı yeni yola taşı/yeniden adlandır (hedef klasör garanti edilir). */
+  rename(from: string, to: string): Promise<void>;
 }

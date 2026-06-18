@@ -1176,3 +1176,53 @@ button { font-family: inherit; }
   padding: 9px 20px; cursor: pointer; box-shadow: var(--sh1);
 }
 .lo-tdetail__save:hover { box-shadow: var(--sh2); }
+
+/* ============================================================
+   Explorer: bağlam menüsü + satır-içi yeniden adlandırma
+   ============================================================ */
+.lo-ctxmenu {
+  position: fixed;
+  z-index: 60;
+  min-width: 168px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--sh3);
+  padding: 5px;
+  animation: loFade 0.1s ease;
+}
+.lo-ctxmenu__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--fg1);
+  text-align: start;
+}
+.lo-ctxmenu__item:hover { background: var(--line-soft); color: var(--accent); }
+
+.lo-rename {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+}
+.lo-rename__input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--fg1);
+  background: var(--bg-elev);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 3px 7px;
+  outline: none;
+}
