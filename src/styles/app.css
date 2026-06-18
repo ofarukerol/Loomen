@@ -675,7 +675,11 @@ button { font-family: inherit; }
 .lo-prose { max-width: 680px; margin: 0 auto; padding: 0 40px; animation: loFade 0.3s ease; }
 
 .lo-prose h1 { margin: 0 0 4px; font-size: 30px; font-weight: 700; color: var(--fg1); letter-spacing: -0.02em; }
-.lo-prose h2 { font-size: 19px; font-weight: 600; color: var(--fg1); margin: 26px 0 12px; }
+.lo-prose h2 {
+  font-size: 19px; font-weight: 600; color: var(--fg1);
+  margin: 30px 0 14px; padding-top: 26px; border-top: 1px solid var(--line);
+}
+.lo-prose h1 + h2 { border-top: none; padding-top: 0; margin-top: 10px; }
 .lo-prose__meta { font-size: 12.5px; color: var(--fg3); margin-bottom: 24px; display: flex; gap: 14px; flex-wrap: wrap; }
 .lo-prose p { font-size: 15.5px; line-height: 1.7; color: var(--fg1); margin: 0 0 16px; }
 .lo-prose strong { font-weight: 700; }
@@ -1512,3 +1516,31 @@ button { font-family: inherit; }
   padding: 6px 13px; cursor: pointer; transition: all 0.12s;
 }
 .lo-modetoggle:hover { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft); }
+
+/* ============================================================
+   Editör: biçimlendirme araç çubuğu + zengin sağ-tık menüsü
+   ============================================================ */
+.lo-fmt {
+  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+  padding: 6px 16px; border-bottom: 1px solid var(--line); background: var(--bg);
+}
+.lo-fmt__btn {
+  width: 30px; height: 30px; border: none; background: transparent; border-radius: 7px;
+  color: var(--fg2); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: color 0.1s, background 0.1s;
+}
+.lo-fmt__btn:hover { background: var(--line-soft); color: var(--accent); }
+.lo-fmt__sep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; flex-shrink: 0; }
+
+/* Zengin editör bağlam menüsü (alt menülü) */
+.lo-ctxmenu--editor { min-width: 218px; }
+.lo-ctxmenu__sep { height: 1px; background: var(--line-soft); margin: 5px 6px; }
+.lo-ctxmenu__ic { display: inline-flex; width: 16px; justify-content: center; color: var(--fg3); flex-shrink: 0; }
+.lo-ctxmenu__item:hover .lo-ctxmenu__ic { color: var(--accent); }
+.lo-ctxmenu__arrow { margin-inline-start: auto; color: var(--fg3); }
+.lo-ctxmenu__group { position: relative; }
+.lo-ctxmenu__group:hover > .lo-ctxmenu__item { background: var(--line-soft); color: var(--accent); }
+.lo-ctxmenu--sub {
+  position: absolute; inset-inline-start: 100%; top: -5px; margin-inline-start: 2px;
+  min-width: 200px; z-index: 61;
+}

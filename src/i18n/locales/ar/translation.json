@@ -203,5 +203,39 @@
     "newTab": "علامة تبويب جديدة",
     "newFile": "إنشاء ملف جديد",
     "goToFile": "الذهاب إلى ملف"
+  },
+  "fmt": {
+    "bold": "غامق",
+    "italic": "مائل",
+    "strike": "يتوسطه خط",
+    "highlight": "تمييز",
+    "code": "كود",
+    "bullet": "قائمة نقطية",
+    "numbered": "قائمة مرقمة",
+    "checklist": "قائمة مهام",
+    "quote": "اقتباس",
+    "link": "إضافة رابط",
+    "hr": "خط أفقي"
+  },
+  "ctx": {
+    "addLink": "إضافة رابط",
+    "addExternal": "إضافة رابط خارجي",
+    "format": "تنسيق",
+    "paragraph": "فقرة",
+    "insert": "إدراج",
+    "clearFormat": "مسح التنسيق",
+    "bulletList": "قائمة نقطية",
+    "numberedList": "قائمة مرقمة",
+    "checklist": "قائمة مهام",
+    "heading": "عنوان {{n}}",
+    "noHeading": "بدون عنوان",
+    "table": "إدراج جدول",
+    "callout": "استدعاء",
+    "hr": "إدراج خط أفقي",
+    "codeBlock": "إدراج كتلة كود",
+    "cut": "قص",
+    "copy": "نسخ",
+    "paste": "لصق",
+    "selectAll": "تحديد الكل"
   }
 }

@@ -11,6 +11,8 @@ interface Props {
   value: string;
   onChange: (text: string) => void;
   lineNumbers: boolean;
+  onView?: (v: EditorView | null) => void;
+  onContextMenu?: (x: number, y: number) => void;
 }
 
 // Token'larımıza dayalı sözdizimi vurgusu (light/dark otomatik — var() kullanır).
@@ -30,13 +32,27 @@ const cmTheme = EditorView.theme({
   "&": { backgroundColor: "transparent", color: "var(--fg1)", fontSize: "15px", height: "100%" },
   ".cm-scroller": { fontFamily: "var(--font-sans)", lineHeight: "1.7", overflow: "auto" },
   ".cm-content": { caretColor: "var(--accent)", padding: "4px 0 200px", maxWidth: "760px" },
-  // Canlı önizleme — başlık boyutları + wiki-link
-  ".cm-h1": { fontSize: "1.9em", fontWeight: "700", lineHeight: "1.3" },
-  ".cm-h2": { fontSize: "1.55em", fontWeight: "700", lineHeight: "1.3" },
-  ".cm-h3": { fontSize: "1.3em", fontWeight: "700", lineHeight: "1.35" },
-  ".cm-h4": { fontSize: "1.13em", fontWeight: "700" },
-  ".cm-h5": { fontSize: "1.02em", fontWeight: "700" },
-  ".cm-h6": { fontSize: "1em", fontWeight: "700", color: "var(--fg2)" },
+  // Canlı önizleme — başlık boyutları + bölümler arası boşluk/ayraç + wiki-link
+  ".cm-h1": { fontSize: "1.9em", fontWeight: "700", lineHeight: "1.3", paddingBottom: "4px" },
+  ".cm-h2": {
+    fontSize: "1.5em",
+    fontWeight: "700",
+    lineHeight: "1.3",
+    marginTop: "26px",
+    paddingTop: "26px",
+    borderTop: "1px solid var(--line)",
+  },
+  ".cm-h3": {
+    fontSize: "1.25em",
+    fontWeight: "700",
+    lineHeight: "1.35",
+    marginTop: "20px",
+    paddingTop: "20px",
+    borderTop: "1px solid var(--line-soft)",
+  },
+  ".cm-h4": { fontSize: "1.13em", fontWeight: "700", marginTop: "14px" },
+  ".cm-h5": { fontSize: "1.02em", fontWeight: "700", marginTop: "10px" },
+  ".cm-h6": { fontSize: "1em", fontWeight: "700", color: "var(--fg2)", marginTop: "8px" },
   ".cm-wikilink": { color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px" },
   ".cm-gutters": { backgroundColor: "transparent", color: "var(--fg3)", border: "none" },
   ".cm-activeLine": { backgroundColor: "var(--line-soft)" },
@@ -48,11 +64,15 @@ const cmTheme = EditorView.theme({
   },
 });
 
-export function CodeMirrorEditor({ value, onChange, lineNumbers }: Props) {
+export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onContextMenu }: Props) {
   const ref = useRef<HTMLDivElement>(null);
-  // Stale closure olmasın diye onChange'i ref'te tut.
+  // Stale closure olmasın diye callback'leri ref'te tut.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onCtxRef = useRef(onContextMenu);
+  onCtxRef.current = onContextMenu;
+  const onViewRef = useRef(onView);
+  onViewRef.current = onView;
 
   useEffect(() => {
     if (!ref.current) return;
@@ -65,6 +85,14 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers }: Props) {
       livePreview,
       EditorView.lineWrapping,
       cmTheme,
+      EditorView.domEventHandlers({
+        contextmenu: (e) => {
+          if (!onCtxRef.current) return false;
+          e.preventDefault();
+          onCtxRef.current(e.clientX, e.clientY);
+          return true;
+        },
+      }),
       EditorView.updateListener.of((u) => {
         if (u.docChanged) onChangeRef.current(u.state.doc.toString());
       }),
@@ -76,7 +104,11 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers }: Props) {
       parent: ref.current,
     });
     view.focus();
-    return () => view.destroy();
+    onViewRef.current?.(view);
+    return () => {
+      onViewRef.current?.(null);
+      view.destroy();
+    };
     // value/lineNumbers değişince EditorScreen key ile yeniden oluşturur.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

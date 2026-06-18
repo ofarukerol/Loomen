@@ -160,5 +160,39 @@
     "newTab": "New tab",
     "newFile": "Create new file",
     "goToFile": "Go to file"
+  },
+  "fmt": {
+    "bold": "Bold",
+    "italic": "Italic",
+    "strike": "Strikethrough",
+    "highlight": "Highlight",
+    "code": "Code",
+    "bullet": "Bullet list",
+    "numbered": "Numbered list",
+    "checklist": "Checklist",
+    "quote": "Quote",
+    "link": "Add link",
+    "hr": "Horizontal rule"
+  },
+  "ctx": {
+    "addLink": "Add link",
+    "addExternal": "Add external link",
+    "format": "Format",
+    "paragraph": "Paragraph",
+    "insert": "Insert",
+    "clearFormat": "Clear formatting",
+    "bulletList": "Bullet list",
+    "numberedList": "Numbered list",
+    "checklist": "Checklist",
+    "heading": "Heading {{n}}",
+    "noHeading": "No heading",
+    "table": "Insert table",
+    "callout": "Callout",
+    "hr": "Insert horizontal rule",
+    "codeBlock": "Insert code block",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select all"
   }
 }

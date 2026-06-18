@@ -207,5 +207,39 @@
     "newTab": "Yeni sekme",
     "newFile": "Yeni dosya oluştur",
     "goToFile": "Dosyaya git"
+  },
+  "fmt": {
+    "bold": "Kalın",
+    "italic": "İtalik",
+    "strike": "Üstü çizili",
+    "highlight": "Vurgula",
+    "code": "Kod",
+    "bullet": "Madde işaretli liste",
+    "numbered": "Numaralı liste",
+    "checklist": "İşaretli liste",
+    "quote": "Alıntı",
+    "link": "Bağlantı ekle",
+    "hr": "Yatay çizgi"
+  },
+  "ctx": {
+    "addLink": "Bağlantı ekle",
+    "addExternal": "Dış bağlantı ekle",
+    "format": "Biçimlendirme",
+    "paragraph": "Paragraf",
+    "insert": "Ekle",
+    "clearFormat": "Biçimlendirmeyi temizle",
+    "bulletList": "Madde işaretli liste",
+    "numberedList": "Numaralı liste",
+    "checklist": "İşaretli liste",
+    "heading": "{{n}} Başlık",
+    "noHeading": "Başlıksız",
+    "table": "Tablo ekle",
+    "callout": "Çağrı",
+    "hr": "Yatay çizgi ekle",
+    "codeBlock": "Kod bloğu ekle",
+    "cut": "Kes",
+    "copy": "Kopyala",
+    "paste": "Yapıştır",
+    "selectAll": "Tümünü seç"
   }
 }

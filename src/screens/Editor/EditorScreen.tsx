@@ -1,10 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, BookOpen, SquarePen, Link2 } from "lucide-react";
+import type { EditorView } from "@codemirror/view";
 import { useAppStore } from "../../store/useAppStore";
 import { Markdown } from "./Markdown";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
 import { BacklinksPanel } from "./BacklinksPanel";
+import { EditorToolbar } from "./EditorToolbar";
+import { EditorContextMenu } from "./EditorContextMenu";
 
 function breadcrumb(path: string): string[] {
   const segs = path.split("/");
@@ -27,6 +30,9 @@ export function EditorScreen() {
   const toggleTask = useAppStore((s) => s.toggleTask);
   const backlinksCollapsed = useAppStore((s) => s.backlinksCollapsed);
   const toggleBacklinks = useAppStore((s) => s.toggleBacklinks);
+
+  const viewRef = useRef<EditorView | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Otomatik kayıt — düzenlerken draft değişince debounce ile yaz (Kaydet butonu yok).
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -86,6 +92,8 @@ export function EditorScreen() {
         </button>
       </div>
 
+      {editing && <EditorToolbar getView={() => viewRef.current} />}
+
       <div className="lo-editor__body">
         <div className={"lo-editor__scroll lo-scroll" + (editing ? "" : " lo-editor__scroll--preview")}>
           {editing ? (
@@ -95,6 +103,8 @@ export function EditorScreen() {
                 value={draft}
                 onChange={setDraft}
                 lineNumbers={lineNumbers}
+                onView={(v) => (viewRef.current = v)}
+                onContextMenu={(x, y) => setCtxMenu({ x, y })}
               />
             </div>
           ) : (
@@ -109,6 +119,15 @@ export function EditorScreen() {
         </div>
         {!backlinksCollapsed && <BacklinksPanel />}
       </div>
+
+      {ctxMenu && (
+        <EditorContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          getView={() => viewRef.current}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
     </div>
   );
 }
