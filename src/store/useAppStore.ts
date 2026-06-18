@@ -100,7 +100,7 @@ interface AppState {
   setLayout: (l: PlannerLayout) => void;
   setLang: (l: Lang) => void;
   setEditorTab: (t: EditorTab) => void;
-  openNote: (nameOrPath: string) => void;
+  openNote: (nameOrPath: string, edit?: boolean) => void;
   setActiveTab: (path: string) => void;
   closeTab: (path: string) => void;
   setDraft: (text: string) => void;
@@ -198,7 +198,7 @@ export const useAppStore = create<AppState>()(
     setLayout: (layout) => set({ layout }),
     setLang: (lang) => set({ lang }),
     setEditorTab: (editorTab) => set({ editorTab }),
-    openNote: (nameOrPath) => {
+    openNote: (nameOrPath, edit = false) => {
       const s = get();
       // Yol mu yoksa ad mı? Önce yol, sonra ada göre çöz.
       const byPath = s.notes.find((n) => n.path === nameOrPath);
@@ -210,7 +210,7 @@ export const useAppStore = create<AppState>()(
         screen: "editor",
         activeNote: note.path,
         openTabs,
-        editing: false,
+        editing: edit, // edit=true → doğrudan düzenleme modunda aç (önizlemeye uğramadan)
         draft: s.noteContents[note.path] ?? "",
       });
     },

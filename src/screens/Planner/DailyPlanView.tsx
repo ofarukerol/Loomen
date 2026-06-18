@@ -53,7 +53,7 @@ export function DailyPlanView() {
       <div className="lo-dayplan__toolbar">
         <div style={{ flex: 1 }} />
         {content != null && (
-          <button className="lo-focusx__close" onClick={() => openNote(path)}>
+          <button className="lo-focusx__close" onClick={() => openNote(path, true)}>
             <Pencil size={14} strokeWidth={2} />
             {t("editor.edit")}
           </button>
