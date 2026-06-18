@@ -487,7 +487,13 @@ button { font-family: inherit; }
   justify-content: center;
 }
 .lo-cal__nav:hover { background: var(--line-soft); }
-.lo-cal__month { font-weight: 600; font-size: 14px; color: var(--fg1); }
+.lo-cal__month {
+  font-family: inherit; font-weight: 600; font-size: 14px; color: var(--fg1);
+  border: none; background: transparent; cursor: pointer; border-radius: 7px; padding: 4px 10px;
+}
+.lo-cal__month:hover { background: var(--line-soft); color: var(--accent); }
+.lo-cal__day:hover:not(.is-selected) { background: var(--line-soft); }
+.lo-cal__pad { aspect-ratio: 1; }
 .lo-cal__weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 6px; }
 .lo-cal__wd { text-align: center; font-size: 10.5px; font-weight: 600; color: var(--fg3); padding: 4px 0; }
 .lo-cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }

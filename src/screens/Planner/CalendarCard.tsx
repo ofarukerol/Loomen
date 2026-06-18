@@ -1,54 +1,81 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { format } from "date-fns";
+import { tr, enUS, ar } from "date-fns/locale";
 import { useAppStore } from "../../store/useAppStore";
 
-const TODAY = new Date();
-const TODAY_DAY = TODAY.getDate();
-const MONTH = TODAY.getMonth(); // 0-tabanlı
-const YEAR = TODAY.getFullYear();
-const DAYS_IN_MONTH = new Date(YEAR, MONTH + 1, 0).getDate();
+const LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
 
 export function CalendarCard() {
-  const { t } = useTranslation();
-  const selectedDay = useAppStore((s) => s.selectedDay);
-  const selectDay = useAppStore((s) => s.selectDay);
+  const { t, i18n } = useTranslation();
   const groups = useAppStore((s) => s.groups);
+  const activeNote = useAppStore((s) => s.activeNote);
+  const goToDate = useAppStore((s) => s.goToDate);
   const weekdays = t("calendar.weekdays", { returnObjects: true }) as string[];
+  const locale = LOCALES[i18n.language] ?? tr;
 
-  // İçinde bulunulan aya ait görevli günler (grup id = ISO tarih).
+  const now = new Date();
+  const [view, setView] = useState({ y: now.getFullYear(), m: now.getMonth() });
+
+  const first = new Date(view.y, view.m, 1);
+  const offset = (first.getDay() + 6) % 7; // Pazartesi-ilk hizalama
+  const daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
+  const monthLabel = format(first, "LLLL yyyy", { locale });
+
+  // Görüntülenen aydaki görevli günler (grup id = ISO tarih).
   const taskDays = new Set<number>();
   for (const g of groups) {
-    const [y, m, d] = g.id.split("-").map(Number);
-    if (y === YEAR && m - 1 === MONTH) taskDays.add(d);
+    const [y, mo, d] = g.id.split("-").map(Number);
+    if (y === view.y && mo - 1 === view.m) taskDays.add(d);
   }
+
+  // Açık günlük not hangi gün? (seçili vurgu)
+  const am = activeNote?.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const openY = am ? Number(am[1]) : -1;
+  const openM = am ? Number(am[2]) - 1 : -1;
+  const openD = am ? Number(am[3]) : -1;
+
+  const prev = () => setView((v) => (v.m === 0 ? { y: v.y - 1, m: 11 } : { y: v.y, m: v.m - 1 }));
+  const next = () => setView((v) => (v.m === 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m: v.m + 1 }));
+  const goToday = () => {
+    const d = new Date();
+    setView({ y: d.getFullYear(), m: d.getMonth() });
+  };
 
   return (
     <div className="lo-card lo-cal">
       <div className="lo-cal__head">
-        <button className="lo-cal__nav" aria-label="Önceki ay">
+        <button className="lo-cal__nav" onClick={prev} aria-label="Önceki ay">
           <ChevronLeft size={16} strokeWidth={2} />
         </button>
-        <span className="lo-cal__month">{t("calendar.month")}</span>
-        <button className="lo-cal__nav" aria-label="Sonraki ay">
+        <button className="lo-cal__month" onClick={goToday} title="Bugüne dön">
+          {monthLabel}
+        </button>
+        <button className="lo-cal__nav" onClick={next} aria-label="Sonraki ay">
           <ChevronRight size={16} strokeWidth={2} />
         </button>
       </div>
 
       <div className="lo-cal__weekdays">
-        {weekdays.map((d) => (
-          <div className="lo-cal__wd" key={d}>
+        {weekdays.map((d, i) => (
+          <div className="lo-cal__wd" key={i}>
             {d}
           </div>
         ))}
       </div>
 
       <div className="lo-cal__grid">
-        {Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).map((n) => {
-          const isSel = n === selectedDay;
-          const isToday = n === TODAY_DAY;
+        {Array.from({ length: offset }, (_, i) => (
+          <span className="lo-cal__pad" key={"p" + i} />
+        ))}
+        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((n) => {
+          const isToday =
+            view.y === now.getFullYear() && view.m === now.getMonth() && n === now.getDate();
+          const isSel = view.y === openY && view.m === openM && n === openD;
           const cls = "lo-cal__day" + (isSel ? " is-selected" : isToday ? " is-today" : "");
           return (
-            <button className={cls} key={n} onClick={() => selectDay(n)}>
+            <button className={cls} key={n} onClick={() => void goToDate(new Date(view.y, view.m, n))}>
               {n}
               {taskDays.has(n) && <span className="lo-cal__dot" />}
             </button>

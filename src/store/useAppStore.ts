@@ -10,6 +10,8 @@ import {
   loadVaultData,
   todayISO,
   todayDailyPath,
+  dailyPathFor,
+  dailyNoteTemplate,
   watchVaultRoot,
   ensureDailyNote,
   TODO_HEADING,
@@ -137,6 +139,7 @@ interface AppState {
   toggleRight: () => void;
   setFocusExpanded: (v: boolean) => void;
   goToDayNote: () => Promise<void>;
+  goToDate: (date: Date) => Promise<void>;
   createTodayNote: () => Promise<void>;
   todayNotePath: () => string;
   setQuick: (v: string) => void;
@@ -354,6 +357,17 @@ export const useAppStore = create<AppState>()(
     createTodayNote: async () => {
       await ensureDailyNote(backend, todayDailyPath());
       await loadFromBackend();
+    },
+    // Takvimden bir güne tıklama — o günün notunu (yoksa o tarihin şablonuyla oluşturup) aç.
+    goToDate: async (date) => {
+      const path = dailyPathFor(date);
+      if (!(await backend.exists(path))) {
+        const folder = path.split("/").slice(0, -1).join("/");
+        if (folder) await backend.ensureDir(folder);
+        await backend.writeNote(path, dailyNoteTemplate(date));
+      }
+      await loadFromBackend();
+      get().openNote(path);
     },
     setQuick: (quickText) => set({ quickText }),
     selectDay: (selectedDay) => set({ selectedDay }),
