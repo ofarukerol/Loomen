@@ -25,7 +25,23 @@ export function Ribbon() {
 
   return (
     <div className="lo-ribbon">
-      <div className="lo-ribbon__logo">L</div>
+      <div className="lo-ribbon__logo" aria-label="Loomen">
+        <svg width="22" height="22" viewBox="0 0 100 100" fill="none" strokeLinecap="round" strokeWidth="13">
+          {/* dokuma markası: atkı (alt) + çözgü (üst) + over parçaları */}
+          <g stroke="#EAD9BE">
+            <line x1="26" y1="32" x2="74" y2="32" />
+            <line x1="26" y1="68" x2="74" y2="68" />
+          </g>
+          <g stroke="#FBF5EA">
+            <line x1="32" y1="26" x2="32" y2="74" />
+            <line x1="68" y1="26" x2="68" y2="74" />
+          </g>
+          <g stroke="#EAD9BE">
+            <line x1="24" y1="68" x2="40" y2="68" />
+            <line x1="60" y1="32" x2="76" y2="32" />
+          </g>
+        </svg>
+      </div>
 
       <button
         className={"lo-ribbon__btn" + (screen === "planner" ? " is-active" : "")}
