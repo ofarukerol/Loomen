@@ -32,7 +32,10 @@
     "newFolder": "مجلد جديد",
     "collapseAll": "طيّ الكل",
     "rename": "إعادة تسمية",
-    "newNoteHere": "ملاحظة جديدة هنا"
+    "newNoteHere": "ملاحظة جديدة هنا",
+    "favorites": "المفضلة",
+    "addFavorite": "أضف إلى المفضلة",
+    "removeFavorite": "أزل من المفضلة"
   },
   "planner": {
     "focusToday": "ركّز على اليوم",

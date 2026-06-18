@@ -36,7 +36,10 @@
     "newFolder": "Yeni klasör",
     "collapseAll": "Tümünü daralt",
     "rename": "Yeniden adlandır",
-    "newNoteHere": "Buraya yeni not"
+    "newNoteHere": "Buraya yeni not",
+    "favorites": "Favoriler",
+    "addFavorite": "Favorilere ekle",
+    "removeFavorite": "Favorilerden çıkar"
   },
   "planner": {
     "focusToday": "Bugüne Odaklan",

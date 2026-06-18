@@ -80,15 +80,20 @@ button { font-family: inherit; }
   border-inline-end: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  padding-top: 30px; /* macOS trafik ışıkları için üst boşluk */
+}
+/* Üst araç şeridi — başlık-çubuğu hizasında (trafik ışıkları solda) */
+.lo-explorer__bar {
+  height: 38px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 0 10px 0 40px;
 }
 .lo-explorer__head {
-  padding: 16px 16px 12px;
+  padding: 2px 16px 10px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 1px;
 }
-.lo-explorer__title { font-weight: 600; font-size: 13px; letter-spacing: 0.02em; color: var(--fg1); }
+.lo-explorer__title { font-weight: 600; font-size: 14px; letter-spacing: 0.02em; color: var(--fg1); }
 .lo-explorer__open {
   width: 26px;
   height: 26px;
@@ -105,7 +110,7 @@ button { font-family: inherit; }
 /* sol paneli kapatma — hafifçe büyük, biraz daha belirgin */
 .lo-explorer__collapse { width: 30px; height: 30px; color: var(--fg2); }
 .lo-explorer__pathline {
-  padding: 0 16px 10px;
+  padding: 0;
   font-size: 11px;
   color: var(--fg3);
   font-family: var(--font-mono);
@@ -113,6 +118,23 @@ button { font-family: inherit; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Favoriler bölümü */
+.lo-fav { padding: 2px 8px 6px; }
+.lo-fav__head {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  border: none; background: transparent; cursor: pointer;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--fg3); padding: 5px 6px; border-radius: 6px;
+}
+.lo-fav__head:hover { color: var(--fg2); }
+.lo-fav__item {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  border: none; background: transparent; cursor: pointer;
+  border-radius: 7px; padding: 6px 8px 6px 24px;
+  font-family: inherit; font-size: 13px; color: var(--fg2); text-align: start;
+}
+.lo-fav__item:hover { background: var(--line-soft); color: var(--fg1); }
+.lo-fav__item.is-active { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 .lo-explorer__searchwrap { padding: 0 12px 10px; }
 .lo-search {
   display: flex;

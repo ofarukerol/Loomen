@@ -18,6 +18,7 @@ import {
   Cloud,
   RefreshCw,
   Shapes,
+  Star,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
@@ -198,7 +199,11 @@ export function Explorer() {
   const ghStatus = useAppStore((s) => s.ghStatus);
   const ghSync = useAppStore((s) => s.ghSync);
   const openVault = useAppStore((s) => s.openVault);
+  const favorites = useAppStore((s) => s.favorites);
+  const toggleFavorite = useAppStore((s) => s.toggleFavorite);
+  const activeNote = useAppStore((s) => s.activeNote);
   const [query, setQuery] = useState("");
+  const [favOpen, setFavOpen] = useState(true);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<Menu>(null);
   const [renaming, setRenaming] = useState<Renaming>(null);
@@ -262,10 +267,15 @@ export function Explorer() {
 
   const pathLabel = vaultPath ? "~/" + vaultPath.split("/").filter(Boolean).pop() : "~/Loomen (örnek)";
 
+  // Favori notları çöz (silinmiş yolları at).
+  const favNotes = favorites
+    .map((p) => notes.find((n) => n.path === p))
+    .filter((n): n is VaultNote => !!n);
+
   return (
     <div className="lo-explorer">
-      <div className="lo-explorer__head">
-        <span className="lo-explorer__title">{t("explorer.vault")}</span>
+      {/* Üst araç şeridi — başlık-çubuğu hizasında, sürüklenebilir */}
+      <div className="lo-explorer__bar" data-tauri-drag-region>
         <div className="lo-explorer__actions">
           <button className="lo-explorer__open" title={t("explorer.newNote")} onClick={() => void newNote()}>
             <SquarePen size={16} strokeWidth={1.8} />
@@ -285,7 +295,10 @@ export function Explorer() {
           </button>
         </div>
       </div>
-      <div className="lo-explorer__pathline">{pathLabel}</div>
+      <div className="lo-explorer__head">
+        <span className="lo-explorer__title">{t("explorer.vault")}</span>
+        <span className="lo-explorer__pathline">{pathLabel}</span>
+      </div>
 
       <div className="lo-explorer__searchwrap">
         <div className="lo-search">
@@ -300,6 +313,36 @@ export function Explorer() {
           )}
         </div>
       </div>
+
+      {!query && favNotes.length > 0 && (
+        <div className="lo-fav">
+          <button className="lo-fav__head" onClick={() => setFavOpen((v) => !v)}>
+            <ChevronDown
+              size={13}
+              strokeWidth={2.2}
+              style={{ transform: favOpen ? "none" : "rotate(-90deg)", transition: "transform .12s" }}
+            />
+            <Star size={12} strokeWidth={2} fill="var(--accent-2)" color="var(--accent-2)" />
+            {t("explorer.favorites")}
+          </button>
+          {favOpen &&
+            favNotes.map((n) => (
+              <button
+                key={n.path}
+                className={"lo-fav__item" + (activeNote === n.path ? " is-active" : "")}
+                onClick={() => openNote(n.path)}
+                onContextMenu={(e) => onContext(e, "file", n.path)}
+              >
+                {n.kind === "draw" ? (
+                  <Shapes size={13} strokeWidth={1.7} color="var(--accent-2)" />
+                ) : (
+                  <FileText size={13} strokeWidth={1.7} color="var(--fg3)" />
+                )}
+                {n.name}
+              </button>
+            ))}
+        </div>
+      )}
 
       {query ? (
         <div className="lo-tree lo-scroll">
@@ -398,6 +441,22 @@ export function Explorer() {
             <Pencil size={13} strokeWidth={1.9} />
             {t("explorer.rename")}
           </button>
+          {menu.kind === "file" && (
+            <button
+              className="lo-ctxmenu__item"
+              onClick={() => {
+                toggleFavorite(menu.path);
+                setMenu(null);
+              }}
+            >
+              <Star
+                size={13}
+                strokeWidth={1.9}
+                fill={favorites.includes(menu.path) ? "currentColor" : "none"}
+              />
+              {favorites.includes(menu.path) ? t("explorer.removeFavorite") : t("explorer.addFavorite")}
+            </button>
+          )}
           {menu.kind === "folder" && (
             <button
               className="lo-ctxmenu__item"

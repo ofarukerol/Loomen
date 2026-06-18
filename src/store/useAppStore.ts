@@ -93,6 +93,9 @@ interface AppState {
   // Aktif Excalidraw çizimi (yol)
   activeDraw: string | null;
 
+  // Favoriler (sabitlenmiş not/çizim yolları)
+  favorites: string[];
+
   // GitHub senkronizasyonu
   ghToken: string | null;
   ghUser: GhUser | null;
@@ -151,6 +154,7 @@ interface AppState {
   newFolder: () => Promise<void>;
   newDraw: (folder?: string) => Promise<void>;
   saveDraw: (json: string) => Promise<void>;
+  toggleFavorite: (path: string) => void;
   renameNote: (path: string, newName: string) => Promise<void>;
   renameFolder: (folderPath: string, newName: string) => Promise<void>;
   addTask: () => Promise<void>;
@@ -237,6 +241,7 @@ export const useAppStore = create<AppState>()(
     backlinksCollapsed: false,
     selectedTask: null,
     activeDraw: null,
+    favorites: [],
 
     ghToken: null,
     ghUser: null,
@@ -459,6 +464,13 @@ export const useAppStore = create<AppState>()(
       set({ screen: "draw", activeDraw: path });
     },
 
+    toggleFavorite: (path) =>
+      set((s) => ({
+        favorites: s.favorites.includes(path)
+          ? s.favorites.filter((p) => p !== path)
+          : [...s.favorites, path],
+      })),
+
     // Aktif çizimi dosyaya yaz (vault'u yeniden yükleme — canvas resetlenmesin).
     saveDraw: async (json) => {
       const path = get().activeDraw;
@@ -637,6 +649,7 @@ export const useAppStore = create<AppState>()(
         backlinksCollapsed: s.backlinksCollapsed,
         pomo: s.pomo,
         pomoHistory: s.pomoHistory,
+        favorites: s.favorites,
         ghToken: s.ghToken,
         ghUser: s.ghUser,
         ghRepo: s.ghRepo,

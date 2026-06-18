@@ -33,7 +33,10 @@
     "newFolder": "New folder",
     "collapseAll": "Collapse all",
     "rename": "Rename",
-    "newNoteHere": "New note here"
+    "newNoteHere": "New note here",
+    "favorites": "Favorites",
+    "addFavorite": "Add to favorites",
+    "removeFavorite": "Remove from favorites"
   },
   "planner": {
     "focusToday": "Focus On Today",
