@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore, ACCENTS, type Lang, type EditorSettings } from "../../store/useAppStore";
+import { GitHubSync } from "./GitHubSync";
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -144,6 +145,9 @@ export function SettingsScreen() {
             </div>
           ))}
         </div>
+
+        {/* GitHub Senkronizasyonu */}
+        <GitHubSync />
 
         {/* Kasa */}
         <div className="lo-set__section">{t("settings.vault")}</div>

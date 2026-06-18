@@ -15,6 +15,7 @@ import {
   TODO_HEADING,
 } from "../core/vault";
 import { groupTasks, focusCounts } from "../core/vault/grouping";
+import { gh, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
@@ -88,6 +89,16 @@ interface AppState {
   // Görev detay paneli (seçili görev id'si "file:line")
   selectedTask: string | null;
 
+  // GitHub senkronizasyonu
+  ghToken: string | null;
+  ghUser: GhUser | null;
+  ghRepo: GhRepo | null;
+  ghDevice: DeviceStart | null; // aktif device-flow (bağlan modalı)
+  ghSyncing: boolean;
+  ghLastSync: string | null; // ISO
+  ghStatus: string | null; // son durum/hata mesajı
+  ghAutoSync: boolean;
+
   // Pomodoro
   pomo: PomodoroSettings;
   pomoRemaining: number;
@@ -138,6 +149,17 @@ interface AppState {
   toggleTask: (id: string) => Promise<void>;
   selectTask: (id: string | null) => void;
   updateTask: (id: string, patch: TaskPatch) => Promise<void>;
+
+  // GitHub aksiyonları
+  ghBeginAuth: () => Promise<void>;
+  ghCancelAuth: () => void;
+  ghPoll: () => Promise<string>;
+  ghDisconnect: () => void;
+  ghLoadRepos: () => Promise<GhRepo[]>;
+  ghCreateRepo: (name: string, priv_: boolean) => Promise<void>;
+  ghSelectRepo: (repo: GhRepo) => void;
+  ghSync: () => Promise<void>;
+  ghSetAutoSync: (v: boolean) => void;
 }
 
 const FOCUS_MIN = 25;
@@ -194,6 +216,15 @@ export const useAppStore = create<AppState>()(
     draft: "",
     backlinksCollapsed: false,
     selectedTask: null,
+
+    ghToken: null,
+    ghUser: null,
+    ghRepo: null,
+    ghDevice: null,
+    ghSyncing: false,
+    ghLastSync: null,
+    ghStatus: null,
+    ghAutoSync: false,
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoRemaining: FOCUS_MIN * 60,
@@ -443,6 +474,71 @@ export const useAppStore = create<AppState>()(
       await backend.writeNote(file, applyTaskPatch(content, line, task, patch));
       await loadFromBackend();
     },
+
+    // — GitHub —
+    ghBeginAuth: async () => {
+      set({ ghStatus: null });
+      const d = await gh.deviceStart();
+      set({ ghDevice: d });
+      gh.openUrl(d.verification_uri).catch(() => {});
+    },
+    ghCancelAuth: () => set({ ghDevice: null }),
+    ghPoll: async () => {
+      const d = get().ghDevice;
+      if (!d) return "no_device";
+      const res = await gh.devicePoll(d.device_code);
+      if (res.status === "ok" && res.access_token) {
+        const token = res.access_token;
+        const user = await gh.user(token);
+        set({ ghToken: token, ghUser: user, ghDevice: null, ghStatus: null });
+        return "ok";
+      }
+      return res.status;
+    },
+    ghDisconnect: () => set({ ghToken: null, ghUser: null, ghRepo: null, ghDevice: null, ghStatus: null }),
+    ghLoadRepos: async () => {
+      const token = get().ghToken;
+      if (!token) return [];
+      return gh.listRepos(token);
+    },
+    ghCreateRepo: async (name, priv_) => {
+      const token = get().ghToken;
+      if (!token) return;
+      const repo = await gh.createRepo(token, name, priv_);
+      set({ ghRepo: repo });
+    },
+    ghSelectRepo: (repo) => set({ ghRepo: repo }),
+    ghSync: async () => {
+      const s = get();
+      if (!s.ghToken || !s.ghRepo) {
+        set({ ghStatus: "Bağlantı ve depo gerekli" });
+        return;
+      }
+      if (!s.vaultPath) {
+        set({ ghStatus: "needVault" });
+        return;
+      }
+      set({ ghSyncing: true, ghStatus: null });
+      try {
+        const login = s.ghUser?.login ?? "loomen";
+        const res = await gh.sync(
+          s.vaultPath,
+          s.ghRepo.clone_url,
+          s.ghToken,
+          login,
+          `${login}@users.noreply.github.com`
+        );
+        set({
+          ghSyncing: false,
+          ghLastSync: new Date().toISOString(),
+          ghStatus: res.pulled ? "pulledPushed" : "pushed",
+        });
+        await get().reloadVault();
+      } catch (e) {
+        set({ ghSyncing: false, ghStatus: String(e) });
+      }
+    },
+    ghSetAutoSync: (ghAutoSync) => set({ ghAutoSync }),
       };
     },
     {
@@ -458,6 +554,11 @@ export const useAppStore = create<AppState>()(
         backlinksCollapsed: s.backlinksCollapsed,
         pomo: s.pomo,
         pomoHistory: s.pomoHistory,
+        ghToken: s.ghToken,
+        ghUser: s.ghUser,
+        ghRepo: s.ghRepo,
+        ghLastSync: s.ghLastSync,
+        ghAutoSync: s.ghAutoSync,
       }),
     }
   )

@@ -12,6 +12,7 @@ import { GraphScreen } from "./screens/Graph/GraphScreen";
 import { ReportsScreen } from "./screens/Reports/ReportsScreen";
 import { SettingsScreen } from "./screens/Settings/SettingsScreen";
 import { TaskDetail } from "./screens/Planner/TaskDetail";
+import { GitHubDeviceModal } from "./screens/Settings/GitHubSync";
 
 export default function App() {
   const { i18n } = useTranslation();
@@ -23,11 +24,22 @@ export default function App() {
   const toggleLeft = useAppStore((s) => s.toggleLeft);
 
   const bootstrap = useAppStore((s) => s.bootstrap);
+  const ghAutoSync = useAppStore((s) => s.ghAutoSync);
+  const ghToken = useAppStore((s) => s.ghToken);
+  const ghRepo = useAppStore((s) => s.ghRepo);
+  const ghSync = useAppStore((s) => s.ghSync);
 
   // İlk açılışta kasayı yükle (sample veya kayıtlı Tauri kasası).
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // Otomatik senkron: bağlıyken ve açıkken periyodik push/pull (3 dk).
+  useEffect(() => {
+    if (!ghAutoSync || !ghToken || !ghRepo) return;
+    const id = setInterval(() => void ghSync(), 3 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [ghAutoSync, ghToken, ghRepo, ghSync]);
 
   // Dil değişince i18next + <html dir> güncelle (RTL).
   useEffect(() => {
@@ -64,6 +76,8 @@ export default function App() {
       <RightPanel />
       {/* Görev detay modalı — global */}
       <TaskDetail />
+      {/* GitHub bağlan (device flow) modalı — global */}
+      <GitHubDeviceModal />
     </div>
   );
 }
