@@ -26,7 +26,8 @@ export async function pickVaultFolder(): Promise<string | null> {
 export async function loadVaultData(backend: VaultBackend): Promise<VaultData> {
   const notes = await backend.listNotes();
   const raw = await Promise.all(notes.map((n) => backend.readNote(n.path)));
-  const tasks = notes.flatMap((n, i) => parseTasks(n.path, raw[i]));
+  // Görevler yalnızca markdown notlardan parse edilir (çizimler JSON'dur).
+  const tasks = notes.flatMap((n, i) => (n.kind === "draw" ? [] : parseTasks(n.path, raw[i])));
   const contents: Record<string, string> = {};
   notes.forEach((n, i) => (contents[n.path] = raw[i]));
   return { notes, tasks, contents };

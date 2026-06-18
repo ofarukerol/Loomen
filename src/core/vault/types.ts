@@ -29,6 +29,8 @@ export interface VaultNote {
   name: string;
   /** Üst klasör, ör. "Notlar" (kök için ""). */
   folder: string;
+  /** Dosya türü: markdown not mu, Excalidraw çizimi mi. */
+  kind: "note" | "draw";
 }
 
 /** Vault'tan yüklenen ham veri. */

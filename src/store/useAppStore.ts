@@ -19,7 +19,7 @@ import { gh, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
-export type Screen = "planner" | "editor" | "graph" | "reports" | "settings";
+export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw";
 export type PlannerLayout = "timeline" | "board";
 export type Lang = "tr" | "en" | "ar";
 export type EditorTab = "daily" | "proje" | "fikirler";
@@ -89,6 +89,9 @@ interface AppState {
   // Görev detay paneli (seçili görev id'si "file:line")
   selectedTask: string | null;
 
+  // Aktif Excalidraw çizimi (yol)
+  activeDraw: string | null;
+
   // GitHub senkronizasyonu
   ghToken: string | null;
   ghUser: GhUser | null;
@@ -143,6 +146,8 @@ interface AppState {
   reloadVault: () => Promise<void>;
   newNote: (folder?: string) => Promise<void>;
   newFolder: () => Promise<void>;
+  newDraw: (folder?: string) => Promise<void>;
+  saveDraw: (json: string) => Promise<void>;
   renameNote: (path: string, newName: string) => Promise<void>;
   renameFolder: (folderPath: string, newName: string) => Promise<void>;
   addTask: () => Promise<void>;
@@ -161,6 +166,17 @@ interface AppState {
   ghSync: () => Promise<void>;
   ghSetAutoSync: (v: boolean) => void;
 }
+
+/** Boş Excalidraw sahnesi (yeni çizim oluştururken). */
+const EMPTY_EXCALIDRAW = JSON.stringify({
+  type: "excalidraw",
+  version: 2,
+  source: "loomen",
+  elements: [],
+  appState: {},
+  files: {},
+});
+const DRAW_DIR = "Çizimler";
 
 const FOCUS_MIN = 25;
 const VAULT_KEY = "loomen.vaultPath";
@@ -216,6 +232,7 @@ export const useAppStore = create<AppState>()(
     draft: "",
     backlinksCollapsed: false,
     selectedTask: null,
+    activeDraw: null,
 
     ghToken: null,
     ghUser: null,
@@ -246,6 +263,11 @@ export const useAppStore = create<AppState>()(
       const byName = s.notes.find((n) => n.name === nameOrPath);
       const note = byPath ?? byName;
       if (!note) return; // eksik/kırık link
+      // Çizim dosyaları editör yerine çizim ekranında açılır.
+      if (note.kind === "draw") {
+        set({ screen: "draw", activeDraw: note.path });
+        return;
+      }
       const openTabs = s.openTabs.includes(note.path) ? s.openTabs : [...s.openTabs, note.path];
       set({
         screen: "editor",
@@ -382,6 +404,30 @@ export const useAppStore = create<AppState>()(
       await backend.writeNote(`${dir}${name}.md`, `# ${name}\n\n`);
       await loadFromBackend();
       get().openNote(`${dir}${name}.md`, true);
+    },
+
+    // Yeni Excalidraw çizimi oluştur (çakışmayan ad), çizim ekranında aç.
+    newDraw: async (folder) => {
+      const s = get();
+      const dir = folder ? folder : DRAW_DIR;
+      const base = "Adsız";
+      let name = base;
+      let i = 2;
+      const taken = (n: string) => s.notes.some((x) => x.path === `${dir}/${n}.excalidraw`);
+      while (taken(name)) name = `${base} ${i++}`;
+      const path = `${dir}/${name}.excalidraw`;
+      await backend.ensureDir(dir);
+      await backend.writeNote(path, EMPTY_EXCALIDRAW);
+      await loadFromBackend();
+      set({ screen: "draw", activeDraw: path });
+    },
+
+    // Aktif çizimi dosyaya yaz (vault'u yeniden yükleme — canvas resetlenmesin).
+    saveDraw: async (json) => {
+      const path = get().activeDraw;
+      if (!path) return;
+      await backend.writeNote(path, json);
+      set((s) => ({ noteContents: { ...s.noteContents, [path]: json } }));
     },
 
     // Yeni klasör oluştur; ağaçta görünmesi için içine başlangıç notu koyar (boş klasör türetilen ağaçta görünmez).

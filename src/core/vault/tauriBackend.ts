@@ -13,7 +13,9 @@ export function createTauriBackend(root: string): VaultBackend {
       if (e.isDirectory) {
         await walk(`${dirAbs}/${e.name}`, childRel, out);
       } else if (e.name.toLowerCase().endsWith(".md")) {
-        out.push({ path: childRel, name: e.name.replace(/\.md$/i, ""), folder: relDir });
+        out.push({ path: childRel, name: e.name.replace(/\.md$/i, ""), folder: relDir, kind: "note" });
+      } else if (e.name.toLowerCase().endsWith(".excalidraw")) {
+        out.push({ path: childRel, name: e.name.replace(/\.excalidraw$/i, ""), folder: relDir, kind: "draw" });
       }
     }
   }

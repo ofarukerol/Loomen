@@ -10,6 +10,7 @@ import { PlannerScreen } from "./screens/Planner/PlannerScreen";
 import { EditorScreen } from "./screens/Editor/EditorScreen";
 import { GraphScreen } from "./screens/Graph/GraphScreen";
 import { ReportsScreen } from "./screens/Reports/ReportsScreen";
+import { DrawScreen } from "./screens/Draw/DrawScreen";
 import { SettingsScreen } from "./screens/Settings/SettingsScreen";
 import { TaskDetail } from "./screens/Planner/TaskDetail";
 import { GitHubDeviceModal } from "./screens/Settings/GitHubSync";
@@ -47,7 +48,7 @@ export default function App() {
     applyDir(lang);
   }, [lang, i18n]);
 
-  const explorerEligible = ["planner", "editor", "graph", "reports"].includes(screen);
+  const explorerEligible = ["planner", "editor", "graph", "reports", "draw"].includes(screen);
   const showExplorer = explorerEligible && !leftCollapsed;
 
   // Vurgu rengini kök seviyede override et (varsayılan dışı seçilirse).
@@ -69,6 +70,7 @@ export default function App() {
         {screen === "planner" && <PlannerScreen />}
         {screen === "editor" && <EditorScreen />}
         {screen === "graph" && <GraphScreen />}
+        {screen === "draw" && <DrawScreen />}
         {screen === "reports" && <ReportsScreen />}
         {screen === "settings" && <SettingsScreen />}
       </div>

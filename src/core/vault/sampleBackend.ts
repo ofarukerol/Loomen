@@ -75,7 +75,9 @@ export function createSampleBackend(): VaultBackend {
       return Object.keys(store).map((path) => {
         const parts = path.split("/");
         const file = parts.pop()!;
-        return { path, name: file.replace(/\.md$/i, ""), folder: parts.join("/") };
+        const kind = /\.excalidraw$/i.test(file) ? "draw" : "note";
+        const name = file.replace(/\.(md|excalidraw)$/i, "");
+        return { path, name, folder: parts.join("/"), kind } as const;
       });
     },
     async readNote(path) {

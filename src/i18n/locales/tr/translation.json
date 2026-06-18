@@ -11,7 +11,8 @@
     "mobile": "Mobil",
     "rtl": "عربي / RTL",
     "settings": "Ayarlar",
-    "theme": "Tema"
+    "theme": "Tema",
+    "draw": "Çizim"
   },
   "reports": {
     "title": "Raporlar",
@@ -191,5 +192,9 @@
   },
   "syncStatus": {
     "error": "Senkron hatası"
+  },
+  "draw": {
+    "empty": "Bir çizim seç veya yeni oluştur.",
+    "new": "Yeni çizim"
   }
 }

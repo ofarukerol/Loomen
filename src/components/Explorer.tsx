@@ -17,6 +17,7 @@ import {
   FilePlus,
   Cloud,
   RefreshCw,
+  Shapes,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
@@ -119,7 +120,11 @@ function FileItem({ note, depth, ctx }: { note: VaultNote; depth: number; ctx: R
       onClick={() => openNote(note.path)}
       onContextMenu={(e) => ctx.onContext(e, "file", note.path)}
     >
-      <FileText size={14} strokeWidth={1.7} color="var(--fg3)" />
+      {note.kind === "draw" ? (
+        <Shapes size={14} strokeWidth={1.7} color="var(--accent-2)" />
+      ) : (
+        <FileText size={14} strokeWidth={1.7} color="var(--fg3)" />
+      )}
       {note.name}
     </button>
   );

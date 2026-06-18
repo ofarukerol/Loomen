@@ -8,7 +8,8 @@
     "mobile": "Mobile",
     "rtl": "عربي / RTL",
     "settings": "Settings",
-    "theme": "Theme"
+    "theme": "Theme",
+    "draw": "Draw"
   },
   "reports": {
     "title": "Reports",
@@ -144,5 +145,9 @@
   },
   "syncStatus": {
     "error": "Sync error"
+  },
+  "draw": {
+    "empty": "Select a drawing or create a new one.",
+    "new": "New drawing"
   }
 }
