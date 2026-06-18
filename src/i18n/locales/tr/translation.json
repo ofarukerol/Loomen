@@ -146,7 +146,8 @@
     "deviceWaiting": "Onay bekleniyor…",
     "deviceDenied": "Erişim reddedildi.",
     "deviceExpired": "Kodun süresi doldu, tekrar dene.",
-    "cancel": "Vazgeç"
+    "cancel": "Vazgeç",
+    "selectVault": "Kasa seç"
   },
   "graph": {
     "title": "Graf görünümü",

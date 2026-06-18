@@ -124,7 +124,8 @@
     "deviceWaiting": "Waiting for approval…",
     "deviceDenied": "Access denied.",
     "deviceExpired": "Code expired, try again.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "selectVault": "Pick vault"
   },
   "graph": {
     "title": "Graph view",

@@ -142,7 +142,8 @@
     "deviceWaiting": "بانتظار الموافقة…",
     "deviceDenied": "تم رفض الوصول.",
     "deviceExpired": "انتهت صلاحية الرمز، حاول مجددًا.",
-    "cancel": "إلغاء"
+    "cancel": "إلغاء",
+    "selectVault": "اختر خزنة"
   },
   "graph": {
     "title": "عرض الرسم",

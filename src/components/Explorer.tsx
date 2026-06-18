@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { formatDistanceToNow } from "date-fns";
+import { tr, enUS, ar } from "date-fns/locale";
 import {
   Search,
   ChevronRight,
@@ -170,8 +172,11 @@ function FolderNode({
   );
 }
 
+const SYNC_LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
+const KNOWN_SYNC = new Set(["pushed", "pulledPushed", "needVault"]);
+
 export function Explorer() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notes = useAppStore((s) => s.notes);
   const contents = useAppStore((s) => s.noteContents);
   const vaultPath = useAppStore((s) => s.vaultPath);
@@ -184,6 +189,10 @@ export function Explorer() {
   const ghToken = useAppStore((s) => s.ghToken);
   const ghRepo = useAppStore((s) => s.ghRepo);
   const ghSyncing = useAppStore((s) => s.ghSyncing);
+  const ghLastSync = useAppStore((s) => s.ghLastSync);
+  const ghStatus = useAppStore((s) => s.ghStatus);
+  const ghSync = useAppStore((s) => s.ghSync);
+  const openVault = useAppStore((s) => s.openVault);
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<Menu>(null);
@@ -313,24 +322,56 @@ export function Explorer() {
 
       <div className="lo-explorer__foot">
         {!ghToken ? (
-          <>
+          <span className="lo-foot__label">
             <Clock size={13} strokeWidth={2} />
             {t("explorer.localNoSync")}
-          </>
-        ) : ghSyncing ? (
-          <>
-            <RefreshCw size={13} strokeWidth={2} className="lo-spin" />
-            {t("github.syncing")}
-          </>
-        ) : ghRepo ? (
-          <>
-            <Cloud size={13} strokeWidth={2} color="var(--accent-2)" />
-            {ghRepo.name}
-          </>
+          </span>
         ) : (
           <>
-            <Cloud size={13} strokeWidth={2} />
-            {t("github.selectRepo")}
+            <span className="lo-foot__label">
+              {ghSyncing ? (
+                <RefreshCw size={13} strokeWidth={2} className="lo-spin" />
+              ) : (
+                <Cloud size={13} strokeWidth={2} color="var(--accent-2)" />
+              )}
+              {ghRepo ? ghRepo.name : t("github.selectRepo")}
+            </span>
+
+            {ghRepo && (
+              <span className="lo-foot__right">
+                {!vaultPath ? (
+                  <button className="lo-foot__hint" onClick={() => void openVault()}>
+                    {t("github.selectVault")}
+                  </button>
+                ) : (
+                  <>
+                    {ghStatus && !KNOWN_SYNC.has(ghStatus) ? (
+                      <span className="lo-foot__time is-error" title={ghStatus}>
+                        {t("syncStatus.error")}
+                      </span>
+                    ) : (
+                      ghLastSync &&
+                      !ghSyncing && (
+                        <span className="lo-foot__time">
+                          {formatDistanceToNow(new Date(ghLastSync), {
+                            addSuffix: true,
+                            locale: SYNC_LOCALES[i18n.language] ?? tr,
+                          })}
+                        </span>
+                      )
+                    )}
+                    <button
+                      className="lo-foot__sync"
+                      title={t("github.syncNow")}
+                      disabled={ghSyncing}
+                      onClick={() => void ghSync()}
+                    >
+                      <RefreshCw size={13} strokeWidth={2} className={ghSyncing ? "lo-spin" : undefined} />
+                    </button>
+                  </>
+                )}
+              </span>
+            )}
           </>
         )}
       </div>

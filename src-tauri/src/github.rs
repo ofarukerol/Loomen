@@ -168,7 +168,7 @@ pub async fn github_create_repo(
     let body = serde_json::json!({
         "name": name,
         "private": private,
-        "auto_init": true,
+        "auto_init": false, // boş repo → ilk senkron temiz push (unrelated-history merge'ü yok)
         "description": "Loomen kasası"
     });
     let res = http()
