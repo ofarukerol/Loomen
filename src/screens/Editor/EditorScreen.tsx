@@ -8,6 +8,7 @@ import { CodeMirrorEditor } from "./CodeMirrorEditor";
 import { BacklinksPanel } from "./BacklinksPanel";
 import { EditorToolbar } from "./EditorToolbar";
 import { EditorContextMenu } from "./EditorContextMenu";
+import { DailyHeader } from "./DailyHeader";
 
 function breadcrumb(path: string): string[] {
   const segs = path.split("/");
@@ -93,6 +94,8 @@ export function EditorScreen() {
       </div>
 
       {editing && <EditorToolbar getView={() => viewRef.current} />}
+
+      {crumbs.length > 0 && <DailyHeader noteName={crumbs[crumbs.length - 1]} />}
 
       <div className="lo-editor__body">
         <div className={"lo-editor__scroll lo-scroll" + (editing ? "" : " lo-editor__scroll--preview")}>

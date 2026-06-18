@@ -1544,3 +1544,21 @@ button { font-family: inherit; }
   position: absolute; inset-inline-start: 100%; top: -5px; margin-inline-start: 2px;
   min-width: 200px; z-index: 61;
 }
+
+/* Günlük not — modern üst başlık (tarih/gün/hafta, dosya adından) */
+.lo-dayhdr {
+  padding: 22px 40px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+.lo-dayhdr__day {
+  font-size: 27px; font-weight: 700; color: var(--fg1); letter-spacing: -0.015em; line-height: 1.1;
+}
+.lo-dayhdr__meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; }
+.lo-dayhdr__chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--fg3); font-family: var(--font-mono);
+}
+.lo-dayhdr__chip svg { color: var(--accent-2); flex-shrink: 0; }
+/* başlık altı uzun boşluk (okuma modu h1) */
+.lo-prose h1 { margin-bottom: 26px; }

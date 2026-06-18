@@ -33,7 +33,7 @@ const cmTheme = EditorView.theme({
   ".cm-scroller": { fontFamily: "var(--font-sans)", lineHeight: "1.7", overflow: "auto" },
   ".cm-content": { caretColor: "var(--accent)", padding: "4px 0 200px", maxWidth: "760px" },
   // Canlı önizleme — başlık boyutları + bölümler arası boşluk/ayraç + wiki-link
-  ".cm-h1": { fontSize: "1.9em", fontWeight: "700", lineHeight: "1.3", paddingBottom: "4px" },
+  ".cm-h1": { fontSize: "1.9em", fontWeight: "700", lineHeight: "1.3", marginBottom: "26px" },
   ".cm-h2": {
     fontSize: "1.5em",
     fontWeight: "700",

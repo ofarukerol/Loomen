@@ -1,4 +1,4 @@
-import { format, getISOWeek } from "date-fns";
+import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 
 /** Günlük not başlığı: YYYY-MM-DD-Gün (docs 06 §6.2). */
@@ -13,8 +13,8 @@ export const TODO_HEADING = /^#{1,6}\s.*Yapılacaklar/i;
 export function dailyNoteTemplate(date: Date): string {
   const iso = format(date, "yyyy-MM-dd");
   const day = format(date, "EEEE", { locale: tr });
-  const week = getISOWeek(date);
-  // Minimal günlük şablonu (görevler ayrı 'Yapılacaklar.md'de tutulur).
+  // Minimal günlük şablonu. Tarih/gün/hafta artık üstteki modern başlıkta (dosya adından
+  // türetilir) gösterilir; gövdeye verbose metadata eklenmez. Görevler ayrı 'Yapılacaklar.md'de.
   return [
     `# ${iso}-${day}`,
     ``,
@@ -26,9 +26,7 @@ export function dailyNoteTemplate(date: Date): string {
     ``,
     `## 📚 Okuduklarım/İzlediklerim`,
     ``,
-    `---`,
-    ``,
-    `#günlük 📅 Tarih: ${iso} ⭐ Gün: ${day} 📈 Hafta: ${week}`,
+    `#günlük`,
     ``,
   ].join("\n");
 }

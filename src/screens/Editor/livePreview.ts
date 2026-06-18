@@ -14,17 +14,34 @@ interface Pending {
   deco: Decoration;
 }
 
+/** Günlük başlık (# YYYY-MM-DD-...) ve #günlük metadata satırı — banner üstte gösterir, gövdede gizle. */
+const HIDE_LINE = (text: string) => /^#\s+\d{4}-\d{2}-\d{2}/.test(text) || /^#günlük\b/.test(text);
+
 function buildDecos(view: EditorView): DecorationSet {
   const { state } = view;
   const cursorLine = state.doc.lineAt(state.selection.main.head).number;
   const out: Pending[] = [];
+  const hidden = new Set<number>();
 
   for (const { from, to } of view.visibleRanges) {
+    // Tüm satırı gizlenecekler (günlük meta)
+    let p = from;
+    while (p <= to) {
+      const line = state.doc.lineAt(p);
+      if (HIDE_LINE(line.text)) {
+        hidden.add(line.number);
+        if (line.length > 0) out.push({ from: line.from, to: line.to, deco: HIDE });
+      }
+      p = line.to + 1;
+    }
+
     syntaxTree(state).iterate({
       from,
       to,
       enter: (node) => {
         const name = node.name;
+        const ln = state.doc.lineAt(node.from).number;
+        if (hidden.has(ln)) return;
         if (/^ATXHeading[1-6]$/.test(name)) {
           // Başlık satırına boyut ver
           const line = state.doc.lineAt(node.from);
@@ -51,6 +68,7 @@ function buildDecos(view: EditorView): DecorationSet {
       const start = from + m.index;
       const stop = start + m[0].length;
       const line = state.doc.lineAt(start);
+      if (hidden.has(line.number)) continue;
       out.push({ from: start + 2, to: stop - 2, deco: Decoration.mark({ class: "cm-wikilink" }) });
       if (line.number !== cursorLine) {
         out.push({ from: start, to: start + 2, deco: HIDE });

@@ -79,6 +79,12 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
       continue;
     }
 
+    // Günlük başlık (# YYYY-MM-DD-...) ve #günlük metadata satırı — üstteki modern başlıkta gösterilir, gövdede atla.
+    if (/^#\s+\d{4}-\d{2}-\d{2}/.test(trimmed) || /^#günlük\b/.test(trimmed)) {
+      i++;
+      continue;
+    }
+
     // Yatay çizgi
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
       blocks.push(

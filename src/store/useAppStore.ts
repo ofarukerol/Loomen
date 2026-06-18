@@ -152,7 +152,7 @@ interface AppState {
   reloadVault: () => Promise<void>;
   newNote: (folder?: string) => Promise<void>;
   newFolder: () => Promise<void>;
-  newDraw: (folder?: string) => Promise<void>;
+  newDraw: () => Promise<void>;
   saveDraw: (json: string) => Promise<void>;
   toggleFavorite: (path: string) => void;
   renameNote: (path: string, newName: string) => Promise<void>;
@@ -444,17 +444,15 @@ export const useAppStore = create<AppState>()(
       get().openNote(`${dir}${name}.md`, true);
     },
 
-    // Yeni Excalidraw çizimi oluştur (çakışmayan ad), çizim ekranında aç.
-    newDraw: async (folder) => {
-      const s = get();
-      const dir = folder ? folder : DRAW_DIR;
-      const base = "Adsız";
-      let name = base;
-      let i = 2;
-      const taken = (n: string) => s.notes.some((x) => x.path === `${dir}/${n}.excalidraw`);
-      while (taken(name)) name = `${base} ${i++}`;
-      const path = `${dir}/${name}.excalidraw`;
-      await backend.ensureDir(dir);
+    // Yeni Excalidraw çizimi — her zaman "Çizimler" klasöründe, zaman damgalı isimle.
+    newDraw: async () => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(
+        now.getHours()
+      )}.${pad(now.getMinutes())}.${pad(now.getSeconds())}`;
+      const path = `${DRAW_DIR}/Çizim ${stamp}.excalidraw`;
+      await backend.ensureDir(DRAW_DIR);
       await backend.writeNote(path, EMPTY_EXCALIDRAW);
       await loadFromBackend();
       set({ screen: "draw", activeDraw: path });
