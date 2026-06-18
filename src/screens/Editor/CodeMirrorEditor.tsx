@@ -38,8 +38,8 @@ const cmTheme = EditorView.theme({
     fontSize: "1.5em",
     fontWeight: "700",
     lineHeight: "1.3",
-    marginTop: "46px",
-    paddingTop: "34px",
+    marginTop: "24px",
+    paddingTop: "20px",
     position: "relative",
   },
   ".cm-h2::before": {
@@ -56,8 +56,8 @@ const cmTheme = EditorView.theme({
     fontSize: "1.25em",
     fontWeight: "700",
     lineHeight: "1.35",
-    marginTop: "30px",
-    paddingTop: "22px",
+    marginTop: "18px",
+    paddingTop: "16px",
     position: "relative",
   },
   ".cm-h3::before": {

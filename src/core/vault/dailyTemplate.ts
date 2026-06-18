@@ -18,11 +18,19 @@ export function dailyNoteTemplate(_date: Date): string {
     ``,
     `## 💭 Ephemeral Notlar (Gün İçi Notlar)`,
     ``,
+    ``,
+    ``,
     `## 📝 Günün Özeti`,
+    ``,
+    ``,
     ``,
     `## 💡 Günün Kattıkları`,
     ``,
+    ``,
+    ``,
     `## 📚 Okuduklarım/İzlediklerim`,
+    ``,
+    ``,
     ``,
     `#günlük`,
     ``,
@@ -55,5 +63,27 @@ export function migrateDailyContent(content: string): string | null {
       break;
     }
   }
-  return changed ? lines.join("\n") : null;
+  // Boş bölümlerde (başlığın hemen ardından başka başlık/#günlük geliyorsa) başlık altına
+  // 3 tıklanabilir boş satır koy — kullanıcı başlığın altına tıklayıp yazabilsin. İçeriği
+  // olan bölümlere dokunulmaz.
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    out.push(lines[i]);
+    if (/^##\s/.test(lines[i].trim())) {
+      let blanks = 0;
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() === "") {
+        blanks++;
+        j++;
+      }
+      const nextIsSection = j >= lines.length || /^##\s/.test(lines[j].trim()) || /^#günlük/.test(lines[j].trim());
+      if (nextIsSection) {
+        out.push("", "", "");
+        if (blanks !== 3) changed = true;
+        i = j - 1; // mevcut boş satırları atla (yeniden eklendi)
+      }
+    }
+  }
+  if (changed) return out.join("\n");
+  return null;
 }
