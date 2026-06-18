@@ -26,20 +26,12 @@ export function Ribbon() {
   return (
     <div className="lo-ribbon">
       <div className="lo-ribbon__logo" aria-label="Loomen">
-        <svg width="22" height="22" viewBox="0 0 100 100" fill="none" strokeLinecap="round" strokeWidth="13">
-          {/* dokuma markası: atkı (alt) + çözgü (üst) + over parçaları */}
-          <g stroke="#EAD9BE">
-            <line x1="26" y1="32" x2="74" y2="32" />
-            <line x1="26" y1="68" x2="74" y2="68" />
-          </g>
-          <g stroke="#FBF5EA">
-            <line x1="32" y1="26" x2="32" y2="74" />
-            <line x1="68" y1="26" x2="68" y2="74" />
-          </g>
-          <g stroke="#EAD9BE">
-            <line x1="24" y1="68" x2="40" y2="68" />
-            <line x1="60" y1="32" x2="76" y2="32" />
-          </g>
+        <svg width="23" height="23" viewBox="0 0 100 100" fill="none">
+          {/* bağlı notlar markası: ipliğe dizili 3 düğüm */}
+          <path d="M32 33 C 59 29 49 70 70 67" stroke="#FBF5EA" strokeWidth="5" strokeLinecap="round" />
+          <circle cx="32" cy="33" r="8.5" fill="#FBF5EA" />
+          <circle cx="51" cy="51" r="6" fill="#EBAE60" />
+          <circle cx="70" cy="67" r="7.5" fill="#FBF5EA" />
         </svg>
       </div>
 
