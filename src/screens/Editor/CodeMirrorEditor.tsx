@@ -5,6 +5,7 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as tg } from "@lezer/highlight";
+import { livePreview } from "./livePreview";
 
 interface Props {
   value: string;
@@ -26,9 +27,17 @@ const mdHighlight = HighlightStyle.define([
 ]);
 
 const cmTheme = EditorView.theme({
-  "&": { backgroundColor: "transparent", color: "var(--fg1)", fontSize: "14px", height: "100%" },
-  ".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "1.7", overflow: "auto" },
-  ".cm-content": { caretColor: "var(--accent)", padding: "4px 0 200px" },
+  "&": { backgroundColor: "transparent", color: "var(--fg1)", fontSize: "15px", height: "100%" },
+  ".cm-scroller": { fontFamily: "var(--font-sans)", lineHeight: "1.7", overflow: "auto" },
+  ".cm-content": { caretColor: "var(--accent)", padding: "4px 0 200px", maxWidth: "760px" },
+  // Canlı önizleme — başlık boyutları + wiki-link
+  ".cm-h1": { fontSize: "1.9em", fontWeight: "700", lineHeight: "1.3" },
+  ".cm-h2": { fontSize: "1.55em", fontWeight: "700", lineHeight: "1.3" },
+  ".cm-h3": { fontSize: "1.3em", fontWeight: "700", lineHeight: "1.35" },
+  ".cm-h4": { fontSize: "1.13em", fontWeight: "700" },
+  ".cm-h5": { fontSize: "1.02em", fontWeight: "700" },
+  ".cm-h6": { fontSize: "1em", fontWeight: "700", color: "var(--fg2)" },
+  ".cm-wikilink": { color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px" },
   ".cm-gutters": { backgroundColor: "transparent", color: "var(--fg3)", border: "none" },
   ".cm-activeLine": { backgroundColor: "var(--line-soft)" },
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--fg2)" },
@@ -53,6 +62,7 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers }: Props) {
       keymap.of([...defaultKeymap, ...historyKeymap]),
       markdown(),
       syntaxHighlighting(mdHighlight),
+      livePreview,
       EditorView.lineWrapping,
       cmTheme,
       EditorView.updateListener.of((u) => {

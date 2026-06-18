@@ -1499,3 +1499,16 @@ button { font-family: inherit; }
   padding: 10px 16px; border-bottom: 1px solid var(--line);
 }
 .lo-editortoolbar__title { font-size: 13.5px; font-weight: 600; color: var(--fg2); }
+
+/* Editör başlık çubuğu: breadcrumb + modern mod-toggle */
+.lo-crumbs { display: flex; align-items: center; gap: 2px; font-size: 12.5px; color: var(--fg3); overflow: hidden; }
+.lo-crumbs__seg { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+.lo-crumbs__sep { color: var(--fg3); opacity: 0.6; margin: 0 4px; }
+.lo-crumbs__seg .is-last { color: var(--fg1); font-weight: 600; }
+.lo-modetoggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: inherit; font-size: 13px; font-weight: 600; color: var(--fg2);
+  background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 9px;
+  padding: 6px 13px; cursor: pointer; transition: all 0.12s;
+}
+.lo-modetoggle:hover { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft); }

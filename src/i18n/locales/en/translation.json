@@ -95,7 +95,8 @@
     "save": "Save",
     "cancel": "Cancel",
     "preview": "Preview",
-    "empty": "Open a note from the explorer."
+    "empty": "Open a note from the explorer.",
+    "reading": "Reading"
   },
   "github": {
     "title": "GitHub Sync",

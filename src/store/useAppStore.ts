@@ -121,7 +121,7 @@ interface AppState {
   setLayout: (l: PlannerLayout) => void;
   setLang: (l: Lang) => void;
   setEditorTab: (t: EditorTab) => void;
-  openNote: (nameOrPath: string, edit?: boolean) => void;
+  openNote: (nameOrPath: string, edit?: boolean) => void; // edit varsayılan true (canlı düzenleme)
   setActiveTab: (path: string) => void;
   togglePin: (path: string) => void;
   closeTab: (path: string) => void;
@@ -265,7 +265,7 @@ export const useAppStore = create<AppState>()(
     setLayout: (layout) => set({ layout }),
     setLang: (lang) => set({ lang }),
     setEditorTab: (editorTab) => set({ editorTab }),
-    openNote: (nameOrPath, edit = false) => {
+    openNote: (nameOrPath, edit = true) => {
       const s = get();
       // Yol mu yoksa ad mı? Önce yol, sonra ada göre çöz.
       const byPath = s.notes.find((n) => n.path === nameOrPath);
@@ -294,7 +294,7 @@ export const useAppStore = create<AppState>()(
         set({ screen: "draw", activeDraw: path });
         return;
       }
-      set({ screen: "editor", activeNote: path, editing: false, draft: s.noteContents[path] ?? "" });
+      set({ screen: "editor", activeNote: path, editing: true, draft: s.noteContents[path] ?? "" });
     },
     togglePin: (path) =>
       set((s) => ({
@@ -324,22 +324,18 @@ export const useAppStore = create<AppState>()(
           screen: "editor",
           activeNote: next,
           activeDraw: clearDraw,
-          editing: false,
+          editing: true,
           draft: s.noteContents[next] ?? "",
         };
       }),
     setDraft: (draft) => set({ draft }),
-    toggleEditing: () =>
-      set((s) => ({ editing: !s.editing, draft: s.noteContents[s.activeNote ?? ""] ?? s.draft })),
+    toggleEditing: () => set((s) => ({ editing: !s.editing })),
     toggleBacklinks: () => set((s) => ({ backlinksCollapsed: !s.backlinksCollapsed })),
     saveNote: async () => {
       const s = get();
       if (!s.activeNote) return;
       await backend.writeNote(s.activeNote, s.draft);
       await loadFromBackend();
-      // Günün notu kaydedilince şık planlayıcı görünümüne dön (editör ham önizlemesi yerine).
-      const backToPlanner = s.activeNote === todayDailyPath();
-      set({ editing: false, ...(backToPlanner ? { screen: "planner" } : {}) });
     },
     setAccent: (accent) => set({ accent }),
     toggleEditorSetting: (key) =>

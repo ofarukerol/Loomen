@@ -117,7 +117,8 @@
     "save": "Kaydet",
     "cancel": "İptal",
     "preview": "Önizleme",
-    "empty": "Soldaki gezginden bir not aç."
+    "empty": "Soldaki gezginden bir not aç.",
+    "reading": "Okuma"
   },
   "github": {
     "title": "GitHub Senkronizasyonu",

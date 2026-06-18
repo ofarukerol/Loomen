@@ -1,12 +1,15 @@
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Pencil, Save, Eye, Link2 } from "lucide-react";
+import { FileText, BookOpen, SquarePen, Link2 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { Markdown } from "./Markdown";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
 import { BacklinksPanel } from "./BacklinksPanel";
 
-function noteName(path: string): string {
-  return (path.split("/").pop() ?? path).replace(/\.md$/i, "");
+function breadcrumb(path: string): string[] {
+  const segs = path.split("/");
+  segs[segs.length - 1] = segs[segs.length - 1].replace(/\.md$/i, "");
+  return segs;
 }
 
 export function EditorScreen() {
@@ -25,6 +28,17 @@ export function EditorScreen() {
   const backlinksCollapsed = useAppStore((s) => s.backlinksCollapsed);
   const toggleBacklinks = useAppStore((s) => s.toggleBacklinks);
 
+  // Otomatik kayıt — düzenlerken draft değişince debounce ile yaz (Kaydet butonu yok).
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!editing || !activeNote) return;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => void saveNote(), 700);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [draft, editing, activeNote, saveNote]);
+
   if (!activeNote || openTabs.length === 0) {
     return (
       <div className="lo-placeholder">
@@ -35,28 +49,40 @@ export function EditorScreen() {
   }
 
   const content = contents[activeNote] ?? "";
+  const crumbs = breadcrumb(activeNote);
+
+  // Okuma moduna geçerken son hâli kaydet (okuma güncel içeriği göstersin).
+  const toggleMode = async () => {
+    if (editing) await saveNote();
+    toggleEditing();
+  };
 
   return (
     <div className="lo-editor">
       <div className="lo-editortoolbar">
-        <span className="lo-editortoolbar__title">{noteName(activeNote)}</span>
+        <div className="lo-crumbs">
+          {crumbs.map((c, i) => (
+            <span key={i} className="lo-crumbs__seg">
+              {i > 0 && <span className="lo-crumbs__sep">/</span>}
+              <span className={i === crumbs.length - 1 ? "is-last" : ""}>{c}</span>
+            </span>
+          ))}
+        </div>
         <div className="lo-tabs__spacer" />
-        <button className="lo-tab__action" onClick={() => toggleEditing()}>
-          {editing ? <Eye size={14} strokeWidth={1.9} /> : <Pencil size={14} strokeWidth={1.9} />}
-          {editing ? t("editor.preview") : t("editor.edit")}
-        </button>
-        {editing && (
-          <button className="lo-tab__action lo-tab__action--accent" onClick={() => void saveNote()}>
-            <Save size={14} strokeWidth={1.9} />
-            {t("editor.save")}
-          </button>
-        )}
         <button
           className={"lo-tab__action" + (!backlinksCollapsed ? " lo-tab__action--accent" : "")}
           onClick={toggleBacklinks}
           title={t("editor.backlinks")}
         >
-          <Link2 size={14} strokeWidth={1.9} />
+          <Link2 size={15} strokeWidth={1.9} />
+        </button>
+        <button
+          className="lo-modetoggle"
+          onClick={() => void toggleMode()}
+          title={editing ? t("editor.reading") : t("editor.edit")}
+        >
+          {editing ? <BookOpen size={15} strokeWidth={2} /> : <SquarePen size={15} strokeWidth={2} />}
+          {editing ? t("editor.reading") : t("editor.edit")}
         </button>
       </div>
 
@@ -72,7 +98,7 @@ export function EditorScreen() {
               />
             </div>
           ) : (
-            <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 40px" }}>
+            <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 40px" }}>
               <Markdown
                 content={content}
                 onLink={(name) => openNote(name)}
