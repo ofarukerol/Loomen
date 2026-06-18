@@ -1226,3 +1226,63 @@ button { font-family: inherit; }
   padding: 3px 7px;
   outline: none;
 }
+
+/* Görev modalı — başlık, segmented tekrar, öncelik ikonları */
+.lo-tdetail__name {
+  width: 100%;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--fg1);
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--line);
+  padding: 2px 2px 9px;
+  margin-bottom: 16px;
+  outline: none;
+}
+.lo-tdetail__name:focus { border-bottom-color: var(--accent); }
+.lo-tdetail__name::placeholder { color: var(--fg3); font-weight: 500; }
+
+.lo-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 4px;
+}
+.lo-seg__btn {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  padding: 7px 6px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--fg2);
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.lo-seg__btn:hover { color: var(--fg1); }
+.lo-seg__btn.is-active { background: var(--bg-elev); color: var(--accent); box-shadow: var(--sh1); font-weight: 600; }
+
+.lo-prio { display: flex; gap: 7px; }
+.lo-prio__btn {
+  width: 40px;
+  height: 36px;
+  border: 1px solid var(--line);
+  background: var(--bg-sunken);
+  border-radius: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+}
+.lo-prio__btn:hover { background: var(--line-soft); }
+.lo-prio__btn.is-active { background: var(--bg-elev); box-shadow: var(--sh1); }

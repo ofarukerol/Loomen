@@ -17,6 +17,8 @@ export interface ParsedTask {
   tags: string[];
   pomos: number;
   priority?: string;
+  /** Tekrarlama kuralı (🔁 sonrası metin), ör. "every week". */
+  recurrence?: string;
 }
 
 /** Vault içindeki bir not dosyası (dosya ağacı için). */

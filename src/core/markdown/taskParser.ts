@@ -30,6 +30,8 @@ export function parseTaskLine(file: string, line: number, raw: string): ParsedTa
   const tags = Array.from(body.matchAll(/#([\p{L}\d_/-]+)/gu)).map((x) => x[1]);
   const pomoMatch = body.match(/🍅\s*[×x]\s*(\d+)/);
   const priority = PRIORITIES.find((p) => body.includes(p));
+  const recMatch = body.match(/🔁\s*([^📅⏳🛫✅🔺⏫🔼🔽⏬#🍅]+)/u);
+  const recurrence = recMatch ? recMatch[1].trim() : undefined;
 
   // Açıklama: tüm meta token'ları çıkar, kalan metni temizle.
   let description = body
@@ -53,6 +55,7 @@ export function parseTaskLine(file: string, line: number, raw: string): ParsedTa
     tags,
     pomos: pomoMatch ? Number(pomoMatch[1]) : 0,
     priority,
+    recurrence,
   };
 }
 
@@ -95,6 +98,7 @@ export interface TaskPatch {
   scheduled?: string | null;
   start?: string | null;
   priority?: string | null;
+  recurrence?: string | null;
 }
 
 function pick<T>(patch: T | null | undefined, cur: T | undefined): T | undefined {
@@ -111,6 +115,7 @@ export function serializeTaskLine(t: ParsedTask, patch: TaskPatch = {}): string 
   const indent = t.raw.match(/^(\s*)/)?.[1] ?? "";
   const description = (patch.description ?? t.description).trim();
   const priority = pick(patch.priority, t.priority);
+  const recurrence = pick(patch.recurrence, t.recurrence);
   const start = pick(patch.start, t.start);
   const scheduled = pick(patch.scheduled, t.scheduled);
   const due = pick(patch.due, t.due);
@@ -119,6 +124,7 @@ export function serializeTaskLine(t: ParsedTask, patch: TaskPatch = {}): string 
   if (priority) parts.push(priority);
   for (const tag of t.tags) parts.push(`#${tag}`);
   if (t.pomos > 0) parts.push(`🍅 ×${t.pomos}`);
+  if (recurrence) parts.push(`🔁 ${recurrence}`);
   if (start) parts.push(`${EMOJI.start} ${start}`);
   if (scheduled) parts.push(`${EMOJI.scheduled} ${scheduled}`);
   if (due) parts.push(`${EMOJI.due} ${due}`);
