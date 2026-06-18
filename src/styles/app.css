@@ -1433,8 +1433,8 @@ button { font-family: inherit; }
   background: var(--bg-sunken); border-bottom: 1px solid var(--line);
 }
 .lo-topbar > .lo-topbar__toggle, .lo-topbar > .lo-topbar__new { align-self: center; }
-/* macOS trafik ışıkları için sol boşluk (overlay titlebar) */
-.lo-topbar__os { width: 64px; flex-shrink: 0; align-self: stretch; }
+/* macOS trafik ışıklarının ribbon'a taşan kısmı için minik boşluk (gezgin kapalıyken) */
+.lo-topbar__os { width: 34px; flex-shrink: 0; align-self: stretch; }
 .lo-topbar__toggle {
   width: 30px; height: 30px; flex-shrink: 0;
   border: none; background: transparent; border-radius: 7px; color: var(--fg3); cursor: pointer;
