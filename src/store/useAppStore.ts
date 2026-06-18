@@ -15,7 +15,7 @@ import {
   TODO_HEADING,
 } from "../core/vault";
 import { groupTasks, focusCounts } from "../core/vault/grouping";
-import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading } from "../core/markdown/taskParser";
+import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
 export type Screen = "planner" | "editor" | "graph" | "reports" | "settings";
@@ -85,6 +85,9 @@ interface AppState {
   draft: string;
   backlinksCollapsed: boolean;
 
+  // Görev detay paneli (seçili görev id'si "file:line")
+  selectedTask: string | null;
+
   // Pomodoro
   pomo: PomodoroSettings;
   pomoRemaining: number;
@@ -131,6 +134,8 @@ interface AppState {
   newFolder: () => Promise<void>;
   addTask: () => Promise<void>;
   toggleTask: (id: string) => Promise<void>;
+  selectTask: (id: string | null) => void;
+  updateTask: (id: string, patch: TaskPatch) => Promise<void>;
 }
 
 const FOCUS_MIN = 25;
@@ -186,6 +191,7 @@ export const useAppStore = create<AppState>()(
     editing: false,
     draft: "",
     backlinksCollapsed: false,
+    selectedTask: null,
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoRemaining: FOCUS_MIN * 60,
@@ -377,6 +383,21 @@ export const useAppStore = create<AppState>()(
       const line = Number(id.slice(sep + 1));
       const content = await backend.readNote(file);
       await backend.writeNote(file, toggleTaskInContent(content, line, todayISO()));
+      await loadFromBackend();
+    },
+
+    selectTask: (selectedTask) => set({ selectedTask }),
+
+    // Görev detayını (açıklama/tarih/öncelik) dosyaya yaz.
+    updateTask: async (id, patch) => {
+      const s = get();
+      const sep = id.lastIndexOf(":");
+      const file = id.slice(0, sep);
+      const line = Number(id.slice(sep + 1));
+      const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
+      if (!task) return;
+      const content = await backend.readNote(file);
+      await backend.writeNote(file, applyTaskPatch(content, line, task, patch));
       await loadFromBackend();
     },
       };

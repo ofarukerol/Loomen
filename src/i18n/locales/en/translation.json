@@ -53,6 +53,16 @@
     "toggleRight": "Toggle right panel",
     "moreTasks": "+{{count}} more tasks"
   },
+  "taskDetail": {
+    "title": "Task",
+    "description": "Description",
+    "due": "Due",
+    "scheduled": "Scheduled",
+    "start": "Start",
+    "priority": "Priority",
+    "save": "Save",
+    "close": "Close"
+  },
   "pomodoro": {
     "title": "POMODORO",
     "focus": "focus",

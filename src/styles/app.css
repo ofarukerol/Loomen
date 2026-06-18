@@ -1105,3 +1105,74 @@ button { font-family: inherit; }
 }
 .lo-placeholder h2 { margin: 0; font-size: 18px; color: var(--fg2); font-weight: 600; }
 .lo-placeholder p { margin: 0; font-size: 13px; }
+
+/* ============================================================
+   Görev detay modalı + tıklanabilir görev satırı
+   ============================================================ */
+.lo-task.is-clickable, .lo-mini__row.is-clickable, .lo-bcard.is-clickable { cursor: pointer; }
+.lo-task.is-clickable:hover { background: var(--line-soft); border-radius: 10px; }
+.lo-mini__row.is-clickable:hover { background: var(--line-soft); border-radius: 8px; }
+.lo-bcard.is-clickable:hover { border-color: var(--accent-soft); box-shadow: var(--sh2); }
+
+.lo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(30, 22, 14, 0.34);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: loFade 0.14s ease;
+}
+.lo-tdetail {
+  width: 460px;
+  max-width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--sh3);
+  padding: 18px 20px 16px;
+}
+.lo-tdetail__head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.lo-tdetail__status { border: none; background: transparent; cursor: pointer; padding: 0; display: flex; }
+.lo-tdetail__title { flex: 1; font-size: 15px; font-weight: 600; color: var(--fg1); }
+.lo-tdetail__close {
+  width: 28px; height: 28px;
+  border: none; background: transparent; border-radius: 7px;
+  color: var(--fg3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.lo-tdetail__close:hover { background: var(--line-soft); color: var(--fg1); }
+
+.lo-tdetail__field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.lo-tdetail__label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--fg3); font-weight: 500; }
+.lo-tdetail__textarea {
+  font-family: inherit; font-size: 14px; color: var(--fg1);
+  background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 9px;
+  padding: 9px 11px; resize: vertical; outline: none; line-height: 1.45;
+}
+.lo-tdetail__textarea:focus { border-color: var(--accent); }
+.lo-tdetail__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-bottom: 4px; }
+.lo-tdetail__date, .lo-tdetail__select {
+  font-family: inherit; font-size: 13px; color: var(--fg1);
+  background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 9px; outline: none; cursor: pointer; width: 100%;
+}
+.lo-tdetail__date:focus, .lo-tdetail__select:focus { border-color: var(--accent); }
+.lo-tdetail__chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.lo-tdetail__foot { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.lo-tdetail__source {
+  display: flex; align-items: center; gap: 6px;
+  font-family: inherit; font-size: 12.5px; color: var(--fg2);
+  background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 11px; cursor: pointer;
+}
+.lo-tdetail__source:hover { color: var(--accent); border-color: var(--accent-soft); }
+.lo-tdetail__save {
+  margin-inline-start: auto;
+  font-family: inherit; font-size: 13px; font-weight: 600; color: #fff;
+  background: var(--accent); border: none; border-radius: 9px;
+  padding: 9px 20px; cursor: pointer; box-shadow: var(--sh1);
+}
+.lo-tdetail__save:hover { box-shadow: var(--sh2); }

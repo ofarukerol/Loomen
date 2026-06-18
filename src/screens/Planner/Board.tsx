@@ -5,12 +5,16 @@ import type { GroupKind, Task } from "../../data/sampleVault";
 
 function BoardCard({ task, danger }: { task: Task; danger?: boolean }) {
   const toggleTask = useAppStore((s) => s.toggleTask);
+  const selectTask = useAppStore((s) => s.selectTask);
   return (
-    <div className={"lo-bcard" + (danger ? " is-danger" : "")}>
+    <div className={"lo-bcard is-clickable" + (danger ? " is-danger" : "")} onClick={() => selectTask(task.id)}>
       <div className="lo-bcard__top">
         <button
           className="lo-task__check"
-          onClick={() => toggleTask(task.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleTask(task.id);
+          }}
           style={{ color: task.done ? "var(--success)" : task.overdue ? "var(--danger)" : "var(--fg3)" }}
         >
           {task.done ? (

@@ -58,6 +58,16 @@
     "today": "اليوم",
     "upcoming": "قادمة"
   },
+  "taskDetail": {
+    "title": "مهمة",
+    "description": "الوصف",
+    "due": "الاستحقاق",
+    "scheduled": "مجدول",
+    "start": "البداية",
+    "priority": "الأولوية",
+    "save": "حفظ",
+    "close": "إغلاق"
+  },
   "calendar": {
     "month": "يونيو ٢٠٢٦",
     "weekdays": ["إث", "ث", "أر", "خ", "ج", "س", "أح"]

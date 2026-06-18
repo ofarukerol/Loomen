@@ -19,6 +19,7 @@ export function MiniAgenda() {
   const { t } = useTranslation();
   const groups = useAppStore((s) => s.groups);
   const toggleTask = useAppStore((s) => s.toggleTask);
+  const selectTask = useAppStore((s) => s.selectTask);
   const setFocusExpanded = useAppStore((s) => s.setFocusExpanded);
   const focusExpanded = useAppStore((s) => s.focusExpanded);
   const screen = useAppStore((s) => s.screen);
@@ -48,10 +49,13 @@ export function MiniAgenda() {
     for (const task of open) {
       if (count >= MAX) break;
       rows.push(
-        <div className="lo-mini__row" key={task.id}>
+        <div className="lo-mini__row is-clickable" key={task.id} onClick={() => selectTask(task.id)}>
           <button
             className="lo-mini__check"
-            onClick={() => void toggleTask(task.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              void toggleTask(task.id);
+            }}
             aria-label={task.text}
           >
             <Circle size={13} strokeWidth={1.9} />

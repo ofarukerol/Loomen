@@ -60,6 +60,16 @@
     "today": "Bugün",
     "upcoming": "Yaklaşan"
   },
+  "taskDetail": {
+    "title": "Görev",
+    "description": "Açıklama",
+    "due": "Bitiş",
+    "scheduled": "Planlanan",
+    "start": "Başlangıç",
+    "priority": "Öncelik",
+    "save": "Kaydet",
+    "close": "Kapat"
+  },
   "calendar": {
     "month": "Haziran 2026",
     "weekdays": ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]

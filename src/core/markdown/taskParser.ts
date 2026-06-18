@@ -88,6 +88,52 @@ export function toggleTaskInContent(content: string, line: number, todayISO: str
   return lines.join("\n");
 }
 
+/** Bir görevde düzenlenebilir alanlar. null = ilgili token'ı kaldır. */
+export interface TaskPatch {
+  description?: string;
+  due?: string | null;
+  scheduled?: string | null;
+  start?: string | null;
+  priority?: string | null;
+}
+
+function pick<T>(patch: T | null | undefined, cur: T | undefined): T | undefined {
+  if (patch === null) return undefined; // kaldır
+  if (patch === undefined) return cur; // değiştirme
+  return patch;
+}
+
+/**
+ * Görevi kanonik biçimde yeniden serileştir (Obsidian Tasks token sırası).
+ * Bilinen token'lar korunur; not: tanınmayan token'lar (🔁, ➕, 🆔…) düşer.
+ */
+export function serializeTaskLine(t: ParsedTask, patch: TaskPatch = {}): string {
+  const indent = t.raw.match(/^(\s*)/)?.[1] ?? "";
+  const description = (patch.description ?? t.description).trim();
+  const priority = pick(patch.priority, t.priority);
+  const start = pick(patch.start, t.start);
+  const scheduled = pick(patch.scheduled, t.scheduled);
+  const due = pick(patch.due, t.due);
+
+  const parts: string[] = [`${indent}- [${t.done ? "x" : " "}] ${description}`.trimEnd()];
+  if (priority) parts.push(priority);
+  for (const tag of t.tags) parts.push(`#${tag}`);
+  if (t.pomos > 0) parts.push(`🍅 ×${t.pomos}`);
+  if (start) parts.push(`${EMOJI.start} ${start}`);
+  if (scheduled) parts.push(`${EMOJI.scheduled} ${scheduled}`);
+  if (due) parts.push(`${EMOJI.due} ${due}`);
+  if (t.done && t.doneDate) parts.push(`${EMOJI.done} ${t.doneDate}`);
+  return parts.join(" ");
+}
+
+/** İçerikteki belirli satırı, görev yamasıyla güncelle. */
+export function applyTaskPatch(content: string, line: number, t: ParsedTask, patch: TaskPatch): string {
+  const lines = content.split("\n");
+  if (line < 0 || line >= lines.length) return content;
+  lines[line] = serializeTaskLine(t, patch);
+  return lines.join("\n");
+}
+
 /** Hızlı-ekle: tek satır metinden görev satırı üret (📅 bugün ekler). */
 export function buildTaskLine(text: string, dueISO?: string): string {
   let line = `- [ ] ${text.trim()}`;

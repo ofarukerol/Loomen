@@ -11,6 +11,7 @@ import { EditorScreen } from "./screens/Editor/EditorScreen";
 import { GraphScreen } from "./screens/Graph/GraphScreen";
 import { ReportsScreen } from "./screens/Reports/ReportsScreen";
 import { SettingsScreen } from "./screens/Settings/SettingsScreen";
+import { TaskDetail } from "./screens/Planner/TaskDetail";
 
 export default function App() {
   const { i18n } = useTranslation();
@@ -61,6 +62,8 @@ export default function App() {
       </div>
       {/* Sağ blok global — her ekranda kalıcı */}
       <RightPanel />
+      {/* Görev detay modalı — global */}
+      <TaskDetail />
     </div>
   );
 }

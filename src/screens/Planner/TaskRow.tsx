@@ -5,15 +5,22 @@ import type { Task } from "../../data/sampleVault";
 export function TaskRow({ task }: { task: Task }) {
   const toggleTask = useAppStore((s) => s.toggleTask);
   const openNote = useAppStore((s) => s.openNote);
+  const selectTask = useAppStore((s) => s.selectTask);
 
   const open = !task.done;
   const overdueOpen = task.overdue && open;
 
   return (
-    <div className={"lo-task" + (overdueOpen ? " is-overdue" : "")}>
+    <div
+      className={"lo-task is-clickable" + (overdueOpen ? " is-overdue" : "")}
+      onClick={() => selectTask(task.id)}
+    >
       <button
         className="lo-task__check"
-        onClick={() => toggleTask(task.id)}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleTask(task.id);
+        }}
         aria-label={task.done ? "Tamamlandı" : "Tamamla"}
         style={{ color: task.done ? "var(--success)" : task.overdue ? "var(--danger)" : "var(--fg3)" }}
       >
@@ -33,7 +40,13 @@ export function TaskRow({ task }: { task: Task }) {
         </div>
 
         <div className="lo-task__meta">
-          <button className="lo-chip lo-chip--source" onClick={() => openNote(task.source)}>
+          <button
+            className="lo-chip lo-chip--source"
+            onClick={(e) => {
+              e.stopPropagation();
+              openNote(task.source);
+            }}
+          >
             <FileText size={11} strokeWidth={1.9} />
             {task.source}
           </button>
