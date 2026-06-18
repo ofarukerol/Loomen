@@ -1430,18 +1430,17 @@ button { font-family: inherit; }
 
 .lo-wtab {
   display: flex; align-items: center; gap: 7px; flex-shrink: 0;
-  height: 32px; padding: 0 7px 0 13px; max-width: 200px;
-  border-radius: 9px 9px 0 0; cursor: pointer; color: var(--fg3);
+  height: 29px; padding: 0 6px 0 13px; max-width: 200px;
+  border-radius: 10px 10px 0 0; cursor: pointer; color: var(--fg3);
   background: transparent; position: relative;
 }
-.lo-wtab:hover { background: var(--line-soft); color: var(--fg2); }
+.lo-wtab:hover:not(.is-active) { background: var(--line-soft); color: var(--fg2); }
 .lo-wtab.is-active {
   height: 35px;
   background: var(--bg);
   color: var(--fg1);
-  border: 1px solid var(--line);
-  border-bottom: none;
   margin-bottom: -1px; /* topbar alt çizgisini ört → içerikle birleşsin */
+  box-shadow: 0 -2px 7px rgba(60, 40, 25, 0.08);
 }
 .lo-wtab__icon { flex-shrink: 0; color: var(--fg3); }
 .lo-wtab.is-active .lo-wtab__icon { color: var(--accent); }

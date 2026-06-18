@@ -10,8 +10,11 @@ export function Ribbon() {
   const screen = useAppStore((s) => s.screen);
   const setScreen = useAppStore((s) => s.setScreen);
   const goToDayNote = useAppStore((s) => s.goToDayNote);
+  const activeNote = useAppStore((s) => s.activeNote);
+  const todayNotePath = useAppStore((s) => s.todayNotePath);
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
+  const dayNoteActive = screen === "editor" && activeNote === todayNotePath();
 
   const btn = (target: Screen, title: string, node: React.ReactNode) => (
     <button
@@ -36,7 +39,7 @@ export function Ribbon() {
       </div>
 
       <button
-        className={"lo-ribbon__btn" + (screen === "planner" ? " is-active" : "")}
+        className={"lo-ribbon__btn" + (dayNoteActive ? " is-active" : "")}
         title={t("ribbon.dayNote")}
         onClick={() => void goToDayNote()}
       >

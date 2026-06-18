@@ -344,11 +344,11 @@ export const useAppStore = create<AppState>()(
     toggleRight: () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
     setFocusExpanded: (focusExpanded) => set({ focusExpanded }),
     todayNotePath: () => todayDailyPath(),
-    // "Günün Notu" — planner'a geç, bugünün notu yoksa şablonla oluştur.
+    // "Günün Notu" — bugünün notunu (yoksa şablonla oluşturup) sekmede aç.
     goToDayNote: async () => {
-      set({ screen: "planner", focusExpanded: false });
       await ensureDailyNote(backend, todayDailyPath());
       await loadFromBackend();
+      get().openNote(todayDailyPath());
     },
     createTodayNote: async () => {
       await ensureDailyNote(backend, todayDailyPath());
