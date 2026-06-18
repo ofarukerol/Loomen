@@ -232,7 +232,9 @@ export const useAppStore = create<AppState>()(
       if (!s.activeNote) return;
       await backend.writeNote(s.activeNote, s.draft);
       await loadFromBackend();
-      set({ editing: false });
+      // Günün notu kaydedilince şık planlayıcı görünümüne dön (editör ham önizlemesi yerine).
+      const backToPlanner = s.activeNote === todayDailyPath();
+      set({ editing: false, ...(backToPlanner ? { screen: "planner" } : {}) });
     },
     setAccent: (accent) => set({ accent }),
     toggleEditorSetting: (key) =>
