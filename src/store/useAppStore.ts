@@ -19,7 +19,7 @@ import { gh, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
-export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw";
+export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab";
 export type PlannerLayout = "timeline" | "board";
 export type Lang = "tr" | "en" | "ar";
 export type EditorTab = "daily" | "proje" | "fikirler";
@@ -122,6 +122,7 @@ interface AppState {
   setActiveTab: (path: string) => void;
   togglePin: (path: string) => void;
   closeTab: (path: string) => void;
+  newTab: () => void;
   setDraft: (text: string) => void;
   toggleEditing: () => void;
   toggleBacklinks: () => void;
@@ -296,6 +297,8 @@ export const useAppStore = create<AppState>()(
           ? s.pinnedTabs.filter((p) => p !== path)
           : [...s.pinnedTabs, path],
       })),
+    // Boş "Yeni sekme" — dosya oluştur / dosyaya git seçenekleri.
+    newTab: () => set({ screen: "newtab" }),
     closeTab: (path) =>
       set((s) => {
         const openTabs = s.openTabs.filter((p) => p !== path);

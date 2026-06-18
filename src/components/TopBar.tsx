@@ -24,7 +24,8 @@ export function TopBar() {
   const setActiveTab = useAppStore((s) => s.setActiveTab);
   const closeTab = useAppStore((s) => s.closeTab);
   const togglePin = useAppStore((s) => s.togglePin);
-  const newNote = useAppStore((s) => s.newNote);
+  const newTab = useAppStore((s) => s.newTab);
+  const setScreen = useAppStore((s) => s.setScreen);
   const leftCollapsed = useAppStore((s) => s.leftCollapsed);
   const rightCollapsed = useAppStore((s) => s.rightCollapsed);
   const toggleLeft = useAppStore((s) => s.toggleLeft);
@@ -90,13 +91,31 @@ export function TopBar() {
             </div>
           );
         })}
-        <button className="lo-topbar__new" title={t("explorer.newNote")} onClick={() => void newNote()}>
-          <Plus size={15} strokeWidth={2} />
-        </button>
+
+        {/* Boş "Yeni sekme" — aktifken görünür */}
+        {screen === "newtab" && (
+          <div className="lo-wtab is-active">
+            <FileText size={13} strokeWidth={1.7} className="lo-wtab__icon" />
+            <span className="lo-wtab__name">{t("tabs.newTab")}</span>
+            <button
+              className="lo-wtab__x"
+              title={t("tabs.close")}
+              onClick={(e) => {
+                e.stopPropagation();
+                setScreen("planner");
+              }}
+            >
+              <X size={13} strokeWidth={2} />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="lo-topbar__spacer" data-tauri-drag-region />
 
+      <button className="lo-topbar__new" title={t("tabs.newTab")} onClick={newTab}>
+        <Plus size={16} strokeWidth={2} />
+      </button>
       <button
         className={"lo-topbar__toggle" + (rightCollapsed ? "" : " is-active")}
         title={t("planner.toggleRight")}

@@ -199,6 +199,9 @@
   },
   "tabs": {
     "pin": "Sabitle",
-    "close": "Kapat"
+    "close": "Kapat",
+    "newTab": "Yeni sekme",
+    "newFile": "Yeni dosya oluştur",
+    "goToFile": "Dosyaya git"
   }
 }

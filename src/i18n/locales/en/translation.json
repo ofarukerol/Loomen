@@ -152,6 +152,9 @@
   },
   "tabs": {
     "pin": "Pin",
-    "close": "Close"
+    "close": "Close",
+    "newTab": "New tab",
+    "newFile": "Create new file",
+    "goToFile": "Go to file"
   }
 }

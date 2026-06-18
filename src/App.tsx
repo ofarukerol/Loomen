@@ -11,6 +11,7 @@ import { EditorScreen } from "./screens/Editor/EditorScreen";
 import { GraphScreen } from "./screens/Graph/GraphScreen";
 import { ReportsScreen } from "./screens/Reports/ReportsScreen";
 import { DrawScreen } from "./screens/Draw/DrawScreen";
+import { NewTabScreen } from "./screens/NewTab/NewTabScreen";
 import { SettingsScreen } from "./screens/Settings/SettingsScreen";
 import { TaskDetail } from "./screens/Planner/TaskDetail";
 import { GitHubDeviceModal } from "./screens/Settings/GitHubSync";
@@ -25,6 +26,8 @@ export default function App() {
   const rightCollapsed = useAppStore((s) => s.rightCollapsed);
 
   const bootstrap = useAppStore((s) => s.bootstrap);
+  const newNote = useAppStore((s) => s.newNote);
+  const newTab = useAppStore((s) => s.newTab);
   const ghAutoSync = useAppStore((s) => s.ghAutoSync);
   const ghToken = useAppStore((s) => s.ghToken);
   const ghRepo = useAppStore((s) => s.ghRepo);
@@ -48,7 +51,25 @@ export default function App() {
     applyDir(lang);
   }, [lang, i18n]);
 
-  const explorerEligible = ["planner", "editor", "graph", "reports", "draw"].includes(screen);
+  // Klavye kısayolları: ⌘N yeni not, ⌘O dosyaya git (arama).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "n") {
+        e.preventDefault();
+        void newNote();
+      } else if (k === "o") {
+        e.preventDefault();
+        newTab();
+        setTimeout(() => document.querySelector<HTMLInputElement>(".lo-search input")?.focus(), 50);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [newNote, newTab]);
+
+  const explorerEligible = ["planner", "editor", "graph", "reports", "draw", "newtab"].includes(screen);
   const showExplorer = explorerEligible && !leftCollapsed;
   const rightEligible = ["planner", "editor", "graph", "draw"].includes(screen);
   const showRight = rightEligible && !rightCollapsed;
@@ -72,6 +93,7 @@ export default function App() {
             {screen === "editor" && <EditorScreen />}
             {screen === "graph" && <GraphScreen />}
             {screen === "draw" && <DrawScreen />}
+            {screen === "newtab" && <NewTabScreen />}
             {screen === "reports" && <ReportsScreen />}
             {screen === "settings" && <SettingsScreen />}
           </div>
