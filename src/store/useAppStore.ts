@@ -113,6 +113,7 @@ interface AppState {
   toggleLeft: () => void;
   toggleRight: () => void;
   setFocusExpanded: (v: boolean) => void;
+  goToDayNote: () => Promise<void>;
   createTodayNote: () => Promise<void>;
   todayNotePath: () => string;
   setQuick: (v: string) => void;
@@ -241,6 +242,12 @@ export const useAppStore = create<AppState>()(
     toggleRight: () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
     setFocusExpanded: (focusExpanded) => set({ focusExpanded }),
     todayNotePath: () => todayDailyPath(),
+    // "Günün Notu" — planner'a geç, bugünün notu yoksa şablonla oluştur.
+    goToDayNote: async () => {
+      set({ screen: "planner", focusExpanded: false });
+      await ensureDailyNote(backend, todayDailyPath());
+      await loadFromBackend();
+    },
     createTodayNote: async () => {
       await ensureDailyNote(backend, todayDailyPath());
       await loadFromBackend();

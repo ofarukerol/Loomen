@@ -190,8 +190,17 @@ button { font-family: inherit; }
   padding: 6px 8px;
   color: var(--fg2);
   font-weight: 600;
-  margin-top: 4px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: start;
 }
+.lo-tree__group:hover { background: var(--line-soft); color: var(--fg1); }
+.lo-tree__group > svg:first-child { color: var(--fg3); flex-shrink: 0; }
 .lo-tree__file {
   display: flex;
   align-items: center;

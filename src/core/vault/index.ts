@@ -3,7 +3,7 @@ import { watch } from "@tauri-apps/plugin-fs";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { parseTasks } from "../markdown/taskParser";
-import { dailyNoteTemplate } from "./dailyTemplate";
+import { dailyNoteTemplate, dailyNoteTitle } from "./dailyTemplate";
 import type { VaultBackend, VaultData } from "./types";
 
 export { dailyNoteTemplate, dailyNoteTitle, TODO_HEADING } from "./dailyTemplate";
@@ -36,10 +36,19 @@ export function todayISO(): string {
   return format(new Date(), "yyyy-MM-dd");
 }
 
-/** Bugünün daily note yolu: Daily/YYYY-MM-DD-Gün.md (Türkçe gün — docs 06 §6.2). */
+/**
+ * Bir günün daily note yolu — yıl/ay'a göre iç içe klasörlenir:
+ * Günlük/YYYY/MM-Ay/YYYY-MM-DD-Gün.md  (ör. Günlük/2026/06-Haziran/2026-06-17-Çarşamba.md)
+ */
+export function dailyPathFor(d: Date): string {
+  const year = format(d, "yyyy");
+  const month = `${format(d, "MM")}-${format(d, "MMMM", { locale: tr })}`;
+  return `Günlük/${year}/${month}/${dailyNoteTitle(d)}.md`;
+}
+
+/** Bugünün daily note yolu (bkz dailyPathFor). */
 export function todayDailyPath(): string {
-  const d = new Date();
-  return `Daily/${format(d, "yyyy-MM-dd")}-${format(d, "EEEE", { locale: tr })}.md`;
+  return dailyPathFor(new Date());
 }
 
 /** Vault kökünü izle; değişiklikte cb çağır. Unwatch fonksiyonu döner. */

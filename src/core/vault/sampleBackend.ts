@@ -1,7 +1,7 @@
 import type { VaultBackend, VaultNote } from "./types";
 
 // Tarayıcı/fallback için in-memory kasa. Tauri yokken (veya kasa seçilmeden) UI bununla çalışır.
-// Görevler ayrı "Yapılacaklar.md" dosyasında; günlük notlar (Daily) sadece günlük/journal — görev içermez.
+// Görevler ayrı "Yapılacaklar.md" dosyasında; günlük notlar (Günlük/YYYY/MM-Ay/) sadece journal — görev içermez.
 const SEED: Record<string, string> = {
   "Yapılacaklar.md": `# Yapılacaklar
 
@@ -17,7 +17,7 @@ const SEED: Record<string, string> = {
 
 - [ ] Bir ara kitap öner #Kişisel
 `,
-  "Daily/2026-06-17-Çarşamba.md": `# 2026-06-17-Çarşamba
+  "Günlük/2026/06-Haziran/2026-06-17-Çarşamba.md": `# 2026-06-17-Çarşamba
 
 ## 💭 Ephemeral Notlar (Gün İçi Notlar)
 
@@ -37,7 +37,7 @@ Tasarım sistemi ve mini ajanda üzerinde ilerledim.
 
 #günlük 📅 Tarih: 2026-06-17 ⭐ Gün: Çarşamba 📈 Hafta: 25
 `,
-  "Daily/2026-06-16-Salı.md": `# 2026-06-16-Salı
+  "Günlük/2026/06-Haziran/2026-06-16-Salı.md": `# 2026-06-16-Salı
 
 ---
 

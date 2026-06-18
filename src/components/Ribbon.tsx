@@ -9,6 +9,7 @@ export function Ribbon() {
   const { t } = useTranslation();
   const screen = useAppStore((s) => s.screen);
   const setScreen = useAppStore((s) => s.setScreen);
+  const goToDayNote = useAppStore((s) => s.goToDayNote);
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
 
@@ -26,7 +27,13 @@ export function Ribbon() {
     <div className="lo-ribbon">
       <div className="lo-ribbon__logo">L</div>
 
-      {btn("planner", t("ribbon.dayNote"), <NotebookPen size={ICON} strokeWidth={SW} />)}
+      <button
+        className={"lo-ribbon__btn" + (screen === "planner" ? " is-active" : "")}
+        title={t("ribbon.dayNote")}
+        onClick={() => void goToDayNote()}
+      >
+        <NotebookPen size={ICON} strokeWidth={SW} />
+      </button>
       {btn("graph", t("ribbon.graph"), <Share2 size={ICON} strokeWidth={SW} />)}
       {btn("reports", t("ribbon.reports"), <BarChart3 size={ICON} strokeWidth={SW} />)}
 
