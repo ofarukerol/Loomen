@@ -14,9 +14,11 @@ import {
   dailyNoteTemplate,
   watchVaultRoot,
   ensureDailyNote,
+  migrateDailyContent,
   TODO_HEADING,
 } from "../core/vault";
 import { groupTasks, focusCounts } from "../core/vault/grouping";
+import { parseTasks } from "../core/markdown/taskParser";
 import { gh, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, type TaskPatch } from "../core/markdown/taskParser";
 
@@ -268,7 +270,7 @@ export const useAppStore = create<AppState>()(
     setLayout: (layout) => set({ layout }),
     setLang: (lang) => set({ lang }),
     setEditorTab: (editorTab) => set({ editorTab }),
-    openNote: (nameOrPath, edit = true) => {
+    openNote: async (nameOrPath, edit = true) => {
       const s = get();
       // Yol mu yoksa ad mı? Önce yol, sonra ada göre çöz.
       const byPath = s.notes.find((n) => n.path === nameOrPath);
@@ -281,13 +283,23 @@ export const useAppStore = create<AppState>()(
         set({ screen: "draw", activeDraw: note.path, openTabs: tabs });
         return;
       }
-      const openTabs = s.openTabs.includes(note.path) ? s.openTabs : [...s.openTabs, note.path];
+      // Günlük not ise: eski H1/verbose metadata'yı bir kez temizle (banner üstte gösterir).
+      if (/^\d{4}-\d{2}-\d{2}/.test(note.name)) {
+        const cur = s.noteContents[note.path] ?? (await backend.readNote(note.path));
+        const migrated = migrateDailyContent(cur);
+        if (migrated != null) {
+          await backend.writeNote(note.path, migrated);
+          await loadFromBackend();
+        }
+      }
+      const st = get();
+      const openTabs = st.openTabs.includes(note.path) ? st.openTabs : [...st.openTabs, note.path];
       set({
         screen: "editor",
         activeNote: note.path,
         openTabs,
-        editing: edit, // edit=true → doğrudan düzenleme modunda aç (önizlemeye uğramadan)
-        draft: s.noteContents[note.path] ?? "",
+        editing: edit, // edit=true → doğrudan düzenleme modunda aç
+        draft: st.noteContents[note.path] ?? "",
       });
     },
     setActiveTab: (path) => {
@@ -338,7 +350,20 @@ export const useAppStore = create<AppState>()(
       const s = get();
       if (!s.activeNote) return;
       await backend.writeNote(s.activeNote, s.draft);
-      await loadFromBackend();
+      // Hafif kayıt: tüm dosyaları yeniden okumadan bellekte güncelle + görevleri yeniden hesapla.
+      const noteContents = { ...s.noteContents, [s.activeNote]: s.draft };
+      const tasks = s.notes.flatMap((n) =>
+        n.kind === "draw" ? [] : parseTasks(n.path, noteContents[n.path] ?? "")
+      );
+      const today = todayISO();
+      const { groups } = groupTasks(tasks, today);
+      const c = focusCounts(tasks, today);
+      set({
+        noteContents,
+        parsedTasks: tasks,
+        groups,
+        counts: { yapilacak: c.yapilacak, geciken: c.geciken, planlanmamis: c.planlanmamis },
+      });
     },
     setAccent: (accent) => set({ accent }),
     toggleEditorSetting: (key) =>

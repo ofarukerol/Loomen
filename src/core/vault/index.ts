@@ -6,7 +6,7 @@ import { parseTasks } from "../markdown/taskParser";
 import { dailyNoteTemplate, dailyNoteTitle } from "./dailyTemplate";
 import type { VaultBackend, VaultData } from "./types";
 
-export { dailyNoteTemplate, dailyNoteTitle, TODO_HEADING } from "./dailyTemplate";
+export { dailyNoteTemplate, dailyNoteTitle, TODO_HEADING, migrateDailyContent } from "./dailyTemplate";
 
 export { createSampleBackend } from "./sampleBackend";
 export { createTauriBackend } from "./tauriBackend";

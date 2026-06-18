@@ -118,17 +118,8 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
     ];
     if (lineNumbers) exts.push(lineNumbersExt());
 
-    // İmleci gizli başlık satırlarının (günlük H1 / #günlük) altına yerleştir —
-    // aksi halde açılışta imleç gizli başlığın başında olur ve yazınca başlığı bozar.
-    let cursor = 0;
-    for (const ln of value.split("\n")) {
-      if (/^#\s+\d{4}-\d{2}-\d{2}/.test(ln) || /^#günlük\b/.test(ln)) cursor += ln.length + 1;
-      else break;
-    }
-    cursor = Math.min(cursor, value.length);
-
     const view = new EditorView({
-      state: EditorState.create({ doc: value, selection: { anchor: cursor }, extensions: exts }),
+      state: EditorState.create({ doc: value, extensions: exts }),
       parent: ref.current,
     });
     view.focus();
