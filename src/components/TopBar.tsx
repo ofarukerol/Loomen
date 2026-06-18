@@ -38,15 +38,15 @@ export function TopBar() {
 
   return (
     <div className="lo-topbar" data-tauri-drag-region>
-      {/* macOS trafik ışıkları (kapat/küçült/büyüt) için boşluk — sürüklenebilir */}
-      <div className="lo-topbar__os" data-tauri-drag-region />
-      <button
-        className={"lo-topbar__toggle" + (leftCollapsed ? "" : " is-active")}
-        title={t("planner.toggleLeft")}
-        onClick={toggleLeft}
-      >
-        <PanelLeft size={17} strokeWidth={1.9} />
-      </button>
+      {/* Gezgin kapalıyken: trafik ışığı boşluğu + gezgini yeniden aç */}
+      {leftCollapsed && (
+        <>
+          <div className="lo-topbar__os" data-tauri-drag-region />
+          <button className="lo-topbar__toggle" title={t("planner.toggleLeft")} onClick={toggleLeft}>
+            <PanelLeft size={17} strokeWidth={1.9} />
+          </button>
+        </>
+      )}
 
       <div className="lo-topbar__tabs">
         {ordered.map((path) => {

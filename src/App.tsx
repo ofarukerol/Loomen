@@ -82,24 +82,22 @@ export default function App() {
 
   return (
     <div className="lo-app" data-theme={theme} style={accentVars}>
-      {/* Tüm genişlikte üst çubuk — trafik ışıkları (overlay) + sekmeler + panel butonları */}
-      <TopBar />
-      <div className="lo-shell">
-        <Ribbon />
-        <div className="lo-body">
-          {showExplorer && <Explorer />}
-          <div className="lo-main">
-            {screen === "planner" && <PlannerScreen />}
-            {screen === "editor" && <EditorScreen />}
-            {screen === "graph" && <GraphScreen />}
-            {screen === "draw" && <DrawScreen />}
-            {screen === "newtab" && <NewTabScreen />}
-            {screen === "reports" && <ReportsScreen />}
-            {screen === "settings" && <SettingsScreen />}
-          </div>
-          {showRight && <RightPanel />}
+      <Ribbon />
+      {showExplorer && <Explorer />}
+      {/* Ana sütun: sekme çubuğu (yalnızca içerik üstünde) + ekran */}
+      <div className="lo-maincol">
+        <TopBar />
+        <div className="lo-main">
+          {screen === "planner" && <PlannerScreen />}
+          {screen === "editor" && <EditorScreen />}
+          {screen === "graph" && <GraphScreen />}
+          {screen === "draw" && <DrawScreen />}
+          {screen === "newtab" && <NewTabScreen />}
+          {screen === "reports" && <ReportsScreen />}
+          {screen === "settings" && <SettingsScreen />}
         </div>
       </div>
+      {showRight && <RightPanel />}
       {/* Görev detay modalı — global */}
       <TaskDetail />
       {/* GitHub bağlan (device flow) modalı — global */}

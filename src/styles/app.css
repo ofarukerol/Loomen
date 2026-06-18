@@ -9,13 +9,12 @@
   width: 100vw;
   height: 100vh;
   display: flex;
-  flex-direction: column;
   background: var(--bg);
   color: var(--fg1);
   font-size: 14px;
   overflow: hidden;
 }
-.lo-shell { flex: 1; min-height: 0; display: flex; }
+.lo-maincol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 /* Arapça (RTL) seçilince Arapça fontuna geç */
 html[lang="ar"] .lo-app { font-family: var(--font-arabic); }
 .lo-main {
@@ -36,10 +35,12 @@ button { font-family: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 14px 0;
+  padding: 0 0 14px;
   gap: 6px;
   z-index: 5;
 }
+/* macOS trafik ışıkları için üst boşluk (overlay titlebar) */
+.lo-ribbon__os { height: 30px; flex-shrink: 0; align-self: stretch; }
 .lo-ribbon__logo {
   width: 34px;
   height: 34px;
@@ -79,6 +80,7 @@ button { font-family: inherit; }
   border-inline-end: 1px solid var(--line);
   display: flex;
   flex-direction: column;
+  padding-top: 30px; /* macOS trafik ışıkları için üst boşluk */
 }
 .lo-explorer__head {
   padding: 16px 16px 12px;
@@ -434,7 +436,7 @@ button { font-family: inherit; }
   flex-shrink: 0;
   border-inline-start: 1px solid var(--line);
   background: var(--bg-sunken);
-  padding: 22px 18px;
+  padding: 40px 18px 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;

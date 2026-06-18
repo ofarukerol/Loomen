@@ -28,6 +28,8 @@ export function Ribbon() {
 
   return (
     <div className="lo-ribbon">
+      {/* macOS trafik ışıkları + pencere sürükleme şeridi */}
+      <div className="lo-ribbon__os" data-tauri-drag-region />
       <div className="lo-ribbon__logo" aria-label="Loomen">
         <svg width="26" height="26" viewBox="0 0 100 100" fill="none">
           {/* bağlı notlar markası: ipliğe dizili 3 düğüm */}
