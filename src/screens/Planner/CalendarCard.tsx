@@ -7,9 +7,23 @@ import { useAppStore } from "../../store/useAppStore";
 
 const LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
 
+/** Günlük not boş şablondan farklı içerik taşıyor mu? (başlık/etiket/ayraç dışında metin) */
+function hasContent(text: string): boolean {
+  return text.split("\n").some((line) => {
+    const t = line.trim();
+    if (!t) return false;
+    if (/^#{1,6}\s/.test(t)) return false;
+    if (/^#günlük\b/.test(t)) return false;
+    if (/^-{3,}$/.test(t)) return false;
+    return true;
+  });
+}
+
 export function CalendarCard() {
   const { t, i18n } = useTranslation();
   const groups = useAppStore((s) => s.groups);
+  const notes = useAppStore((s) => s.notes);
+  const noteContents = useAppStore((s) => s.noteContents);
   const activeNote = useAppStore((s) => s.activeNote);
   const goToDate = useAppStore((s) => s.goToDate);
   const weekdays = t("calendar.weekdays", { returnObjects: true }) as string[];
@@ -23,11 +37,18 @@ export function CalendarCard() {
   const daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
   const monthLabel = format(first, "LLLL yyyy", { locale });
 
-  // Görüntülenen aydaki görevli günler (grup id = ISO tarih).
-  const taskDays = new Set<number>();
+  // Görüntülenen ayda nokta gösterilecek günler: görevli VEYA içerik girilmiş günlük not.
+  const dotDays = new Set<number>();
   for (const g of groups) {
     const [y, mo, d] = g.id.split("-").map(Number);
-    if (y === view.y && mo - 1 === view.m) taskDays.add(d);
+    if (y === view.y && mo - 1 === view.m) dotDays.add(d);
+  }
+  for (const note of notes) {
+    const dm = note.name.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!dm || note.kind === "draw") continue;
+    if (Number(dm[1]) === view.y && Number(dm[2]) - 1 === view.m && hasContent(noteContents[note.path] ?? "")) {
+      dotDays.add(Number(dm[3]));
+    }
   }
 
   // Açık günlük not hangi gün? (seçili vurgu)
@@ -77,7 +98,7 @@ export function CalendarCard() {
           return (
             <button className={cls} key={n} onClick={() => void goToDate(new Date(view.y, view.m, n))}>
               {n}
-              {taskDays.has(n) && <span className="lo-cal__dot" />}
+              {dotDays.has(n) && <span className="lo-cal__dot" />}
             </button>
           );
         })}
