@@ -9,11 +9,13 @@
   width: 100vw;
   height: 100vh;
   display: flex;
+  flex-direction: column;
   background: var(--bg);
   color: var(--fg1);
   font-size: 14px;
   overflow: hidden;
 }
+.lo-shell { flex: 1; min-height: 0; display: flex; }
 /* Arapça (RTL) seçilince Arapça fontuna geç */
 html[lang="ar"] .lo-app { font-family: var(--font-arabic); }
 .lo-main {
@@ -1399,7 +1401,6 @@ button { font-family: inherit; }
 /* ============================================================
    Workspace: global üst çubuk (sekme + köşe panel butonları)
    ============================================================ */
-.lo-workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .lo-body { flex: 1; min-height: 0; display: flex; }
 
 .lo-topbar {
@@ -1407,6 +1408,8 @@ button { font-family: inherit; }
   height: 40px; flex-shrink: 0; padding: 0 8px;
   background: var(--bg-sunken); border-bottom: 1px solid var(--line);
 }
+/* macOS trafik ışıkları için sol boşluk (overlay titlebar) */
+.lo-topbar__os { width: 64px; flex-shrink: 0; align-self: stretch; }
 .lo-topbar__toggle {
   width: 30px; height: 30px; flex-shrink: 0;
   border: none; background: transparent; border-radius: 7px; color: var(--fg3); cursor: pointer;

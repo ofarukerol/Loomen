@@ -36,7 +36,9 @@ export function TopBar() {
   const ordered = [...openTabs].sort((a, b) => (pinned.has(b) ? 1 : 0) - (pinned.has(a) ? 1 : 0));
 
   return (
-    <div className="lo-topbar">
+    <div className="lo-topbar" data-tauri-drag-region>
+      {/* macOS trafik ışıkları (kapat/küçült/büyüt) için boşluk — sürüklenebilir */}
+      <div className="lo-topbar__os" data-tauri-drag-region />
       <button
         className={"lo-topbar__toggle" + (leftCollapsed ? "" : " is-active")}
         title={t("planner.toggleLeft")}
@@ -93,7 +95,7 @@ export function TopBar() {
         </button>
       </div>
 
-      <div className="lo-topbar__spacer" />
+      <div className="lo-topbar__spacer" data-tauri-drag-region />
 
       <button
         className={"lo-topbar__toggle" + (rightCollapsed ? "" : " is-active")}

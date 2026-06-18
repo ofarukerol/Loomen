@@ -61,9 +61,10 @@ export default function App() {
 
   return (
     <div className="lo-app" data-theme={theme} style={accentVars}>
-      <Ribbon />
-      <div className="lo-workspace">
-        <TopBar />
+      {/* Tüm genişlikte üst çubuk — trafik ışıkları (overlay) + sekmeler + panel butonları */}
+      <TopBar />
+      <div className="lo-shell">
+        <Ribbon />
         <div className="lo-body">
           {showExplorer && <Explorer />}
           <div className="lo-main">
