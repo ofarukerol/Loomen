@@ -26,7 +26,7 @@ export function Ribbon() {
   return (
     <div className="lo-ribbon">
       <div className="lo-ribbon__logo" aria-label="Loomen">
-        <svg width="23" height="23" viewBox="0 0 100 100" fill="none">
+        <svg width="26" height="26" viewBox="0 0 100 100" fill="none">
           {/* bağlı notlar markası: ipliğe dizili 3 düğüm */}
           <path d="M32 33 C 59 29 49 70 70 67" stroke="#FBF5EA" strokeWidth="5" strokeLinecap="round" />
           <circle cx="32" cy="33" r="8.5" fill="#FBF5EA" />
