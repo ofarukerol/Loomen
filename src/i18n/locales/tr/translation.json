@@ -28,7 +28,10 @@
     "daily": "Daily",
     "projects": "Projeler",
     "localNoSync": "Yerel · senkron yok",
-    "results": "{{count}} sonuç"
+    "results": "{{count}} sonuç",
+    "newNote": "Yeni not",
+    "newFolder": "Yeni klasör",
+    "collapseAll": "Tümünü daralt"
   },
   "planner": {
     "focusToday": "Bugüne Odaklan",

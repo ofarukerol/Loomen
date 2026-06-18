@@ -26,7 +26,10 @@
     "daily": "يومي",
     "projects": "مشاريع",
     "localNoSync": "محلي · بدون مزامنة",
-    "results": "{{count}} نتيجة"
+    "results": "{{count}} نتيجة",
+    "newNote": "ملاحظة جديدة",
+    "newFolder": "مجلد جديد",
+    "collapseAll": "طيّ الكل"
   },
   "planner": {
     "focusToday": "ركّز على اليوم",

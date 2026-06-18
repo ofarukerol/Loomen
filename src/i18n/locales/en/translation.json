@@ -27,7 +27,10 @@
     "daily": "Daily",
     "projects": "Projects",
     "localNoSync": "Local · no sync",
-    "results": "{{count}} results"
+    "results": "{{count}} results",
+    "newNote": "New note",
+    "newFolder": "New folder",
+    "collapseAll": "Collapse all"
   },
   "planner": {
     "focusToday": "Focus On Today",

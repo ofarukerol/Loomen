@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Search, ChevronRight, ChevronDown, Folder, FileText, Clock, FolderOpen, PanelLeftClose } from "lucide-react";
+import { Search, ChevronRight, ChevronDown, Folder, FileText, Clock, SquarePen, FolderPlus, ChevronsDownUp, PanelLeftClose } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
 import { searchNotes } from "../core/search/search";
@@ -97,8 +97,9 @@ export function Explorer() {
   const notes = useAppStore((s) => s.notes);
   const contents = useAppStore((s) => s.noteContents);
   const vaultPath = useAppStore((s) => s.vaultPath);
-  const openVault = useAppStore((s) => s.openVault);
   const openNote = useAppStore((s) => s.openNote);
+  const newNote = useAppStore((s) => s.newNote);
+  const newFolder = useAppStore((s) => s.newFolder);
   const toggleLeft = useAppStore((s) => s.toggleLeft);
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -111,6 +112,22 @@ export function Explorer() {
       return next;
     });
 
+  // Tüm klasör yollarını (ara seviyeler dahil) topla — hepsini daralt/genişlet için.
+  const allFolderPaths = () => {
+    const set = new Set<string>();
+    for (const n of notes) {
+      if (!n.folder) continue;
+      let acc = "";
+      for (const seg of n.folder.split("/")) {
+        acc = acc ? `${acc}/${seg}` : seg;
+        set.add(acc);
+      }
+    }
+    return set;
+  };
+  const collapseAll = () =>
+    setCollapsed((prev) => (prev.size > 0 ? new Set() : allFolderPaths()));
+
   const root = buildTree(notes);
   const rootFolders = [...root.folders.values()].sort((a, b) => a.name.localeCompare(b.name, "tr"));
   const rootFiles = [...root.files].sort((a, b) => a.name.localeCompare(b.name, "tr"));
@@ -122,8 +139,14 @@ export function Explorer() {
       <div className="lo-explorer__head">
         <span className="lo-explorer__title">{t("explorer.vault")}</span>
         <div className="lo-explorer__actions">
-          <button className="lo-explorer__open" title="Kasa klasörü aç" onClick={() => void openVault()}>
-            <FolderOpen size={14} strokeWidth={1.8} />
+          <button className="lo-explorer__open" title={t("explorer.newNote")} onClick={() => void newNote()}>
+            <SquarePen size={16} strokeWidth={1.8} />
+          </button>
+          <button className="lo-explorer__open" title={t("explorer.newFolder")} onClick={() => void newFolder()}>
+            <FolderPlus size={16} strokeWidth={1.8} />
+          </button>
+          <button className="lo-explorer__open" title={t("explorer.collapseAll")} onClick={collapseAll}>
+            <ChevronsDownUp size={16} strokeWidth={1.8} />
           </button>
           <button
             className="lo-explorer__open lo-explorer__collapse"

@@ -127,6 +127,8 @@ interface AppState {
   bootstrap: () => Promise<void>;
   openVault: () => Promise<void>;
   reloadVault: () => Promise<void>;
+  newNote: (folder?: string) => Promise<void>;
+  newFolder: () => Promise<void>;
   addTask: () => Promise<void>;
   toggleTask: (id: string) => Promise<void>;
 }
@@ -326,6 +328,35 @@ export const useAppStore = create<AppState>()(
 
     reloadVault: async () => {
       await loadFromBackend();
+    },
+
+    // Yeni boş not oluştur (çakışmayan ad bul), düzenleme modunda aç.
+    newNote: async (folder) => {
+      const s = get();
+      const dir = folder ? `${folder}/` : "";
+      const base = "Adsız";
+      let name = base;
+      let i = 2;
+      const taken = (n: string) => s.notes.some((x) => x.path === `${dir}${n}.md`);
+      while (taken(name)) name = `${base} ${i++}`;
+      if (folder) await backend.ensureDir(folder);
+      await backend.writeNote(`${dir}${name}.md`, `# ${name}\n\n`);
+      await loadFromBackend();
+      get().openNote(`${dir}${name}.md`, true);
+    },
+
+    // Yeni klasör oluştur; ağaçta görünmesi için içine başlangıç notu koyar (boş klasör türetilen ağaçta görünmez).
+    newFolder: async () => {
+      const s = get();
+      const base = "Yeni Klasör";
+      let name = base;
+      let i = 2;
+      const folders = new Set(s.notes.map((n) => n.folder).filter(Boolean));
+      while (folders.has(name)) name = `${base} ${i++}`;
+      await backend.ensureDir(name);
+      await backend.writeNote(`${name}/Adsız.md`, `# Adsız\n\n`);
+      await loadFromBackend();
+      get().openNote(`${name}/Adsız.md`, true);
     },
 
     addTask: async () => {
