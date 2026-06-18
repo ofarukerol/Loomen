@@ -1,5 +1,7 @@
 {
-  "app": { "name": "Loomen" },
+  "app": {
+    "name": "Loomen"
+  },
   "ribbon": {
     "planner": "Planlayıcı",
     "dayNote": "Günün Notu",
@@ -84,7 +86,15 @@
   },
   "calendar": {
     "month": "Haziran 2026",
-    "weekdays": ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
+    "weekdays": [
+      "Pzt",
+      "Sal",
+      "Çar",
+      "Per",
+      "Cum",
+      "Cmt",
+      "Paz"
+    ]
   },
   "pomodoro": {
     "title": "POMODORO",
@@ -177,5 +187,8 @@
     "vault": "Kasa",
     "vaultLocation": "Kasa konumu",
     "change": "Değiştir"
+  },
+  "syncStatus": {
+    "error": "Senkron hatası"
   }
 }

@@ -13,6 +13,8 @@ import {
   PanelLeftClose,
   Pencil,
   FilePlus,
+  Cloud,
+  RefreshCw,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
@@ -179,6 +181,9 @@ export function Explorer() {
   const renameNote = useAppStore((s) => s.renameNote);
   const renameFolder = useAppStore((s) => s.renameFolder);
   const toggleLeft = useAppStore((s) => s.toggleLeft);
+  const ghToken = useAppStore((s) => s.ghToken);
+  const ghRepo = useAppStore((s) => s.ghRepo);
+  const ghSyncing = useAppStore((s) => s.ghSyncing);
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<Menu>(null);
@@ -307,8 +312,27 @@ export function Explorer() {
       )}
 
       <div className="lo-explorer__foot">
-        <Clock size={13} strokeWidth={2} />
-        {t("explorer.localNoSync")}
+        {!ghToken ? (
+          <>
+            <Clock size={13} strokeWidth={2} />
+            {t("explorer.localNoSync")}
+          </>
+        ) : ghSyncing ? (
+          <>
+            <RefreshCw size={13} strokeWidth={2} className="lo-spin" />
+            {t("github.syncing")}
+          </>
+        ) : ghRepo ? (
+          <>
+            <Cloud size={13} strokeWidth={2} color="var(--accent-2)" />
+            {ghRepo.name}
+          </>
+        ) : (
+          <>
+            <Cloud size={13} strokeWidth={2} />
+            {t("github.selectRepo")}
+          </>
+        )}
       </div>
 
       {/* Sağ-tık bağlam menüsü */}

@@ -140,5 +140,8 @@
     "reset": "Reset view",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out"
+  },
+  "syncStatus": {
+    "error": "Sync error"
   }
 }

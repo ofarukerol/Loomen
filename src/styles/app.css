@@ -1350,3 +1350,37 @@ button { font-family: inherit; }
 .lo-ghdev__err { color: var(--danger); }
 .lo-spin { animation: loSpin 1s linear infinite; }
 @keyframes loSpin { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   Senkron durumu — sağ altta yüzen pill (Obsidian tarzı)
+   ============================================================ */
+.lo-syncpill {
+  position: fixed;
+  bottom: 14px;
+  inset-inline-end: 16px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 240px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg2);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 7px 13px;
+  box-shadow: var(--sh2);
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.lo-syncpill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-syncpill:disabled { cursor: default; }
+.lo-syncpill:hover:not(:disabled) { border-color: var(--accent-soft); }
+.lo-syncpill--ok, .lo-syncpill--ok svg { color: var(--success); }
+.lo-syncpill--busy, .lo-syncpill--busy svg { color: var(--accent); }
+.lo-syncpill--error, .lo-syncpill--error svg { color: var(--danger); }
+.lo-syncpill--error { border-color: var(--danger-bg); }
+.lo-syncpill--idle { color: var(--fg2); }
+.lo-syncpill--idle svg { color: var(--accent-2); }

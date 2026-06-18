@@ -6,6 +6,7 @@ import { applyDir } from "./i18n";
 import { Ribbon } from "./components/Ribbon";
 import { Explorer } from "./components/Explorer";
 import { RightPanel } from "./components/RightPanel";
+import { SyncStatus } from "./components/SyncStatus";
 import { PlannerScreen } from "./screens/Planner/PlannerScreen";
 import { EditorScreen } from "./screens/Editor/EditorScreen";
 import { GraphScreen } from "./screens/Graph/GraphScreen";
@@ -78,6 +79,8 @@ export default function App() {
       <TaskDetail />
       {/* GitHub bağlan (device flow) modalı — global */}
       <GitHubDeviceModal />
+      {/* Senkron durumu — sağ altta yüzen gösterge */}
+      <SyncStatus />
     </div>
   );
 }
