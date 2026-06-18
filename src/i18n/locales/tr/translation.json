@@ -87,9 +87,16 @@
     "title": "Graf görünümü",
     "stats": "{{notes}} not · {{links}} bağlantı",
     "empty": "Henüz bağlantılı not yok. Notlara [[bağlantı]] ekleyin.",
-    "hint": "Bir düğümün üzerine gel",
+    "hint": "Sürükle · kaydır · tekerlekle yakınlaştır",
     "centerNote": "Merkez not",
-    "note": "Not"
+    "note": "Not",
+    "settings": "Graf ayarları",
+    "repel": "İtme gücü",
+    "linkDist": "Bağlantı uzaklığı",
+    "gravity": "Merkez çekimi",
+    "reset": "Görünümü sıfırla",
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır"
   },
   "settings": {
     "title": "Ayarlar",

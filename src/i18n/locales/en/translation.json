@@ -75,8 +75,15 @@
     "title": "Graph view",
     "stats": "{{notes}} notes · {{links}} links",
     "empty": "No linked notes yet. Add [[links]] to notes.",
-    "hint": "Hover a node",
+    "hint": "Drag · pan · scroll to zoom",
     "centerNote": "Hub note",
-    "note": "Note"
+    "note": "Note",
+    "settings": "Graph settings",
+    "repel": "Repel force",
+    "linkDist": "Link distance",
+    "gravity": "Center gravity",
+    "reset": "Reset view",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out"
   }
 }
