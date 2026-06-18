@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { PanelLeft } from "lucide-react";
 import { useAppStore, ACCENTS } from "./store/useAppStore";
 import { applyDir } from "./i18n";
 import { Ribbon } from "./components/Ribbon";
+import { TopBar } from "./components/TopBar";
 import { Explorer } from "./components/Explorer";
 import { RightPanel } from "./components/RightPanel";
 import { PlannerScreen } from "./screens/Planner/PlannerScreen";
@@ -22,7 +22,7 @@ export default function App() {
   const lang = useAppStore((s) => s.lang);
   const accent = useAppStore((s) => s.accent);
   const leftCollapsed = useAppStore((s) => s.leftCollapsed);
-  const toggleLeft = useAppStore((s) => s.toggleLeft);
+  const rightCollapsed = useAppStore((s) => s.rightCollapsed);
 
   const bootstrap = useAppStore((s) => s.bootstrap);
   const ghAutoSync = useAppStore((s) => s.ghAutoSync);
@@ -50,6 +50,8 @@ export default function App() {
 
   const explorerEligible = ["planner", "editor", "graph", "reports", "draw"].includes(screen);
   const showExplorer = explorerEligible && !leftCollapsed;
+  const rightEligible = ["planner", "editor", "graph", "draw"].includes(screen);
+  const showRight = rightEligible && !rightCollapsed;
 
   // Vurgu rengini kök seviyede override et (varsayılan dışı seçilirse).
   const accentVars =
@@ -60,22 +62,21 @@ export default function App() {
   return (
     <div className="lo-app" data-theme={theme} style={accentVars}>
       <Ribbon />
-      {showExplorer && <Explorer />}
-      {explorerEligible && leftCollapsed && (
-        <button className="lo-reopen-left" onClick={toggleLeft} title="Gezgini aç">
-          <PanelLeft size={16} strokeWidth={1.9} />
-        </button>
-      )}
-      <div className="lo-main">
-        {screen === "planner" && <PlannerScreen />}
-        {screen === "editor" && <EditorScreen />}
-        {screen === "graph" && <GraphScreen />}
-        {screen === "draw" && <DrawScreen />}
-        {screen === "reports" && <ReportsScreen />}
-        {screen === "settings" && <SettingsScreen />}
+      <div className="lo-workspace">
+        <TopBar />
+        <div className="lo-body">
+          {showExplorer && <Explorer />}
+          <div className="lo-main">
+            {screen === "planner" && <PlannerScreen />}
+            {screen === "editor" && <EditorScreen />}
+            {screen === "graph" && <GraphScreen />}
+            {screen === "draw" && <DrawScreen />}
+            {screen === "reports" && <ReportsScreen />}
+            {screen === "settings" && <SettingsScreen />}
+          </div>
+          {showRight && <RightPanel />}
+        </div>
       </div>
-      {/* Sağ blok global — her ekranda kalıcı */}
-      <RightPanel />
       {/* Görev detay modalı — global */}
       <TaskDetail />
       {/* GitHub bağlan (device flow) modalı — global */}

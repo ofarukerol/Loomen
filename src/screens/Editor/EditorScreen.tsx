@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { FileText, X, Pencil, Save, Eye, Link2 } from "lucide-react";
+import { FileText, Pencil, Save, Eye, Link2 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { Markdown } from "./Markdown";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
@@ -17,8 +17,6 @@ export function EditorScreen() {
   const editing = useAppStore((s) => s.editing);
   const draft = useAppStore((s) => s.draft);
   const lineNumbers = useAppStore((s) => s.editorSettings.lineNumbers);
-  const setActiveTab = useAppStore((s) => s.setActiveTab);
-  const closeTab = useAppStore((s) => s.closeTab);
   const setDraft = useAppStore((s) => s.setDraft);
   const toggleEditing = useAppStore((s) => s.toggleEditing);
   const saveNote = useAppStore((s) => s.saveNote);
@@ -40,26 +38,8 @@ export function EditorScreen() {
 
   return (
     <div className="lo-editor">
-      <div className="lo-tabs">
-        {openTabs.map((path) => (
-          <div
-            key={path}
-            className={"lo-tab" + (activeNote === path ? " is-active" : "")}
-            onClick={() => setActiveTab(path)}
-          >
-            <FileText size={13} strokeWidth={1.7} />
-            {noteName(path)}
-            <span
-              className="lo-tab__close"
-              onClick={(e) => {
-                e.stopPropagation();
-                closeTab(path);
-              }}
-            >
-              <X size={13} strokeWidth={2} />
-            </span>
-          </div>
-        ))}
+      <div className="lo-editortoolbar">
+        <span className="lo-editortoolbar__title">{noteName(activeNote)}</span>
         <div className="lo-tabs__spacer" />
         <button className="lo-tab__action" onClick={() => toggleEditing()}>
           {editing ? <Eye size={14} strokeWidth={1.9} /> : <Pencil size={14} strokeWidth={1.9} />}

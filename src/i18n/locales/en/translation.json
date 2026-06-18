@@ -149,5 +149,9 @@
   "draw": {
     "empty": "Select a drawing or create a new one.",
     "new": "New drawing"
+  },
+  "tabs": {
+    "pin": "Pin",
+    "close": "Close"
   }
 }

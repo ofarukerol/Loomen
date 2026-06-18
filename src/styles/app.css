@@ -1395,3 +1395,56 @@ button { font-family: inherit; }
   padding: 9px 18px; cursor: pointer; box-shadow: var(--sh1);
 }
 .lo-draw__new:hover { box-shadow: var(--sh2); }
+
+/* ============================================================
+   Workspace: global üst çubuk (sekme + köşe panel butonları)
+   ============================================================ */
+.lo-workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lo-body { flex: 1; min-height: 0; display: flex; }
+
+.lo-topbar {
+  display: flex; align-items: center; gap: 6px;
+  height: 40px; flex-shrink: 0; padding: 0 8px;
+  background: var(--bg-sunken); border-bottom: 1px solid var(--line);
+}
+.lo-topbar__toggle {
+  width: 30px; height: 30px; flex-shrink: 0;
+  border: none; background: transparent; border-radius: 7px; color: var(--fg3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.lo-topbar__toggle:hover { background: var(--line-soft); color: var(--fg1); }
+.lo-topbar__toggle.is-active { color: var(--fg2); }
+.lo-topbar__tabs { display: flex; align-items: center; gap: 3px; overflow-x: auto; min-width: 0; }
+.lo-topbar__tabs::-webkit-scrollbar { height: 0; }
+.lo-topbar__spacer { flex: 1; }
+.lo-topbar__new {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border: none; background: transparent; border-radius: 6px; color: var(--fg3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.lo-topbar__new:hover { background: var(--line-soft); color: var(--accent); }
+
+.lo-wtab {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  height: 30px; padding: 0 5px 0 10px; max-width: 190px;
+  border-radius: 8px; cursor: pointer; color: var(--fg3); background: transparent;
+}
+.lo-wtab:hover { background: var(--line-soft); color: var(--fg1); }
+.lo-wtab.is-active { background: var(--bg-elev); color: var(--fg1); box-shadow: var(--sh1); }
+.lo-wtab__icon { flex-shrink: 0; color: var(--fg3); }
+.lo-wtab.is-active .lo-wtab__icon { color: var(--accent); }
+.lo-wtab__name { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-wtab__pin, .lo-wtab__x {
+  width: 18px; height: 18px; flex-shrink: 0;
+  border: none; background: transparent; border-radius: 5px; color: var(--fg3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.1s;
+}
+.lo-wtab:hover .lo-wtab__pin, .lo-wtab:hover .lo-wtab__x { opacity: 1; }
+.lo-wtab.is-pinned .lo-wtab__pin { opacity: 1; color: var(--accent); }
+.lo-wtab__pin:hover, .lo-wtab__x:hover { background: var(--line); color: var(--fg1); }
+
+.lo-editortoolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px; border-bottom: 1px solid var(--line);
+}
+.lo-editortoolbar__title { font-size: 13.5px; font-weight: 600; color: var(--fg2); }

@@ -196,5 +196,9 @@
   "draw": {
     "empty": "Bir çizim seç veya yeni oluştur.",
     "new": "Yeni çizim"
+  },
+  "tabs": {
+    "pin": "Sabitle",
+    "close": "Kapat"
   }
 }

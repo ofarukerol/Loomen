@@ -80,7 +80,8 @@ interface AppState {
   noteContents: Record<string, string>;
 
   // Editör
-  openTabs: string[]; // açık not yolları
+  openTabs: string[]; // açık not/çizim yolları (sekmeler)
+  pinnedTabs: string[]; // sabitlenmiş sekme yolları
   activeNote: string | null; // aktif not yolu
   editing: boolean;
   draft: string;
@@ -119,6 +120,7 @@ interface AppState {
   setEditorTab: (t: EditorTab) => void;
   openNote: (nameOrPath: string, edit?: boolean) => void;
   setActiveTab: (path: string) => void;
+  togglePin: (path: string) => void;
   closeTab: (path: string) => void;
   setDraft: (text: string) => void;
   toggleEditing: () => void;
@@ -227,6 +229,7 @@ export const useAppStore = create<AppState>()(
     noteContents: {},
 
     openTabs: [],
+    pinnedTabs: [],
     activeNote: null,
     editing: false,
     draft: "",
@@ -263,9 +266,10 @@ export const useAppStore = create<AppState>()(
       const byName = s.notes.find((n) => n.name === nameOrPath);
       const note = byPath ?? byName;
       if (!note) return; // eksik/kırık link
-      // Çizim dosyaları editör yerine çizim ekranında açılır.
+      // Çizim dosyaları editör yerine çizim ekranında açılır (ama yine sekme olur).
       if (note.kind === "draw") {
-        set({ screen: "draw", activeDraw: note.path });
+        const tabs = s.openTabs.includes(note.path) ? s.openTabs : [...s.openTabs, note.path];
+        set({ screen: "draw", activeDraw: note.path, openTabs: tabs });
         return;
       }
       const openTabs = s.openTabs.includes(note.path) ? s.openTabs : [...s.openTabs, note.path];
@@ -277,14 +281,44 @@ export const useAppStore = create<AppState>()(
         draft: s.noteContents[note.path] ?? "",
       });
     },
-    setActiveTab: (path) =>
-      set((s) => ({ activeNote: path, editing: false, draft: s.noteContents[path] ?? "" })),
+    setActiveTab: (path) => {
+      const s = get();
+      const note = s.notes.find((n) => n.path === path);
+      if (note?.kind === "draw") {
+        set({ screen: "draw", activeDraw: path });
+        return;
+      }
+      set({ screen: "editor", activeNote: path, editing: false, draft: s.noteContents[path] ?? "" });
+    },
+    togglePin: (path) =>
+      set((s) => ({
+        pinnedTabs: s.pinnedTabs.includes(path)
+          ? s.pinnedTabs.filter((p) => p !== path)
+          : [...s.pinnedTabs, path],
+      })),
     closeTab: (path) =>
       set((s) => {
         const openTabs = s.openTabs.filter((p) => p !== path);
-        const activeNote =
-          s.activeNote === path ? openTabs[openTabs.length - 1] ?? null : s.activeNote;
-        return { openTabs, activeNote, draft: activeNote ? s.noteContents[activeNote] ?? "" : "" };
+        const pinnedTabs = s.pinnedTabs.filter((p) => p !== path);
+        const wasActive = s.activeNote === path || s.activeDraw === path;
+        if (!wasActive) return { openTabs, pinnedTabs };
+        const next = openTabs[openTabs.length - 1] ?? null;
+        const clearNote = s.activeNote === path ? null : s.activeNote;
+        const clearDraw = s.activeDraw === path ? null : s.activeDraw;
+        if (!next) return { openTabs, pinnedTabs, activeNote: clearNote, activeDraw: clearDraw, draft: "" };
+        const nextNote = s.notes.find((n) => n.path === next);
+        if (nextNote?.kind === "draw") {
+          return { openTabs, pinnedTabs, screen: "draw", activeDraw: next, activeNote: clearNote };
+        }
+        return {
+          openTabs,
+          pinnedTabs,
+          screen: "editor",
+          activeNote: next,
+          activeDraw: clearDraw,
+          editing: false,
+          draft: s.noteContents[next] ?? "",
+        };
       }),
     setDraft: (draft) => set({ draft }),
     toggleEditing: () =>
