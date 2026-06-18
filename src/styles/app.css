@@ -1404,10 +1404,11 @@ button { font-family: inherit; }
 .lo-body { flex: 1; min-height: 0; display: flex; }
 
 .lo-topbar {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: stretch; gap: 4px;
   height: 40px; flex-shrink: 0; padding: 0 8px;
   background: var(--bg-sunken); border-bottom: 1px solid var(--line);
 }
+.lo-topbar > .lo-topbar__toggle, .lo-topbar > .lo-topbar__new { align-self: center; }
 /* macOS trafik ışıkları için sol boşluk (overlay titlebar) */
 .lo-topbar__os { width: 64px; flex-shrink: 0; align-self: stretch; }
 .lo-topbar__toggle {
@@ -1417,7 +1418,7 @@ button { font-family: inherit; }
 }
 .lo-topbar__toggle:hover { background: var(--line-soft); color: var(--fg1); }
 .lo-topbar__toggle.is-active { color: var(--fg2); }
-.lo-topbar__tabs { display: flex; align-items: center; gap: 3px; overflow-x: auto; min-width: 0; }
+.lo-topbar__tabs { display: flex; align-items: flex-end; gap: 2px; overflow-x: auto; min-width: 0; }
 .lo-topbar__tabs::-webkit-scrollbar { height: 0; }
 .lo-topbar__spacer { flex: 1; }
 .lo-topbar__new {
@@ -1428,12 +1429,20 @@ button { font-family: inherit; }
 .lo-topbar__new:hover { background: var(--line-soft); color: var(--accent); }
 
 .lo-wtab {
-  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
-  height: 30px; padding: 0 5px 0 10px; max-width: 190px;
-  border-radius: 8px; cursor: pointer; color: var(--fg3); background: transparent;
+  display: flex; align-items: center; gap: 7px; flex-shrink: 0;
+  height: 32px; padding: 0 7px 0 13px; max-width: 200px;
+  border-radius: 9px 9px 0 0; cursor: pointer; color: var(--fg3);
+  background: transparent; position: relative;
 }
-.lo-wtab:hover { background: var(--line-soft); color: var(--fg1); }
-.lo-wtab.is-active { background: var(--bg-elev); color: var(--fg1); box-shadow: var(--sh1); }
+.lo-wtab:hover { background: var(--line-soft); color: var(--fg2); }
+.lo-wtab.is-active {
+  height: 35px;
+  background: var(--bg);
+  color: var(--fg1);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  margin-bottom: -1px; /* topbar alt çizgisini ört → içerikle birleşsin */
+}
 .lo-wtab__icon { flex-shrink: 0; color: var(--fg3); }
 .lo-wtab.is-active .lo-wtab__icon { color: var(--accent); }
 .lo-wtab__name { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
