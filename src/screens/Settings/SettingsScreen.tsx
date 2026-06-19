@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore, ACCENTS, type Lang, type EditorSettings } from "../../store/useAppStore";
 import { GitHubSync } from "./GitHubSync";
+import { TemplatesSettings } from "./TemplatesSettings";
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -124,6 +125,9 @@ export function SettingsScreen() {
             </div>
           ))}
         </Section>
+
+        {/* Şablonlar */}
+        <TemplatesSettings />
 
         {/* Pomodoro */}
         <div className="lo-set__section">{t("settings.pomodoro")}</div>

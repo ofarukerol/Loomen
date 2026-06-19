@@ -188,7 +188,17 @@
     "rounds": "جولات",
     "vault": "الخزنة",
     "vaultLocation": "موقع الخزنة",
-    "change": "تغيير"
+    "change": "تغيير",
+    "templates": "القوالب",
+    "dailyTemplate": "قالب الملاحظة اليومية",
+    "dailyTemplateSub": "تُنشأ كل ملاحظة يومية جديدة بهذا التنسيق",
+    "templateSave": "حفظ",
+    "templateSaved": "تم الحفظ",
+    "templatePlaceholders": "العناصر النائبة: {{tarih}} · {{gün}} · {{hafta}} · {{iso}}",
+    "otherTemplates": "قوالب أخرى",
+    "otherTemplatesSub": "تُحفظ في مجلد القوالب",
+    "newTemplate": "قالب جديد",
+    "noTemplates": "لا توجد قوالب أخرى بعد"
   },
   "syncStatus": {
     "error": "خطأ المزامنة"

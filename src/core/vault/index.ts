@@ -1,6 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { watch } from "@tauri-apps/plugin-fs";
-import { format } from "date-fns";
+import { format, getISOWeek } from "date-fns";
 import { tr } from "date-fns/locale";
 import { parseTasks } from "../markdown/taskParser";
 import { dailyNoteTemplate, dailyNoteTitle } from "./dailyTemplate";
@@ -10,6 +10,40 @@ export { dailyNoteTemplate, dailyNoteTitle, TODO_HEADING, migrateDailyContent } 
 
 export { createSampleBackend } from "./sampleBackend";
 export { createTauriBackend } from "./tauriBackend";
+
+/** Şablonların yaşadığı özel klasör (Explorer'da en altta, ayrı stil). */
+export const TEMPLATES_DIR = "Şablonlar";
+/** Günlük not şablonu dosyası — ayarlardan düzenlenebilir. */
+export const DAILY_TEMPLATE_PATH = `${TEMPLATES_DIR}/Günlük.md`;
+
+/** Bir yolun/klasörün şablon klasöründe olup olmadığı. */
+export function isTemplatePath(folderOrPath: string): boolean {
+  return folderOrPath === TEMPLATES_DIR || folderOrPath.startsWith(`${TEMPLATES_DIR}/`);
+}
+
+/** Günlük şablonundaki yer tutucuları tarihe göre doldur. */
+function fillDailyPlaceholders(tpl: string, date: Date): string {
+  return tpl
+    .replace(/\{\{\s*tarih\s*\}\}/gi, format(date, "d MMMM yyyy", { locale: tr }))
+    .replace(/\{\{\s*gün\s*\}\}/gi, format(date, "EEEE", { locale: tr }))
+    .replace(/\{\{\s*hafta\s*\}\}/gi, String(getISOWeek(date)))
+    .replace(/\{\{\s*iso\s*\}\}/gi, format(date, "yyyy-MM-dd"));
+}
+
+/** Şablon klasörünü ve varsayılan günlük şablonunu (yoksa) oluştur. */
+export async function ensureTemplates(backend: VaultBackend): Promise<void> {
+  if (await backend.exists(DAILY_TEMPLATE_PATH)) return;
+  await backend.ensureDir(TEMPLATES_DIR);
+  await backend.writeNote(DAILY_TEMPLATE_PATH, dailyNoteTemplate(new Date()));
+}
+
+/** Günlük not içeriğini üret: kullanıcı şablonu varsa onu (yer tutucu doldurarak), yoksa gömülü. */
+export async function renderDailyTemplate(backend: VaultBackend, date: Date): Promise<string> {
+  const tpl = (await backend.exists(DAILY_TEMPLATE_PATH))
+    ? await backend.readNote(DAILY_TEMPLATE_PATH)
+    : dailyNoteTemplate(date);
+  return fillDailyPlaceholders(tpl, date);
+}
 
 /** Tauri (masaüstü/mobil) içinde mi çalışıyoruz? Değilse tarayıcı/sample modu. */
 export function isTauri(): boolean {
@@ -26,8 +60,10 @@ export async function pickVaultFolder(): Promise<string | null> {
 export async function loadVaultData(backend: VaultBackend): Promise<VaultData> {
   const notes = await backend.listNotes();
   const raw = await Promise.all(notes.map((n) => backend.readNote(n.path)));
-  // Görevler yalnızca markdown notlardan parse edilir (çizimler JSON'dur).
-  const tasks = notes.flatMap((n, i) => (n.kind === "draw" ? [] : parseTasks(n.path, raw[i])));
+  // Görevler yalnızca markdown notlardan parse edilir (çizimler JSON'dur; şablonlar hariç).
+  const tasks = notes.flatMap((n, i) =>
+    n.kind === "draw" || isTemplatePath(n.folder) ? [] : parseTasks(n.path, raw[i])
+  );
   const contents: Record<string, string> = {};
   notes.forEach((n, i) => (contents[n.path] = raw[i]));
   return { notes, tasks, contents };
@@ -62,5 +98,5 @@ export async function ensureDailyNote(backend: VaultBackend, path: string): Prom
   if (await backend.exists(path)) return;
   const folder = path.split("/").slice(0, -1).join("/");
   if (folder) await backend.ensureDir(folder);
-  await backend.writeNote(path, dailyNoteTemplate(new Date()));
+  await backend.writeNote(path, await renderDailyTemplate(backend, new Date()));
 }

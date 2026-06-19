@@ -19,9 +19,11 @@ import {
   RefreshCw,
   Shapes,
   Star,
+  LayoutTemplate,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
+import { TEMPLATES_DIR } from "../core/vault";
 import { searchNotes } from "../core/search/search";
 
 /** Klasör ağacı düğümü (iç içe). */
@@ -137,12 +139,14 @@ function FolderNode({
   collapsed,
   toggle,
   ctx,
+  variant,
 }: {
   node: TreeNode;
   depth: number;
   collapsed: Set<string>;
   toggle: (path: string) => void;
   ctx: RowCtx;
+  variant?: "tpl";
 }) {
   const open = !collapsed.has(node.path);
   const folders = [...node.folders.values()].sort((a, b) => a.name.localeCompare(b.name, "tr"));
@@ -154,13 +158,17 @@ function FolderNode({
         <RenameInput initial={node.name} depth={depth} kind="folder" commit={ctx.commit} cancel={ctx.cancel} />
       ) : (
         <button
-          className="lo-tree__group"
+          className={"lo-tree__group" + (variant === "tpl" ? " lo-tree__group--tpl" : "")}
           style={{ paddingInlineStart: 8 + depth * 14 }}
           onClick={() => toggle(node.path)}
           onContextMenu={(e) => ctx.onContext(e, "folder", node.path)}
         >
           {open ? <ChevronDown size={14} strokeWidth={2} /> : <ChevronRight size={14} strokeWidth={2} />}
-          <Folder size={15} strokeWidth={1.8} color="var(--accent-2)" />
+          {variant === "tpl" ? (
+            <LayoutTemplate size={15} strokeWidth={1.8} color="var(--accent-2)" />
+          ) : (
+            <Folder size={15} strokeWidth={1.8} color="var(--accent-2)" />
+          )}
           {node.name}
         </button>
       )}
@@ -262,7 +270,11 @@ export function Explorer() {
   };
 
   const root = buildTree(notes);
-  const rootFolders = [...root.folders.values()].sort((a, b) => a.name.localeCompare(b.name, "tr"));
+  // Şablonlar klasörü normal ağaçtan ayrılır; en alta ayrı stille sabitlenir.
+  const tplFolder = root.folders.get(TEMPLATES_DIR);
+  const rootFolders = [...root.folders.values()]
+    .filter((f) => f.name !== TEMPLATES_DIR)
+    .sort((a, b) => a.name.localeCompare(b.name, "tr"));
   const rootFiles = [...root.files].sort((a, b) => a.name.localeCompare(b.name, "tr"));
 
   const pathLabel = vaultPath ? "~/" + vaultPath.split("/").filter(Boolean).pop() : "~/Loomen (örnek)";
@@ -365,6 +377,18 @@ export function Explorer() {
           {rootFiles.map((n) => (
             <FileItem note={n} depth={0} key={n.path} ctx={ctx} />
           ))}
+          {tplFolder && (
+            <div className="lo-tree__tpl">
+              <FolderNode
+                node={tplFolder}
+                depth={0}
+                collapsed={collapsed}
+                toggle={toggle}
+                ctx={ctx}
+                variant="tpl"
+              />
+            </div>
+          )}
         </div>
       )}
 

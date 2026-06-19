@@ -192,7 +192,17 @@
     "rounds": "Tur",
     "vault": "Kasa",
     "vaultLocation": "Kasa konumu",
-    "change": "Değiştir"
+    "change": "Değiştir",
+    "templates": "Şablonlar",
+    "dailyTemplate": "Günlük not şablonu",
+    "dailyTemplateSub": "Her yeni günlük not bu formatla oluşturulur",
+    "templateSave": "Kaydet",
+    "templateSaved": "Kaydedildi",
+    "templatePlaceholders": "Yer tutucular: {{tarih}} · {{gün}} · {{hafta}} · {{iso}}",
+    "otherTemplates": "Diğer şablonlar",
+    "otherTemplatesSub": "Şablonlar klasöründe saklanır",
+    "newTemplate": "Yeni şablon",
+    "noTemplates": "Henüz başka şablon yok"
   },
   "syncStatus": {
     "error": "Senkron hatası"

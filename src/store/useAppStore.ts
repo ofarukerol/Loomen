@@ -11,10 +11,12 @@ import {
   todayISO,
   todayDailyPath,
   dailyPathFor,
-  dailyNoteTemplate,
   watchVaultRoot,
   ensureDailyNote,
+  ensureTemplates,
+  renderDailyTemplate,
   migrateDailyContent,
+  TEMPLATES_DIR,
   TODO_HEADING,
 } from "../core/vault";
 import { groupTasks, focusCounts } from "../core/vault/grouping";
@@ -158,6 +160,8 @@ interface AppState {
   newNote: (folder?: string) => Promise<void>;
   newFolder: () => Promise<void>;
   newDraw: () => Promise<void>;
+  newTemplate: () => Promise<void>;
+  writeTemplate: (path: string, content: string) => Promise<void>;
   saveDraw: (json: string) => Promise<void>;
   toggleFavorite: (path: string) => void;
   renameNote: (path: string, newName: string) => Promise<void>;
@@ -389,7 +393,7 @@ export const useAppStore = create<AppState>()(
       if (!(await backend.exists(path))) {
         const folder = path.split("/").slice(0, -1).join("/");
         if (folder) await backend.ensureDir(folder);
-        await backend.writeNote(path, dailyNoteTemplate(date));
+        await backend.writeNote(path, await renderDailyTemplate(backend, date));
       }
       await loadFromBackend();
       get().openNote(path);
@@ -432,12 +436,14 @@ export const useAppStore = create<AppState>()(
 
     // İlk yükleme: önce sample, sonra (Tauri'de) kayıtlı kasa varsa onu yükle.
     bootstrap: async () => {
+      await ensureTemplates(backend);
       await loadFromBackend();
       if (isTauri()) {
         const saved = localStorage.getItem(VAULT_KEY);
         if (saved) {
           try {
             backend = createTauriBackend(saved);
+            await ensureTemplates(backend);
             await loadFromBackend();
             set({ vaultPath: saved });
             unwatch?.();
@@ -457,6 +463,7 @@ export const useAppStore = create<AppState>()(
       const path = await pickVaultFolder();
       if (!path) return;
       backend = createTauriBackend(path);
+      await ensureTemplates(backend);
       await loadFromBackend();
       localStorage.setItem(VAULT_KEY, path);
       set({ vaultPath: path });
@@ -495,6 +502,27 @@ export const useAppStore = create<AppState>()(
       await backend.writeNote(path, EMPTY_EXCALIDRAW);
       await loadFromBackend();
       set({ screen: "draw", activeDraw: path });
+    },
+
+    // Yeni şablon dosyası — her zaman "Şablonlar" klasöründe; düzenleme modunda aç.
+    newTemplate: async () => {
+      const s = get();
+      const base = "Şablon";
+      let name = base;
+      let i = 2;
+      const taken = (n: string) => s.notes.some((x) => x.path === `${TEMPLATES_DIR}/${n}.md`);
+      while (taken(name)) name = `${base} ${i++}`;
+      await backend.ensureDir(TEMPLATES_DIR);
+      await backend.writeNote(`${TEMPLATES_DIR}/${name}.md`, `# ${name}\n\n`);
+      await loadFromBackend();
+      get().openNote(`${TEMPLATES_DIR}/${name}.md`, true);
+    },
+
+    // Bir şablon dosyasını yaz (ör. ayarlardan günlük şablonu) ve yeniden yükle.
+    writeTemplate: async (path, content) => {
+      await backend.ensureDir(TEMPLATES_DIR);
+      await backend.writeNote(path, content);
+      await loadFromBackend();
     },
 
     toggleFavorite: (path) =>
