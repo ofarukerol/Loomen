@@ -377,18 +377,20 @@ export function Explorer() {
           {rootFiles.map((n) => (
             <FileItem note={n} depth={0} key={n.path} ctx={ctx} />
           ))}
-          {tplFolder && (
-            <div className="lo-tree__tpl">
-              <FolderNode
-                node={tplFolder}
-                depth={0}
-                collapsed={collapsed}
-                toggle={toggle}
-                ctx={ctx}
-                variant="tpl"
-              />
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* Şablonlar — klasörlerin en altında sabit, belirgin bölüm (kaydırmadan ayrı) */}
+      {!query && tplFolder && (
+        <div className="lo-explorer__tpl lo-scroll">
+          <FolderNode
+            node={tplFolder}
+            depth={0}
+            collapsed={collapsed}
+            toggle={toggle}
+            ctx={ctx}
+            variant="tpl"
+          />
         </div>
       )}
 

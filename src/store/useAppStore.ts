@@ -16,6 +16,7 @@ import {
   ensureTemplates,
   renderDailyTemplate,
   migrateDailyContent,
+  templatePathFor,
   TEMPLATES_DIR,
   TODO_HEADING,
 } from "../core/vault";
@@ -69,6 +70,8 @@ interface AppState {
   editorTab: EditorTab;
   accent: string;
   editorSettings: EditorSettings;
+  /** Günlük not için seçili şablonun adı (Şablonlar/<ad>.md). */
+  dailyTemplate: string;
   quickText: string;
   selectedDay: number;
 
@@ -161,7 +164,7 @@ interface AppState {
   newFolder: () => Promise<void>;
   newDraw: () => Promise<void>;
   newTemplate: () => Promise<void>;
-  writeTemplate: (path: string, content: string) => Promise<void>;
+  setDailyTemplate: (name: string) => void;
   saveDraw: (json: string) => Promise<void>;
   toggleFavorite: (path: string) => void;
   renameNote: (path: string, newName: string) => Promise<void>;
@@ -228,6 +231,7 @@ export const useAppStore = create<AppState>()(
     editorTab: "daily",
     accent: ACCENTS[0],
     editorSettings: { livePreview: true, lineNumbers: false, spellCheck: true },
+    dailyTemplate: "Günlük",
     quickText: "",
     selectedDay: Number(todayISO().slice(8, 10)),
 
@@ -379,21 +383,21 @@ export const useAppStore = create<AppState>()(
     todayNotePath: () => todayDailyPath(),
     // "Günün Notu" — bugünün notunu (yoksa şablonla oluşturup) sekmede aç.
     goToDayNote: async () => {
-      await ensureDailyNote(backend, todayDailyPath());
+      await ensureDailyNote(backend, todayDailyPath(), templatePathFor(get().dailyTemplate));
       await loadFromBackend();
       get().openNote(todayDailyPath());
     },
     createTodayNote: async () => {
-      await ensureDailyNote(backend, todayDailyPath());
+      await ensureDailyNote(backend, todayDailyPath(), templatePathFor(get().dailyTemplate));
       await loadFromBackend();
     },
-    // Takvimden bir güne tıklama — o günün notunu (yoksa o tarihin şablonuyla oluşturup) aç.
+    // Takvimden bir güne tıklama — o günün notunu (yoksa seçili şablonla oluşturup) aç.
     goToDate: async (date) => {
       const path = dailyPathFor(date);
       if (!(await backend.exists(path))) {
         const folder = path.split("/").slice(0, -1).join("/");
         if (folder) await backend.ensureDir(folder);
-        await backend.writeNote(path, await renderDailyTemplate(backend, date));
+        await backend.writeNote(path, await renderDailyTemplate(backend, date, templatePathFor(get().dailyTemplate)));
       }
       await loadFromBackend();
       get().openNote(path);
@@ -518,12 +522,8 @@ export const useAppStore = create<AppState>()(
       get().openNote(`${TEMPLATES_DIR}/${name}.md`, true);
     },
 
-    // Bir şablon dosyasını yaz (ör. ayarlardan günlük şablonu) ve yeniden yükle.
-    writeTemplate: async (path, content) => {
-      await backend.ensureDir(TEMPLATES_DIR);
-      await backend.writeNote(path, content);
-      await loadFromBackend();
-    },
+    // Günlük not için hangi şablonun kullanılacağını seç (ad → Şablonlar/<ad>.md).
+    setDailyTemplate: (name) => set({ dailyTemplate: name }),
 
     toggleFavorite: (path) =>
       set((s) => ({
@@ -705,6 +705,7 @@ export const useAppStore = create<AppState>()(
         lang: s.lang,
         accent: s.accent,
         editorSettings: s.editorSettings,
+        dailyTemplate: s.dailyTemplate,
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
         backlinksCollapsed: s.backlinksCollapsed,

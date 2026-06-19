@@ -195,14 +195,12 @@
     "change": "Değiştir",
     "templates": "Şablonlar",
     "dailyTemplate": "Günlük not şablonu",
-    "dailyTemplateSub": "Her yeni günlük not bu formatla oluşturulur",
-    "templateSave": "Kaydet",
-    "templateSaved": "Kaydedildi",
-    "templatePlaceholders": "Yer tutucular: {{tarih}} · {{gün}} · {{hafta}} · {{iso}}",
-    "otherTemplates": "Diğer şablonlar",
-    "otherTemplatesSub": "Şablonlar klasöründe saklanır",
+    "dailyTemplateSub": "Şablonlar klasöründen birini seç — yeni günlük notlar bununla oluşur",
+    "otherTemplates": "Şablonlarım",
     "newTemplate": "Yeni şablon",
-    "noTemplates": "Henüz başka şablon yok"
+    "noTemplates": "Henüz şablon yok",
+    "manageTemplatesSub": "Düzenlemek için tıkla · istediğin kadar ekle",
+    "activeTemplate": "günlük"
   },
   "syncStatus": {
     "error": "Senkron hatası"

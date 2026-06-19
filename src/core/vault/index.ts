@@ -21,6 +21,11 @@ export function isTemplatePath(folderOrPath: string): boolean {
   return folderOrPath === TEMPLATES_DIR || folderOrPath.startsWith(`${TEMPLATES_DIR}/`);
 }
 
+/** Şablon adından dosya yolu (Şablonlar/<ad>.md). */
+export function templatePathFor(name: string): string {
+  return `${TEMPLATES_DIR}/${name}.md`;
+}
+
 /** Günlük şablonundaki yer tutucuları tarihe göre doldur. */
 function fillDailyPlaceholders(tpl: string, date: Date): string {
   return tpl
@@ -37,11 +42,19 @@ export async function ensureTemplates(backend: VaultBackend): Promise<void> {
   await backend.writeNote(DAILY_TEMPLATE_PATH, dailyNoteTemplate(new Date()));
 }
 
-/** Günlük not içeriğini üret: kullanıcı şablonu varsa onu (yer tutucu doldurarak), yoksa gömülü. */
-export async function renderDailyTemplate(backend: VaultBackend, date: Date): Promise<string> {
-  const tpl = (await backend.exists(DAILY_TEMPLATE_PATH))
-    ? await backend.readNote(DAILY_TEMPLATE_PATH)
-    : dailyNoteTemplate(date);
+/**
+ * Günlük not içeriğini üret. Seçili şablon (templatePath) varsa onu, yoksa varsayılan
+ * 'Şablonlar/Günlük.md', o da yoksa gömülü şablonu kullanır; yer tutucuları doldurur.
+ */
+export async function renderDailyTemplate(
+  backend: VaultBackend,
+  date: Date,
+  templatePath: string = DAILY_TEMPLATE_PATH
+): Promise<string> {
+  let tpl: string;
+  if (await backend.exists(templatePath)) tpl = await backend.readNote(templatePath);
+  else if (await backend.exists(DAILY_TEMPLATE_PATH)) tpl = await backend.readNote(DAILY_TEMPLATE_PATH);
+  else tpl = dailyNoteTemplate(date);
   return fillDailyPlaceholders(tpl, date);
 }
 
@@ -93,10 +106,14 @@ export async function watchVaultRoot(root: string, cb: () => void): Promise<() =
   return watch(root, () => cb(), { recursive: true, delayMs: 400 });
 }
 
-/** Daily note yoksa kullanıcının günlük şablonuyla oluştur. */
-export async function ensureDailyNote(backend: VaultBackend, path: string): Promise<void> {
+/** Daily note yoksa seçili günlük şablonuyla oluştur. */
+export async function ensureDailyNote(
+  backend: VaultBackend,
+  path: string,
+  templatePath?: string
+): Promise<void> {
   if (await backend.exists(path)) return;
   const folder = path.split("/").slice(0, -1).join("/");
   if (folder) await backend.ensureDir(folder);
-  await backend.writeNote(path, await renderDailyTemplate(backend, new Date()));
+  await backend.writeNote(path, await renderDailyTemplate(backend, new Date(), templatePath));
 }

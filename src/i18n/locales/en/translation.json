@@ -198,13 +198,11 @@
   "settings": {
     "templates": "Templates",
     "dailyTemplate": "Daily note template",
-    "dailyTemplateSub": "Every new daily note is created with this format",
-    "templateSave": "Save",
-    "templateSaved": "Saved",
-    "templatePlaceholders": "Placeholders: {{tarih}} · {{gün}} · {{hafta}} · {{iso}}",
-    "otherTemplates": "Other templates",
-    "otherTemplatesSub": "Stored in the Templates folder",
+    "dailyTemplateSub": "Pick one from the Templates folder — new daily notes use it",
+    "otherTemplates": "My templates",
     "newTemplate": "New template",
-    "noTemplates": "No other templates yet"
+    "noTemplates": "No templates yet",
+    "manageTemplatesSub": "Click to edit · add as many as you like",
+    "activeTemplate": "daily"
   }
 }
