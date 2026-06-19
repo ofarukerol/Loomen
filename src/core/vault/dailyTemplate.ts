@@ -16,6 +16,9 @@ export function dailyNoteTemplate(_date: Date): string {
   // Görevler ayrı 'Yapılacaklar.md'de tutulur.
   return [
     ``,
+    ``,
+    ``,
+    ``,
     `## 💭 Ephemeral Notlar (Gün İçi Notlar)`,
     ``,
     ``,
@@ -61,6 +64,17 @@ export function migrateDailyContent(content: string): string | null {
         changed = true;
       }
       break;
+    }
+  }
+  // Baştaki (ilk '## ' başlığından önceki) boşluğu 4 boş satıra normalize et — banner ile
+  // ilk bölüm arası ferah olsun. Yalnız o bölge tamamen boşsa (kullanıcı not yazmışsa dokunma).
+  {
+    const firstH = lines.findIndex((l) => /^##\s/.test(l.trim()));
+    if (firstH > 0 && lines.slice(0, firstH).every((l) => l.trim() === "")) {
+      if (firstH !== 4) {
+        lines.splice(0, firstH, "", "", "", "");
+        changed = true;
+      }
     }
   }
   // Boş bölümlerde (başlığın hemen ardından başka başlık/#günlük geliyorsa) başlık altına
