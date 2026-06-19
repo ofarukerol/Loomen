@@ -14,12 +14,13 @@
   font-size: 14px;
   overflow: hidden;
 }
-.lo-maincol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lo-maincol { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 /* Arapça (RTL) seçilince Arapça fontuna geç */
 html[lang="ar"] .lo-app { font-family: var(--font-arabic); }
 .lo-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -776,7 +777,7 @@ button { font-family: inherit; }
 /* ============================================================
    Ayarlar
    ============================================================ */
-.lo-set { flex: 1; overflow-y: auto; }
+.lo-set { flex: 1; min-height: 0; overflow-y: auto; }
 .lo-set__inner { max-width: 680px; margin: 0 auto; padding: 40px 40px 60px; }
 .lo-set__title { margin: 0 0 28px; font-size: 28px; font-weight: 700; color: var(--fg1); letter-spacing: -0.02em; }
 .lo-set__section {
