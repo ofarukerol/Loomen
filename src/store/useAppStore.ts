@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { TaskGroup } from "../data/sampleVault";
+import type { TaskGroup, Task } from "../data/sampleVault";
 import type { ParsedTask, VaultBackend, VaultNote } from "../core/vault/types";
 import {
   createSampleBackend,
@@ -101,6 +101,8 @@ interface AppState {
   vaultPath: string | null; // null = tarayıcı/sample modu
   notes: VaultNote[];
   groups: TaskGroup[];
+  /** Planlanmamış (tarihsiz, açık) görevler — Bugüne Odaklan panelinde gösterilir. */
+  unplannedTasks: Task[];
   counts: FocusCounts;
   parsedTasks: ParsedTask[];
   noteContents: Record<string, string>;
@@ -253,13 +255,14 @@ export const useAppStore = create<AppState>()(
   async function loadFromBackend() {
     const { tasks, notes, contents } = await loadVaultData(backend);
     const today = todayISO();
-    const { groups } = groupTasks(tasks, today);
+    const { groups, unplannedTasks } = groupTasks(tasks, today);
     const c = focusCounts(tasks, today);
     set({
       parsedTasks: tasks,
       notes,
       noteContents: contents,
       groups,
+      unplannedTasks,
       counts: { yapilacak: c.yapilacak, geciken: c.geciken, planlanmamis: c.planlanmamis },
     });
   }
@@ -285,6 +288,7 @@ export const useAppStore = create<AppState>()(
     tabsByVault: {},
     notes: [],
     groups: [],
+    unplannedTasks: [],
     counts: { yapilacak: 0, geciken: 0, planlanmamis: 0 },
     parsedTasks: [],
     noteContents: {},
@@ -412,12 +416,13 @@ export const useAppStore = create<AppState>()(
         n.kind === "draw" ? [] : parseTasks(n.path, noteContents[n.path] ?? "")
       );
       const today = todayISO();
-      const { groups } = groupTasks(tasks, today);
+      const { groups, unplannedTasks } = groupTasks(tasks, today);
       const c = focusCounts(tasks, today);
       set({
         noteContents,
         parsedTasks: tasks,
         groups,
+        unplannedTasks,
         counts: { yapilacak: c.yapilacak, geciken: c.geciken, planlanmamis: c.planlanmamis },
       });
     },

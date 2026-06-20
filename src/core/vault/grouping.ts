@@ -43,12 +43,30 @@ export interface GroupedTasks {
   groups: TaskGroup[];
   /** Planlanmamış (tarihsiz, açık) görev sayısı. */
   unplanned: number;
+  /** Planlanmamış görevler — UI listesi (panelde gösterilir). */
+  unplannedTasks: Task[];
+}
+
+/** Tarihsiz görevi UI Task'a çevir (rel boş — kaynak notu gösterilir). */
+function toUnplannedUiTask(t: ParsedTask): Task {
+  return {
+    id: `${t.file}:${t.line}`,
+    text: t.description,
+    done: t.done,
+    overdue: false,
+    rel: "",
+    source: noteName(t.file),
+    tag: t.tags[0] ?? "",
+    pomos: t.pomos,
+  };
 }
 
 /** Görevleri tarihe göre grupla — timeline için (docs 06 §3). */
 export function groupTasks(tasks: ParsedTask[], todayISO: string): GroupedTasks {
   const dated = tasks.filter((t) => planDate(t));
-  const unplanned = tasks.filter((t) => !planDate(t) && !t.done).length;
+  const unplannedList = tasks.filter((t) => !planDate(t) && !t.done);
+  const unplanned = unplannedList.length;
+  const unplannedTasks = unplannedList.map(toUnplannedUiTask);
 
   const byDate = new Map<string, ParsedTask[]>();
   for (const t of dated) {
@@ -75,7 +93,7 @@ export function groupTasks(tasks: ParsedTask[], todayISO: string): GroupedTasks 
       };
     });
 
-  return { groups, unplanned };
+  return { groups, unplanned, unplannedTasks };
 }
 
 /** "Bugüne Odaklan" sayaçları (docs 06 §4). */

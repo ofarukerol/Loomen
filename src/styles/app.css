@@ -382,6 +382,16 @@ button { font-family: inherit; }
 .lo-stat--accent .lo-stat__num { color: #fff; }
 .lo-stat--accent .lo-stat__label { color: #fff; opacity: 0.92; }
 .lo-stat--danger .lo-stat__num { color: var(--danger); }
+/* Tıklanabilir filtre kartları — yalnız SEÇİLİ kart dolu, diğerleri sade */
+button.lo-stat { font-family: inherit; text-align: start; cursor: pointer; transition: transform .1s, box-shadow .15s, background .15s; }
+button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var(--sh2); }
+.lo-stats--filter .lo-stat--accent:not(.is-selected) { background: var(--bg-elev); border-color: var(--line); box-shadow: var(--sh1); }
+.lo-stats--filter .lo-stat--accent:not(.is-selected) .lo-stat__num { color: var(--accent); }
+.lo-stats--filter .lo-stat--accent:not(.is-selected) .lo-stat__label { color: var(--fg2); opacity: 1; }
+.lo-stats--filter .lo-stat.is-selected { background: var(--accent); border-color: var(--accent); box-shadow: var(--sh2); }
+.lo-stats--filter .lo-stat--danger.is-selected { background: var(--danger); border-color: var(--danger); }
+.lo-stats--filter .lo-stat.is-selected .lo-stat__num,
+.lo-stats--filter .lo-stat.is-selected .lo-stat__label { color: #fff; opacity: 0.95; }
 
 /* hızlı ekle */
 .lo-quickwrap { padding: 16px 36px 4px; }
@@ -1257,11 +1267,14 @@ button { font-family: inherit; }
 .lo-mini__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .lo-mini__title { font-size: 13.5px; font-weight: 700; color: var(--fg1); letter-spacing: -0.01em; }
 .lo-mini__list { display: flex; flex-direction: column; }
+.lo-mini__list--scroll { max-height: 320px; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
 .lo-mini__date { font-size: 11px; font-weight: 600; margin: 9px 0 3px; }
 .lo-mini__date:first-child { margin-top: 2px; }
 .lo-mini__date--overdue { color: var(--danger); }
 .lo-mini__date--today { color: var(--accent); }
 .lo-mini__date--upcoming { color: var(--fg3); }
+.lo-mini__date--src { display: flex; align-items: center; gap: 5px; color: var(--accent-2); }
+.lo-mini__date--src > svg { flex-shrink: 0; }
 .lo-mini__row { display: flex; align-items: center; gap: 7px; padding: 3px 2px; border-radius: 6px; }
 .lo-mini__row:hover { background: var(--line-soft); }
 .lo-mini__check {
