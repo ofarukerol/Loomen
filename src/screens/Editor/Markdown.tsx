@@ -45,6 +45,34 @@ function inlineNodes(text: string, onLink: (n: string) => void, kp: string): Rea
 const TASK_RE = /^\s*- \[([ xX])\]\s+(.*)$/;
 const BULLET_RE = /^\s*[-*]\s+/;
 
+/** GFM tablo satırını hücrelere böl (baş/son boru ve kaçışlı \| dikkate alınır). */
+function splitTableRow(line: string): string[] {
+  let s = line.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|") && !s.endsWith("\\|")) s = s.slice(0, -1);
+  const cells: string[] = [];
+  let cur = "";
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "\\" && s[i + 1] === "|") {
+      cur += "|";
+      i++;
+    } else if (s[i] === "|") {
+      cells.push(cur.trim());
+      cur = "";
+    } else cur += s[i];
+  }
+  cells.push(cur.trim());
+  return cells;
+}
+
+/** Ayraç satırı mı? ör. | --- | :--: | ---: | */
+function isTableSeparator(line: string): boolean {
+  const t = line.trim();
+  if (!t.includes("-") || !t.includes("|")) return false;
+  const cells = splitTableRow(t);
+  return cells.length > 0 && cells.every((c) => /^:?-{1,}:?$/.test(c));
+}
+
 /** Görev açıklamasından meta token'ları temizle (gösterim için). */
 function cleanTaskText(s: string): string {
   return s
@@ -85,6 +113,43 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
         <hr key={k()} style={{ border: "none", borderTop: "1px solid var(--line)", margin: "20px 0" }} />
       );
       i++;
+      continue;
+    }
+
+    // GFM tablo: "| ... |" satırı + hemen ardından ayraç "| --- | --- |"
+    if (trimmed.includes("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+      const header = splitTableRow(line);
+      const cols = header.length;
+      i += 2; // başlık + ayraç satırlarını atla
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim() !== "" && lines[i].includes("|")) {
+        const cells = splitTableRow(lines[i]);
+        while (cells.length < cols) cells.push("");
+        rows.push(cells.slice(0, cols));
+        i++;
+      }
+      blocks.push(
+        <div className="lo-tablewrap lo-scroll" key={k()}>
+          <table className="lo-table">
+            <thead>
+              <tr>
+                {header.map((c, ci) => (
+                  <th key={ci}>{inlineNodes(c, onLink, k())}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri}>
+                  {r.map((c, ci) => (
+                    <td key={ci}>{inlineNodes(c, onLink, k())}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
       continue;
     }
 

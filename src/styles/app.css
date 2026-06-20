@@ -707,6 +707,19 @@ button { font-family: inherit; }
 .lo-prose__meta { font-size: 12.5px; color: var(--fg3); margin-bottom: 24px; display: flex; gap: 14px; flex-wrap: wrap; }
 .lo-prose p { font-size: 15.5px; line-height: 1.7; color: var(--fg1); margin: 0 0 16px; }
 .lo-prose strong { font-weight: 700; }
+/* GFM tablo (okuma modu) */
+.lo-tablewrap { margin: 6px 0 20px; overflow-x: auto; }
+.lo-table { border-collapse: collapse; font-size: 14.5px; line-height: 1.55; }
+.lo-table th,
+.lo-table td {
+  border: 1px solid var(--line);
+  padding: 8px 16px;
+  text-align: start;
+  vertical-align: top;
+  color: var(--fg1);
+}
+.lo-table th { background: var(--bg-sunken); font-weight: 600; color: var(--fg2); }
+.lo-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-sunken) 45%, transparent); }
 .lo-prose ul { margin: 0 0 18px; padding-inline-start: 22px; font-size: 15px; line-height: 1.75; color: var(--fg1); }
 .lo-wiki {
   color: var(--accent);

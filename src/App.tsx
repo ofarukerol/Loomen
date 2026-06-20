@@ -32,11 +32,21 @@ export default function App() {
   const ghToken = useAppStore((s) => s.ghToken);
   const ghRepo = useAppStore((s) => s.ghRepo);
   const ghSync = useAppStore((s) => s.ghSync);
+  const pomoRunning = useAppStore((s) => s.pomoRunning);
+  const tickPomo = useAppStore((s) => s.tickPomo);
 
   // İlk açılışta kasayı yükle (sample veya kayıtlı Tauri kasası).
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // Pomodoro sayacı — App seviyesinde sürer; hangi ekranda olursak olalım durmaz
+  // (önceden PomodoroCard'daydı, planner'dan çıkınca kart unmount olup sayaç duruyordu).
+  useEffect(() => {
+    if (!pomoRunning) return;
+    const id = setInterval(() => tickPomo(), 1000);
+    return () => clearInterval(id);
+  }, [pomoRunning, tickPomo]);
 
   // Otomatik senkron: bağlıyken ve açıkken periyodik push/pull (3 dk).
   useEffect(() => {

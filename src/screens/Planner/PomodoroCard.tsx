@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Timer, Play, Pause, RotateCcw } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
@@ -20,13 +19,6 @@ export function PomodoroCard() {
   const completed = useAppStore((s) => s.pomoCompleted);
   const togglePomo = useAppStore((s) => s.togglePomo);
   const resetPomo = useAppStore((s) => s.resetPomo);
-  const tickPomo = useAppStore((s) => s.tickPomo);
-
-  useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => tickPomo(), 1000);
-    return () => clearInterval(id);
-  }, [running, tickPomo]);
 
   const phaseMin = phase === "work" ? pomo.focusMin : phase === "short" ? pomo.shortBreak : pomo.longBreak;
   const total = phaseMin * 60;
