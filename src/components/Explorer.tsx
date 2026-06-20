@@ -194,6 +194,7 @@ export function Explorer() {
   const notes = useAppStore((s) => s.notes);
   const contents = useAppStore((s) => s.noteContents);
   const vaultPath = useAppStore((s) => s.vaultPath);
+  const vaults = useAppStore((s) => s.vaults);
   const openNote = useAppStore((s) => s.openNote);
   const newNote = useAppStore((s) => s.newNote);
   const newFolder = useAppStore((s) => s.newFolder);
@@ -269,6 +270,9 @@ export function Explorer() {
     cancel: () => setRenaming(null),
   };
 
+  const activeVault = vaults.find((v) => v.path === vaultPath);
+  const vaultTitle = activeVault?.name || (vaultPath ? vaultPath.split("/").filter(Boolean).pop()! : t("explorer.vault"));
+
   const root = buildTree(notes);
   // Şablonlar klasörü normal ağaçtan ayrılır; en alta ayrı stille sabitlenir.
   const tplFolder = root.folders.get(TEMPLATES_DIR);
@@ -308,7 +312,7 @@ export function Explorer() {
         </div>
       </div>
       <div className="lo-explorer__head">
-        <span className="lo-explorer__title">{t("explorer.vault")}</span>
+        <span className="lo-explorer__title">{vaultTitle}</span>
         <span className="lo-explorer__pathline">{pathLabel}</span>
       </div>
 

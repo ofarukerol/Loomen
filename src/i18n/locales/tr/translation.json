@@ -152,7 +152,8 @@
     "deviceDenied": "Erişim reddedildi.",
     "deviceExpired": "Kodun süresi doldu, tekrar dene.",
     "cancel": "Vazgeç",
-    "selectVault": "Kasa seç"
+    "selectVault": "Kasa seç",
+    "repoInVaults": "Depoyu Kasalar bölümünden seç"
   },
   "graph": {
     "title": "Graf görünümü",
@@ -207,7 +208,10 @@
     "switchVault": "Bu kasaya geç",
     "addVault": "Kasa ekle",
     "removeVault": "Kasayı kaldır",
-    "noRepo": "Repo bağlı değil"
+    "noRepo": "Repo bağlı değil",
+    "vaultName": "Ad",
+    "vaultRepo": "GitHub deposu",
+    "connectGhFirst": "Önce GitHub hesabını bağla"
   },
   "syncStatus": {
     "error": "Senkron hatası"

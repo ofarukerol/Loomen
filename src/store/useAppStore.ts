@@ -54,9 +54,11 @@ export interface PomodoroSettings {
   rounds: number;
 }
 
-/** Bir kasa: yerel klasör + (opsiyonel) bağlı git reposu. Çoklu kasa için. */
+/** Bir kasa: yerel klasör + özel ad + (opsiyonel) bağlı git reposu. Çoklu kasa için. */
 export interface VaultEntry {
   path: string;
+  /** Kullanıcının verdiği görünen ad (yoksa klasör adı kullanılır). */
+  name?: string;
   repo: GhRepo | null;
 }
 
@@ -168,6 +170,9 @@ interface AppState {
   switchVault: (path: string) => Promise<void>;
   removeVault: (path: string) => Promise<void>;
   setVaultRepo: (path: string, repo: GhRepo | null) => void;
+  renameVault: (path: string, name: string) => void;
+  changeVaultPath: (path: string) => Promise<void>;
+  createRepoForVault: (path: string, name: string, priv_: boolean) => Promise<GhRepo | null>;
 
   // Vault aksiyonları (dosyaya yazar)
   bootstrap: () => Promise<void>;
@@ -506,6 +511,32 @@ export const useAppStore = create<AppState>()(
         vaults: s.vaults.map((v) => (v.path === path ? { ...v, repo } : v)),
         ghRepo: s.vaultPath === path ? repo : s.ghRepo,
       })),
+
+    // Kasaya özel ad ver (boş → klasör adına döner).
+    renameVault: (path, name) =>
+      set((s) => ({
+        vaults: s.vaults.map((v) => (v.path === path ? { ...v, name: name.trim() || undefined } : v)),
+      })),
+
+    // Kasanın yerel klasörünü değiştir (yeni klasör seç). Aktifse yeniden açar.
+    changeVaultPath: async (oldPath) => {
+      if (!isTauri()) return;
+      const newPath = await pickVaultFolder();
+      if (!newPath || newPath === oldPath) return;
+      const s = get();
+      if (s.vaults.some((v) => v.path === newPath)) return; // bu klasör zaten bir kasa
+      set({ vaults: s.vaults.map((v) => (v.path === oldPath ? { ...v, path: newPath } : v)) });
+      if (s.vaultPath === oldPath) await get().reopenVault(newPath);
+    },
+
+    // Belirli bir kasa için yeni repo oluştur ve ona bağla.
+    createRepoForVault: async (path, name, priv_) => {
+      const token = get().ghToken;
+      if (!token) return null;
+      const repo = await gh.createRepo(token, name, priv_);
+      get().setVaultRepo(path, repo);
+      return repo;
+    },
 
     // Kayıtlı/seçili kasayı backend olarak (yeniden) aç. HMR/yeniden yük sonrası da çağrılır.
     // Kasayı listeye ekler (yoksa), entry'sindeki repoyu ghRepo'ya yansıtır. Şablon seed

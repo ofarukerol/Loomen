@@ -130,7 +130,8 @@
     "deviceDenied": "Access denied.",
     "deviceExpired": "Code expired, try again.",
     "cancel": "Cancel",
-    "selectVault": "Pick vault"
+    "selectVault": "Pick vault",
+    "repoInVaults": "Pick a repository in the Vaults section"
   },
   "graph": {
     "title": "Graph view",
@@ -210,6 +211,9 @@
     "switchVault": "Switch to this vault",
     "addVault": "Add vault",
     "removeVault": "Remove vault",
-    "noRepo": "No repo linked"
+    "noRepo": "No repo linked",
+    "vaultName": "Name",
+    "vaultRepo": "GitHub repository",
+    "connectGhFirst": "Connect a GitHub account first"
   }
 }

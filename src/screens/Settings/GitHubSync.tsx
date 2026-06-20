@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Github, RefreshCw, LogOut, Plus, ExternalLink, X, Check, AlertTriangle } from "lucide-react";
+import { Github, RefreshCw, LogOut, ExternalLink, X, AlertTriangle } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
-import { GITHUB_CLIENT_ID, type GhRepo } from "../../core/github";
+import { GITHUB_CLIENT_ID } from "../../core/github";
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
@@ -101,26 +101,8 @@ export function GitHubSync() {
   const vaultPath = useAppStore((s) => s.vaultPath);
   const beginAuth = useAppStore((s) => s.ghBeginAuth);
   const disconnect = useAppStore((s) => s.ghDisconnect);
-  const loadRepos = useAppStore((s) => s.ghLoadRepos);
-  const createRepo = useAppStore((s) => s.ghCreateRepo);
-  const selectRepo = useAppStore((s) => s.ghSelectRepo);
   const sync = useAppStore((s) => s.ghSync);
   const setAutoSync = useAppStore((s) => s.ghSetAutoSync);
-
-  const [repos, setRepos] = useState<GhRepo[]>([]);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newPrivate, setNewPrivate] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const loadedFor = useRef<string | null>(null);
-
-  // Bağlanınca depo listesini bir kez yükle.
-  useEffect(() => {
-    if (token && loadedFor.current !== token) {
-      loadedFor.current = token;
-      loadRepos().then(setRepos).catch(() => {});
-    }
-  }, [token, loadRepos]);
 
   const tauri = isTauri();
 
@@ -170,76 +152,7 @@ export function GitHubSync() {
               </button>
             </div>
 
-            {/* Depo seçimi */}
-            <div className="lo-set__row lo-set__row--border">
-              <div>
-                <div className="lo-set__rowtitle">{t("github.repo")}</div>
-                <div className="lo-set__rowsub">
-                  {repo ? repo.full_name : t("github.selectRepoSub")}
-                </div>
-              </div>
-              <div className="lo-gh__repoctl">
-                <select
-                  className="lo-set__select"
-                  value={repo?.full_name ?? ""}
-                  onChange={(e) => {
-                    const r = repos.find((x) => x.full_name === e.target.value);
-                    if (r) selectRepo(r);
-                  }}
-                >
-                  <option value="" disabled>
-                    {t("github.selectRepo")}
-                  </option>
-                  {repos.map((r) => (
-                    <option key={r.full_name} value={r.full_name}>
-                      {r.full_name}
-                      {r.private ? " 🔒" : ""}
-                    </option>
-                  ))}
-                </select>
-                <button className="lo-gh__ghost" onClick={() => setCreating((v) => !v)}>
-                  <Plus size={14} strokeWidth={2} />
-                  {t("github.createRepo")}
-                </button>
-              </div>
-            </div>
-
-            {creating && (
-              <div className="lo-set__row lo-set__row--border lo-gh__createrow">
-                <input
-                  className="lo-gh__input"
-                  placeholder={t("github.repoName")}
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value.replace(/\s+/g, "-"))}
-                />
-                <label className="lo-gh__priv">
-                  <Toggle on={newPrivate} onClick={() => setNewPrivate((v) => !v)} />
-                  {t("github.private")}
-                </label>
-                <button
-                  className="lo-gh__connect"
-                  disabled={!newName.trim() || busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    try {
-                      await createRepo(newName.trim(), newPrivate);
-                      setCreating(false);
-                      setNewName("");
-                      loadedFor.current = null; // listeyi yenile
-                      const r = await loadRepos();
-                      setRepos(r);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                >
-                  <Check size={14} strokeWidth={2} />
-                  {t("github.create")}
-                </button>
-              </div>
-            )}
-
-            {/* Senkron */}
+            {/* Senkron — depo seçimi Kasalar bölümünden yapılır */}
             <div className="lo-set__row lo-set__row--border">
               <div>
                 <div className="lo-set__rowtitle">{t("github.syncTitle")}</div>
@@ -248,7 +161,13 @@ export function GitHubSync() {
                   {lastSync ? new Date(lastSync).toLocaleString("tr") : t("github.never")}
                 </div>
                 {status && <div className="lo-gh__status">{statusText(t, status)}</div>}
-                {!vaultPath && <div className="lo-gh__warn">{t("github.needVault")}</div>}
+                {!vaultPath ? (
+                  <div className="lo-gh__warn">{t("github.needVault")}</div>
+                ) : !repo ? (
+                  <div className="lo-gh__warn">{t("github.repoInVaults")}</div>
+                ) : (
+                  <div className="lo-set__rowsub">{repo.full_name}</div>
+                )}
               </div>
               <button
                 className="lo-gh__connect"
