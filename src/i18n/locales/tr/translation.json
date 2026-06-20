@@ -39,7 +39,8 @@
     "newNoteHere": "Buraya yeni not",
     "favorites": "Favoriler",
     "addFavorite": "Favorilere ekle",
-    "removeFavorite": "Favorilerden çıkar"
+    "removeFavorite": "Favorilerden çıkar",
+    "switchVault": "Kasa değiştir"
   },
   "planner": {
     "focusToday": "Bugüne Odaklan",

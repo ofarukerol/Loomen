@@ -20,6 +20,8 @@ import {
   Shapes,
   Star,
   LayoutTemplate,
+  HardDrive,
+  Check,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
@@ -195,6 +197,7 @@ export function Explorer() {
   const contents = useAppStore((s) => s.noteContents);
   const vaultPath = useAppStore((s) => s.vaultPath);
   const vaults = useAppStore((s) => s.vaults);
+  const switchVault = useAppStore((s) => s.switchVault);
   const openNote = useAppStore((s) => s.openNote);
   const newNote = useAppStore((s) => s.newNote);
   const newFolder = useAppStore((s) => s.newFolder);
@@ -216,6 +219,7 @@ export function Explorer() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<Menu>(null);
   const [renaming, setRenaming] = useState<Renaming>(null);
+  const [vaultMenu, setVaultMenu] = useState(false);
   const hits = searchNotes(notes, contents, query);
 
   const toggle = (path: string) =>
@@ -252,6 +256,14 @@ export function Explorer() {
     };
   }, [menu]);
 
+  // Kasa seçici açıkken dışarı tıklamada kapat.
+  useEffect(() => {
+    if (!vaultMenu) return;
+    const close = () => setVaultMenu(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [vaultMenu]);
+
   const onContext = (e: React.MouseEvent, kind: "file" | "folder", path: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -270,8 +282,10 @@ export function Explorer() {
     cancel: () => setRenaming(null),
   };
 
+  const folderName = (p: string) => p.split("/").filter(Boolean).pop() ?? p;
   const activeVault = vaults.find((v) => v.path === vaultPath);
-  const vaultTitle = activeVault?.name || (vaultPath ? vaultPath.split("/").filter(Boolean).pop()! : t("explorer.vault"));
+  const vaultTitle = activeVault?.name || (vaultPath ? folderName(vaultPath) : t("explorer.vault"));
+  const hasMultipleVaults = vaults.length > 1;
 
   const root = buildTree(notes);
   // Şablonlar klasörü normal ağaçtan ayrılır; en alta ayrı stille sabitlenir.
@@ -312,8 +326,48 @@ export function Explorer() {
         </div>
       </div>
       <div className="lo-explorer__head">
-        <span className="lo-explorer__title">{vaultTitle}</span>
+        <button
+          className={"lo-explorer__vaultbtn" + (hasMultipleVaults ? " is-switchable" : "")}
+          disabled={!hasMultipleVaults}
+          onClick={(e) => {
+            e.stopPropagation();
+            setVaultMenu((v) => !v);
+          }}
+          title={hasMultipleVaults ? t("explorer.switchVault") : undefined}
+        >
+          <span className="lo-explorer__title">{vaultTitle}</span>
+          {hasMultipleVaults && (
+            <ChevronDown
+              className="lo-explorer__vchev"
+              size={14}
+              strokeWidth={2}
+              style={{ transform: vaultMenu ? "rotate(180deg)" : "none" }}
+            />
+          )}
+        </button>
         <span className="lo-explorer__pathline">{pathLabel}</span>
+
+        {vaultMenu && (
+          <div className="lo-vaultmenu" onClick={(e) => e.stopPropagation()}>
+            {vaults.map((v) => {
+              const active = v.path === vaultPath;
+              return (
+                <button
+                  key={v.path}
+                  className={"lo-vaultmenu__item" + (active ? " is-active" : "")}
+                  onClick={() => {
+                    setVaultMenu(false);
+                    if (!active) void switchVault(v.path);
+                  }}
+                >
+                  <HardDrive size={14} strokeWidth={1.8} />
+                  <span className="lo-vaultmenu__name">{v.name || folderName(v.path)}</span>
+                  {active && <Check size={14} strokeWidth={2.2} className="lo-vaultmenu__check" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="lo-explorer__searchwrap">

@@ -35,7 +35,8 @@
     "newNoteHere": "ملاحظة جديدة هنا",
     "favorites": "المفضلة",
     "addFavorite": "أضف إلى المفضلة",
-    "removeFavorite": "أزل من المفضلة"
+    "removeFavorite": "أزل من المفضلة",
+    "switchVault": "تبديل الخزينة"
   },
   "planner": {
     "focusToday": "ركّز على اليوم",

@@ -93,8 +93,32 @@ button { font-family: inherit; }
   display: flex;
   flex-direction: column;
   gap: 1px;
+  position: relative;
 }
 .lo-explorer__title { font-weight: 600; font-size: 14px; letter-spacing: 0.02em; color: var(--fg1); }
+/* Kasa seçici (ana ekran başlığı) */
+.lo-explorer__vaultbtn {
+  display: flex; align-items: center; gap: 6px; align-self: flex-start;
+  background: none; border: none; padding: 0; cursor: default; font-family: inherit; border-radius: 6px;
+}
+.lo-explorer__vaultbtn.is-switchable { cursor: pointer; }
+.lo-explorer__vaultbtn.is-switchable:hover .lo-explorer__title { color: var(--accent); }
+.lo-explorer__vchev { color: var(--fg3); transition: transform 0.15s; }
+.lo-vaultmenu {
+  position: absolute; top: 100%; left: 14px; right: 14px; z-index: 50; margin-top: 4px; padding: 5px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
+}
+.lo-vaultmenu__item {
+  display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px;
+  border: none; background: transparent; border-radius: 7px; color: var(--fg1);
+  font-family: inherit; font-size: 13px; cursor: pointer; text-align: start;
+}
+.lo-vaultmenu__item:hover { background: var(--line-soft); }
+.lo-vaultmenu__item > svg:first-child { color: var(--fg3); flex-shrink: 0; }
+.lo-vaultmenu__item.is-active { color: var(--accent); }
+.lo-vaultmenu__item.is-active > svg:first-child { color: var(--accent); }
+.lo-vaultmenu__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-vaultmenu__check { color: var(--accent); flex-shrink: 0; }
 .lo-explorer__open {
   width: 26px;
   height: 26px;
