@@ -1670,9 +1670,9 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-wtab.is-active .lo-wtab__icon { color: var(--accent); }
 .lo-wtab__name { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lo-wtab__pin, .lo-wtab__x {
-  width: 18px; height: 18px; flex-shrink: 0;
-  border: none; background: transparent; border-radius: 5px; color: var(--fg3); cursor: pointer;
-  display: flex; align-items: center; justify-content: center; opacity: 0.4; transition: opacity 0.1s;
+  width: 23px; height: 23px; flex-shrink: 0;
+  border: none; background: transparent; border-radius: 6px; color: var(--fg3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; opacity: 0.5; transition: opacity 0.1s;
 }
 .lo-wtab:hover .lo-wtab__pin, .lo-wtab:hover .lo-wtab__x { opacity: 1; }
 .lo-wtab.is-pinned .lo-wtab__pin { opacity: 1; color: var(--accent); }

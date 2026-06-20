@@ -74,7 +74,7 @@ export function TopBar() {
                   togglePin(path);
                 }}
               >
-                <Pin size={12} strokeWidth={2} fill={isPinned ? "currentColor" : "none"} />
+                <Pin size={15} strokeWidth={2} fill={isPinned ? "currentColor" : "none"} />
               </button>
               {!isPinned && (
                 <button
@@ -85,7 +85,7 @@ export function TopBar() {
                     closeTab(path);
                   }}
                 >
-                  <X size={13} strokeWidth={2} />
+                  <X size={16} strokeWidth={2.2} />
                 </button>
               )}
             </div>

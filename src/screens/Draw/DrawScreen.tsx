@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { PencilRuler, FilePlus } from "lucide-react";
-import { Excalidraw, serializeAsJSON } from "@excalidraw/excalidraw";
+import { Excalidraw, MainMenu, serializeAsJSON } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { useAppStore } from "../../store/useAppStore";
 
@@ -62,7 +62,18 @@ export function DrawScreen() {
             void saveDraw(serializeAsJSON(elements, appState, files, "local"));
           }, 700);
         }}
-      />
+      >
+        {/* Özel menü — varsayılan "Excalidraw links" (GitHub/X/Discord) sosyal grubu hariç. */}
+        <MainMenu>
+          <MainMenu.DefaultItems.Export />
+          <MainMenu.DefaultItems.SaveAsImage />
+          <MainMenu.DefaultItems.ClearCanvas />
+          <MainMenu.Separator />
+          <MainMenu.DefaultItems.ToggleTheme />
+          <MainMenu.DefaultItems.ChangeCanvasBackground />
+          <MainMenu.DefaultItems.Help />
+        </MainMenu>
+      </Excalidraw>
     </div>
   );
 }
