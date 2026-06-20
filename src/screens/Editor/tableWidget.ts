@@ -142,9 +142,49 @@ class TableWidget extends WidgetType {
     input.addEventListener("blur", () => finish(true));
   }
 
+  // Tablonun sonuna boş bir satır ekle.
+  private addRow(view: EditorView): void {
+    const range = tableBlockRange(view.state, this.from);
+    if (!range) return;
+    const cols = this.header.length;
+    const newRow = "\n|" + "  |".repeat(cols);
+    view.dispatch({ changes: { from: range.to, to: range.to, insert: newRow } });
+  }
+
+  // Tablonun sağına yeni bir sütun ekle (her satıra bir hücre).
+  private addCol(view: EditorView): void {
+    const range = tableBlockRange(view.state, this.from);
+    if (!range) return;
+    const headerNo = view.state.doc.lineAt(this.from).number;
+    const lastNo = view.state.doc.lineAt(range.to).number;
+    const changes: { from: number; to: number; insert: string }[] = [];
+    for (let n = headerNo; n <= lastNo; n++) {
+      const line = view.state.doc.line(n);
+      const insert = n === headerNo ? " Başlık |" : n === headerNo + 1 ? " --- |" : "  |";
+      changes.push({ from: line.to, to: line.to, insert });
+    }
+    view.dispatch({ changes });
+  }
+
+  private addBtn(cls: string, title: string, onClick: () => void): HTMLButtonElement {
+    const btn = document.createElement("button");
+    btn.className = `cm-table__add ${cls}`;
+    btn.type = "button";
+    btn.title = title;
+    btn.textContent = "+";
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      onClick();
+    });
+    return btn;
+  }
+
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "cm-tablewrap";
+    const grid = document.createElement("div");
+    grid.className = "cm-tablegrid";
+
     const table = document.createElement("table");
     table.className = "cm-table";
 
@@ -171,7 +211,11 @@ class TableWidget extends WidgetType {
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    wrap.appendChild(table);
+
+    grid.appendChild(table);
+    grid.appendChild(this.addBtn("cm-table__add--col", "Sütun ekle", () => this.addCol(view)));
+    grid.appendChild(this.addBtn("cm-table__add--row", "Satır ekle", () => this.addRow(view)));
+    wrap.appendChild(grid);
     return wrap;
   }
 
