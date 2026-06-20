@@ -211,7 +211,9 @@
     "noRepo": "Repo bağlı değil",
     "vaultName": "Ad",
     "vaultRepo": "GitHub deposu",
-    "connectGhFirst": "Önce GitHub hesabını bağla"
+    "connectGhFirst": "Önce GitHub hesabını bağla",
+    "pomoSound": "Zil sesi",
+    "pomoSoundSub": "Pomodoro başlayınca ve bitince ses çal"
   },
   "syncStatus": {
     "error": "Senkron hatası"

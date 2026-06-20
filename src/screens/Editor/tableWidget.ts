@@ -1,10 +1,10 @@
-import { RangeSetBuilder, StateField, type EditorState } from "@codemirror/state";
+import { RangeSetBuilder, StateEffect, StateField, type EditorState } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 
 /**
  * Canlı önizlemede (düzenleme modu) GFM tablolarını gerçek tablo olarak gösterir.
- * İmleç tablonun dışındayken tablo render edilir; tabloya tıklayınca imleç kaynağa
- * taşınır ve ham markdown düzenlenebilir (Obsidian "Canlı Önizleme" davranışı).
+ * Tablolar HER ZAMAN render edilir; yalnız tabloya ÇİFT TIKLAYINCA o tablo ham markdown
+ * olarak açılır (düzenlenebilir), imleç tablodan çıkınca tekrar render edilir.
  * Blok widget gerektiği için ViewPlugin değil StateField ile sağlanır.
  */
 
@@ -33,6 +33,43 @@ function isSeparator(line: string): boolean {
   const cells = splitTableRow(t);
   return cells.length > 0 && cells.every((c) => /^:?-{1,}:?$/.test(c));
 }
+
+/** Verilen başlık-satırı başından başlayan tablo bloğunun aralığı (yoksa null). */
+function tableBlockRange(state: EditorState, headerFrom: number): { from: number; to: number } | null {
+  if (headerFrom < 0 || headerFrom > state.doc.length) return null;
+  const line = state.doc.lineAt(headerFrom);
+  if (line.from !== headerFrom || !line.text.includes("|")) return null;
+  const nextNo = line.number + 1;
+  if (nextNo > state.doc.lines || !isSeparator(state.doc.line(nextNo).text)) return null;
+  let endLine = nextNo;
+  let j = nextNo + 1;
+  while (j <= state.doc.lines) {
+    const lt = state.doc.line(j).text;
+    if (lt.trim() === "" || !lt.includes("|")) break;
+    endLine = j;
+    j++;
+  }
+  return { from: line.from, to: state.doc.line(endLine).to };
+}
+
+/** Hangi tablonun (başlık başı pozisyonu) düzenlendiğini tutar; imleç çıkınca temizlenir. */
+const setEditingTable = StateEffect.define<number | null>();
+
+const editingTableField = StateField.define<number | null>({
+  create: () => null,
+  update(value, tr) {
+    for (const e of tr.effects) if (e.is(setEditingTable)) value = e.value;
+    if (value != null) {
+      const range = tableBlockRange(tr.state, value);
+      if (!range) value = null;
+      else {
+        const sel = tr.state.selection.main;
+        if (sel.from < range.from || sel.to > range.to) value = null;
+      }
+    }
+    return value;
+  },
+});
 
 class TableWidget extends WidgetType {
   constructor(
@@ -79,11 +116,12 @@ class TableWidget extends WidgetType {
     }
     table.appendChild(tbody);
     wrap.appendChild(table);
+    wrap.title = "Düzenlemek için çift tıkla";
 
-    // Tabloya tıklayınca imleci kaynağa taşı → ham markdown görünür/düzenlenebilir.
-    wrap.addEventListener("mousedown", (e) => {
+    // Çift tıkla → ham markdown'ı düzenlemeye aç (imleç tabloya gider).
+    wrap.addEventListener("dblclick", (e) => {
       e.preventDefault();
-      view.dispatch({ selection: { anchor: this.from } });
+      view.dispatch({ selection: { anchor: this.from }, effects: setEditingTable.of(this.from) });
       view.focus();
     });
     return wrap;
@@ -94,10 +132,9 @@ class TableWidget extends WidgetType {
   }
 }
 
-function buildTables(state: EditorState): DecorationSet {
+function buildTables(state: EditorState, editingFrom: number | null): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const doc = state.doc;
-  const sel = state.selection.main;
   let lineNo = 1;
   while (lineNo <= doc.lines) {
     const line = doc.line(lineNo);
@@ -118,9 +155,8 @@ function buildTables(state: EditorState): DecorationSet {
       }
       const from = line.from;
       const to = doc.line(endLine).to;
-      // İmleç bloğun içindeyse değiştirme (kaynağı düzenlenebilir bırak).
-      const cursorInside = sel.from <= to && sel.to >= from;
-      if (!cursorInside) {
+      // Düzenlenen tablo dışındaki tüm tablolar render edilir.
+      if (from !== editingFrom) {
         builder.add(from, to, Decoration.replace({ widget: new TableWidget(from, header, rows), block: true }));
       }
       lineNo = endLine + 1;
@@ -131,11 +167,16 @@ function buildTables(state: EditorState): DecorationSet {
   return builder.finish();
 }
 
-export const tableField = StateField.define<DecorationSet>({
-  create: (state) => buildTables(state),
-  update: (deco, tr) => {
-    if (tr.docChanged || tr.selection) return buildTables(tr.state);
+const tableDecoField = StateField.define<DecorationSet>({
+  create: (state) => buildTables(state, state.field(editingTableField)),
+  update(deco, tr) {
+    if (tr.docChanged || tr.selection || tr.effects.some((e) => e.is(setEditingTable))) {
+      return buildTables(tr.state, tr.state.field(editingTableField));
+    }
     return deco.map(tr.changes);
   },
   provide: (f) => EditorView.decorations.from(f),
 });
+
+// editingTableField önce gelmeli (tableDecoField onu okur).
+export const tableField = [editingTableField, tableDecoField];

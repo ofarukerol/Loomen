@@ -207,7 +207,9 @@
     "noRepo": "لا يوجد مستودع مرتبط",
     "vaultName": "الاسم",
     "vaultRepo": "مستودع GitHub",
-    "connectGhFirst": "اربط حساب GitHub أولاً"
+    "connectGhFirst": "اربط حساب GitHub أولاً",
+    "pomoSound": "صوت التنبيه",
+    "pomoSoundSub": "تشغيل صوت عند بدء وانتهاء البومودورو"
   },
   "syncStatus": {
     "error": "خطأ المزامنة"

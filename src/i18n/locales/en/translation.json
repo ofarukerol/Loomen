@@ -214,6 +214,8 @@
     "noRepo": "No repo linked",
     "vaultName": "Name",
     "vaultRepo": "GitHub repository",
-    "connectGhFirst": "Connect a GitHub account first"
+    "connectGhFirst": "Connect a GitHub account first",
+    "pomoSound": "Chime",
+    "pomoSoundSub": "Play a sound when a pomodoro starts and ends"
   }
 }

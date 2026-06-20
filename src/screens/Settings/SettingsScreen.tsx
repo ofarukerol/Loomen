@@ -33,6 +33,8 @@ export function SettingsScreen() {
   const toggleEditorSetting = useAppStore((s) => s.toggleEditorSetting);
   const pomo = useAppStore((s) => s.pomo);
   const setPomo = useAppStore((s) => s.setPomo);
+  const pomoSound = useAppStore((s) => s.pomoSound);
+  const setPomoSound = useAppStore((s) => s.setPomoSound);
 
   const editorRows: { key: keyof EditorSettings; label: string }[] = [
     { key: "livePreview", label: t("settings.livePreview") },
@@ -147,6 +149,13 @@ export function SettingsScreen() {
               <div className="lo-set__pomolabel">{p.label}</div>
             </div>
           ))}
+        </div>
+        <div className="lo-card lo-set__row">
+          <div>
+            <div className="lo-set__rowtitle">{t("settings.pomoSound")}</div>
+            <div className="lo-set__rowsub">{t("settings.pomoSoundSub")}</div>
+          </div>
+          <Toggle on={pomoSound} onClick={() => setPomoSound(!pomoSound)} />
         </div>
 
         {/* Kasalar (çoklu) */}

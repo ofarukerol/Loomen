@@ -22,6 +22,7 @@ import {
 } from "../core/vault";
 import { groupTasks, focusCounts } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
+import { playChime } from "../core/sound";
 import { gh, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, type TaskPatch } from "../core/markdown/taskParser";
 
@@ -125,6 +126,8 @@ interface AppState {
 
   // Pomodoro
   pomo: PomodoroSettings;
+  /** Pomodoro başlayınca/bitince ses çal. */
+  pomoSound: boolean;
   pomoRemaining: number;
   pomoRunning: boolean;
   pomoPhase: PomoPhase;
@@ -163,6 +166,7 @@ interface AppState {
   resetPomo: () => void;
   tickPomo: () => void;
   setPomo: (patch: Partial<PomodoroSettings>) => void;
+  setPomoSound: (on: boolean) => void;
 
   // Çoklu kasa
   vaults: VaultEntry[];
@@ -286,6 +290,7 @@ export const useAppStore = create<AppState>()(
     ghAutoSync: false,
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
+    pomoSound: true,
     pomoRemaining: FOCUS_MIN * 60,
     pomoRunning: false,
     pomoPhase: "work",
@@ -425,7 +430,13 @@ export const useAppStore = create<AppState>()(
     setQuick: (quickText) => set({ quickText }),
     selectDay: (selectedDay) => set({ selectedDay }),
 
-    togglePomo: () => set((s) => ({ pomoRunning: !s.pomoRunning })),
+    togglePomo: () =>
+      set((s) => {
+        const running = !s.pomoRunning;
+        if (running && s.pomoSound) playChime("start"); // başlatırken zil
+        return { pomoRunning: running };
+      }),
+    setPomoSound: (pomoSound) => set({ pomoSound }),
     resetPomo: () =>
       set((s) => ({ pomoRunning: false, pomoPhase: "work", pomoRemaining: s.pomo.focusMin * 60 })),
     tickPomo: () => {
@@ -434,6 +445,7 @@ export const useAppStore = create<AppState>()(
         set({ pomoRemaining: s.pomoRemaining - 1 });
         return;
       }
+      if (s.pomoSound) playChime("end"); // faz bitti → zil
       // Faz bitti → bir sonraki faza geç (profesyonel döngü: odak → mola → odak…).
       const dur = (p: PomoPhase) =>
         (p === "work" ? s.pomo.focusMin : p === "short" ? s.pomo.shortBreak : s.pomo.longBreak) * 60;
@@ -820,6 +832,7 @@ export const useAppStore = create<AppState>()(
         rightCollapsed: s.rightCollapsed,
         backlinksCollapsed: s.backlinksCollapsed,
         pomo: s.pomo,
+        pomoSound: s.pomoSound,
         pomoHistory: s.pomoHistory,
         favorites: s.favorites,
         ghToken: s.ghToken,
