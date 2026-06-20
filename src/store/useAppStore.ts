@@ -159,6 +159,7 @@ interface AppState {
   // Vault aksiyonları (dosyaya yazar)
   bootstrap: () => Promise<void>;
   openVault: () => Promise<void>;
+  reopenVault: (path: string) => Promise<void>;
   reloadVault: () => Promise<void>;
   newNote: (folder?: string) => Promise<void>;
   newFolder: () => Promise<void>;
@@ -440,25 +441,13 @@ export const useAppStore = create<AppState>()(
 
     // İlk yükleme: önce sample, sonra (Tauri'de) kayıtlı kasa varsa onu yükle.
     bootstrap: async () => {
-      await ensureTemplates(backend);
+      // Sample seed (şablonlar) — hata olsa bile akışı durdurma.
+      ensureTemplates(backend).catch(() => {});
       await loadFromBackend();
       if (isTauri()) {
-        const saved = localStorage.getItem(VAULT_KEY);
-        if (saved) {
-          try {
-            backend = createTauriBackend(saved);
-            await ensureTemplates(backend);
-            await loadFromBackend();
-            set({ vaultPath: saved });
-            unwatch?.();
-            unwatch = await watchVaultRoot(saved, () => get().reloadVault());
-          } catch {
-            // kasa açılamadı (taşınmış/silinmiş): sample'a düş
-            backend = createSampleBackend();
-            await loadFromBackend();
-            set({ vaultPath: null });
-          }
-        }
+        // Kalıcı vaultPath'i (rehydrate'ten) ya da eski localStorage anahtarını kullan.
+        const saved = get().vaultPath ?? localStorage.getItem(VAULT_KEY);
+        if (saved) await get().reopenVault(saved);
       }
     },
 
@@ -466,13 +455,31 @@ export const useAppStore = create<AppState>()(
       if (!isTauri()) return; // tarayıcıda klasör seçici yok
       const path = await pickVaultFolder();
       if (!path) return;
-      backend = createTauriBackend(path);
-      await ensureTemplates(backend);
-      await loadFromBackend();
       localStorage.setItem(VAULT_KEY, path);
-      set({ vaultPath: path });
-      unwatch?.();
-      unwatch = await watchVaultRoot(path, () => get().reloadVault());
+      await get().reopenVault(path);
+    },
+
+    // Kayıtlı/seçili kasayı backend olarak (yeniden) aç. HMR/yeniden yük sonrası da çağrılır.
+    // Şablon seed hatası kasayı düşürmez; açılamazsa mevcut durum korunur (sessizce).
+    reopenVault: async (path) => {
+      if (!isTauri()) return;
+      try {
+        const next = createTauriBackend(path);
+        // Erişimi doğrula (kapsam/taşınma) — başarısızsa catch.
+        await next.listNotes();
+        backend = next;
+        localStorage.setItem(VAULT_KEY, path);
+        await loadFromBackend();
+        set({ vaultPath: path });
+        unwatch?.();
+        unwatch = await watchVaultRoot(path, () => get().reloadVault());
+        // Şablonları seed et — ölümcül değil; sonrasında bir kez yeniden yükle.
+        ensureTemplates(backend)
+          .then(() => loadFromBackend())
+          .catch(() => {});
+      } catch {
+        // Açılamadı (taşınmış/silinmiş/izin yok): mevcut durumu koru.
+      }
     },
 
     reloadVault: async () => {
@@ -699,13 +706,21 @@ export const useAppStore = create<AppState>()(
     },
     {
       name: "loomen.settings",
-      // Yalnızca kullanıcı tercihlerini kalıcı yap (vault verisi her açılışta yeniden türetilir).
+      // Rehydrate sonrası: kayıtlı kasayı backend olarak yeniden aç (HMR/yeniden başlatmada
+      // vaultPath kaybolup "Kasa seç"e düşmesin).
+      onRehydrateStorage: () => (state) => {
+        if (state?.vaultPath && isTauri()) {
+          queueMicrotask(() => void useAppStore.getState().reopenVault(state.vaultPath!));
+        }
+      },
+      // Yalnızca kullanıcı tercihlerini + seçili kasa yolunu kalıcı yap (vault verisi türetilir).
       partialize: (s) => ({
         theme: s.theme,
         lang: s.lang,
         accent: s.accent,
         editorSettings: s.editorSettings,
         dailyTemplate: s.dailyTemplate,
+        vaultPath: s.vaultPath,
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
         backlinksCollapsed: s.backlinksCollapsed,
