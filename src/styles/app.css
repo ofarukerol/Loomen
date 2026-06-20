@@ -908,6 +908,10 @@ button { font-family: inherit; }
 .lo-rbar__fill { width: 100%; min-height: 3px; background: var(--accent); border-radius: 6px 6px 3px 3px; transition: height 0.25s; }
 .lo-rbar__label { font-size: 11px; color: var(--fg3); margin-top: 8px; text-transform: capitalize; }
 .lo-set__change {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
   border: 1px solid var(--line);
   background: var(--bg-sunken);
   color: var(--fg1);
@@ -918,7 +922,9 @@ button { font-family: inherit; }
   border-radius: 9px;
   cursor: pointer;
 }
-.lo-set__change:hover { background: var(--line-soft); }
+.lo-set__change:hover:not(:disabled) { background: var(--line-soft); }
+.lo-set__change:disabled { opacity: .5; cursor: default; }
+.lo-set__change > svg { flex-shrink: 0; }
 
 /* Şablonlar bölümü (ayarlar) — şablon listesi */
 .lo-set__tplitem {
