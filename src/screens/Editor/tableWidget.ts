@@ -34,6 +34,37 @@ function isSeparator(line: string): boolean {
   return cells.length > 0 && cells.every((c) => /^:?-{1,}:?$/.test(c));
 }
 
+/** Satırdaki (kaçışlı \| hariç) boru karakterlerinin indeksleri. */
+function pipePositions(text: string): number[] {
+  const pos: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "\\") {
+      i++;
+      continue;
+    }
+    if (text[i] === "|") pos.push(i);
+  }
+  return pos;
+}
+
+/**
+ * Tıklanan hücrenin kaynak metindeki konumu (imleci oraya koymak için).
+ * row = -1 başlık satırı; row >= 0 gövde satırı. Bulunamazsa blok başını döner.
+ */
+function cellSourcePos(state: EditorState, blockFrom: number, row: number, col: number): number {
+  const range = tableBlockRange(state, blockFrom);
+  if (!range) return blockFrom;
+  const headerNo = state.doc.lineAt(blockFrom).number;
+  const lineNo = row < 0 ? headerNo : headerNo + 2 + row; // +1 ayraç, +1 ilk gövde
+  if (lineNo < 1 || lineNo > state.doc.lines) return blockFrom;
+  const line = state.doc.line(lineNo);
+  const pipes = pipePositions(line.text);
+  if (col + 1 >= pipes.length) return line.to;
+  let off = pipes[col] + 1;
+  while (off < line.text.length && line.text[off] === " ") off++; // baştaki boşlukları atla
+  return line.from + off;
+}
+
 /** Verilen başlık-satırı başından başlayan tablo bloğunun aralığı (yoksa null). */
 function tableBlockRange(state: EditorState, headerFrom: number): { from: number; to: number } | null {
   if (headerFrom < 0 || headerFrom > state.doc.length) return null;
@@ -89,46 +120,59 @@ class TableWidget extends WidgetType {
   }
 
   toDOM(view: EditorView): HTMLElement {
+    const from = this.from;
+    // Hücreye tıkla → imleç o hücrenin kaynak konumuna gider, tablo düzenlemeye açılır.
+    const editCell = (e: MouseEvent, row: number, col: number) => {
+      e.preventDefault();
+      const pos = cellSourcePos(view.state, from, row, col);
+      view.dispatch({ selection: { anchor: pos }, effects: setEditingTable.of(from) });
+      view.focus();
+    };
+
     const wrap = document.createElement("div");
     wrap.className = "cm-tablewrap";
+    wrap.title = "Düzenlemek için bir hücreye tıkla";
     const table = document.createElement("table");
     table.className = "cm-table";
 
     const thead = document.createElement("thead");
     const htr = document.createElement("tr");
-    for (const c of this.header) {
+    this.header.forEach((c, i) => {
       const th = document.createElement("th");
       th.textContent = c;
+      th.addEventListener("mousedown", (e) => editCell(e, -1, i));
       htr.appendChild(th);
-    }
+    });
     thead.appendChild(htr);
     table.appendChild(thead);
 
     const tbody = document.createElement("tbody");
-    for (const r of this.rows) {
+    this.rows.forEach((r, ri) => {
       const tr = document.createElement("tr");
       for (let i = 0; i < this.header.length; i++) {
         const td = document.createElement("td");
         td.textContent = r[i] ?? "";
+        td.addEventListener("mousedown", (e) => editCell(e, ri, i));
         tr.appendChild(td);
       }
       tbody.appendChild(tr);
-    }
+    });
     table.appendChild(tbody);
     wrap.appendChild(table);
-    wrap.title = "Düzenlemek için çift tıkla";
 
-    // Çift tıkla → ham markdown'ı düzenlemeye aç (imleç tabloya gider).
-    wrap.addEventListener("dblclick", (e) => {
-      e.preventDefault();
-      view.dispatch({ selection: { anchor: this.from }, effects: setEditingTable.of(this.from) });
-      view.focus();
+    // Hücre dışındaki boş alana tıklama → tablo başına aç.
+    wrap.addEventListener("mousedown", (e) => {
+      if (e.target === wrap || e.target === table) {
+        e.preventDefault();
+        view.dispatch({ selection: { anchor: from }, effects: setEditingTable.of(from) });
+        view.focus();
+      }
     });
     return wrap;
   }
 
   ignoreEvent(): boolean {
-    return false;
+    return true;
   }
 }
 
