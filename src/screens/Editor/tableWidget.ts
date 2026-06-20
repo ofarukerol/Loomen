@@ -1,11 +1,11 @@
-import { RangeSetBuilder, StateEffect, StateField, type EditorState } from "@codemirror/state";
+import { RangeSetBuilder, StateField, type EditorState } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 
 /**
- * Canlı önizlemede (düzenleme modu) GFM tablolarını gerçek tablo olarak gösterir.
- * Tablolar HER ZAMAN render edilir; yalnız tabloya ÇİFT TIKLAYINCA o tablo ham markdown
- * olarak açılır (düzenlenebilir), imleç tablodan çıkınca tekrar render edilir.
- * Blok widget gerektiği için ViewPlugin değil StateField ile sağlanır.
+ * Canlı önizlemede (düzenleme modu) GFM tablolarını gerçek tablo olarak gösterir ve
+ * hücreleri YERİNDE düzenlenebilir kılar. Tablo her zaman tablo olarak kalır; bir hücreye
+ * tıklayıp yazabilirsin, odak tablodan çıkınca değişen hücreler kaynağa yazılır
+ * (yalnız değişen hücre güncellenir; tablo yapısı/hizası korunur).
  */
 
 function splitTableRow(line: string): string[] {
@@ -47,24 +47,6 @@ function pipePositions(text: string): number[] {
   return pos;
 }
 
-/**
- * Tıklanan hücrenin kaynak metindeki konumu (imleci oraya koymak için).
- * row = -1 başlık satırı; row >= 0 gövde satırı. Bulunamazsa blok başını döner.
- */
-function cellSourcePos(state: EditorState, blockFrom: number, row: number, col: number): number {
-  const range = tableBlockRange(state, blockFrom);
-  if (!range) return blockFrom;
-  const headerNo = state.doc.lineAt(blockFrom).number;
-  const lineNo = row < 0 ? headerNo : headerNo + 2 + row; // +1 ayraç, +1 ilk gövde
-  if (lineNo < 1 || lineNo > state.doc.lines) return blockFrom;
-  const line = state.doc.line(lineNo);
-  const pipes = pipePositions(line.text);
-  if (col + 1 >= pipes.length) return line.to;
-  let off = pipes[col] + 1;
-  while (off < line.text.length && line.text[off] === " ") off++; // baştaki boşlukları atla
-  return line.from + off;
-}
-
 /** Verilen başlık-satırı başından başlayan tablo bloğunun aralığı (yoksa null). */
 function tableBlockRange(state: EditorState, headerFrom: number): { from: number; to: number } | null {
   if (headerFrom < 0 || headerFrom > state.doc.length) return null;
@@ -83,24 +65,22 @@ function tableBlockRange(state: EditorState, headerFrom: number): { from: number
   return { from: line.from, to: state.doc.line(endLine).to };
 }
 
-/** Hangi tablonun (başlık başı pozisyonu) düzenlendiğini tutar; imleç çıkınca temizlenir. */
-const setEditingTable = StateEffect.define<number | null>();
-
-const editingTableField = StateField.define<number | null>({
-  create: () => null,
-  update(value, tr) {
-    for (const e of tr.effects) if (e.is(setEditingTable)) value = e.value;
-    if (value != null) {
-      const range = tableBlockRange(tr.state, value);
-      if (!range) value = null;
-      else {
-        const sel = tr.state.selection.main;
-        if (sel.from < range.from || sel.to > range.to) value = null;
-      }
-    }
-    return value;
-  },
-});
+/** Bir hücrenin kaynak metindeki içerik aralığı (iki boru arası), yoksa null. */
+function cellContentRange(
+  state: EditorState,
+  blockFrom: number,
+  row: number,
+  col: number
+): { from: number; to: number } | null {
+  if (!tableBlockRange(state, blockFrom)) return null;
+  const headerNo = state.doc.lineAt(blockFrom).number;
+  const lineNo = row < 0 ? headerNo : headerNo + 2 + row; // +1 ayraç, +1 ilk gövde
+  if (lineNo < 1 || lineNo > state.doc.lines) return null;
+  const line = state.doc.line(lineNo);
+  const pipes = pipePositions(line.text);
+  if (col + 1 >= pipes.length) return null;
+  return { from: line.from + pipes[col] + 1, to: line.from + pipes[col + 1] };
+}
 
 class TableWidget extends WidgetType {
   constructor(
@@ -119,55 +99,79 @@ class TableWidget extends WidgetType {
     );
   }
 
-  toDOM(view: EditorView): HTMLElement {
-    const from = this.from;
-    // Hücreye tıkla → imleç o hücrenin kaynak konumuna gider, tablo düzenlemeye açılır.
-    const editCell = (e: MouseEvent, row: number, col: number) => {
-      e.preventDefault();
-      const pos = cellSourcePos(view.state, from, row, col);
-      view.dispatch({ selection: { anchor: pos }, effects: setEditingTable.of(from) });
+  // Hücreye tıklayınca üstünde yüzen bir input aç (CM'den bağımsız, body'de).
+  private editCell(view: EditorView, cellEl: HTMLElement, row: number, col: number, orig: string): void {
+    const rect = cellEl.getBoundingClientRect();
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = orig;
+    input.className = "cm-table-editor";
+    input.style.left = `${rect.left}px`;
+    input.style.top = `${rect.top}px`;
+    input.style.width = `${rect.width}px`;
+    input.style.height = `${rect.height}px`;
+    document.body.appendChild(input);
+    input.focus();
+    input.select();
+
+    let done = false;
+    const finish = (save: boolean) => {
+      if (done) return;
+      done = true;
+      const val = input.value;
+      input.remove();
+      if (save && val.trim() !== orig.trim()) {
+        const r = cellContentRange(view.state, this.from, row, col);
+        if (r) {
+          view.dispatch({
+            changes: { from: r.from, to: r.to, insert: ` ${val.replace(/\|/g, "\\|").trim()} ` },
+          });
+        }
+      }
       view.focus();
     };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finish(true);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        finish(false);
+      }
+    });
+    input.addEventListener("blur", () => finish(true));
+  }
 
+  toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "cm-tablewrap";
-    wrap.title = "Düzenlemek için bir hücreye tıkla";
     const table = document.createElement("table");
     table.className = "cm-table";
 
+    const mkCell = (tag: "th" | "td", text: string, row: number, col: number): HTMLElement => {
+      const el = document.createElement(tag);
+      el.textContent = text;
+      el.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        this.editCell(view, el, row, col, text);
+      });
+      return el;
+    };
+
     const thead = document.createElement("thead");
     const htr = document.createElement("tr");
-    this.header.forEach((c, i) => {
-      const th = document.createElement("th");
-      th.textContent = c;
-      th.addEventListener("mousedown", (e) => editCell(e, -1, i));
-      htr.appendChild(th);
-    });
+    this.header.forEach((c, i) => htr.appendChild(mkCell("th", c, -1, i)));
     thead.appendChild(htr);
     table.appendChild(thead);
 
     const tbody = document.createElement("tbody");
     this.rows.forEach((r, ri) => {
       const tr = document.createElement("tr");
-      for (let i = 0; i < this.header.length; i++) {
-        const td = document.createElement("td");
-        td.textContent = r[i] ?? "";
-        td.addEventListener("mousedown", (e) => editCell(e, ri, i));
-        tr.appendChild(td);
-      }
+      for (let i = 0; i < this.header.length; i++) tr.appendChild(mkCell("td", r[i] ?? "", ri, i));
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
     wrap.appendChild(table);
-
-    // Hücre dışındaki boş alana tıklama → tablo başına aç.
-    wrap.addEventListener("mousedown", (e) => {
-      if (e.target === wrap || e.target === table) {
-        e.preventDefault();
-        view.dispatch({ selection: { anchor: from }, effects: setEditingTable.of(from) });
-        view.focus();
-      }
-    });
     return wrap;
   }
 
@@ -176,7 +180,7 @@ class TableWidget extends WidgetType {
   }
 }
 
-function buildTables(state: EditorState, editingFrom: number | null): DecorationSet {
+function buildTables(state: EditorState): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const doc = state.doc;
   let lineNo = 1;
@@ -186,7 +190,7 @@ function buildTables(state: EditorState, editingFrom: number | null): Decoration
       const header = splitTableRow(line.text);
       const cols = header.length;
       const rows: string[][] = [];
-      let endLine = lineNo + 1; // ayraç satırı
+      let endLine = lineNo + 1;
       let j = lineNo + 2;
       while (j <= doc.lines) {
         const lt = doc.line(j).text;
@@ -199,10 +203,7 @@ function buildTables(state: EditorState, editingFrom: number | null): Decoration
       }
       const from = line.from;
       const to = doc.line(endLine).to;
-      // Düzenlenen tablo dışındaki tüm tablolar render edilir.
-      if (from !== editingFrom) {
-        builder.add(from, to, Decoration.replace({ widget: new TableWidget(from, header, rows), block: true }));
-      }
+      builder.add(from, to, Decoration.replace({ widget: new TableWidget(from, header, rows), block: true }));
       lineNo = endLine + 1;
       continue;
     }
@@ -211,16 +212,11 @@ function buildTables(state: EditorState, editingFrom: number | null): Decoration
   return builder.finish();
 }
 
-const tableDecoField = StateField.define<DecorationSet>({
-  create: (state) => buildTables(state, state.field(editingTableField)),
+export const tableField = StateField.define<DecorationSet>({
+  create: (state) => buildTables(state),
   update(deco, tr) {
-    if (tr.docChanged || tr.selection || tr.effects.some((e) => e.is(setEditingTable))) {
-      return buildTables(tr.state, tr.state.field(editingTableField));
-    }
+    if (tr.docChanged) return buildTables(tr.state);
     return deco.map(tr.changes);
   },
   provide: (f) => EditorView.decorations.from(f),
 });
-
-// editingTableField önce gelmeli (tableDecoField onu okur).
-export const tableField = [editingTableField, tableDecoField];

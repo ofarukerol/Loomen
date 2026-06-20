@@ -84,6 +84,12 @@ const cmTheme = EditorView.theme({
     verticalAlign: "top",
     whiteSpace: "nowrap",
     color: "var(--fg1)",
+    cursor: "text",
+  },
+  ".cm-table th:focus, .cm-table td:focus": {
+    outline: "2px solid var(--accent)",
+    outlineOffset: "-2px",
+    background: "var(--accent-soft)",
   },
   ".cm-table th": { background: "var(--bg-sunken)", fontWeight: "600", color: "var(--fg2)" },
   ".cm-table tbody tr:nth-child(even) td": { background: "var(--line-soft)" },

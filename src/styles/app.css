@@ -744,6 +744,21 @@ button { font-family: inherit; }
   color: var(--fg1);
 }
 .lo-table th { background: var(--bg-sunken); font-weight: 600; color: var(--fg2); }
+/* Tablo hücresi düzenleme input'u (canlı önizlemede hücreye tıklayınca) */
+.cm-table-editor {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg1);
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  padding: 5px 13px;
+  outline: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+}
 .lo-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-sunken) 45%, transparent); }
 .lo-prose ul { margin: 0 0 18px; padding-inline-start: 22px; font-size: 15px; line-height: 1.75; color: var(--fg1); }
 .lo-wiki {
