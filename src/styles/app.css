@@ -716,6 +716,7 @@ button { font-family: inherit; }
   padding: 8px 16px;
   text-align: start;
   vertical-align: top;
+  white-space: nowrap;
   color: var(--fg1);
 }
 .lo-table th { background: var(--bg-sunken); font-weight: 600; color: var(--fg2); }

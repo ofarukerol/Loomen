@@ -6,6 +6,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as tg } from "@lezer/highlight";
 import { livePreview } from "./livePreview";
+import { tableField } from "./tableWidget";
 
 interface Props {
   value: string;
@@ -73,6 +74,19 @@ const cmTheme = EditorView.theme({
   ".cm-h5": { fontSize: "1.02em", fontWeight: "700", paddingTop: "10px" },
   ".cm-h6": { fontSize: "1em", fontWeight: "700", color: "var(--fg2)", paddingTop: "8px" },
   ".cm-wikilink": { color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px" },
+  // Canlı önizleme tablo widget'ı
+  ".cm-tablewrap": { margin: "6px 0 18px", overflowX: "auto", cursor: "text" },
+  ".cm-table": { borderCollapse: "collapse", fontSize: "14.5px", lineHeight: "1.5" },
+  ".cm-table th, .cm-table td": {
+    border: "1px solid var(--line)",
+    padding: "7px 14px",
+    textAlign: "start",
+    verticalAlign: "top",
+    whiteSpace: "nowrap",
+    color: "var(--fg1)",
+  },
+  ".cm-table th": { background: "var(--bg-sunken)", fontWeight: "600", color: "var(--fg2)" },
+  ".cm-table tbody tr:nth-child(even) td": { background: "var(--line-soft)" },
   ".cm-gutters": { backgroundColor: "transparent", color: "var(--fg3)", border: "none" },
   ".cm-activeLine": { backgroundColor: "var(--line-soft)" },
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--fg2)" },
@@ -102,6 +116,7 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
       markdown(),
       syntaxHighlighting(mdHighlight),
       livePreview,
+      tableField,
       EditorView.lineWrapping,
       cmTheme,
       EditorView.domEventHandlers({
