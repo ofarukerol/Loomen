@@ -63,6 +63,14 @@ export interface VaultEntry {
   repo: GhRepo | null;
 }
 
+/** Bir kasanın açık sekme durumu (kasa değişince geri yüklenir). */
+export interface VaultTabs {
+  openTabs: string[];
+  pinnedTabs: string[];
+  activeNote: string | null;
+  activeDraw: string | null;
+}
+
 export type PomoPhase = "work" | "short" | "long";
 
 export interface FocusCounts {
@@ -170,6 +178,8 @@ interface AppState {
 
   // Çoklu kasa
   vaults: VaultEntry[];
+  /** Kasa yolu → o kasanın açık sekmeleri. Kasa değişince sekmeler buradan değişir. */
+  tabsByVault: Record<string, VaultTabs>;
   addVault: () => Promise<void>;
   switchVault: (path: string) => Promise<void>;
   removeVault: (path: string) => Promise<void>;
@@ -264,6 +274,7 @@ export const useAppStore = create<AppState>()(
 
     vaultPath: null,
     vaults: [],
+    tabsByVault: {},
     notes: [],
     groups: [],
     counts: { yapilacak: 0, geciken: 0, planlanmamis: 0 },
@@ -513,7 +524,16 @@ export const useAppStore = create<AppState>()(
         unwatch = null;
         localStorage.removeItem(VAULT_KEY);
         await loadFromBackend();
-        set({ vaultPath: null, ghRepo: null });
+        set({
+          vaultPath: null,
+          ghRepo: null,
+          openTabs: [],
+          pinnedTabs: [],
+          activeNote: null,
+          activeDraw: null,
+          draft: "",
+          screen: "planner",
+        });
       }
     },
 
@@ -554,30 +574,67 @@ export const useAppStore = create<AppState>()(
     reopenVault: async (path) => {
       if (!isTauri()) return;
       try {
+        const prev = get();
+        const prevPath = prev.vaultPath;
+        const isSwitch = prevPath !== path;
+        // Mevcut kasanın açık sekmelerini sakla (geri dönülünce geri yüklenir).
+        const tabsByVault: Record<string, VaultTabs> = prevPath
+          ? {
+              ...prev.tabsByVault,
+              [prevPath]: {
+                openTabs: prev.openTabs,
+                pinnedTabs: prev.pinnedTabs,
+                activeNote: prev.activeNote,
+                activeDraw: prev.activeDraw,
+              },
+            }
+          : prev.tabsByVault;
+
         const next = createTauriBackend(path);
         // Erişimi doğrula (kapsam/taşınma) — başarısızsa catch.
         await next.listNotes();
         backend = next;
         localStorage.setItem(VAULT_KEY, path);
+        // Şablon klasörünü loadFromBackend'den ÖNCE oluştur ki Şablonlar hemen görünsün.
+        try {
+          await ensureTemplates(backend);
+        } catch {
+          /* şablon seed ölümcül değil */
+        }
         await loadFromBackend();
-        // Kasayı listeye ekle (yoksa, eski global ghRepo'yu ilk kasaya taşıyarak) ve
-        // aktif kasanın reposunu ghRepo'ya yansıt.
+
+        // Kasayı listeye ekle (yoksa); ilk (migrasyon) kasa eski ghRepo'yu devralır.
         const cur = get();
         const exists = cur.vaults.some((v) => v.path === path);
-        // Yalnız ilk (migrasyon) kasada eski global ghRepo'yu devral; sonraki yeni kasalar
-        // repo'suz başlar (GitHub boş gelir, kullanıcı manuel seçer).
         const firstEver = cur.vaults.length === 0;
         const vaults = exists
           ? cur.vaults
           : [...cur.vaults, { path, repo: firstEver ? cur.ghRepo ?? null : null }];
         const entry = vaults.find((v) => v.path === path)!;
-        set({ vaultPath: path, vaults, ghRepo: entry.repo });
+
+        const patch: Partial<AppState> = { vaultPath: path, vaults, ghRepo: entry.repo, tabsByVault };
+        // Kasa değiştiyse (ya da global sekmeler boşsa) hedef kasanın sekmelerini geri yükle.
+        if (isSwitch || prev.openTabs.length === 0) {
+          const saved = tabsByVault[path] ?? { openTabs: [], pinnedTabs: [], activeNote: null, activeDraw: null };
+          const has = (p: string) => cur.notes.some((n) => n.path === p);
+          const openTabs = saved.openTabs.filter(has);
+          const pinnedTabs = saved.pinnedTabs.filter(has);
+          const activeNote = saved.activeNote && has(saved.activeNote) ? saved.activeNote : null;
+          const activeDraw = saved.activeDraw && has(saved.activeDraw) ? saved.activeDraw : null;
+          patch.openTabs = openTabs;
+          patch.pinnedTabs = pinnedTabs;
+          patch.activeNote = activeNote;
+          patch.activeDraw = activeDraw;
+          patch.draft = activeNote ? cur.noteContents[activeNote] ?? "" : "";
+          patch.editing = true;
+          // Geçerli ekranı koru ama içerik yoksa anlamlı bir yere düş.
+          if (prev.screen === "editor" && !activeNote) patch.screen = "planner";
+          if (prev.screen === "draw" && !activeDraw) patch.screen = "planner";
+        }
+        set(patch);
+
         unwatch?.();
         unwatch = await watchVaultRoot(path, () => get().reloadVault());
-        // Şablonları seed et — ölümcül değil; sonrasında bir kez yeniden yükle.
-        ensureTemplates(backend)
-          .then(() => loadFromBackend())
-          .catch(() => {});
       } catch {
         // Açılamadı (taşınmış/silinmiş/izin yok): mevcut durumu koru.
       }
@@ -830,6 +887,7 @@ export const useAppStore = create<AppState>()(
         dailyTemplate: s.dailyTemplate,
         vaultPath: s.vaultPath,
         vaults: s.vaults,
+        tabsByVault: s.tabsByVault,
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
         backlinksCollapsed: s.backlinksCollapsed,
