@@ -976,11 +976,6 @@ button { font-family: inherit; }
 }
 .lo-vdetail__del:hover { color: #c0392b; border-color: #c0392b; background: var(--line-soft); }
 
-.lo-vault__del {
-  display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0;
-  border: 1px solid var(--line); background: transparent; color: var(--fg3);
-  border-radius: 8px; cursor: pointer;
-}
 .lo-vault__add {
   display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 14px 18px; border: none; border-top: 1px solid var(--line-soft); background: transparent;

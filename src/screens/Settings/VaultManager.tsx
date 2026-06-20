@@ -212,7 +212,7 @@ export function VaultManager() {
                         </button>
                       )}
                       <button
-                        className="lo-vault__del lo-vdetail__del"
+                        className="lo-vdetail__del"
                         onClick={() => {
                           void removeVault(v.path);
                           setExpanded(null);
