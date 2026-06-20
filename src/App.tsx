@@ -34,6 +34,8 @@ export default function App() {
   const ghSync = useAppStore((s) => s.ghSync);
   const pomoRunning = useAppStore((s) => s.pomoRunning);
   const tickPomo = useAppStore((s) => s.tickPomo);
+  const pomoBreakRunning = useAppStore((s) => s.pomoBreakRunning);
+  const tickBreak = useAppStore((s) => s.tickBreak);
 
   // İlk açılışta kasayı yükle (sample veya kayıtlı Tauri kasası).
   useEffect(() => {
@@ -47,6 +49,13 @@ export default function App() {
     const id = setInterval(() => tickPomo(), 1000);
     return () => clearInterval(id);
   }, [pomoRunning, tickPomo]);
+
+  // Mola sayacı — odaktan bağımsız sürer (başlatılınca).
+  useEffect(() => {
+    if (!pomoBreakRunning) return;
+    const id = setInterval(() => tickBreak(), 1000);
+    return () => clearInterval(id);
+  }, [pomoBreakRunning, tickBreak]);
 
   // Otomatik senkron: bağlıyken ve açıkken periyodik push/pull (3 dk).
   useEffect(() => {

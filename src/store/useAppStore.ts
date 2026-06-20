@@ -141,6 +141,11 @@ interface AppState {
   pomoPhase: PomoPhase;
   pomoCompleted: number; // mevcut turda tamamlanan odak seansı (0..rounds)
   pomoHistory: Record<string, number>; // ISO tarih → tamamlanan odak seansı (rapor için, kalıcı)
+  // Mola — odak bitince teklif edilen ayrı (ufak) sayaç. Otomatik başlamaz; es geçilebilir.
+  pomoBreakActive: boolean; // mola gösteriliyor mu (odak bitti, yeni odak başlamadı)
+  pomoBreakRunning: boolean; // mola sayacı çalışıyor mu
+  pomoBreakRemaining: number; // mola kalan saniye
+  pomoBreakLong: boolean; // uzun mola mı (tur seti bitti)
 
   // UI aksiyonları
   toggleTheme: () => void;
@@ -173,6 +178,9 @@ interface AppState {
   togglePomo: () => void;
   resetPomo: () => void;
   tickPomo: () => void;
+  tickBreak: () => void;
+  toggleBreak: () => void;
+  skipBreak: () => void;
   setPomo: (patch: Partial<PomodoroSettings>) => void;
   setPomoSound: (on: boolean) => void;
 
@@ -307,6 +315,10 @@ export const useAppStore = create<AppState>()(
     pomoPhase: "work",
     pomoCompleted: 0,
     pomoHistory: {},
+    pomoBreakActive: false,
+    pomoBreakRunning: false,
+    pomoBreakRemaining: 0,
+    pomoBreakLong: false,
 
     toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
     setTheme: (theme) => set({ theme }),
@@ -445,34 +457,83 @@ export const useAppStore = create<AppState>()(
       set((s) => {
         const running = !s.pomoRunning;
         if (running && s.pomoSound) playChime("start"); // başlatırken zil
-        return { pomoRunning: running };
+        const patch: Partial<AppState> = { pomoRunning: running };
+        if (running) {
+          // Yeni 25 dk başladı → varsa mola kaybolur.
+          if (s.pomoBreakActive) {
+            patch.pomoBreakActive = false;
+            patch.pomoBreakRunning = false;
+            // Uzun mola turunu tamamlamıştık → seri sıfırlanır.
+            if (s.pomoBreakLong) patch.pomoCompleted = 0;
+          } else if (s.pomoCompleted >= s.pomo.rounds) {
+            // Tur seti dolmuş ama mola yok (atlanmış) → yeni seriye başlarken sıfırla.
+            patch.pomoCompleted = 0;
+          }
+        }
+        return patch;
       }),
     setPomoSound: (pomoSound) => set({ pomoSound }),
     resetPomo: () =>
-      set((s) => ({ pomoRunning: false, pomoPhase: "work", pomoRemaining: s.pomo.focusMin * 60 })),
+      set((s) => ({
+        pomoRunning: false,
+        pomoPhase: "work",
+        pomoRemaining: s.pomo.focusMin * 60,
+        pomoBreakActive: false,
+        pomoBreakRunning: false,
+        pomoBreakRemaining: 0,
+      })),
     tickPomo: () => {
       const s = get();
       if (s.pomoRemaining > 1) {
         set({ pomoRemaining: s.pomoRemaining - 1 });
         return;
       }
-      if (s.pomoSound) playChime("end"); // faz bitti → zil
-      // Faz bitti → bir sonraki faza geç (profesyonel döngü: odak → mola → odak…).
-      const dur = (p: PomoPhase) =>
-        (p === "work" ? s.pomo.focusMin : p === "short" ? s.pomo.shortBreak : s.pomo.longBreak) * 60;
-      if (s.pomoPhase === "work") {
-        const completed = s.pomoCompleted + 1;
-        const next: PomoPhase = completed % s.pomo.rounds === 0 ? "long" : "short";
-        // Tamamlanan odak seansını rapor geçmişine işle (bugünün ISO tarihi).
-        const day = todayISO();
-        const pomoHistory = { ...s.pomoHistory, [day]: (s.pomoHistory[day] ?? 0) + 1 };
-        set({ pomoPhase: next, pomoCompleted: completed, pomoRemaining: dur(next), pomoRunning: false, pomoHistory });
-      } else {
-        // Mola bitti → odağa dön. Uzun moladan sonra tur sayacını sıfırla.
-        const completed = s.pomoPhase === "long" ? 0 : s.pomoCompleted;
-        set({ pomoPhase: "work", pomoCompleted: completed, pomoRemaining: dur("work"), pomoRunning: false });
-      }
+      // Odak seansı bitti → seriyi işaretle ve molayı TEKLİF et (otomatik başlamaz).
+      if (s.pomoSound) playChime("end");
+      const completed = s.pomoCompleted + 1;
+      const isLong = completed % s.pomo.rounds === 0;
+      // Tamamlanan odak seansını rapor geçmişine işle (bugünün ISO tarihi).
+      const day = todayISO();
+      const pomoHistory = { ...s.pomoHistory, [day]: (s.pomoHistory[day] ?? 0) + 1 };
+      set({
+        pomoCompleted: completed,
+        pomoRunning: false,
+        pomoRemaining: s.pomo.focusMin * 60, // ana sayaç sıradaki odak için hazır
+        pomoHistory,
+        pomoBreakActive: true,
+        pomoBreakRunning: false,
+        pomoBreakLong: isLong,
+        pomoBreakRemaining: (isLong ? s.pomo.longBreak : s.pomo.shortBreak) * 60,
+      });
     },
+    tickBreak: () => {
+      const s = get();
+      if (!s.pomoBreakActive) return;
+      if (s.pomoBreakRemaining > 1) {
+        set({ pomoBreakRemaining: s.pomoBreakRemaining - 1 });
+        return;
+      }
+      // Mola bitti → kaybolur. Uzun moladan sonra tur sayacını sıfırla.
+      if (s.pomoSound) playChime("end");
+      set({
+        pomoBreakActive: false,
+        pomoBreakRunning: false,
+        pomoCompleted: s.pomoBreakLong ? 0 : s.pomoCompleted,
+      });
+    },
+    toggleBreak: () =>
+      set((s) => {
+        if (!s.pomoBreakActive) return {};
+        const running = !s.pomoBreakRunning;
+        if (running && s.pomoSound) playChime("start");
+        return { pomoBreakRunning: running };
+      }),
+    skipBreak: () =>
+      set((s) => ({
+        pomoBreakActive: false,
+        pomoBreakRunning: false,
+        pomoCompleted: s.pomoBreakLong ? 0 : s.pomoCompleted,
+      })),
     setPomo: (patch) =>
       set((s) => {
         const pomo = { ...s.pomo, ...patch };

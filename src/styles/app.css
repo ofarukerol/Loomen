@@ -738,8 +738,11 @@ button { font-family: inherit; }
 .lo-table td {
   border: 1px solid var(--line);
   padding: 8px 16px;
+  height: 38px;
+  min-width: 100px;
+  box-sizing: border-box;
   text-align: start;
-  vertical-align: top;
+  vertical-align: middle;
   white-space: nowrap;
   color: var(--fg1);
 }
@@ -1180,7 +1183,8 @@ button { font-family: inherit; }
 .lo-focus__empty { font-size: 12.5px; color: var(--fg3); padding: 4px; }
 
 /* kompakt Pomodoro (takvim üstü, ince) */
-.lo-pomoc { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.lo-pomoc { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
+.lo-pomoc__main { display: flex; align-items: center; gap: 12px; }
 .lo-pomoc__ring { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
 .lo-pomoc__ring svg { display: block; }
 .lo-pomoc__ringicon { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--accent); }
@@ -1204,6 +1208,37 @@ button { font-family: inherit; }
   display: flex; align-items: center; justify-content: center;
 }
 .lo-pomoc__reset:hover { background: var(--line-soft); color: var(--fg1); }
+
+/* mola alt-sayacı — odağın hemen altında, ufak ve es geçilebilir */
+.lo-pomoc__break {
+  display: flex; align-items: center; gap: 8px;
+  padding-top: 9px; border-top: 1px solid var(--line-soft);
+  animation: lo-pomoc-break-in 0.18s ease;
+}
+@keyframes lo-pomoc-break-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.lo-pomoc__break-icon { display: flex; align-items: center; color: var(--accent-2); flex-shrink: 0; }
+.lo-pomoc__break-label {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg3);
+}
+.lo-pomoc__break-time {
+  font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--fg2);
+}
+.lo-pomoc__break-ctl { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.lo-pomoc__break-play {
+  width: 26px; height: 26px; border: none; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.lo-pomoc__break-play:hover { background: var(--accent); color: #fff; }
+.lo-pomoc__break-skip {
+  display: flex; align-items: center; gap: 4px;
+  height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 13px;
+  background: transparent; color: var(--fg3); cursor: pointer; font-size: 11px;
+}
+.lo-pomoc__break-skip:hover { background: var(--line-soft); color: var(--fg1); }
 
 /* kompakt sayaç kartları (sağ blok) */
 .lo-stats--compact { padding: 0; gap: 6px; margin-bottom: 8px; }

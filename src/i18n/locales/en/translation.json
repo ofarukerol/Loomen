@@ -84,6 +84,7 @@
     "title": "POMODORO",
     "focus": "focus",
     "break": "break",
+    "skip": "Skip",
     "start": "Start",
     "pause": "Pause",
     "focusOn": "Focus:"

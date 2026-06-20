@@ -82,6 +82,10 @@ function cellContentRange(
   return { from: line.from + pipes[col] + 1, to: line.from + pipes[col + 1] };
 }
 
+// Tablo başına sütun genişlikleri (px) — oturum boyunca saklanır (markdown genişlik tutmaz).
+// Anahtar: tablonun başlangıç pozisyonu (from).
+const colWidths = new Map<number, number[]>();
+
 class TableWidget extends WidgetType {
   constructor(
     readonly from: number,
@@ -188,9 +192,14 @@ class TableWidget extends WidgetType {
     const table = document.createElement("table");
     table.className = "cm-table";
 
+    const widths = colWidths.get(this.from);
     const mkCell = (tag: "th" | "td", text: string, row: number, col: number): HTMLElement => {
       const el = document.createElement(tag);
       el.textContent = text;
+      el.dataset.col = String(col);
+      // Saklı sütun genişliği (oturum) min-width olarak uygulanır — border-collapse'ta
+      // width tutmaz ama min-width tutar.
+      if (widths && widths[col]) el.style.minWidth = `${widths[col]}px`;
       el.addEventListener("mousedown", (e) => {
         e.preventDefault();
         this.editCell(view, el, row, col, text);
@@ -200,7 +209,36 @@ class TableWidget extends WidgetType {
 
     const thead = document.createElement("thead");
     const htr = document.createElement("tr");
-    this.header.forEach((c, i) => htr.appendChild(mkCell("th", c, -1, i)));
+    this.header.forEach((c, i) => {
+      const th = mkCell("th", c, -1, i);
+      // Sağ kenara sürükleme tutamacı → sütun genişliğini ayarla (min-width ile).
+      const handle = document.createElement("div");
+      handle.className = "cm-table__resize";
+      handle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startX = e.clientX;
+        const startW = th.getBoundingClientRect().width;
+        let w = startW;
+        const onMove = (ev: MouseEvent) => {
+          w = Math.max(60, startW + (ev.clientX - startX));
+          table.querySelectorAll<HTMLElement>(`[data-col="${i}"]`).forEach((c2) => {
+            c2.style.minWidth = `${w}px`;
+          });
+        };
+        const onUp = () => {
+          window.removeEventListener("mousemove", onMove);
+          window.removeEventListener("mouseup", onUp);
+          const arr = colWidths.get(this.from) ?? this.header.map(() => 0);
+          arr[i] = Math.round(w);
+          colWidths.set(this.from, arr);
+        };
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+      });
+      th.appendChild(handle);
+      htr.appendChild(th);
+    });
     thead.appendChild(htr);
     table.appendChild(thead);
 
