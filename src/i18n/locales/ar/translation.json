@@ -196,7 +196,14 @@
     "newTemplate": "قالب جديد",
     "noTemplates": "لا توجد قوالب بعد",
     "manageTemplatesSub": "انقر للتعديل · أضف ما تشاء",
-    "activeTemplate": "يومي"
+    "activeTemplate": "يومي",
+    "vaults": "الخزائن",
+    "noVaults": "لا توجد خزائن بعد — أضف مجلدًا",
+    "activeVault": "نشط",
+    "switchVault": "التبديل إلى هذه الخزينة",
+    "addVault": "إضافة خزينة",
+    "removeVault": "إزالة الخزينة",
+    "noRepo": "لا يوجد مستودع مرتبط"
   },
   "syncStatus": {
     "error": "خطأ المزامنة"

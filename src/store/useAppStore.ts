@@ -54,6 +54,12 @@ export interface PomodoroSettings {
   rounds: number;
 }
 
+/** Bir kasa: yerel klasör + (opsiyonel) bağlı git reposu. Çoklu kasa için. */
+export interface VaultEntry {
+  path: string;
+  repo: GhRepo | null;
+}
+
 export type PomoPhase = "work" | "short" | "long";
 
 export interface FocusCounts {
@@ -156,6 +162,13 @@ interface AppState {
   tickPomo: () => void;
   setPomo: (patch: Partial<PomodoroSettings>) => void;
 
+  // Çoklu kasa
+  vaults: VaultEntry[];
+  addVault: () => Promise<void>;
+  switchVault: (path: string) => Promise<void>;
+  removeVault: (path: string) => Promise<void>;
+  setVaultRepo: (path: string, repo: GhRepo | null) => void;
+
   // Vault aksiyonları (dosyaya yazar)
   bootstrap: () => Promise<void>;
   openVault: () => Promise<void>;
@@ -241,6 +254,7 @@ export const useAppStore = create<AppState>()(
     focusExpanded: false,
 
     vaultPath: null,
+    vaults: [],
     notes: [],
     groups: [],
     counts: { yapilacak: 0, geciken: 0, planlanmamis: 0 },
@@ -451,16 +465,51 @@ export const useAppStore = create<AppState>()(
       }
     },
 
-    openVault: async () => {
+    // Yeni kasa ekle (klasör seç) ve ona geç. (Explorer/ayarlardaki "Kasa seç/ekle".)
+    openVault: async () => get().addVault(),
+    addVault: async () => {
       if (!isTauri()) return; // tarayıcıda klasör seçici yok
       const path = await pickVaultFolder();
       if (!path) return;
-      localStorage.setItem(VAULT_KEY, path);
+      await get().switchVault(path);
+    },
+
+    // Listedeki bir kasaya geç (backend'i yeniden aç; entry'deki repo aktif olur).
+    switchVault: async (path) => {
       await get().reopenVault(path);
     },
 
+    // Bir kasayı listeden kaldır. Aktifse kalan ilk kasaya, yoksa örnek kasaya döner.
+    removeVault: async (path) => {
+      const s = get();
+      const vaults = s.vaults.filter((v) => v.path !== path);
+      if (s.vaultPath !== path) {
+        set({ vaults });
+        return;
+      }
+      set({ vaults });
+      if (vaults.length > 0) {
+        await get().switchVault(vaults[0].path);
+      } else {
+        backend = createSampleBackend();
+        unwatch?.();
+        unwatch = null;
+        localStorage.removeItem(VAULT_KEY);
+        await loadFromBackend();
+        set({ vaultPath: null, ghRepo: null });
+      }
+    },
+
+    // Bir kasaya git reposu ata; aktif kasaysa ghRepo'yu da güncelle.
+    setVaultRepo: (path, repo) =>
+      set((s) => ({
+        vaults: s.vaults.map((v) => (v.path === path ? { ...v, repo } : v)),
+        ghRepo: s.vaultPath === path ? repo : s.ghRepo,
+      })),
+
     // Kayıtlı/seçili kasayı backend olarak (yeniden) aç. HMR/yeniden yük sonrası da çağrılır.
-    // Şablon seed hatası kasayı düşürmez; açılamazsa mevcut durum korunur (sessizce).
+    // Kasayı listeye ekler (yoksa), entry'sindeki repoyu ghRepo'ya yansıtır. Şablon seed
+    // hatası kasayı düşürmez; açılamazsa mevcut durum korunur (sessizce).
     reopenVault: async (path) => {
       if (!isTauri()) return;
       try {
@@ -470,7 +519,14 @@ export const useAppStore = create<AppState>()(
         backend = next;
         localStorage.setItem(VAULT_KEY, path);
         await loadFromBackend();
-        set({ vaultPath: path });
+        // Kasayı listeye ekle (yoksa, eski global ghRepo'yu ilk kasaya taşıyarak) ve
+        // aktif kasanın reposunu ghRepo'ya yansıt.
+        const cur = get();
+        const vaults = cur.vaults.some((v) => v.path === path)
+          ? cur.vaults
+          : [...cur.vaults, { path, repo: cur.ghRepo ?? null }];
+        const entry = vaults.find((v) => v.path === path)!;
+        set({ vaultPath: path, vaults, ghRepo: entry.repo });
         unwatch?.();
         unwatch = await watchVaultRoot(path, () => get().reloadVault());
         // Şablonları seed et — ölümcül değil; sonrasında bir kez yeniden yükle.
@@ -668,9 +724,16 @@ export const useAppStore = create<AppState>()(
       const token = get().ghToken;
       if (!token) return;
       const repo = await gh.createRepo(token, name, priv_);
-      set({ ghRepo: repo });
+      const s = get();
+      if (s.vaultPath) get().setVaultRepo(s.vaultPath, repo);
+      else set({ ghRepo: repo });
     },
-    ghSelectRepo: (repo) => set({ ghRepo: repo }),
+    // Aktif kasaya repo ata (kasaya bağlı saklanır); kasa yoksa global ghRepo.
+    ghSelectRepo: (repo) => {
+      const s = get();
+      if (s.vaultPath) get().setVaultRepo(s.vaultPath, repo);
+      else set({ ghRepo: repo });
+    },
     ghSync: async () => {
       const s = get();
       if (!s.ghToken || !s.ghRepo) {
@@ -721,6 +784,7 @@ export const useAppStore = create<AppState>()(
         editorSettings: s.editorSettings,
         dailyTemplate: s.dailyTemplate,
         vaultPath: s.vaultPath,
+        vaults: s.vaults,
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
         backlinksCollapsed: s.backlinksCollapsed,

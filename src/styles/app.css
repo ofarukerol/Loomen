@@ -935,6 +935,42 @@ button { font-family: inherit; }
 .lo-set__tplitem:hover .lo-set__tplpencil { opacity: 1; }
 .lo-set__tplempty { padding: 16px 18px; color: var(--fg3); font-size: 13px; }
 
+/* Kasalar (çoklu kasa yöneticisi) */
+.lo-vault { display: flex; align-items: center; gap: 12px; padding: 12px 18px; }
+.lo-vault__main {
+  display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+  border: none; background: transparent; cursor: pointer; text-align: start; padding: 0; font-family: inherit;
+}
+.lo-vault__main:disabled { cursor: default; }
+.lo-vault__dot {
+  display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 9px; background: var(--bg-sunken); color: var(--fg3);
+}
+.lo-vault__dot.is-active { background: var(--accent-soft); color: var(--accent); }
+.lo-vault__info { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.lo-vault__name { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--fg1); }
+.lo-vault__badge {
+  font-size: 10.5px; font-weight: 600; color: var(--accent); background: var(--accent-soft);
+  padding: 1px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .3px;
+}
+.lo-vault__path { font-size: 12px; color: var(--fg3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-vault__ctl { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.lo-vault__repo { max-width: 200px; }
+.lo-vault__del {
+  display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0;
+  border: 1px solid var(--line); background: transparent; color: var(--fg3);
+  border-radius: 8px; cursor: pointer;
+}
+.lo-vault__del:hover { color: var(--accent-danger, #c0392b); border-color: currentColor; background: var(--line-soft); }
+.lo-vault__add {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 14px 18px; border: none; border-top: 1px solid var(--line-soft); background: transparent;
+  color: var(--accent); font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; text-align: start;
+}
+.lo-vault__add:hover:not(:disabled) { background: var(--line-soft); }
+.lo-vault__add:disabled { color: var(--fg3); cursor: default; }
+.lo-vault__hint { padding: 0 18px 14px; font-size: 12px; color: var(--fg3); }
+
 /* ============================================================
    Graf
    ============================================================ */

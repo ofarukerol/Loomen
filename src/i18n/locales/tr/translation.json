@@ -200,7 +200,14 @@
     "newTemplate": "Yeni şablon",
     "noTemplates": "Henüz şablon yok",
     "manageTemplatesSub": "Düzenlemek için tıkla · istediğin kadar ekle",
-    "activeTemplate": "günlük"
+    "activeTemplate": "günlük",
+    "vaults": "Kasalar",
+    "noVaults": "Henüz kasa yok — bir klasör ekle",
+    "activeVault": "aktif",
+    "switchVault": "Bu kasaya geç",
+    "addVault": "Kasa ekle",
+    "removeVault": "Kasayı kaldır",
+    "noRepo": "Repo bağlı değil"
   },
   "syncStatus": {
     "error": "Senkron hatası"

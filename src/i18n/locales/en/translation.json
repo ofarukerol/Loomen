@@ -203,6 +203,13 @@
     "newTemplate": "New template",
     "noTemplates": "No templates yet",
     "manageTemplatesSub": "Click to edit · add as many as you like",
-    "activeTemplate": "daily"
+    "activeTemplate": "daily",
+    "vaults": "Vaults",
+    "noVaults": "No vaults yet — add a folder",
+    "activeVault": "active",
+    "switchVault": "Switch to this vault",
+    "addVault": "Add vault",
+    "removeVault": "Remove vault",
+    "noRepo": "No repo linked"
   }
 }

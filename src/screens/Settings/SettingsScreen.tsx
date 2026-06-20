@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useAppStore, ACCENTS, type Lang, type EditorSettings } from "../../store/useAppStore";
 import { GitHubSync } from "./GitHubSync";
 import { TemplatesSettings } from "./TemplatesSettings";
+import { VaultManager } from "./VaultManager";
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -32,8 +33,6 @@ export function SettingsScreen() {
   const toggleEditorSetting = useAppStore((s) => s.toggleEditorSetting);
   const pomo = useAppStore((s) => s.pomo);
   const setPomo = useAppStore((s) => s.setPomo);
-  const vaultPath = useAppStore((s) => s.vaultPath);
-  const openVault = useAppStore((s) => s.openVault);
 
   const editorRows: { key: keyof EditorSettings; label: string }[] = [
     { key: "livePreview", label: t("settings.livePreview") },
@@ -150,20 +149,11 @@ export function SettingsScreen() {
           ))}
         </div>
 
+        {/* Kasalar (çoklu) */}
+        <VaultManager />
+
         {/* GitHub Senkronizasyonu */}
         <GitHubSync />
-
-        {/* Kasa */}
-        <div className="lo-set__section">{t("settings.vault")}</div>
-        <div className="lo-card lo-set__row">
-          <div>
-            <div className="lo-set__rowtitle">{t("settings.vaultLocation")}</div>
-            <div className="lo-set__rowpath">{vaultPath ?? "Örnek kasa (klasör seçilmedi)"}</div>
-          </div>
-          <button className="lo-set__change" onClick={() => void openVault()}>
-            {t("settings.change")}
-          </button>
-        </div>
       </div>
     </div>
   );
