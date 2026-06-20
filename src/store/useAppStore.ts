@@ -541,13 +541,11 @@ export const useAppStore = create<AppState>()(
       if (s.vaultPath === oldPath) await get().reopenVault(newPath);
     },
 
-    // Belirli bir kasa için yeni repo oluştur ve ona bağla.
-    createRepoForVault: async (path, name, priv_) => {
+    // Yeni repo oluştur ve döndür — OTOMATİK ATANMAZ; kullanıcı listeden manuel seçer.
+    createRepoForVault: async (_path, name, priv_) => {
       const token = get().ghToken;
       if (!token) return null;
-      const repo = await gh.createRepo(token, name, priv_);
-      get().setVaultRepo(path, repo);
-      return repo;
+      return gh.createRepo(token, name, priv_);
     },
 
     // Kayıtlı/seçili kasayı backend olarak (yeniden) aç. HMR/yeniden yük sonrası da çağrılır.
@@ -565,9 +563,13 @@ export const useAppStore = create<AppState>()(
         // Kasayı listeye ekle (yoksa, eski global ghRepo'yu ilk kasaya taşıyarak) ve
         // aktif kasanın reposunu ghRepo'ya yansıt.
         const cur = get();
-        const vaults = cur.vaults.some((v) => v.path === path)
+        const exists = cur.vaults.some((v) => v.path === path);
+        // Yalnız ilk (migrasyon) kasada eski global ghRepo'yu devral; sonraki yeni kasalar
+        // repo'suz başlar (GitHub boş gelir, kullanıcı manuel seçer).
+        const firstEver = cur.vaults.length === 0;
+        const vaults = exists
           ? cur.vaults
-          : [...cur.vaults, { path, repo: cur.ghRepo ?? null }];
+          : [...cur.vaults, { path, repo: firstEver ? cur.ghRepo ?? null : null }];
         const entry = vaults.find((v) => v.path === path)!;
         set({ vaultPath: path, vaults, ghRepo: entry.repo });
         unwatch?.();
