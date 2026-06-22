@@ -37,7 +37,6 @@ function kindOf(dateISO: string, todayISO: string): GroupKind {
 }
 
 const SUB: Record<GroupKind, string> = { today: "Bugün", overdue: "Geciken", upcoming: "Yaklaşan" };
-const PRIO_RANK: Record<string, number> = { "🔺": 0, "⏫": 1, "🔼": 2, "🔽": 4, "⏬": 5 };
 
 export interface GroupedTasks {
   groups: TaskGroup[];
@@ -80,10 +79,8 @@ export function groupTasks(tasks: ParsedTask[], todayISO: string): GroupedTasks 
     .map((dateISO) => {
       const kind = kindOf(dateISO, todayISO);
       const date = parseISO(dateISO);
-      const tasksOfDay = byDate
-        .get(dateISO)!
-        .sort((a, b) => (PRIO_RANK[a.priority ?? ""] ?? 3) - (PRIO_RANK[b.priority ?? ""] ?? 3))
-        .map((t) => toUiTask(t, todayISO, kind));
+      // Dosya (satır) sırasını koru — sürükle-bırak ile manuel sıralama görünür olsun.
+      const tasksOfDay = byDate.get(dateISO)!.map((t) => toUiTask(t, todayISO, kind));
       return {
         id: dateISO,
         label: format(date, "EEEE, d MMM", { locale: tr }),

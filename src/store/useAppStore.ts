@@ -24,7 +24,7 @@ import { groupTasks, focusCounts } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
 import { gh, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
-import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, type TaskPatch } from "../core/markdown/taskParser";
+import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskNotes, moveTaskLine, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
 export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab";
@@ -216,6 +216,8 @@ interface AppState {
   toggleTask: (id: string) => Promise<void>;
   selectTask: (id: string | null) => void;
   updateTask: (id: string, patch: TaskPatch) => Promise<void>;
+  saveTask: (id: string, patch: TaskPatch, notes?: string) => Promise<void>;
+  reorderTask: (fromId: string, toId: string) => Promise<void>;
 
   // GitHub aksiyonları
   ghBeginAuth: () => Promise<void>;
@@ -519,7 +521,7 @@ export const useAppStore = create<AppState>()(
         return;
       }
       // Mola bitti → kaybolur. Uzun moladan sonra tur sayacını sıfırla.
-      if (s.pomoSound) playChime("end");
+      if (s.pomoSound) playChime("break-end");
       set({
         pomoBreakActive: false,
         pomoBreakRunning: false,
@@ -530,7 +532,7 @@ export const useAppStore = create<AppState>()(
       set((s) => {
         if (!s.pomoBreakActive) return {};
         const running = !s.pomoBreakRunning;
-        if (running && s.pomoSound) playChime("start");
+        if (running && s.pomoSound) playChime("break-start");
         return { pomoBreakRunning: running };
       }),
     skipBreak: () =>
@@ -859,6 +861,34 @@ export const useAppStore = create<AppState>()(
       if (!task) return;
       const content = await backend.readNote(file);
       await backend.writeNote(file, applyTaskPatch(content, line, task, patch));
+      await loadFromBackend();
+    },
+
+    // Görevi tek yazımda kaydet: satır yaması + (varsa) girintili not bloğu.
+    saveTask: async (id, patch, notes) => {
+      const s = get();
+      const sep = id.lastIndexOf(":");
+      const file = id.slice(0, sep);
+      const line = Number(id.slice(sep + 1));
+      const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
+      if (!task) return;
+      const content = await backend.readNote(file);
+      let next = applyTaskPatch(content, line, task, patch);
+      if (notes !== undefined) next = setTaskNotes(next, line, notes);
+      await backend.writeNote(file, next);
+      await loadFromBackend();
+    },
+
+    // Görev sırasını değiştir (sürükle-bırak): aynı dosyada from satırını to satırına taşı.
+    reorderTask: async (fromId, toId) => {
+      const fsep = fromId.lastIndexOf(":");
+      const tsep = toId.lastIndexOf(":");
+      const file = fromId.slice(0, fsep);
+      if (file !== toId.slice(0, tsep)) return; // yalnız aynı dosya içinde
+      const from = Number(fromId.slice(fsep + 1));
+      const to = Number(toId.slice(tsep + 1));
+      const content = await backend.readNote(file);
+      await backend.writeNote(file, moveTaskLine(content, from, to));
       await loadFromBackend();
     },
 

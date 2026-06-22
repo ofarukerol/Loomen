@@ -1380,15 +1380,19 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   animation: loFade 0.14s ease;
 }
 .lo-tdetail {
-  width: 460px;
+  width: 480px;
   max-width: 100%;
+  max-height: 88vh;
   background: var(--bg-elev);
   border: 1px solid var(--line);
   border-radius: 16px;
   box-shadow: var(--sh3);
-  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-.lo-tdetail__head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.lo-tdetail__body { flex: 1; overflow-y: auto; padding: 4px 20px 6px; }
+.lo-tdetail__head { display: flex; align-items: center; gap: 10px; padding: 16px 20px 10px; flex-shrink: 0; }
 .lo-tdetail__status { border: none; background: transparent; cursor: pointer; padding: 0; display: flex; }
 .lo-tdetail__title { flex: 1; font-size: 15px; font-weight: 600; color: var(--fg1); }
 .lo-tdetail__close {
@@ -1415,7 +1419,84 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 }
 .lo-tdetail__date:focus, .lo-tdetail__select:focus { border-color: var(--accent); }
 .lo-tdetail__chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
-.lo-tdetail__foot { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.lo-tdetail__foot { display: flex; align-items: center; gap: 10px; padding: 12px 20px 16px; border-top: 1px solid var(--line-soft); flex-shrink: 0; }
+.lo-tdetail__save { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Tamamla butonu */
+.lo-tdetail__complete {
+  display: inline-flex; align-items: center; gap: 7px; margin: 0 0 16px;
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  color: var(--accent); background: var(--accent-soft);
+  border: 1px solid transparent; border-radius: 10px; padding: 9px 16px;
+}
+.lo-tdetail__complete:hover { background: var(--accent); color: #fff; }
+.lo-tdetail__complete.is-done { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+.lo-tdetail__complete.is-done:hover { background: var(--success); color: #fff; }
+
+/* Öncelik seçili etiketi */
+.lo-tdetail__priolabel { margin-inline-start: auto; font-size: 12px; font-weight: 600; }
+
+/* Saat satırı */
+.lo-tdetail__timerow { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.lo-tdetail__timelabel { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--fg3); font-weight: 500; }
+.lo-tdetail__time {
+  font-family: inherit; font-size: 13.5px; color: var(--fg1);
+  background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 9px; padding: 7px 11px;
+}
+.lo-tdetail__time:focus { outline: none; border-color: var(--accent); }
+.lo-tdetail__timeclear { border: none; background: none; color: var(--fg3); font-family: inherit; font-size: 12px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.lo-tdetail__timeclear:hover { background: var(--line-soft); color: var(--fg1); }
+
+/* Notlar */
+.lo-tdetail__notes {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 84px;
+  font-family: var(--font-sans); font-size: 13.5px; line-height: 1.6; color: var(--fg1);
+  background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 11px; padding: 11px 13px;
+}
+.lo-tdetail__notes:focus { outline: none; border-color: var(--accent); background: var(--bg); }
+.lo-tdetail__notes::placeholder { color: var(--fg3); }
+
+/* Modern takvim (date picker) */
+.lo-dp { background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.lo-dp__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.lo-dp__month { font-size: 13.5px; font-weight: 700; color: var(--fg1); text-transform: capitalize; }
+.lo-dp__nav { width: 26px; height: 26px; display: grid; place-items: center; border: none; background: transparent; border-radius: 7px; color: var(--fg2); cursor: pointer; }
+.lo-dp__nav:hover { background: var(--line); color: var(--fg1); }
+.lo-dp__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.lo-dp__wd { text-align: center; font-size: 10.5px; font-weight: 600; color: var(--fg3); padding-bottom: 2px; }
+.lo-dp__pad { aspect-ratio: 1; }
+.lo-dp__day {
+  aspect-ratio: 1; display: grid; place-items: center; border: none; background: transparent;
+  border-radius: 8px; font-family: inherit; font-size: 12.5px; color: var(--fg1); cursor: pointer;
+}
+.lo-dp__day:hover { background: var(--line); }
+.lo-dp__day.is-today { color: var(--accent); font-weight: 700; }
+.lo-dp__day.is-selected { background: var(--accent); color: #fff; font-weight: 700; }
+
+/* Tekrar detay kontrolleri */
+.lo-recur { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 11px; padding: 12px; }
+.lo-recur__row { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.lo-recur__lbl { font-size: 13px; color: var(--fg2); }
+.lo-recur__num { width: 56px; font-family: inherit; font-size: 13.5px; text-align: center; color: var(--fg1); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 4px; }
+.lo-recur__num:focus { outline: none; border-color: var(--accent); }
+.lo-recur__days { display: flex; gap: 4px; }
+.lo-recur__day { width: 32px; height: 30px; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; font-family: inherit; font-size: 12px; color: var(--fg2); cursor: pointer; }
+.lo-recur__day:hover { border-color: var(--accent); }
+.lo-recur__day.is-active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.lo-recur__hint { font-size: 12.5px; color: var(--fg3); }
+
+/* Liste kare onay kutusu */
+.lo-checkbox-sm { width: 15px; height: 15px; border: 1.7px solid var(--fg3); border-radius: 4px; display: block; transition: border-color .12s, background .12s; }
+.lo-checkbox-md {
+  width: 20px; height: 20px; border: 1.9px solid var(--fg3); border-radius: 6px;
+  display: grid; place-items: center; flex-shrink: 0; transition: border-color .12s, background .12s;
+}
+.lo-checkbox-md.is-overdue { border-color: var(--danger); }
+.lo-checkbox-md.is-done { background: var(--success); border-color: var(--success); }
+.lo-task__check:hover .lo-checkbox-md:not(.is-done) { border-color: var(--accent); }
+.lo-mini__check:hover .lo-checkbox-sm { border-color: var(--accent); background: var(--accent-soft); }
+.lo-mini__row.is-dragging { opacity: 0.45; }
+.lo-mini__row[draggable="true"] { cursor: grab; }
 .lo-tdetail__source {
   display: flex; align-items: center; gap: 6px;
   font-family: inherit; font-size: 12.5px; color: var(--fg2);

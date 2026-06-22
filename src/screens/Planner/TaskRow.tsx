@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Pencil, FileText, Target } from "lucide-react";
+import { Check, Pencil, FileText, Target } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import type { Task } from "../../data/sampleVault";
 
@@ -22,13 +22,10 @@ export function TaskRow({ task }: { task: Task }) {
           toggleTask(task.id);
         }}
         aria-label={task.done ? "Tamamlandı" : "Tamamla"}
-        style={{ color: task.done ? "var(--success)" : task.overdue ? "var(--danger)" : "var(--fg3)" }}
       >
-        {task.done ? (
-          <CheckCircle2 size={22} strokeWidth={1.9} fill="var(--success)" color="#fff" />
-        ) : (
-          <Circle size={22} strokeWidth={1.7} />
-        )}
+        <span className={"lo-checkbox-md" + (task.done ? " is-done" : "") + (overdueOpen ? " is-overdue" : "")}>
+          {task.done && <Check size={14} strokeWidth={3} color="#fff" />}
+        </span>
       </button>
 
       <div className="lo-task__body">

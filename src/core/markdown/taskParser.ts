@@ -30,14 +30,17 @@ export function parseTaskLine(file: string, line: number, raw: string): ParsedTa
   const tags = Array.from(body.matchAll(/#([\p{L}\d_/-]+)/gu)).map((x) => x[1]);
   const pomoMatch = body.match(/🍅\s*[×x]\s*(\d+)/);
   const priority = PRIORITIES.find((p) => body.includes(p));
-  const recMatch = body.match(/🔁\s*([^📅⏳🛫✅🔺⏫🔼🔽⏬#🍅]+)/u);
+  const recMatch = body.match(/🔁\s*([^📅⏳🛫✅🔺⏫🔼🔽⏬#🍅⏰]+)/u);
   const recurrence = recMatch ? recMatch[1].trim() : undefined;
+  const timeMatch = body.match(/⏰\s*(\d{1,2}:\d{2})/);
+  const time = timeMatch ? timeMatch[1] : undefined;
 
   // Açıklama: tüm meta token'ları çıkar, kalan metni temizle.
   let description = body
     .replace(new RegExp(`[${EMOJI.due}${EMOJI.scheduled}${EMOJI.start}${EMOJI.done}]\\s*${DATE}`, "gu"), "")
     .replace(/🍅\s*[×x]\s*\d+/g, "")
-    .replace(/🔁[^📅⏳🛫✅🔺⏫🔼🔽⏬#]*/g, "")
+    .replace(/⏰\s*\d{1,2}:\d{2}/g, "")
+    .replace(/🔁[^📅⏳🛫✅🔺⏫🔼🔽⏬#⏰]*/g, "")
     .replace(/#[\p{L}\d_/-]+/gu, "");
   for (const p of PRIORITIES) description = description.split(p).join("");
   description = description.replace(/\s+/g, " ").trim();
@@ -56,6 +59,7 @@ export function parseTaskLine(file: string, line: number, raw: string): ParsedTa
     pomos: pomoMatch ? Number(pomoMatch[1]) : 0,
     priority,
     recurrence,
+    time,
   };
 }
 
@@ -99,6 +103,7 @@ export interface TaskPatch {
   start?: string | null;
   priority?: string | null;
   recurrence?: string | null;
+  time?: string | null;
 }
 
 function pick<T>(patch: T | null | undefined, cur: T | undefined): T | undefined {
@@ -119,12 +124,14 @@ export function serializeTaskLine(t: ParsedTask, patch: TaskPatch = {}): string 
   const start = pick(patch.start, t.start);
   const scheduled = pick(patch.scheduled, t.scheduled);
   const due = pick(patch.due, t.due);
+  const time = pick(patch.time, t.time);
 
   const parts: string[] = [`${indent}- [${t.done ? "x" : " "}] ${description}`.trimEnd()];
   if (priority) parts.push(priority);
   for (const tag of t.tags) parts.push(`#${tag}`);
   if (t.pomos > 0) parts.push(`🍅 ×${t.pomos}`);
   if (recurrence) parts.push(`🔁 ${recurrence}`);
+  if (time) parts.push(`⏰ ${time}`);
   if (start) parts.push(`${EMOJI.start} ${start}`);
   if (scheduled) parts.push(`${EMOJI.scheduled} ${scheduled}`);
   if (due) parts.push(`${EMOJI.due} ${due}`);
@@ -137,6 +144,43 @@ export function applyTaskPatch(content: string, line: number, t: ParsedTask, pat
   const lines = content.split("\n");
   if (line < 0 || line >= lines.length) return content;
   lines[line] = serializeTaskLine(t, patch);
+  return lines.join("\n");
+}
+
+const NOTE_INDENT = "    "; // 4 boşluk
+// Not satırı: görevin altında girintili, madde/görev OLMAYAN düz metin.
+const isNoteLine = (l: string) => /^\s+(?![-*+]\s|\d+\.\s)\S/.test(l) && !TASK_RE.test(l);
+
+/** Görev satırından sonraki girintili not bloğunu düz metin olarak oku. */
+export function getTaskNotes(content: string, line: number): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  for (let i = line + 1; i < lines.length; i++) {
+    if (!isNoteLine(lines[i])) break;
+    out.push(lines[i].replace(/^\s{1,4}|\t/, ""));
+  }
+  return out.join("\n");
+}
+
+/** Görev satırının altındaki not bloğunu değiştir (yoksa ekle, boşsa kaldır). */
+export function setTaskNotes(content: string, line: number, notes: string): string {
+  const lines = content.split("\n");
+  if (line < 0 || line >= lines.length) return content;
+  let end = line + 1;
+  while (end < lines.length && isNoteLine(lines[end])) end++;
+  const block = notes.trim()
+    ? notes.trim().split("\n").map((l) => NOTE_INDENT + l)
+    : [];
+  lines.splice(line + 1, end - (line + 1), ...block);
+  return lines.join("\n");
+}
+
+/** Bir görev satırını dosya içinde başka bir satıra taşı (sürükle-bırak sıralama). */
+export function moveTaskLine(content: string, from: number, to: number): string {
+  const lines = content.split("\n");
+  if (from < 0 || from >= lines.length || to < 0 || to >= lines.length || from === to) return content;
+  const [moved] = lines.splice(from, 1);
+  lines.splice(to, 0, moved);
   return lines.join("\n");
 }
 

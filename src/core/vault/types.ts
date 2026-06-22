@@ -19,6 +19,8 @@ export interface ParsedTask {
   priority?: string;
   /** Tekrarlama kuralı (🔁 sonrası metin), ör. "every week". */
   recurrence?: string;
+  /** İsteğe bağlı saat (⏰ HH:MM). */
+  time?: string;
 }
 
 /** Vault içindeki bir not dosyası (dosya ağacı için). */

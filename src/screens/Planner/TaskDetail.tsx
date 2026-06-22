@@ -3,9 +3,11 @@ import { useTranslation } from "react-i18next";
 import {
   X,
   FileText,
+  Check,
   CheckCircle2,
   Circle,
   Calendar,
+  Clock,
   Repeat,
   Flag,
   Minus,
@@ -14,17 +16,23 @@ import {
   Equal,
   ChevronDown,
   ChevronsDown,
+  AlignLeft,
 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
+import { getTaskNotes } from "../../core/markdown/taskParser";
+import { DatePicker } from "./DatePicker";
 
 type RecurKey = "none" | "daily" | "weekly" | "monthly" | "yearly";
-const RECUR_TEXT: Record<RecurKey, string | null> = {
-  none: null,
-  daily: "every day",
-  weekly: "every week",
-  monthly: "every month",
-  yearly: "every year",
-};
+
+const WD_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const WD_TR = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 function recurToKey(r?: string): RecurKey {
   if (!r) return "none";
   const s = r.toLowerCase();
@@ -35,17 +43,49 @@ function recurToKey(r?: string): RecurKey {
   return "none";
 }
 
+/** Tekrar kontrollerinden Obsidian Tasks uyumlu metin üret. */
+function buildRecur(type: RecurKey, interval: number, weekday: number, dom: number): string | null {
+  if (type === "none") return null;
+  const n = Math.max(1, interval || 1);
+  const unit = type === "daily" ? "day" : type === "weekly" ? "week" : type === "monthly" ? "month" : "year";
+  const every = n === 1 ? `every ${unit}` : `every ${n} ${unit}s`;
+  if (type === "weekly") return `${every} on ${WD_EN[weekday] ?? "Monday"}`;
+  if (type === "monthly") return `${every} on the ${ordinal(dom || 1)}`;
+  return every;
+}
+
+/** Mevcut tekrar metninden kontrol değerlerini çöz. */
+function parseRecur(text?: string) {
+  const type = recurToKey(text);
+  let interval = 1;
+  let weekday = 0;
+  let dom = 1;
+  if (text) {
+    const mi = text.match(/every\s+(\d+)/i);
+    if (mi) interval = Number(mi[1]);
+    const mw = text.match(/on\s+([A-Za-z]+)/i);
+    if (mw) {
+      const idx = WD_EN.findIndex((w) => w.toLowerCase() === mw[1].toLowerCase());
+      if (idx >= 0) weekday = idx;
+    }
+    const md = text.match(/on the\s+(\d+)/i);
+    if (md) dom = Number(md[1]);
+  }
+  return { type, interval, weekday, dom };
+}
+
 function noteName(file: string) {
   return (file.split("/").pop() ?? file).replace(/\.md$/i, "");
 }
 
-/** Görev detay/düzenleme modalı — başlık, tek tarih, tekrar, öncelik, kaynak not. */
+/** Görev detay/düzenleme modalı — modern takvim, saat, tekrar, öncelik, notlar. */
 export function TaskDetail() {
   const { t } = useTranslation();
   const id = useAppStore((s) => s.selectedTask);
   const tasks = useAppStore((s) => s.parsedTasks);
+  const contents = useAppStore((s) => s.noteContents);
   const selectTask = useAppStore((s) => s.selectTask);
-  const updateTask = useAppStore((s) => s.updateTask);
+  const saveTask = useAppStore((s) => s.saveTask);
   const toggleTask = useAppStore((s) => s.toggleTask);
   const openNote = useAppStore((s) => s.openNote);
 
@@ -59,16 +99,29 @@ export function TaskDetail() {
 
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
   const [recur, setRecur] = useState<RecurKey>("none");
+  const [interval, setInterval] = useState(1);
+  const [weekday, setWeekday] = useState(0);
+  const [dom, setDom] = useState(1);
   const [priority, setPriority] = useState("");
+  const [notes, setNotes] = useState("");
 
-  // Modal açıldığında alanları seçili görevden doldur.
   useEffect(() => {
-    if (!task) return;
+    if (!task || !id) return;
     setTitle(task.description);
     setDate(task.due ?? task.scheduled ?? "");
-    setRecur(recurToKey(task.recurrence));
+    setTime(task.time ?? "");
+    const r = parseRecur(task.recurrence);
+    setRecur(r.type);
+    setInterval(r.interval);
+    setWeekday(r.weekday);
+    setDom(r.dom || (task.due ? Number(task.due.slice(8, 10)) : 1));
     setPriority(task.priority ?? "");
+    const sep = id.lastIndexOf(":");
+    const file = id.slice(0, sep);
+    const line = Number(id.slice(sep + 1));
+    setNotes(getTaskNotes(contents[file] ?? "", line));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -76,12 +129,17 @@ export function TaskDetail() {
 
   const close = () => selectTask(null);
   const save = async () => {
-    await updateTask(id, {
-      description: title,
-      due: date || null,
-      priority: priority || null,
-      recurrence: RECUR_TEXT[recur],
-    });
+    await saveTask(
+      id,
+      {
+        description: title,
+        due: date || null,
+        time: time || null,
+        priority: priority || null,
+        recurrence: buildRecur(recur, interval, weekday, dom),
+      },
+      notes
+    );
     close();
   };
 
@@ -93,6 +151,7 @@ export function TaskDetail() {
     { v: "🔽", Icon: ChevronDown, label: t("taskDetail.prioLow"), color: "#6E8FB8" },
     { v: "⏬", Icon: ChevronsDown, label: t("taskDetail.prioLowest"), color: "var(--fg3)" },
   ];
+  const activePrio = PRIO_OPTS.find((o) => o.v === priority) ?? PRIO_OPTS[0];
 
   const RECUR_OPTS: { k: RecurKey; label: string }[] = [
     { k: "none", label: t("taskDetail.recurNone") },
@@ -101,96 +160,199 @@ export function TaskDetail() {
     { k: "monthly", label: t("taskDetail.recurMonthly") },
     { k: "yearly", label: t("taskDetail.recurYearly") },
   ];
+  const unitLabel: Record<RecurKey, string> = {
+    none: "",
+    daily: t("taskDetail.unitDay"),
+    weekly: t("taskDetail.unitWeek"),
+    monthly: t("taskDetail.unitMonth"),
+    yearly: t("taskDetail.unitYear"),
+  };
 
   return (
     <div className="lo-modal" onClick={close}>
       <div className="lo-tdetail" onClick={(e) => e.stopPropagation()}>
         <div className="lo-tdetail__head">
-          <button
-            className="lo-tdetail__status"
-            onClick={() => void toggleTask(id)}
-            style={{ color: task.done ? "var(--success)" : "var(--fg3)" }}
-          >
-            {task.done ? (
-              <CheckCircle2 size={20} strokeWidth={1.9} fill="var(--success)" color="#fff" />
-            ) : (
-              <Circle size={20} strokeWidth={1.7} />
-            )}
-          </button>
           <span className="lo-tdetail__title">{t("taskDetail.title")}</span>
           <button className="lo-tdetail__close" onClick={close} aria-label={t("taskDetail.close")}>
             <X size={16} strokeWidth={2} />
           </button>
         </div>
 
-        {/* Başlık (görev metni) — düzenlenebilir */}
-        <input
-          className="lo-tdetail__name"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={t("taskDetail.titleField")}
-          autoFocus
-        />
+        <div className="lo-tdetail__body lo-scroll">
+          {/* Başlık + Tamamla */}
+          <input
+            className="lo-tdetail__name"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={t("taskDetail.titleField")}
+            autoFocus
+          />
+          <button
+            className={"lo-tdetail__complete" + (task.done ? " is-done" : "")}
+            onClick={() => void toggleTask(id)}
+          >
+            {task.done ? <CheckCircle2 size={16} strokeWidth={2.2} /> : <Circle size={16} strokeWidth={2} />}
+            {task.done ? t("taskDetail.undo") : t("taskDetail.complete")}
+          </button>
 
-        {/* Tek tarih */}
-        <label className="lo-tdetail__field">
-          <span className="lo-tdetail__label">
-            <Calendar size={13} strokeWidth={2} /> {t("taskDetail.date")}
-          </span>
-          <input type="date" className="lo-tdetail__date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
-
-        {/* Tekrar */}
-        <div className="lo-tdetail__field">
-          <span className="lo-tdetail__label">
-            <Repeat size={13} strokeWidth={2} /> {t("taskDetail.recurrence")}
-          </span>
-          <div className="lo-seg">
-            {RECUR_OPTS.map((o) => (
-              <button
-                key={o.k}
-                className={"lo-seg__btn" + (recur === o.k ? " is-active" : "")}
-                onClick={() => setRecur(o.k)}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Öncelik — ikon segmented */}
-        <div className="lo-tdetail__field">
-          <span className="lo-tdetail__label">
-            <Flag size={13} strokeWidth={2} /> {t("taskDetail.priority")}
-          </span>
-          <div className="lo-prio">
-            {PRIO_OPTS.map((o) => {
-              const active = priority === o.v;
-              return (
-                <button
-                  key={o.label}
-                  className={"lo-prio__btn" + (active ? " is-active" : "")}
-                  title={o.label}
-                  onClick={() => setPriority(o.v)}
-                  style={active ? { color: o.color, borderColor: o.color } : undefined}
-                >
-                  <o.Icon size={17} strokeWidth={2.1} color={active ? o.color : "var(--fg3)"} />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {(task.tags.length > 0 || task.pomos > 0) && (
-          <div className="lo-tdetail__chips">
-            {task.tags.map((tag) => (
-              <span className="lo-chip lo-chip--tag" key={tag}>
-                #{tag}
+          {/* Tarih + saat */}
+          <div className="lo-tdetail__field">
+            <span className="lo-tdetail__label">
+              <Calendar size={13} strokeWidth={2} /> {t("taskDetail.date")}
+            </span>
+            <DatePicker value={date} onChange={setDate} />
+            <div className="lo-tdetail__timerow">
+              <span className="lo-tdetail__timelabel">
+                <Clock size={13} strokeWidth={2} /> {t("taskDetail.time")}
               </span>
-            ))}
-            {task.pomos > 0 && <span className="lo-chip lo-chip--pomo">🍅 ×{task.pomos}</span>}
+              <input
+                type="time"
+                className="lo-tdetail__time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+              />
+              {time && (
+                <button className="lo-tdetail__timeclear" onClick={() => setTime("")}>
+                  {t("taskDetail.clear")}
+                </button>
+              )}
+              {date && (
+                <button className="lo-tdetail__timeclear" onClick={() => setDate("")}>
+                  {t("taskDetail.clearDate")}
+                </button>
+              )}
+            </div>
           </div>
-        )}
+
+          {/* Tekrar */}
+          <div className="lo-tdetail__field">
+            <span className="lo-tdetail__label">
+              <Repeat size={13} strokeWidth={2} /> {t("taskDetail.recurrence")}
+            </span>
+            <div className="lo-seg">
+              {RECUR_OPTS.map((o) => (
+                <button
+                  key={o.k}
+                  className={"lo-seg__btn" + (recur === o.k ? " is-active" : "")}
+                  onClick={() => setRecur(o.k)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+
+            {recur !== "none" && (
+              <div className="lo-recur">
+                {/* Aralık (her N) */}
+                <div className="lo-recur__row">
+                  <span className="lo-recur__lbl">{t("taskDetail.every")}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    className="lo-recur__num"
+                    value={interval}
+                    onChange={(e) => setInterval(Math.max(1, Math.min(99, Number(e.target.value) || 1)))}
+                  />
+                  <span className="lo-recur__lbl">{unitLabel[recur]}</span>
+                </div>
+
+                {/* Haftalık → gün seçimi */}
+                {recur === "weekly" && (
+                  <div className="lo-recur__row">
+                    <span className="lo-recur__lbl">{t("taskDetail.onDay")}</span>
+                    <div className="lo-recur__days">
+                      {WD_TR.map((w, i) => (
+                        <button
+                          key={w}
+                          className={"lo-recur__day" + (weekday === i ? " is-active" : "")}
+                          onClick={() => setWeekday(i)}
+                        >
+                          {w}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Aylık → ayın günü */}
+                {recur === "monthly" && (
+                  <div className="lo-recur__row">
+                    <span className="lo-recur__lbl">{t("taskDetail.monthDayPre")}</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      className="lo-recur__num"
+                      value={dom}
+                      onChange={(e) => setDom(Math.max(1, Math.min(31, Number(e.target.value) || 1)))}
+                    />
+                    <span className="lo-recur__lbl">{t("taskDetail.monthDayPost")}</span>
+                  </div>
+                )}
+
+                {/* Yıllık → tarih bazlı */}
+                {recur === "yearly" && <div className="lo-recur__hint">{t("taskDetail.yearlyHint")}</div>}
+
+                {/* Günlük → saatten yararlan ipucu */}
+                {recur === "daily" && time && (
+                  <div className="lo-recur__hint">{t("taskDetail.dailyTimeHint", { time })}</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Öncelik + seçili etiket */}
+          <div className="lo-tdetail__field">
+            <span className="lo-tdetail__label">
+              <Flag size={13} strokeWidth={2} /> {t("taskDetail.priority")}
+              <span className="lo-tdetail__priolabel" style={{ color: activePrio.color }}>
+                {activePrio.label}
+              </span>
+            </span>
+            <div className="lo-prio">
+              {PRIO_OPTS.map((o) => {
+                const active = priority === o.v;
+                return (
+                  <button
+                    key={o.label}
+                    className={"lo-prio__btn" + (active ? " is-active" : "")}
+                    title={o.label}
+                    onClick={() => setPriority(o.v)}
+                    style={active ? { color: o.color, borderColor: o.color } : undefined}
+                  >
+                    <o.Icon size={17} strokeWidth={2.1} color={active ? o.color : "var(--fg3)"} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Notlar */}
+          <div className="lo-tdetail__field">
+            <span className="lo-tdetail__label">
+              <AlignLeft size={13} strokeWidth={2} /> {t("taskDetail.notes")}
+            </span>
+            <textarea
+              className="lo-tdetail__notes lo-scroll"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={t("taskDetail.notesPlaceholder")}
+              rows={4}
+            />
+          </div>
+
+          {(task.tags.length > 0 || task.pomos > 0) && (
+            <div className="lo-tdetail__chips">
+              {task.tags.map((tag) => (
+                <span className="lo-chip lo-chip--tag" key={tag}>
+                  #{tag}
+                </span>
+              ))}
+              {task.pomos > 0 && <span className="lo-chip lo-chip--pomo">🍅 ×{task.pomos}</span>}
+            </div>
+          )}
+        </div>
 
         <div className="lo-tdetail__foot">
           <button
@@ -204,6 +366,7 @@ export function TaskDetail() {
             {noteName(task.file)}
           </button>
           <button className="lo-tdetail__save" onClick={() => void save()}>
+            <Check size={15} strokeWidth={2.4} />
             {t("taskDetail.save")}
           </button>
         </div>
