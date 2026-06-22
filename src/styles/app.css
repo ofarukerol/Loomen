@@ -1488,8 +1488,23 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-recur { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 11px; padding: 12px; }
 .lo-recur__row { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .lo-recur__lbl { font-size: 13px; color: var(--fg2); }
-.lo-recur__num { width: 56px; font-family: inherit; font-size: 13.5px; text-align: center; color: var(--fg1); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 4px; }
-.lo-recur__num:focus { outline: none; border-color: var(--accent); }
+/* Modern sayı stepper (− N +) */
+.lo-stepper { display: inline-flex; align-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.lo-stepper:focus-within { border-color: var(--accent); }
+.lo-stepper__btn {
+  width: 30px; height: 32px; display: grid; place-items: center; flex-shrink: 0;
+  border: none; background: transparent; color: var(--fg2); cursor: pointer; transition: background .1s, color .1s;
+}
+.lo-stepper__btn:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+.lo-stepper__btn:active:not(:disabled) { background: var(--accent); color: #fff; }
+.lo-stepper__btn:disabled { opacity: 0.32; cursor: default; }
+.lo-stepper__val {
+  width: 38px; text-align: center; border: none; border-inline: 1px solid var(--line);
+  background: transparent; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--fg1);
+  padding: 7px 0; -moz-appearance: textfield;
+}
+.lo-stepper__val::-webkit-outer-spin-button, .lo-stepper__val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.lo-stepper__val:focus { outline: none; }
 .lo-recur__days { display: flex; gap: 4px; }
 .lo-recur__day { width: 32px; height: 30px; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; font-family: inherit; font-size: 12px; color: var(--fg2); cursor: pointer; }
 .lo-recur__day:hover { border-color: var(--accent); }

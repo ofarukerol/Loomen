@@ -26,6 +26,7 @@ import {
 import { useAppStore } from "../../store/useAppStore";
 import { getTaskNotes } from "../../core/markdown/taskParser";
 import { DatePicker } from "./DatePicker";
+import { Stepper } from "./Stepper";
 
 type RecurKey = "none" | "daily" | "weekly" | "monthly" | "yearly";
 
@@ -297,14 +298,7 @@ export function TaskDetail() {
                 {/* Aralık (her N) */}
                 <div className="lo-recur__row">
                   <span className="lo-recur__lbl">{t("taskDetail.every")}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={99}
-                    className="lo-recur__num"
-                    value={interval}
-                    onChange={(e) => setInterval(Math.max(1, Math.min(99, Number(e.target.value) || 1)))}
-                  />
+                  <Stepper value={interval} min={1} max={99} onChange={setInterval} />
                   <span className="lo-recur__lbl">{unitLabel[recur]}</span>
                 </div>
 
@@ -330,14 +324,7 @@ export function TaskDetail() {
                 {recur === "monthly" && (
                   <div className="lo-recur__row">
                     <span className="lo-recur__lbl">{t("taskDetail.monthDayPre")}</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={31}
-                      className="lo-recur__num"
-                      value={dom}
-                      onChange={(e) => setDom(Math.max(1, Math.min(31, Number(e.target.value) || 1)))}
-                    />
+                    <Stepper value={dom} min={1} max={31} onChange={setDom} />
                     <span className="lo-recur__lbl">{t("taskDetail.monthDayPost")}</span>
                   </div>
                 )}
