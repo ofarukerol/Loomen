@@ -242,6 +242,8 @@ export function TaskDetail() {
             {task.done ? t("taskDetail.undo") : t("taskDetail.complete")}
           </button>
 
+          <div className="lo-tdetail__cols">
+          <div className="lo-tdetail__col">
           {/* Tarih + saat */}
           <div className="lo-tdetail__field">
             <span className="lo-tdetail__label">
@@ -270,7 +272,9 @@ export function TaskDetail() {
               )}
             </div>
           </div>
+          </div>
 
+          <div className="lo-tdetail__col">
           {/* Tekrar */}
           <div className="lo-tdetail__field">
             <span className="lo-tdetail__label">
@@ -373,6 +377,8 @@ export function TaskDetail() {
                 );
               })}
             </div>
+          </div>
+          </div>
           </div>
 
           {/* Notlar — basit biçimlendirme araç çubuğu + alan */}
