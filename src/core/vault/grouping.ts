@@ -89,8 +89,10 @@ export function groupTasks(
   todayISO: string,
   order: Record<string, number> = {}
 ): GroupedTasks {
-  const dated = tasks.filter((t) => planDate(t));
-  const unplannedList = tasks
+  // Alt görevler (girintili) ajandada görünmez — yalnız üst görevler.
+  const top = tasks.filter((t) => (t.indent ?? 0) === 0);
+  const dated = top.filter((t) => planDate(t));
+  const unplannedList = top
     .filter((t) => !planDate(t) && !t.done)
     .sort((a, b) => taskSortVal(a, order) - taskSortVal(b, order));
   const unplanned = unplannedList.length;
@@ -127,7 +129,7 @@ export function groupTasks(
 
 /** "Bugüne Odaklan" sayaçları (docs 06 §4). */
 export function focusCounts(tasks: ParsedTask[], todayISO: string) {
-  const open = tasks.filter((t) => !t.done);
+  const open = tasks.filter((t) => !t.done && (t.indent ?? 0) === 0);
   const yapilacak = open.filter((t) => {
     const d = planDate(t);
     return d && differenceInCalendarDays(parseISO(d), parseISO(todayISO)) >= 0;

@@ -1,4 +1,5 @@
 import type { VaultBackend, VaultNote } from "./types";
+import { TRASH_DIR, encodeTrashName, toTrashEntry, type TrashEntry } from "./trash";
 
 // Tarayıcı/fallback için in-memory kasa. Tauri yokken (veya kasa seçilmeden) UI bununla çalışır.
 // Görevler ayrı "Yapılacaklar.md" dosyasında; günlük notlar (Günlük/YYYY/MM-Ay/) sadece journal — görev içermez.
@@ -72,13 +73,15 @@ export function createSampleBackend(): VaultBackend {
   const store = { ...SEED };
   return {
     async listNotes(): Promise<VaultNote[]> {
-      return Object.keys(store).map((path) => {
-        const parts = path.split("/");
-        const file = parts.pop()!;
-        const kind = /\.excalidraw$/i.test(file) ? "draw" : "note";
-        const name = file.replace(/\.(md|excalidraw)$/i, "");
-        return { path, name, folder: parts.join("/"), kind } as const;
-      });
+      return Object.keys(store)
+        .filter((path) => !path.startsWith(".")) // .trash vb. dotfolder'ları atla
+        .map((path) => {
+          const parts = path.split("/");
+          const file = parts.pop()!;
+          const kind = /\.excalidraw$/i.test(file) ? "draw" : "note";
+          const name = file.replace(/\.(md|excalidraw)$/i, "");
+          return { path, name, folder: parts.join("/"), kind } as const;
+        });
     },
     async readNote(path) {
       return store[path] ?? "";
@@ -96,6 +99,38 @@ export function createSampleBackend(): VaultBackend {
       if (!(from in store)) return;
       store[to] = store[from];
       delete store[from];
+    },
+    async trashNote(path) {
+      if (!(path in store)) return;
+      const trashName = encodeTrashName(path, Date.now());
+      store[`${TRASH_DIR}/${trashName}`] = store[path];
+      delete store[path];
+    },
+    async listTrash(): Promise<TrashEntry[]> {
+      const prefix = `${TRASH_DIR}/`;
+      return Object.keys(store)
+        .filter((p) => p.startsWith(prefix))
+        .map((p) => toTrashEntry(p.slice(prefix.length)))
+        .filter((t): t is TrashEntry => !!t)
+        .sort((a, b) => b.deletedAt - a.deletedAt);
+    },
+    async restoreFromTrash(trashName) {
+      const key = `${TRASH_DIR}/${trashName}`;
+      const t = toTrashEntry(trashName);
+      if (!t || !(key in store)) throw new Error("Geçersiz çöp kaydı");
+      let target = t.originalPath;
+      if (target in store) {
+        const dot = target.lastIndexOf(".");
+        const base = dot > 0 ? target.slice(0, dot) : target;
+        const ext = dot > 0 ? target.slice(dot) : "";
+        target = `${base} (geri yüklendi ${Date.now()})${ext}`;
+      }
+      store[target] = store[key];
+      delete store[key];
+      return target;
+    },
+    async purgeTrashItem(trashName) {
+      delete store[`${TRASH_DIR}/${trashName}`];
     },
   };
 }

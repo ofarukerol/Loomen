@@ -1,4 +1,5 @@
 // Vault çekirdek tipleri — platformdan bağımsız (bkz docs 03 §2).
+import type { TrashEntry } from "./trash";
 
 /** Bir .md dosyasından parse edilmiş görev (Obsidian Tasks uyumlu). */
 export interface ParsedTask {
@@ -8,6 +9,8 @@ export interface ParsedTask {
   line: number;
   /** Orijinal satır (round-trip için). */
   raw: string;
+  /** Satır başı girinti uzunluğu (0 = üst görev, >0 = alt görev). */
+  indent?: number;
   done: boolean;
   description: string;
   due?: string; // ISO yyyy-mm-dd
@@ -57,4 +60,14 @@ export interface VaultBackend {
   ensureDir(dir: string): Promise<void>;
   /** Bir dosyayı yeni yola taşı/yeniden adlandır (hedef klasör garanti edilir). */
   rename(from: string, to: string): Promise<void>;
+
+  // — Çöp kutusu (kalıcı silmeden önce 30 gün saklama) —
+  /** Bir notu `.trash`'e taşı (kalıcı silmez). */
+  trashNote(path: string): Promise<void>;
+  /** Çöp kutusundaki kayıtları listele (yeni silinen önce). */
+  listTrash(): Promise<TrashEntry[]>;
+  /** Bir kaydı orijinal konumuna geri yükle; çakışırsa yeni ad türetir. Geri yüklenen yolu döner. */
+  restoreFromTrash(trashName: string): Promise<string>;
+  /** Bir çöp kaydını kalıcı sil. */
+  purgeTrashItem(trashName: string): Promise<void>;
 }

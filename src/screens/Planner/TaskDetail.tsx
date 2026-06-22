@@ -22,9 +22,12 @@ import {
   Strikethrough,
   Heading2,
   List,
+  ListTodo,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
-import { getTaskNotes } from "../../core/markdown/taskParser";
+import { getTaskNotes, getSubtasks } from "../../core/markdown/taskParser";
 import { DatePicker } from "./DatePicker";
 import { Stepper } from "./Stepper";
 
@@ -112,6 +115,8 @@ export function TaskDetail() {
   const [dom, setDom] = useState(1);
   const [priority, setPriority] = useState("");
   const [notes, setNotes] = useState("");
+  const [subtasks, setSubtasks] = useState<{ text: string; done: boolean }[]>([]);
+  const [newSub, setNewSub] = useState("");
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
   // Esc → modalı kapat.
@@ -139,6 +144,8 @@ export function TaskDetail() {
     const file = id.slice(0, sep);
     const line = Number(id.slice(sep + 1));
     setNotes(getTaskNotes(contents[file] ?? "", line));
+    setSubtasks(getSubtasks(contents[file] ?? "", line).map((sub) => ({ text: sub.text, done: sub.done })));
+    setNewSub("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -146,6 +153,8 @@ export function TaskDetail() {
 
   const close = () => selectTask(null);
   const save = async () => {
+    // Yazılmamış (henüz Enter'lanmamış) alt görev metnini de dahil et.
+    const allSubs = newSub.trim() ? [...subtasks, { text: newSub.trim(), done: false }] : subtasks;
     await saveTask(
       id,
       {
@@ -155,10 +164,25 @@ export function TaskDetail() {
         priority: priority || null,
         recurrence: buildRecur(recur, interval, weekday, dom),
       },
-      notes
+      notes,
+      allSubs
     );
     close();
   };
+
+  // Alt görev işlemleri (yerel — Kaydet'te dosyaya yazılır).
+  const toggleSub = (i: number) =>
+    setSubtasks(subtasks.map((sub, j) => (j === i ? { ...sub, done: !sub.done } : sub)));
+  const editSub = (i: number, text: string) =>
+    setSubtasks(subtasks.map((sub, j) => (j === i ? { ...sub, text } : sub)));
+  const removeSub = (i: number) => setSubtasks(subtasks.filter((_, j) => j !== i));
+  const commitNewSub = () => {
+    const v = newSub.trim();
+    if (!v) return;
+    setSubtasks([...subtasks, { text: v, done: false }]);
+    setNewSub("");
+  };
+  const subDone = subtasks.filter((sub) => sub.done).length;
 
   const PRIO_OPTS: { v: string; Icon: typeof Minus; label: string; color: string }[] = [
     { v: "", Icon: Minus, label: t("taskDetail.prioNone"), color: "var(--fg3)" },
@@ -366,6 +390,60 @@ export function TaskDetail() {
             </div>
           </div>
           </div>
+          </div>
+
+          {/* Alt görevler */}
+          <div className="lo-tdetail__field">
+            <span className="lo-tdetail__label">
+              <ListTodo size={13} strokeWidth={2} /> {t("taskDetail.subtasks")}
+              {subtasks.length > 0 && (
+                <span className="lo-tdetail__subcount">
+                  {subDone}/{subtasks.length}
+                </span>
+              )}
+            </span>
+            <div className="lo-subtasks">
+              {subtasks.map((sub, i) => (
+                <div className="lo-subtask" key={i}>
+                  <button
+                    className={"lo-subtask__check" + (sub.done ? " is-done" : "")}
+                    onClick={() => toggleSub(i)}
+                    aria-label={sub.done ? t("taskDetail.undo") : t("taskDetail.complete")}
+                  >
+                    {sub.done ? <CheckCircle2 size={16} strokeWidth={2.2} /> : <Circle size={16} strokeWidth={2} />}
+                  </button>
+                  <input
+                    className={"lo-subtask__text" + (sub.done ? " is-done" : "")}
+                    value={sub.text}
+                    onChange={(e) => editSub(i, e.target.value)}
+                    placeholder={t("taskDetail.subtaskNew")}
+                  />
+                  <button
+                    className="lo-subtask__del"
+                    onClick={() => removeSub(i)}
+                    aria-label={t("taskDetail.clear")}
+                  >
+                    <Trash2 size={14} strokeWidth={2} />
+                  </button>
+                </div>
+              ))}
+              <div className="lo-subtask lo-subtask--add">
+                <Plus size={15} strokeWidth={2.2} className="lo-subtask__addicon" />
+                <input
+                  className="lo-subtask__text"
+                  value={newSub}
+                  onChange={(e) => setNewSub(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitNewSub();
+                    }
+                  }}
+                  onBlur={commitNewSub}
+                  placeholder={t("taskDetail.addSubtask")}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Notlar — basit biçimlendirme araç çubuğu + alan */}

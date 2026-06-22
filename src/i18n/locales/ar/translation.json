@@ -36,7 +36,23 @@
     "favorites": "المفضلة",
     "addFavorite": "أضف إلى المفضلة",
     "removeFavorite": "أزل من المفضلة",
-    "switchVault": "تبديل الخزينة"
+    "switchVault": "تبديل الخزينة",
+    "delete": "نقل إلى سلة المهملات"
+  },
+  "trash": {
+    "title": "سلة المهملات",
+    "close": "إغلاق",
+    "retention": "تُحفظ الملاحظات المحذوفة لمدة {{days}} يومًا ثم تُحذف نهائيًا.",
+    "emptyState": "سلة المهملات فارغة.",
+    "daysLeft": "بقي {{days}} يومًا",
+    "restore": "استعادة",
+    "deletePermanent": "حذف نهائي",
+    "sure": "حذف نهائي؟",
+    "yes": "نعم",
+    "no": "إلغاء",
+    "confirmEmpty": "ستُحذف جميع العناصر نهائيًا.",
+    "emptyConfirmYes": "تفريغ",
+    "emptyAll": "تفريغ سلة المهملات"
   },
   "planner": {
     "focusToday": "ركّز على اليوم",
@@ -99,6 +115,9 @@
     "monthDayPost": "من الشهر",
     "yearlyHint": "يتكرر كل عام بناءً على التاريخ أعلاه.",
     "dailyTimeHint": "كل يوم في {{time}}.",
+    "subtasks": "مهام فرعية",
+    "addSubtask": "أضف مهمة فرعية…",
+    "subtaskNew": "مهمة فرعية",
     "notes": "ملاحظات",
     "notesPlaceholder": "ملاحظات حول هذه المهمة… (markdown)",
     "bold": "عريض",

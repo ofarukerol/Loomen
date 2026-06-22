@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { PanelLeft, PanelRight, Plus, X, Pin, FileText, Shapes } from "lucide-react";
+import { PanelLeft, PanelRightClose, Plus, X, Pin, FileText, Shapes } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
 
@@ -121,7 +121,7 @@ export function TopBar() {
         title={t("planner.toggleRight")}
         onClick={toggleRight}
       >
-        <PanelRight size={17} strokeWidth={1.9} />
+        <PanelRightClose size={17} strokeWidth={1.9} />
       </button>
     </div>
   );

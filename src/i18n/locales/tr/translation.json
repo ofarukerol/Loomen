@@ -40,7 +40,23 @@
     "favorites": "Favoriler",
     "addFavorite": "Favorilere ekle",
     "removeFavorite": "Favorilerden çıkar",
-    "switchVault": "Kasa değiştir"
+    "switchVault": "Kasa değiştir",
+    "delete": "Çöp kutusuna taşı"
+  },
+  "trash": {
+    "title": "Çöp Kutusu",
+    "close": "Kapat",
+    "retention": "Silinen notlar {{days}} gün saklanır, sonra kalıcı silinir.",
+    "emptyState": "Çöp kutusu boş.",
+    "daysLeft": "{{days}} gün kaldı",
+    "restore": "Geri yükle",
+    "deletePermanent": "Kalıcı sil",
+    "sure": "Kalıcı silinsin mi?",
+    "yes": "Evet",
+    "no": "Vazgeç",
+    "confirmEmpty": "Tüm kayıtlar kalıcı silinecek.",
+    "emptyConfirmYes": "Boşalt",
+    "emptyAll": "Çöp kutusunu boşalt"
   },
   "planner": {
     "focusToday": "Bugüne Odaklan",
@@ -103,6 +119,9 @@
     "monthDayPost": ". günü",
     "yearlyHint": "Yukarıdaki tarihe göre her yıl tekrarlanır.",
     "dailyTimeHint": "Her gün {{time}} saatinde.",
+    "subtasks": "Alt görevler",
+    "addSubtask": "Alt görev ekle…",
+    "subtaskNew": "Alt görev",
     "notes": "Notlar",
     "notesPlaceholder": "Bu görevle ilgili notlar… (markdown)",
     "bold": "Kalın",

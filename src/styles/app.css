@@ -270,6 +270,24 @@ button { font-family: inherit; }
 }
 .lo-tree__file:hover { background: var(--line-soft); color: var(--fg1); }
 .lo-tree__file.is-active { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+/* Günlük — klasörlerin en BAŞINDA sabit, ayrı soft renk (teal) bölüm */
+.lo-explorer__daily {
+  flex-shrink: 0;
+  max-height: 32%;
+  overflow-y: auto;
+  padding: 8px 10px 7px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-sunken);
+}
+/* Çizimler — Günlük'ün altında sabit, belirgin (soft) bölüm */
+.lo-explorer__draw {
+  flex-shrink: 0;
+  max-height: 32%;
+  overflow-y: auto;
+  padding: 8px 10px 7px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-sunken);
+}
 /* Şablonlar — klasörlerin en altında sabit, belirgin bölüm (kaydırma alanından ayrı) */
 .lo-explorer__tpl {
   flex-shrink: 0;
@@ -279,9 +297,14 @@ button { font-family: inherit; }
   border-top: 1px solid var(--line);
   background: var(--bg-sunken);
 }
-.lo-tree__group--tpl { color: var(--accent-2); font-weight: 700; letter-spacing: 0.2px; }
-.lo-tree__group--tpl:hover { color: var(--accent-2); background: var(--accent-soft); }
-.lo-tree__group--tpl > svg:first-child { color: var(--accent-2); }
+/* Sabitlenmiş özel klasör başlığı (Çizimler / Şablonlar) — soft amber vurgu */
+.lo-tree__group--pin { color: var(--accent-2); font-weight: 700; letter-spacing: 0.2px; }
+.lo-tree__group--pin:hover { color: var(--accent-2); background: var(--accent-soft); }
+.lo-tree__group--pin > svg:first-child { color: var(--accent-2); }
+/* Günlük — aynı sabit stil ama ayrı soft renk (teal) */
+.lo-tree__group--pin-daily { color: var(--daily); }
+.lo-tree__group--pin-daily:hover { color: var(--daily); background: var(--daily-soft); }
+.lo-tree__group--pin-daily > svg:first-child { color: var(--daily); }
 .lo-explorer__foot {
   padding: 8px 12px 8px 14px;
   border-top: 1px solid var(--line);
@@ -1478,6 +1501,37 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-tdetail__notes:focus { outline: none; }
 .lo-tdetail__notes::placeholder { color: var(--fg3); }
 
+/* Alt görevler */
+.lo-tdetail__subcount {
+  margin-inline-start: auto; font-size: 11.5px; font-weight: 600; color: var(--fg3);
+  font-family: var(--font-mono);
+}
+.lo-subtasks { display: flex; flex-direction: column; gap: 3px; }
+.lo-subtask { display: flex; align-items: center; gap: 7px; border-radius: 8px; padding: 2px 4px; }
+.lo-subtask:hover { background: var(--line-soft); }
+.lo-subtask__check {
+  flex-shrink: 0; width: 22px; height: 22px; border: none; background: transparent; cursor: pointer;
+  color: var(--fg3); display: flex; align-items: center; justify-content: center; border-radius: 50%;
+}
+.lo-subtask__check:hover { color: var(--accent); }
+.lo-subtask__check.is-done { color: var(--success); }
+.lo-subtask__text {
+  flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+  font-family: var(--font-sans); font-size: 13.5px; color: var(--fg1); padding: 4px 2px;
+}
+.lo-subtask__text.is-done { color: var(--fg3); text-decoration: line-through; }
+.lo-subtask__text::placeholder { color: var(--fg3); }
+.lo-subtask__del {
+  flex-shrink: 0; width: 24px; height: 24px; border: none; background: transparent; cursor: pointer;
+  color: var(--fg3); display: flex; align-items: center; justify-content: center; border-radius: 6px;
+  opacity: 0; transition: opacity var(--dur-fast);
+}
+.lo-subtask:hover .lo-subtask__del { opacity: 1; }
+.lo-subtask__del:hover { background: var(--danger-bg); color: var(--danger); }
+.lo-subtask--add { opacity: 0.9; }
+.lo-subtask--add:hover { background: transparent; }
+.lo-subtask__addicon { flex-shrink: 0; width: 22px; color: var(--fg3); }
+
 /* Modern takvim (date picker) — kompakt */
 .lo-dp { background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 11px; padding: 8px 9px; }
 .lo-dp__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
@@ -1532,16 +1586,17 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-checkbox-md.is-done { background: var(--success); border-color: var(--success); }
 .lo-task__check:hover .lo-checkbox-md:not(.is-done) { border-color: var(--accent); }
 .lo-mini__check:hover .lo-checkbox-sm { border-color: var(--accent); background: var(--accent-soft); }
-.lo-mini__row.is-dragging { opacity: 0.4; }
-.lo-mini__row[draggable="true"] { cursor: grab; }
-.lo-mini__row[draggable="true"]:active { cursor: grabbing; }
-/* Bırakma göstergesi — hedef satırın üstünde vurgu çizgisi (öne eklenir) */
-.lo-mini__row.is-over::before {
-  content: ""; position: absolute; left: 6px; right: 6px; top: -2px; height: 2.5px;
-  background: var(--accent); border-radius: 2px;
-  box-shadow: 0 0 0 2px var(--accent-soft);
+.lo-mini__row { touch-action: none; }
+.lo-mini__row.is-dragging { opacity: 0.4; cursor: grabbing; }
+/* Bırakma göstergesi — imlecin konumuna göre hedefin ÜSTÜNE (öncesine) ya da ALTINA (sonrasına)
+   net bir ekleme çizgisi; görev tam olarak çizginin olduğu yere bırakılır. */
+.lo-mini__row.is-over-before::before,
+.lo-mini__row.is-over-after::after {
+  content: ""; position: absolute; left: 10px; right: 10px; height: 1px; z-index: 2;
+  background: var(--accent); border-radius: 1px; opacity: 0.6;
 }
-.lo-mini__row.is-over { background: var(--accent-soft); }
+.lo-mini__row.is-over-before::before { top: -0.5px; }
+.lo-mini__row.is-over-after::after { bottom: -0.5px; }
 .lo-tdetail__source {
   display: flex; align-items: center; gap: 6px;
   font-family: inherit; font-size: 12.5px; color: var(--fg2);
@@ -1587,6 +1642,69 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   text-align: start;
 }
 .lo-ctxmenu__item:hover { background: var(--line-soft); color: var(--accent); }
+.lo-ctxmenu__item--danger { color: var(--danger); }
+.lo-ctxmenu__item--danger:hover { background: var(--danger-bg); color: var(--danger); }
+
+/* Explorer çöp kutusu butonu + rozet */
+.lo-explorer__trash { position: relative; }
+.lo-explorer__trashbadge {
+  position: absolute; top: 1px; inset-inline-end: 1px;
+  min-width: 14px; height: 14px; padding: 0 3px; border-radius: 999px;
+  background: var(--accent); color: #fff; font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+}
+
+/* Çöp kutusu modalı */
+.lo-trash {
+  width: 480px; max-width: 100%; max-height: 80vh;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: var(--sh3); display: flex; flex-direction: column; overflow: hidden;
+}
+.lo-trash__count {
+  margin-inline-start: 8px; padding: 1px 7px; border-radius: 999px;
+  background: var(--line-soft); color: var(--fg2); font-size: 11px; font-weight: 600;
+}
+.lo-trash__hint { padding: 0 20px 10px; font-size: 12px; color: var(--fg3); flex-shrink: 0; }
+.lo-trash__empty { padding: 30px 20px 36px; text-align: center; color: var(--fg3); font-size: 13px; }
+.lo-trash__list { flex: 1; overflow-y: auto; padding: 2px 12px 8px; }
+.lo-trash__row {
+  display: flex; align-items: center; gap: 11px; padding: 9px 8px;
+  border-radius: 9px; border-bottom: 1px solid var(--line-soft);
+}
+.lo-trash__row:last-child { border-bottom: none; }
+.lo-trash__row:hover { background: var(--line-soft); }
+.lo-trash__info { flex: 1; min-width: 0; }
+.lo-trash__name { font-size: 13.5px; color: var(--fg1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-trash__meta { font-size: 11px; color: var(--fg3); margin-top: 1px; }
+.lo-trash__actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.lo-trash__btn {
+  display: flex; align-items: center; gap: 5px; border: 1px solid var(--line);
+  background: transparent; cursor: pointer; border-radius: 7px; padding: 5px 9px;
+  font-family: inherit; font-size: 12px; color: var(--fg2);
+}
+.lo-trash__btn:hover { border-color: var(--accent); color: var(--accent); }
+.lo-trash__btn--danger { padding: 5px 7px; }
+.lo-trash__btn--danger:hover { border-color: var(--danger); color: var(--danger); }
+.lo-trash__confirm {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  font-size: 12px; color: var(--fg2);
+}
+.lo-trash__danger {
+  border: none; background: var(--danger); color: #fff; cursor: pointer;
+  border-radius: 7px; padding: 5px 11px; font-family: inherit; font-size: 12px; font-weight: 600;
+}
+.lo-trash__ghost {
+  border: 1px solid var(--line); background: transparent; color: var(--fg2); cursor: pointer;
+  border-radius: 7px; padding: 5px 11px; font-family: inherit; font-size: 12px;
+}
+.lo-trash__ghost:hover { background: var(--line-soft); }
+.lo-trash__foot { padding: 10px 16px 14px; border-top: 1px solid var(--line); flex-shrink: 0; }
+.lo-trash__empty-btn {
+  display: flex; align-items: center; gap: 7px; border: 1px solid var(--line);
+  background: transparent; cursor: pointer; border-radius: 8px; padding: 7px 12px;
+  font-family: inherit; font-size: 12.5px; color: var(--fg2);
+}
+.lo-trash__empty-btn:hover { border-color: var(--danger); color: var(--danger); }
 
 .lo-rename {
   display: flex;
@@ -1761,12 +1879,13 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-topbar > .lo-topbar__toggle, .lo-topbar > .lo-topbar__new { align-self: center; }
 /* macOS trafik ışıklarının ribbon'a taşan kısmı için minik boşluk (gezgin kapalıyken) */
 .lo-topbar__os { width: 34px; flex-shrink: 0; align-self: stretch; }
+/* Panel aç/kapat — sol (Explorer) kapatma butonuyla AYNI tasarım */
 .lo-topbar__toggle {
   width: 30px; height: 30px; flex-shrink: 0;
-  border: none; background: transparent; border-radius: 7px; color: var(--fg3); cursor: pointer;
+  border: none; background: transparent; border-radius: 7px; color: var(--fg2); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
-.lo-topbar__toggle:hover { background: var(--line-soft); color: var(--fg1); }
+.lo-topbar__toggle:hover { background: var(--line-soft); color: var(--accent); }
 .lo-topbar__toggle.is-active { color: var(--fg2); }
 .lo-topbar__tabs { display: flex; align-items: flex-end; gap: 2px; overflow-x: auto; min-width: 0; }
 .lo-topbar__tabs::-webkit-scrollbar { height: 0; }

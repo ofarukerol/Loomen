@@ -26,9 +26,69 @@ export function MiniAgenda() {
   const setScreen = useAppStore((s) => s.setScreen);
 
   const [filter, setFilter] = useState<TaskFilter>("yapilacak");
-  const dragId = useRef<string | null>(null); // senkron sürükleme kaynağı
+  // Pointer tabanlı sürükle-bırak — Tauri WKWebView native HTML5 DnD'yi güvenilir desteklemez.
+  const downRef = useRef<{ id: string; x: number; y: number } | null>(null);
+  const draggingRef = useRef(false);
+  const overRef = useRef<{ id: string; pos: "before" | "after" } | null>(null);
+  const suppressClickRef = useRef(false); // sürükleme sonrası gelen click'i yut
   const [dragging, setDragging] = useState<string | null>(null); // sürüklenen (görsel)
   const [overId, setOverId] = useState<string | null>(null); // bırakma hedefi (gösterge)
+  const [overPos, setOverPos] = useState<"before" | "after">("before"); // hedefin önü/arkası
+
+  // Satıra basıldığında: eşik aşılırsa sürüklemeye geç; aşılmazsa normal click (görev seç).
+  const onRowPointerDown = (taskId: string) => (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button")) return; // tamamla butonu vb. sürüklemez
+    downRef.current = { id: taskId, x: e.clientX, y: e.clientY };
+    draggingRef.current = false;
+
+    const onMove = (ev: PointerEvent) => {
+      const d = downRef.current;
+      if (!d) return;
+      if (!draggingRef.current) {
+        if (Math.abs(ev.clientY - d.y) < 4 && Math.abs(ev.clientX - d.x) < 4) return;
+        draggingRef.current = true;
+        setDragging(d.id);
+        document.body.style.userSelect = "none";
+      }
+      const row = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest<HTMLElement>(
+        ".lo-mini__row"
+      );
+      const tid = row?.dataset.taskId;
+      if (!row || !tid || tid === d.id) {
+        overRef.current = null;
+        setOverId(null);
+        return;
+      }
+      const r = row.getBoundingClientRect();
+      const pos: "before" | "after" = ev.clientY - r.top < r.height / 2 ? "before" : "after";
+      overRef.current = { id: tid, pos };
+      setOverId(tid);
+      setOverPos(pos);
+    };
+
+    const onUp = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      document.body.style.userSelect = "";
+      const d = downRef.current;
+      const tgt = overRef.current;
+      if (draggingRef.current && d && tgt && d.id !== tgt.id) {
+        void reorderTask(d.id, tgt.id, tgt.pos);
+        suppressClickRef.current = true; // sürükleme bittiğinde click ile detay açma
+      }
+      downRef.current = null;
+      overRef.current = null;
+      draggingRef.current = false;
+      setDragging(null);
+      setOverId(null);
+    };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
+  };
 
   const expanded = focusExpanded && screen === "planner";
   const onExpand = () => {
@@ -45,34 +105,17 @@ export function MiniAgenda() {
       className={
         "lo-mini__row is-clickable" +
         (dragging === task.id ? " is-dragging" : "") +
-        (overId === task.id ? " is-over" : "")
+        (overId === task.id ? (overPos === "after" ? " is-over-after" : " is-over-before") : "")
       }
       key={task.id}
-      draggable
-      onClick={() => selectTask(task.id)}
-      onDragStart={(e) => {
-        dragId.current = task.id;
-        setDragging(task.id);
-        e.dataTransfer.effectAllowed = "move";
-      }}
-      onDragOver={(e) => {
-        if (dragId.current && dragId.current !== task.id) {
-          e.preventDefault();
-          if (overId !== task.id) setOverId(task.id);
+      data-task-id={task.id}
+      onPointerDown={onRowPointerDown(task.id)}
+      onClick={() => {
+        if (suppressClickRef.current) {
+          suppressClickRef.current = false;
+          return;
         }
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        const from = dragId.current;
-        if (from && from !== task.id) void reorderTask(from, task.id);
-        dragId.current = null;
-        setDragging(null);
-        setOverId(null);
-      }}
-      onDragEnd={() => {
-        dragId.current = null;
-        setDragging(null);
-        setOverId(null);
+        selectTask(task.id);
       }}
     >
       <span className="lo-mini__grip" aria-hidden>

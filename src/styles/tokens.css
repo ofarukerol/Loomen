@@ -25,6 +25,8 @@
   --accent: #C2603A;      /* terra/amber: aktif öğe, sayaç, birincil buton */
   --accent-soft: #C2603A22; /* %13 opaklık: rozet zemini, vurgu yüzeyi */
   --accent-2: #D89A4E;    /* ikincil amber: klasör ikonu, küçük vurgular */
+  --daily: #2E8B7F;       /* soft teal: Günlük klasörü (sabit, ayrı renk) */
+  --daily-soft: #2E8B7F1F; /* teal hover zemini */
 
   /* — Durum — */
   --danger: #C0473A;      --danger-bg: #C0473A12;  /* geciken görev */
@@ -62,6 +64,7 @@
   --fg1: #ECEAE4;         --fg2: #A19D95;      --fg3: #6C685F;
   --line: #322F2A;        --line-soft: #27241F;
   --accent: #D67A4E;      --accent-soft: #D67A4E26;  --accent-2: #E0A85C;
+  --daily: #4FB3A3;       --daily-soft: #4FB3A329;
   --danger: #E0796B;      --danger-bg: #E0796B1F;    --success: #5DB17F;
   --sh1: 0 1px 2px rgba(0,0,0,0.3);
   --sh2: 0 2px 10px rgba(0,0,0,0.35);

@@ -13,6 +13,10 @@ export { createTauriBackend } from "./tauriBackend";
 
 /** Şablonların yaşadığı özel klasör (Explorer'da en altta, ayrı stil). */
 export const TEMPLATES_DIR = "Şablonlar";
+/** Excalidraw çizimlerinin yaşadığı özel klasör (Explorer'da en üstte, ayrı stil). */
+export const DRAW_DIR = "Çizimler";
+/** Günlük notların yaşadığı kök klasör (Explorer'da en başta, ayrı soft stil). */
+export const DAILY_DIR = "Günlük";
 /** Günlük not şablonu dosyası — ayarlardan düzenlenebilir. */
 export const DAILY_TEMPLATE_PATH = `${TEMPLATES_DIR}/Günlük.md`;
 
@@ -93,7 +97,7 @@ export function todayISO(): string {
 export function dailyPathFor(d: Date): string {
   const year = format(d, "yyyy");
   const month = `${format(d, "MM")}-${format(d, "MMMM", { locale: tr })}`;
-  return `Günlük/${year}/${month}/${dailyNoteTitle(d)}.md`;
+  return `${DAILY_DIR}/${year}/${month}/${dailyNoteTitle(d)}.md`;
 }
 
 /** Bugünün daily note yolu (bkz dailyPathFor). */

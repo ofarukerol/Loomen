@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { TaskGroup, Task } from "../data/sampleVault";
 import type { ParsedTask, VaultBackend, VaultNote } from "../core/vault/types";
+import { isExpired, type TrashEntry } from "../core/vault/trash";
 import {
   createSampleBackend,
   createTauriBackend,
@@ -18,13 +19,14 @@ import {
   migrateDailyContent,
   templatePathFor,
   TEMPLATES_DIR,
+  DRAW_DIR,
   TODO_HEADING,
 } from "../core/vault";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
 import { gh, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
-import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
+import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
 export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab";
@@ -100,6 +102,7 @@ interface AppState {
   // Vault
   vaultPath: string | null; // null = tarayıcı/sample modu
   notes: VaultNote[];
+  trash: TrashEntry[];
   groups: TaskGroup[];
   /** Planlanmamış (tarihsiz, açık) görevler — Bugüne Odaklan panelinde gösterilir. */
   unplannedTasks: Task[];
@@ -214,12 +217,18 @@ interface AppState {
   toggleFavorite: (path: string) => void;
   renameNote: (path: string, newName: string) => Promise<void>;
   renameFolder: (folderPath: string, newName: string) => Promise<void>;
+  // — Çöp kutusu —
+  deleteNote: (path: string) => Promise<void>;
+  loadTrash: () => Promise<void>;
+  restoreNote: (trashName: string) => Promise<void>;
+  purgeNote: (trashName: string) => Promise<void>;
+  emptyTrash: () => Promise<void>;
   addTask: () => Promise<void>;
   toggleTask: (id: string) => Promise<void>;
   selectTask: (id: string | null) => void;
   updateTask: (id: string, patch: TaskPatch) => Promise<void>;
-  saveTask: (id: string, patch: TaskPatch, notes?: string) => Promise<void>;
-  reorderTask: (fromId: string, toId: string) => Promise<void>;
+  saveTask: (id: string, patch: TaskPatch, notes?: string, subtasks?: { text: string; done: boolean }[]) => Promise<void>;
+  reorderTask: (fromId: string, toId: string, position: "before" | "after") => Promise<void>;
 
   // GitHub aksiyonları
   ghBeginAuth: () => Promise<void>;
@@ -242,7 +251,21 @@ const EMPTY_EXCALIDRAW = JSON.stringify({
   appState: {},
   files: {},
 });
-const DRAW_DIR = "Çizimler";
+
+// Kullanıcıya hata bildir (Tauri'de native dialog, web fallback'te alert/console).
+async function notifyError(msg: string): Promise<void> {
+  try {
+    if (isTauri()) {
+      const { message } = await import("@tauri-apps/plugin-dialog");
+      await message(msg, { title: "Loomen", kind: "error" });
+      return;
+    }
+  } catch {
+    /* dialog yoksa aşağı düş */
+  }
+  if (typeof alert === "function") alert(msg);
+  else console.error(msg);
+}
 
 const FOCUS_MIN = 25;
 const VAULT_KEY = "loomen.vaultPath";
@@ -269,6 +292,23 @@ export const useAppStore = create<AppState>()(
       unplannedTasks,
       counts: { yapilacak: c.yapilacak, geciken: c.geciken, planlanmamis: c.planlanmamis },
     });
+    void refreshTrash();
+  }
+
+  /** Çöp kutusunu yükle; saklama süresi (30 gün) dolmuş kayıtları kalıcı sil. */
+  async function refreshTrash() {
+    try {
+      let entries = await backend.listTrash();
+      const now = Date.now();
+      const expired = entries.filter((e) => isExpired(e.deletedAt, now));
+      if (expired.length > 0) {
+        await Promise.all(expired.map((e) => backend.purgeTrashItem(e.trashName).catch(() => {})));
+        entries = entries.filter((e) => !isExpired(e.deletedAt, now));
+      }
+      set({ trash: entries });
+    } catch {
+      set({ trash: [] });
+    }
   }
 
   return {
@@ -291,6 +331,7 @@ export const useAppStore = create<AppState>()(
     vaults: [],
     tabsByVault: {},
     notes: [],
+    trash: [],
     groups: [],
     unplannedTasks: [],
     counts: { yapilacak: 0, geciken: 0, planlanmamis: 0 },
@@ -831,6 +872,48 @@ export const useAppStore = create<AppState>()(
       await loadFromBackend();
     },
 
+    // Bir notu çöp kutusuna taşı (kalıcı silmez; 30 gün saklanır). Açık sekme/aktif not kapatılır.
+    deleteNote: async (path) => {
+      const s = get();
+      if (!s.notes.some((n) => n.path === path)) return;
+      try {
+        await backend.trashNote(path);
+      } catch (err) {
+        console.error("[deleteNote] trashNote başarısız:", err);
+        await notifyError(`Not silinemedi: ${err instanceof Error ? err.message : String(err)}`);
+        return;
+      }
+      const openTabs = s.openTabs.filter((p) => p !== path);
+      const pinnedTabs = s.pinnedTabs.filter((p) => p !== path);
+      const activeNote =
+        s.activeNote === path ? openTabs[openTabs.length - 1] ?? null : s.activeNote;
+      set({
+        openTabs,
+        pinnedTabs,
+        activeNote,
+        favorites: s.favorites.filter((p) => p !== path),
+      });
+      await loadFromBackend(); // trash'i de tazeler
+    },
+
+    loadTrash: refreshTrash,
+
+    restoreNote: async (trashName) => {
+      await backend.restoreFromTrash(trashName);
+      await loadFromBackend();
+    },
+
+    purgeNote: async (trashName) => {
+      await backend.purgeTrashItem(trashName);
+      await refreshTrash();
+    },
+
+    emptyTrash: async () => {
+      const entries = get().trash;
+      await Promise.all(entries.map((e) => backend.purgeTrashItem(e.trashName).catch(() => {})));
+      await refreshTrash();
+    },
+
     addTask: async () => {
       const text = get().quickText.trim();
       if (!text) return;
@@ -867,8 +950,8 @@ export const useAppStore = create<AppState>()(
       await loadFromBackend();
     },
 
-    // Görevi tek yazımda kaydet: satır yaması + (varsa) girintili not bloğu.
-    saveTask: async (id, patch, notes) => {
+    // Görevi tek yazımda kaydet: satır yaması + (varsa) girintili çocuk bloğu (alt görevler + notlar).
+    saveTask: async (id, patch, notes, subtasks) => {
       const s = get();
       const sep = id.lastIndexOf(":");
       const file = id.slice(0, sep);
@@ -877,14 +960,20 @@ export const useAppStore = create<AppState>()(
       if (!task) return;
       const content = await backend.readNote(file);
       let next = applyTaskPatch(content, line, task, patch);
-      if (notes !== undefined) next = setTaskNotes(next, line, notes);
+      // Alt görevler ve notlar aynı çocuk bloğunu paylaşır — tek seferde birlikte yazılır.
+      if (notes !== undefined || subtasks !== undefined) {
+        const subs = subtasks ?? getSubtasks(next, line).map((x) => ({ text: x.text, done: x.done }));
+        const nts = notes ?? getTaskNotes(next, line);
+        next = setTaskChildren(next, line, subs, nts);
+      }
       await backend.writeNote(file, next);
       await loadFromBackend();
     },
 
-    // Görev sırasını değiştir (sürükle-bırak): sürüklenen görevi hedefin hemen ÖNÜNE koy.
+    // Görev sırasını değiştir (sürükle-bırak): sürüklenen görevi hedefin ÖNÜNE/ARKASINA tam yerleştir.
     // Uygulama düzeyi manuel sıra (dosyadan bağımsız, dosyalar arası çalışır, kalıcı).
-    reorderTask: async (fromId, toId) => {
+    // Farklı bir gün grubuna bırakılırsa görev o güne yeniden planlanır (tarih dosyaya yazılır).
+    reorderTask: async (fromId, toId, position) => {
       const s = get();
       const parse = (id: string) => {
         const sep = id.lastIndexOf(":");
@@ -895,11 +984,61 @@ export const useAppStore = create<AppState>()(
       const dTask = s.parsedTasks.find((p) => p.file === d.file && p.line === d.line);
       const tTask = s.parsedTasks.find((p) => p.file === tg.file && p.line === tg.line);
       if (!dTask || !tTask) return;
-      const targetVal = taskSortVal(tTask, s.taskOrder);
-      const taskOrder = { ...s.taskOrder, [taskOrderKey(dTask.file, dTask.description)]: targetVal - 0.5 };
+      if (dTask.file === tTask.file && dTask.line === tTask.line) return;
+
       const today = todayISO();
-      const { groups, unplannedTasks } = groupTasks(s.parsedTasks, today, taskOrder);
-      set({ taskOrder, groups, unplannedTasks });
+      const tDate = tTask.due ?? tTask.scheduled;
+      const dDate = dTask.due ?? dTask.scheduled;
+
+      // 1) Farklı güne sürüklendiyse görevi hedefin gününe taşı (kullandığı tarih alanını koru).
+      let parsedTasks = s.parsedTasks;
+      let rescheduled = false;
+      if (tDate && dDate !== tDate) {
+        const field: "scheduled" | "due" = dTask.scheduled && !dTask.due ? "scheduled" : "due";
+        const content = await backend.readNote(dTask.file);
+        await backend.writeNote(dTask.file, applyTaskPatch(content, dTask.line, dTask, { [field]: tDate }));
+        // Yerel kopyayı güncelle ki gruplama yeni günü hemen yansıtsın.
+        parsedTasks = s.parsedTasks.map((p) =>
+          p.file === dTask.file && p.line === dTask.line ? { ...p, [field]: tDate } : p
+        );
+        rescheduled = true;
+      }
+
+      // 2) Hedef grubun (aynı gün; tarihsizse aynı kaynak not) sıralı, açık kardeşleri —
+      //    sürüklenen hariç. Komşuların değerleri arasından midpoint ile kesin yerleştir.
+      const inTargetGroup = (p: (typeof parsedTasks)[number]) => {
+        const pd = p.due ?? p.scheduled;
+        return tDate ? pd === tDate : !pd && p.file === tTask.file;
+      };
+      const sibs = parsedTasks
+        .filter(
+          (p) =>
+            !p.done &&
+            inTargetGroup(p) &&
+            !(p.file === dTask.file && p.line === dTask.line)
+        )
+        .sort((x, y) => taskSortVal(x, s.taskOrder) - taskSortVal(y, s.taskOrder));
+
+      const tIdx = sibs.findIndex((p) => p.file === tTask.file && p.line === tTask.line);
+      const insertIdx = position === "after" ? tIdx + 1 : tIdx;
+      const prev = sibs[insertIdx - 1];
+      const next = sibs[insertIdx];
+      const prevVal = prev ? taskSortVal(prev, s.taskOrder) : undefined;
+      const nextVal = next ? taskSortVal(next, s.taskOrder) : undefined;
+      let newVal: number;
+      if (prevVal != null && nextVal != null) newVal = (prevVal + nextVal) / 2;
+      else if (nextVal != null) newVal = nextVal - 1;
+      else if (prevVal != null) newVal = prevVal + 1;
+      else newVal = 0;
+
+      const taskOrder = { ...s.taskOrder, [taskOrderKey(dTask.file, dTask.description)]: newVal };
+      if (rescheduled) {
+        set({ taskOrder });
+        await loadFromBackend();
+      } else {
+        const { groups, unplannedTasks } = groupTasks(parsedTasks, today, taskOrder);
+        set({ taskOrder, parsedTasks, groups, unplannedTasks });
+      }
     },
 
     // — GitHub —

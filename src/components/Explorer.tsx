@@ -19,14 +19,17 @@ import {
   RefreshCw,
   Shapes,
   Star,
+  CalendarDays,
   LayoutTemplate,
   HardDrive,
   Check,
+  Trash2,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
-import { TEMPLATES_DIR } from "../core/vault";
+import { TEMPLATES_DIR, DRAW_DIR, DAILY_DIR } from "../core/vault";
 import { searchNotes } from "../core/search/search";
+import { TrashModal } from "./TrashModal";
 
 /** Klasör ağacı düğümü (iç içe). */
 interface TreeNode {
@@ -148,7 +151,7 @@ function FolderNode({
   collapsed: Set<string>;
   toggle: (path: string) => void;
   ctx: RowCtx;
-  variant?: "tpl";
+  variant?: "tpl" | "draw" | "daily";
 }) {
   const open = !collapsed.has(node.path);
   const folders = [...node.folders.values()].sort((a, b) => a.name.localeCompare(b.name, "tr"));
@@ -160,14 +163,20 @@ function FolderNode({
         <RenameInput initial={node.name} depth={depth} kind="folder" commit={ctx.commit} cancel={ctx.cancel} />
       ) : (
         <button
-          className={"lo-tree__group" + (variant === "tpl" ? " lo-tree__group--tpl" : "")}
+          className={
+            "lo-tree__group" + (variant ? " lo-tree__group--pin" : "") + (variant === "daily" ? " lo-tree__group--pin-daily" : "")
+          }
           style={{ paddingInlineStart: 8 + depth * 14 }}
           onClick={() => toggle(node.path)}
           onContextMenu={(e) => ctx.onContext(e, "folder", node.path)}
         >
           {open ? <ChevronDown size={14} strokeWidth={2} /> : <ChevronRight size={14} strokeWidth={2} />}
-          {variant === "tpl" ? (
+          {variant === "daily" ? (
+            <CalendarDays size={15} strokeWidth={1.8} color="var(--daily)" />
+          ) : variant === "tpl" ? (
             <LayoutTemplate size={15} strokeWidth={1.8} color="var(--accent-2)" />
+          ) : variant === "draw" ? (
+            <Shapes size={15} strokeWidth={1.8} color="var(--accent-2)" />
           ) : (
             <Folder size={15} strokeWidth={1.8} color="var(--accent-2)" />
           )}
@@ -203,6 +212,8 @@ export function Explorer() {
   const newFolder = useAppStore((s) => s.newFolder);
   const renameNote = useAppStore((s) => s.renameNote);
   const renameFolder = useAppStore((s) => s.renameFolder);
+  const deleteNote = useAppStore((s) => s.deleteNote);
+  const trashCount = useAppStore((s) => s.trash.length);
   const toggleLeft = useAppStore((s) => s.toggleLeft);
   const ghToken = useAppStore((s) => s.ghToken);
   const ghRepo = useAppStore((s) => s.ghRepo);
@@ -216,10 +227,12 @@ export function Explorer() {
   const activeNote = useAppStore((s) => s.activeNote);
   const [query, setQuery] = useState("");
   const [favOpen, setFavOpen] = useState(true);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Sabit özel klasörler (Günlük / Çizimler / Şablonlar) varsayılan KAPALI gelir.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set([DAILY_DIR, DRAW_DIR, TEMPLATES_DIR]));
   const [menu, setMenu] = useState<Menu>(null);
   const [renaming, setRenaming] = useState<Renaming>(null);
   const [vaultMenu, setVaultMenu] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
   const hits = searchNotes(notes, contents, query);
 
   const toggle = (path: string) =>
@@ -288,10 +301,14 @@ export function Explorer() {
   const hasMultipleVaults = vaults.length > 1;
 
   const root = buildTree(notes);
+  // Günlük klasörü normal ağaçtan ayrılır; en BAŞTA (Çizimler'in üstünde) ayrı soft renkle sabitlenir.
+  const dailyFolder = root.folders.get(DAILY_DIR);
+  // Çizimler klasörü normal ağaçtan ayrılır; Günlük'ün altında ayrı (soft) stille sabitlenir.
+  const drawFolder = root.folders.get(DRAW_DIR);
   // Şablonlar klasörü normal ağaçtan ayrılır; en alta ayrı stille sabitlenir.
   const tplFolder = root.folders.get(TEMPLATES_DIR);
   const rootFolders = [...root.folders.values()]
-    .filter((f) => f.name !== TEMPLATES_DIR)
+    .filter((f) => f.name !== TEMPLATES_DIR && f.name !== DRAW_DIR && f.name !== DAILY_DIR)
     .sort((a, b) => a.name.localeCompare(b.name, "tr"));
   const rootFiles = [...root.files].sort((a, b) => a.name.localeCompare(b.name, "tr"));
 
@@ -315,6 +332,14 @@ export function Explorer() {
           </button>
           <button className="lo-explorer__open" title={t("explorer.collapseAll")} onClick={collapseAll}>
             <ChevronsDownUp size={16} strokeWidth={1.8} />
+          </button>
+          <button
+            className="lo-explorer__open lo-explorer__trash"
+            title={t("trash.title")}
+            onClick={() => setTrashOpen(true)}
+          >
+            <Trash2 size={16} strokeWidth={1.8} />
+            {trashCount > 0 && <span className="lo-explorer__trashbadge">{trashCount}</span>}
           </button>
           <button
             className="lo-explorer__open lo-explorer__collapse"
@@ -411,6 +436,34 @@ export function Explorer() {
                 {n.name}
               </button>
             ))}
+        </div>
+      )}
+
+      {/* Günlük — en başta sabit, ayrı soft renk (teal) bölüm */}
+      {!query && dailyFolder && (
+        <div className="lo-explorer__daily lo-scroll">
+          <FolderNode
+            node={dailyFolder}
+            depth={0}
+            collapsed={collapsed}
+            toggle={toggle}
+            ctx={ctx}
+            variant="daily"
+          />
+        </div>
+      )}
+
+      {/* Çizimler — Günlük'ün altında sabit, belirgin (soft) bölüm */}
+      {!query && drawFolder && (
+        <div className="lo-explorer__draw lo-scroll">
+          <FolderNode
+            node={drawFolder}
+            depth={0}
+            collapsed={collapsed}
+            toggle={toggle}
+            ctx={ctx}
+            variant="draw"
+          />
         </div>
       )}
 
@@ -553,8 +606,22 @@ export function Explorer() {
               {t("explorer.newNoteHere")}
             </button>
           )}
+          {menu.kind === "file" && (
+            <button
+              className="lo-ctxmenu__item lo-ctxmenu__item--danger"
+              onClick={() => {
+                void deleteNote(menu.path);
+                setMenu(null);
+              }}
+            >
+              <Trash2 size={13} strokeWidth={1.9} />
+              {t("explorer.delete")}
+            </button>
+          )}
         </div>
       )}
+
+      {trashOpen && <TrashModal onClose={() => setTrashOpen(false)} />}
     </div>
   );
 }

@@ -49,6 +49,7 @@ export function parseTaskLine(file: string, line: number, raw: string): ParsedTa
     file,
     line,
     raw,
+    indent: m[1].length,
     done: m[2].toLowerCase() === "x",
     description,
     due: matchDate(body, EMOJI.due),
@@ -147,32 +148,87 @@ export function applyTaskPatch(content: string, line: number, t: ParsedTask, pat
   return lines.join("\n");
 }
 
-const NOTE_INDENT = "    "; // 4 boşluk
-// Not satırı: görevin altında girintili, madde/görev OLMAYAN düz metin.
-const isNoteLine = (l: string) => /^\s+(?![-*+]\s|\d+\.\s)\S/.test(l) && !TASK_RE.test(l);
+const CHILD_INDENT = "    "; // 4 boşluk — alt görev / not bir seviye girinti
 
-/** Görev satırından sonraki girintili not bloğunu düz metin olarak oku. */
+const leadWs = (l: string) => l.match(/^(\s*)/)?.[1] ?? "";
+
+/**
+ * Üst görevin altındaki "çocuk bloğu"nun [start, end) satır aralığı:
+ * üst görevden daha derin girintili, ardışık, boş olmayan satırlar.
+ * Blok hem alt görev (girintili `- [ ]`) hem düz not satırlarını içerir.
+ */
+function childBlockRange(lines: string[], line: number): [number, number] {
+  const parentIndent = leadWs(lines[line] ?? "").length;
+  let end = line + 1;
+  while (end < lines.length) {
+    const l = lines[end];
+    if (l.trim() === "" || leadWs(l).length <= parentIndent) break;
+    end++;
+  }
+  return [line + 1, end];
+}
+
+/** Bir alt görev (üst görevin çocuk bloğundaki girintili görev satırı). */
+export interface SubtaskItem {
+  text: string;
+  done: boolean;
+  line: number; // dosyadaki mutlak satır indeksi
+}
+
+/** Bir görev satırından sonraki alt görevleri oku. */
+export function getSubtasks(content: string, line: number): SubtaskItem[] {
+  const lines = content.split("\n");
+  if (line < 0 || line >= lines.length) return [];
+  const [s, e] = childBlockRange(lines, line);
+  const out: SubtaskItem[] = [];
+  for (let i = s; i < e; i++) {
+    const p = parseTaskLine("", i, lines[i]);
+    if (p) out.push({ text: p.description, done: p.done, line: i });
+  }
+  return out;
+}
+
+/** Görev satırından sonraki girintili not bloğunu düz metin olarak oku (alt görev satırları hariç). */
 export function getTaskNotes(content: string, line: number): string {
   const lines = content.split("\n");
+  if (line < 0 || line >= lines.length) return "";
+  const [s, e] = childBlockRange(lines, line);
   const out: string[] = [];
-  for (let i = line + 1; i < lines.length; i++) {
-    if (!isNoteLine(lines[i])) break;
+  for (let i = s; i < e; i++) {
+    if (TASK_RE.test(lines[i])) continue; // alt görev → not değil
     out.push(lines[i].replace(/^\s{1,4}|\t/, ""));
   }
   return out.join("\n");
 }
 
-/** Görev satırının altındaki not bloğunu değiştir (yoksa ekle, boşsa kaldır). */
-export function setTaskNotes(content: string, line: number, notes: string): string {
+/** Üst görevin çocuk bloğunu yeniden yaz: önce alt görevler, sonra notlar. */
+export function setTaskChildren(
+  content: string,
+  line: number,
+  subtasks: { text: string; done: boolean }[],
+  notes: string
+): string {
   const lines = content.split("\n");
   if (line < 0 || line >= lines.length) return content;
-  let end = line + 1;
-  while (end < lines.length && isNoteLine(lines[end])) end++;
-  const block = notes.trim()
-    ? notes.trim().split("\n").map((l) => NOTE_INDENT + l)
-    : [];
-  lines.splice(line + 1, end - (line + 1), ...block);
+  const childIndent = leadWs(lines[line]) + CHILD_INDENT;
+  const [s, e] = childBlockRange(lines, line);
+  const subLines = subtasks
+    .filter((st) => st.text.trim())
+    .map((st) => `${childIndent}- [${st.done ? "x" : " "}] ${st.text.trim()}`);
+  const noteLines = notes.trim() ? notes.trim().split("\n").map((l) => childIndent + l) : [];
+  lines.splice(s, e - s, ...subLines, ...noteLines);
   return lines.join("\n");
+}
+
+/** Görev satırının altındaki not bloğunu değiştir (alt görevleri korur). */
+export function setTaskNotes(content: string, line: number, notes: string): string {
+  const subs = getSubtasks(content, line).map((x) => ({ text: x.text, done: x.done }));
+  return setTaskChildren(content, line, subs, notes);
+}
+
+/** Görev satırının altındaki alt görevleri değiştir (notları korur). */
+export function setSubtasks(content: string, line: number, subtasks: { text: string; done: boolean }[]): string {
+  return setTaskChildren(content, line, subtasks, getTaskNotes(content, line));
 }
 
 /** Bir görev satırını dosya içinde başka bir satıra taşı (sürükle-bırak sıralama). */

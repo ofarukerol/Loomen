@@ -1,5 +1,6 @@
-import { readDir, readTextFile, writeTextFile, exists, mkdir, rename } from "@tauri-apps/plugin-fs";
+import { readDir, readTextFile, writeTextFile, exists, mkdir, rename, remove } from "@tauri-apps/plugin-fs";
 import type { VaultBackend, VaultNote } from "./types";
+import { TRASH_DIR, encodeTrashName, toTrashEntry, type TrashEntry } from "./trash";
 
 // Gerçek dosya sistemi adapter'ı (Tauri). Vault kökü mutlak yol; içeride göreli yollar kullanılır.
 export function createTauriBackend(root: string): VaultBackend {
@@ -36,6 +37,42 @@ export function createTauriBackend(root: string): VaultBackend {
       const dir = to.split("/").slice(0, -1).join("/");
       if (dir) await mkdir(abs(dir), { recursive: true });
       await rename(abs(from), abs(to));
+    },
+
+    trashNote: async (path) => {
+      await mkdir(abs(TRASH_DIR), { recursive: true });
+      const trashName = encodeTrashName(path, Date.now());
+      await rename(abs(path), abs(`${TRASH_DIR}/${trashName}`));
+    },
+    listTrash: async () => {
+      if (!(await exists(abs(TRASH_DIR)))) return [];
+      const entries = await readDir(abs(TRASH_DIR));
+      const out: TrashEntry[] = [];
+      for (const e of entries) {
+        if (e.isDirectory) continue;
+        const t = toTrashEntry(e.name);
+        if (t) out.push(t);
+      }
+      return out.sort((a, b) => b.deletedAt - a.deletedAt);
+    },
+    restoreFromTrash: async (trashName) => {
+      const t = toTrashEntry(trashName);
+      if (!t) throw new Error("Geçersiz çöp kaydı");
+      // Hedef doluysa çakışmayı önlemek için ad türet.
+      let target = t.originalPath;
+      if (await exists(abs(target))) {
+        const dot = target.lastIndexOf(".");
+        const base = dot > 0 ? target.slice(0, dot) : target;
+        const ext = dot > 0 ? target.slice(dot) : "";
+        target = `${base} (geri yüklendi ${Date.now()})${ext}`;
+      }
+      const dir = target.split("/").slice(0, -1).join("/");
+      if (dir) await mkdir(abs(dir), { recursive: true });
+      await rename(abs(`${TRASH_DIR}/${trashName}`), abs(target));
+      return target;
+    },
+    purgeTrashItem: async (trashName) => {
+      await remove(abs(`${TRASH_DIR}/${trashName}`));
     },
   };
 }
