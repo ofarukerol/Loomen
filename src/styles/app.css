@@ -1275,11 +1275,15 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-mini__date--upcoming { color: var(--fg3); }
 .lo-mini__date--src { display: flex; align-items: center; gap: 5px; color: var(--accent-2); }
 .lo-mini__date--src > svg { flex-shrink: 0; }
-.lo-mini__row { display: flex; align-items: center; gap: 9px; padding: 7px 8px 7px 4px; border-radius: 9px; transition: background 0.1s; }
+.lo-mini__row { position: relative; display: flex; align-items: center; gap: 11px; padding: 7px 8px 7px 17px; border-radius: 9px; transition: background 0.1s; }
 .lo-mini__row:hover { background: var(--line-soft); }
-.lo-mini__grip { display: flex; align-items: center; flex-shrink: 0; color: var(--fg3); opacity: 0; cursor: grab; transition: opacity 0.1s; }
-.lo-mini__row:hover .lo-mini__grip { opacity: 0.5; }
-.lo-mini__row.is-dragging .lo-mini__grip { opacity: 0.9; }
+/* Sürükleme tutamacı — akış DIŞINDA (sol gutter'da), metni itmez; hover'da görünür */
+.lo-mini__grip {
+  position: absolute; left: 1px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; color: var(--fg3); opacity: 0; cursor: grab; transition: opacity 0.1s;
+}
+.lo-mini__row:hover .lo-mini__grip { opacity: 0.45; }
+.lo-mini__row.is-dragging .lo-mini__grip { opacity: 0.85; }
 .lo-mini__time {
   font-size: 11px; font-weight: 600; color: var(--accent-2); flex-shrink: 0;
   font-variant-numeric: tabular-nums; background: var(--accent-soft); padding: 1px 7px; border-radius: 999px;
@@ -1528,8 +1532,16 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-checkbox-md.is-done { background: var(--success); border-color: var(--success); }
 .lo-task__check:hover .lo-checkbox-md:not(.is-done) { border-color: var(--accent); }
 .lo-mini__check:hover .lo-checkbox-sm { border-color: var(--accent); background: var(--accent-soft); }
-.lo-mini__row.is-dragging { opacity: 0.45; }
+.lo-mini__row.is-dragging { opacity: 0.4; }
 .lo-mini__row[draggable="true"] { cursor: grab; }
+.lo-mini__row[draggable="true"]:active { cursor: grabbing; }
+/* Bırakma göstergesi — hedef satırın üstünde vurgu çizgisi (öne eklenir) */
+.lo-mini__row.is-over::before {
+  content: ""; position: absolute; left: 6px; right: 6px; top: -2px; height: 2.5px;
+  background: var(--accent); border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.lo-mini__row.is-over { background: var(--accent-soft); }
 .lo-tdetail__source {
   display: flex; align-items: center; gap: 6px;
   font-family: inherit; font-size: 12.5px; color: var(--fg2);

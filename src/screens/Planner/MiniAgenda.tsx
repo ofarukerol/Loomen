@@ -27,7 +27,8 @@ export function MiniAgenda() {
 
   const [filter, setFilter] = useState<TaskFilter>("yapilacak");
   const dragId = useRef<string | null>(null); // senkron sürükleme kaynağı
-  const [dragging, setDragging] = useState<string | null>(null); // yalnız görsel
+  const [dragging, setDragging] = useState<string | null>(null); // sürüklenen (görsel)
+  const [overId, setOverId] = useState<string | null>(null); // bırakma hedefi (gösterge)
 
   const expanded = focusExpanded && screen === "planner";
   const onExpand = () => {
@@ -41,7 +42,11 @@ export function MiniAgenda() {
 
   const taskRow = (task: Task) => (
     <div
-      className={"lo-mini__row is-clickable" + (dragging === task.id ? " is-dragging" : "")}
+      className={
+        "lo-mini__row is-clickable" +
+        (dragging === task.id ? " is-dragging" : "") +
+        (overId === task.id ? " is-over" : "")
+      }
       key={task.id}
       draggable
       onClick={() => selectTask(task.id)}
@@ -51,7 +56,10 @@ export function MiniAgenda() {
         e.dataTransfer.effectAllowed = "move";
       }}
       onDragOver={(e) => {
-        if (dragId.current && dragId.current !== task.id) e.preventDefault();
+        if (dragId.current && dragId.current !== task.id) {
+          e.preventDefault();
+          if (overId !== task.id) setOverId(task.id);
+        }
       }}
       onDrop={(e) => {
         e.preventDefault();
@@ -59,10 +67,12 @@ export function MiniAgenda() {
         if (from && from !== task.id) void reorderTask(from, task.id);
         dragId.current = null;
         setDragging(null);
+        setOverId(null);
       }}
       onDragEnd={() => {
         dragId.current = null;
         setDragging(null);
+        setOverId(null);
       }}
     >
       <span className="lo-mini__grip" aria-hidden>
