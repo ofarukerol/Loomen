@@ -1275,8 +1275,15 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-mini__date--upcoming { color: var(--fg3); }
 .lo-mini__date--src { display: flex; align-items: center; gap: 5px; color: var(--accent-2); }
 .lo-mini__date--src > svg { flex-shrink: 0; }
-.lo-mini__row { display: flex; align-items: center; gap: 11px; padding: 7px 8px; border-radius: 9px; transition: background 0.1s; }
+.lo-mini__row { display: flex; align-items: center; gap: 9px; padding: 7px 8px 7px 4px; border-radius: 9px; transition: background 0.1s; }
 .lo-mini__row:hover { background: var(--line-soft); }
+.lo-mini__grip { display: flex; align-items: center; flex-shrink: 0; color: var(--fg3); opacity: 0; cursor: grab; transition: opacity 0.1s; }
+.lo-mini__row:hover .lo-mini__grip { opacity: 0.5; }
+.lo-mini__row.is-dragging .lo-mini__grip { opacity: 0.9; }
+.lo-mini__time {
+  font-size: 11px; font-weight: 600; color: var(--accent-2); flex-shrink: 0;
+  font-variant-numeric: tabular-nums; background: var(--accent-soft); padding: 1px 7px; border-radius: 999px;
+}
 .lo-mini__check {
   width: 18px; height: 18px; border: none; background: transparent; color: var(--fg3);
   cursor: pointer; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center;

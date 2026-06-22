@@ -26,7 +26,29 @@ function toUiTask(t: ParsedTask, todayISO: string, kind: GroupKind): Task {
     source: noteName(t.file),
     tag: t.tags[0] ?? "",
     pomos: t.pomos,
+    time: t.time,
   };
+}
+
+/** Manuel sıra anahtarı (dosya+açıklama — satır kaymasına dayanıklı). */
+export function taskOrderKey(file: string, description: string): string {
+  return `${file}::${description}`;
+}
+
+function timeToMin(t?: string): number | null {
+  const m = t?.match(/^(\d{1,2}):(\d{2})$/);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+/**
+ * Sıralama değeri: manuel sıra (varsa) > saat (en erken önce) > dosya satırı.
+ * Yani saat girilmişse saate göre, manuel sürükleme yapılmışsa ona göre dizilir.
+ */
+export function taskSortVal(t: ParsedTask, order: Record<string, number>): number {
+  const manual = order[taskOrderKey(t.file, t.description)];
+  if (manual != null) return manual;
+  const tm = timeToMin(t.time);
+  return tm != null ? tm : 100000 + t.line;
 }
 
 function kindOf(dateISO: string, todayISO: string): GroupKind {
@@ -57,13 +79,20 @@ function toUnplannedUiTask(t: ParsedTask): Task {
     source: noteName(t.file),
     tag: t.tags[0] ?? "",
     pomos: t.pomos,
+    time: t.time,
   };
 }
 
-/** Görevleri tarihe göre grupla — timeline için (docs 06 §3). */
-export function groupTasks(tasks: ParsedTask[], todayISO: string): GroupedTasks {
+/** Görevleri tarihe göre grupla — timeline için (docs 06 §3). order = manuel sıra haritası. */
+export function groupTasks(
+  tasks: ParsedTask[],
+  todayISO: string,
+  order: Record<string, number> = {}
+): GroupedTasks {
   const dated = tasks.filter((t) => planDate(t));
-  const unplannedList = tasks.filter((t) => !planDate(t) && !t.done);
+  const unplannedList = tasks
+    .filter((t) => !planDate(t) && !t.done)
+    .sort((a, b) => taskSortVal(a, order) - taskSortVal(b, order));
   const unplanned = unplannedList.length;
   const unplannedTasks = unplannedList.map(toUnplannedUiTask);
 
@@ -79,8 +108,11 @@ export function groupTasks(tasks: ParsedTask[], todayISO: string): GroupedTasks 
     .map((dateISO) => {
       const kind = kindOf(dateISO, todayISO);
       const date = parseISO(dateISO);
-      // Dosya (satır) sırasını koru — sürükle-bırak ile manuel sıralama görünür olsun.
-      const tasksOfDay = byDate.get(dateISO)!.map((t) => toUiTask(t, todayISO, kind));
+      // Sıra: manuel (sürükle-bırak) > saat (en erken önce) > dosya satırı.
+      const tasksOfDay = byDate
+        .get(dateISO)!
+        .sort((a, b) => taskSortVal(a, order) - taskSortVal(b, order))
+        .map((t) => toUiTask(t, todayISO, kind));
       return {
         id: dateISO,
         label: format(date, "EEEE, d MMM", { locale: tr }),

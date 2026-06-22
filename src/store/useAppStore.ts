@@ -20,11 +20,11 @@ import {
   TEMPLATES_DIR,
   TODO_HEADING,
 } from "../core/vault";
-import { groupTasks, focusCounts } from "../core/vault/grouping";
+import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
 import { gh, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
-import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskNotes, moveTaskLine, type TaskPatch } from "../core/markdown/taskParser";
+import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
 export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab";
@@ -106,6 +106,8 @@ interface AppState {
   counts: FocusCounts;
   parsedTasks: ParsedTask[];
   noteContents: Record<string, string>;
+  /** Manuel görev sırası: "dosya::açıklama" → sıra değeri (sürükle-bırak, kalıcı). */
+  taskOrder: Record<string, number>;
 
   // Editör
   openTabs: string[]; // açık not/çizim yolları (sekmeler)
@@ -257,7 +259,7 @@ export const useAppStore = create<AppState>()(
   async function loadFromBackend() {
     const { tasks, notes, contents } = await loadVaultData(backend);
     const today = todayISO();
-    const { groups, unplannedTasks } = groupTasks(tasks, today);
+    const { groups, unplannedTasks } = groupTasks(tasks, today, get().taskOrder);
     const c = focusCounts(tasks, today);
     set({
       parsedTasks: tasks,
@@ -294,6 +296,7 @@ export const useAppStore = create<AppState>()(
     counts: { yapilacak: 0, geciken: 0, planlanmamis: 0 },
     parsedTasks: [],
     noteContents: {},
+    taskOrder: {},
 
     openTabs: [],
     pinnedTabs: [],
@@ -418,7 +421,7 @@ export const useAppStore = create<AppState>()(
         n.kind === "draw" ? [] : parseTasks(n.path, noteContents[n.path] ?? "")
       );
       const today = todayISO();
-      const { groups, unplannedTasks } = groupTasks(tasks, today);
+      const { groups, unplannedTasks } = groupTasks(tasks, today, s.taskOrder);
       const c = focusCounts(tasks, today);
       set({
         noteContents,
@@ -879,17 +882,24 @@ export const useAppStore = create<AppState>()(
       await loadFromBackend();
     },
 
-    // Görev sırasını değiştir (sürükle-bırak): aynı dosyada from satırını to satırına taşı.
+    // Görev sırasını değiştir (sürükle-bırak): sürüklenen görevi hedefin hemen ÖNÜNE koy.
+    // Uygulama düzeyi manuel sıra (dosyadan bağımsız, dosyalar arası çalışır, kalıcı).
     reorderTask: async (fromId, toId) => {
-      const fsep = fromId.lastIndexOf(":");
-      const tsep = toId.lastIndexOf(":");
-      const file = fromId.slice(0, fsep);
-      if (file !== toId.slice(0, tsep)) return; // yalnız aynı dosya içinde
-      const from = Number(fromId.slice(fsep + 1));
-      const to = Number(toId.slice(tsep + 1));
-      const content = await backend.readNote(file);
-      await backend.writeNote(file, moveTaskLine(content, from, to));
-      await loadFromBackend();
+      const s = get();
+      const parse = (id: string) => {
+        const sep = id.lastIndexOf(":");
+        return { file: id.slice(0, sep), line: Number(id.slice(sep + 1)) };
+      };
+      const d = parse(fromId);
+      const tg = parse(toId);
+      const dTask = s.parsedTasks.find((p) => p.file === d.file && p.line === d.line);
+      const tTask = s.parsedTasks.find((p) => p.file === tg.file && p.line === tg.line);
+      if (!dTask || !tTask) return;
+      const targetVal = taskSortVal(tTask, s.taskOrder);
+      const taskOrder = { ...s.taskOrder, [taskOrderKey(dTask.file, dTask.description)]: targetVal - 0.5 };
+      const today = todayISO();
+      const { groups, unplannedTasks } = groupTasks(s.parsedTasks, today, taskOrder);
+      set({ taskOrder, groups, unplannedTasks });
     },
 
     // — GitHub —
@@ -990,6 +1000,7 @@ export const useAppStore = create<AppState>()(
         pomo: s.pomo,
         pomoSound: s.pomoSound,
         pomoHistory: s.pomoHistory,
+        taskOrder: s.taskOrder,
         favorites: s.favorites,
         ghToken: s.ghToken,
         ghUser: s.ghUser,

@@ -16,6 +16,8 @@ export interface Task {
   tag: string;
   /** Tamamlanan Pomodoro turu (Karar A: satıra 🍅×N yazılır). */
   pomos: number;
+  /** İsteğe bağlı saat (⏰ HH:MM) — listede gösterilir, sıralamada kullanılır. */
+  time?: string;
 }
 
 export interface TaskGroup {

@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Maximize2, Minimize2, FileText } from "lucide-react";
+import { Maximize2, Minimize2, FileText, GripVertical } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import type { GroupKind, Task } from "../../data/sampleVault";
 import { StatCards, type TaskFilter } from "./StatCards";
@@ -65,6 +65,9 @@ export function MiniAgenda() {
         setDragging(null);
       }}
     >
+      <span className="lo-mini__grip" aria-hidden>
+        <GripVertical size={14} strokeWidth={2} />
+      </span>
       <button
         className="lo-mini__check"
         onClick={(e) => {
@@ -76,6 +79,7 @@ export function MiniAgenda() {
         <span className="lo-checkbox-sm" />
       </button>
       <span className="lo-mini__text">{task.text}</span>
+      {task.time && <span className="lo-mini__time">{task.time}</span>}
       <span className={"lo-mini__rel" + (task.overdue ? " is-overdue" : "")}>{task.rel}</span>
     </div>
   );
