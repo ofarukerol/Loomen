@@ -100,7 +100,12 @@
     "yearlyHint": "يتكرر كل عام بناءً على التاريخ أعلاه.",
     "dailyTimeHint": "كل يوم في {{time}}.",
     "notes": "ملاحظات",
-    "notesPlaceholder": "ملاحظات حول هذه المهمة… (markdown)"
+    "notesPlaceholder": "ملاحظات حول هذه المهمة… (markdown)",
+    "bold": "عريض",
+    "italic": "مائل",
+    "strike": "يتوسطه خط",
+    "heading": "عنوان",
+    "list": "قائمة"
   },
   "calendar": {
     "month": "يونيو ٢٠٢٦",

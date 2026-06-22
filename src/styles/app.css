@@ -1268,22 +1268,21 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-mini__title { font-size: 13.5px; font-weight: 700; color: var(--fg1); letter-spacing: -0.01em; }
 .lo-mini__list { display: flex; flex-direction: column; }
 .lo-mini__list--scroll { max-height: 320px; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
-.lo-mini__date { font-size: 11px; font-weight: 600; margin: 9px 0 3px; }
-.lo-mini__date:first-child { margin-top: 2px; }
+.lo-mini__date { font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; margin: 13px 0 4px; }
+.lo-mini__date:first-child { margin-top: 3px; }
 .lo-mini__date--overdue { color: var(--danger); }
 .lo-mini__date--today { color: var(--accent); }
 .lo-mini__date--upcoming { color: var(--fg3); }
 .lo-mini__date--src { display: flex; align-items: center; gap: 5px; color: var(--accent-2); }
 .lo-mini__date--src > svg { flex-shrink: 0; }
-.lo-mini__row { display: flex; align-items: center; gap: 7px; padding: 3px 2px; border-radius: 6px; }
+.lo-mini__row { display: flex; align-items: center; gap: 11px; padding: 7px 8px; border-radius: 9px; transition: background 0.1s; }
 .lo-mini__row:hover { background: var(--line-soft); }
 .lo-mini__check {
-  width: 16px; height: 16px; border: none; background: transparent; color: var(--fg3);
-  cursor: pointer; padding: 0; flex-shrink: 0; display: flex; align-items: center;
+  width: 18px; height: 18px; border: none; background: transparent; color: var(--fg3);
+  cursor: pointer; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
 }
-.lo-mini__check:hover { color: var(--accent); }
-.lo-mini__text { flex: 1; min-width: 0; font-size: 12px; color: var(--fg1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lo-mini__rel { font-size: 10.5px; color: var(--fg3); flex-shrink: 0; }
+.lo-mini__text { flex: 1; min-width: 0; font-size: 13.5px; color: var(--fg1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-mini__rel { font-size: 11px; color: var(--fg3); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .lo-mini__rel.is-overdue { color: var(--danger); }
 
 /* günün planı (orta gövde varsayılan, journal) — minimal & modern */
@@ -1447,27 +1446,35 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-tdetail__timeclear { border: none; background: none; color: var(--fg3); font-family: inherit; font-size: 12px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
 .lo-tdetail__timeclear:hover { background: var(--line-soft); color: var(--fg1); }
 
-/* Notlar */
-.lo-tdetail__notes {
-  width: 100%; box-sizing: border-box; resize: vertical; min-height: 84px;
-  font-family: var(--font-sans); font-size: 13.5px; line-height: 1.6; color: var(--fg1);
-  background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 11px; padding: 11px 13px;
+/* Notlar — basit biçimlendirme editörü */
+.lo-noteed { border: 1px solid var(--line); border-radius: 11px; overflow: hidden; background: var(--bg-sunken); }
+.lo-noteed:focus-within { border-color: var(--accent); }
+.lo-noteed__bar { display: flex; align-items: center; gap: 2px; padding: 5px 6px; border-bottom: 1px solid var(--line-soft); }
+.lo-noteed__btn {
+  width: 28px; height: 26px; display: grid; place-items: center; border: none; background: transparent;
+  border-radius: 6px; color: var(--fg2); cursor: pointer;
 }
-.lo-tdetail__notes:focus { outline: none; border-color: var(--accent); background: var(--bg); }
+.lo-noteed__btn:hover { background: var(--line); color: var(--accent); }
+.lo-tdetail__notes {
+  display: block; width: 100%; box-sizing: border-box; resize: vertical; min-height: 80px;
+  font-family: var(--font-sans); font-size: 13.5px; line-height: 1.6; color: var(--fg1);
+  background: transparent; border: none; border-radius: 0; padding: 10px 13px;
+}
+.lo-tdetail__notes:focus { outline: none; }
 .lo-tdetail__notes::placeholder { color: var(--fg3); }
 
-/* Modern takvim (date picker) */
-.lo-dp { background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
-.lo-dp__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.lo-dp__month { font-size: 13.5px; font-weight: 700; color: var(--fg1); text-transform: capitalize; }
-.lo-dp__nav { width: 26px; height: 26px; display: grid; place-items: center; border: none; background: transparent; border-radius: 7px; color: var(--fg2); cursor: pointer; }
+/* Modern takvim (date picker) — kompakt */
+.lo-dp { background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 11px; padding: 8px 9px; max-width: 280px; }
+.lo-dp__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.lo-dp__month { font-size: 12.5px; font-weight: 700; color: var(--fg1); text-transform: capitalize; }
+.lo-dp__nav { width: 24px; height: 24px; display: grid; place-items: center; border: none; background: transparent; border-radius: 6px; color: var(--fg2); cursor: pointer; }
 .lo-dp__nav:hover { background: var(--line); color: var(--fg1); }
-.lo-dp__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.lo-dp__wd { text-align: center; font-size: 10.5px; font-weight: 600; color: var(--fg3); padding-bottom: 2px; }
-.lo-dp__pad { aspect-ratio: 1; }
+.lo-dp__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+.lo-dp__wd { text-align: center; font-size: 9.5px; font-weight: 600; color: var(--fg3); padding-bottom: 1px; }
+.lo-dp__pad { height: 28px; }
 .lo-dp__day {
-  aspect-ratio: 1; display: grid; place-items: center; border: none; background: transparent;
-  border-radius: 8px; font-family: inherit; font-size: 12.5px; color: var(--fg1); cursor: pointer;
+  height: 28px; display: grid; place-items: center; border: none; background: transparent;
+  border-radius: 7px; font-family: inherit; font-size: 11.5px; color: var(--fg1); cursor: pointer;
 }
 .lo-dp__day:hover { background: var(--line); }
 .lo-dp__day.is-today { color: var(--accent); font-weight: 700; }
@@ -1486,7 +1493,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-recur__hint { font-size: 12.5px; color: var(--fg3); }
 
 /* Liste kare onay kutusu */
-.lo-checkbox-sm { width: 15px; height: 15px; border: 1.7px solid var(--fg3); border-radius: 4px; display: block; transition: border-color .12s, background .12s; }
+.lo-checkbox-sm { width: 16px; height: 16px; border: 1.7px solid var(--line); border-radius: 5px; display: block; transition: border-color .12s, background .12s; }
 .lo-checkbox-md {
   width: 20px; height: 20px; border: 1.9px solid var(--fg3); border-radius: 6px;
   display: grid; place-items: center; flex-shrink: 0; transition: border-color .12s, background .12s;

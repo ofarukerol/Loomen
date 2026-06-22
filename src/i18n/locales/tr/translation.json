@@ -104,7 +104,12 @@
     "yearlyHint": "Yukarıdaki tarihe göre her yıl tekrarlanır.",
     "dailyTimeHint": "Her gün {{time}} saatinde.",
     "notes": "Notlar",
-    "notesPlaceholder": "Bu görevle ilgili notlar… (markdown)"
+    "notesPlaceholder": "Bu görevle ilgili notlar… (markdown)",
+    "bold": "Kalın",
+    "italic": "İtalik",
+    "strike": "Üstü çizili",
+    "heading": "Başlık",
+    "list": "Liste"
   },
   "calendar": {
     "month": "Haziran 2026",

@@ -95,7 +95,12 @@
     "yearlyHint": "Repeats every year based on the date above.",
     "dailyTimeHint": "Every day at {{time}}.",
     "notes": "Notes",
-    "notesPlaceholder": "Notes about this task… (markdown)"
+    "notesPlaceholder": "Notes about this task… (markdown)",
+    "bold": "Bold",
+    "italic": "Italic",
+    "strike": "Strikethrough",
+    "heading": "Heading",
+    "list": "List"
   },
   "pomodoro": {
     "title": "POMODORO",

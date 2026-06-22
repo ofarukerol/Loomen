@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   X,
@@ -17,6 +17,11 @@ import {
   ChevronDown,
   ChevronsDown,
   AlignLeft,
+  Bold,
+  Italic,
+  Strikethrough,
+  Heading2,
+  List,
 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { getTaskNotes } from "../../core/markdown/taskParser";
@@ -106,6 +111,17 @@ export function TaskDetail() {
   const [dom, setDom] = useState(1);
   const [priority, setPriority] = useState("");
   const [notes, setNotes] = useState("");
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+
+  // Esc → modalı kapat.
+  useEffect(() => {
+    if (!id) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") selectTask(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [id, selectTask]);
 
   useEffect(() => {
     if (!task || !id) return;
@@ -152,6 +168,37 @@ export function TaskDetail() {
     { v: "⏬", Icon: ChevronsDown, label: t("taskDetail.prioLowest"), color: "var(--fg3)" },
   ];
   const activePrio = PRIO_OPTS.find((o) => o.v === priority) ?? PRIO_OPTS[0];
+
+  // Notlar biçimlendirme: seçili metni markdown ile sar / satır başına ön ek koy.
+  const wrapNotes = (before: string, after = before) => {
+    const ta = notesRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart;
+    const e = ta.selectionEnd;
+    setNotes(notes.slice(0, s) + before + notes.slice(s, e) + after + notes.slice(e));
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(s + before.length, e + before.length);
+    });
+  };
+  const prefixNotesLine = (prefix: string) => {
+    const ta = notesRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart;
+    const ls = notes.lastIndexOf("\n", s - 1) + 1;
+    setNotes(notes.slice(0, ls) + prefix + notes.slice(ls));
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(s + prefix.length, s + prefix.length);
+    });
+  };
+  const fmtBtns: { Icon: typeof Bold; title: string; run: () => void }[] = [
+    { Icon: Bold, title: t("taskDetail.bold"), run: () => wrapNotes("**") },
+    { Icon: Italic, title: t("taskDetail.italic"), run: () => wrapNotes("*") },
+    { Icon: Strikethrough, title: t("taskDetail.strike"), run: () => wrapNotes("~~") },
+    { Icon: Heading2, title: t("taskDetail.heading"), run: () => prefixNotesLine("## ") },
+    { Icon: List, title: t("taskDetail.list"), run: () => prefixNotesLine("- ") },
+  ];
 
   const RECUR_OPTS: { k: RecurKey; label: string }[] = [
     { k: "none", label: t("taskDetail.recurNone") },
@@ -328,18 +375,34 @@ export function TaskDetail() {
             </div>
           </div>
 
-          {/* Notlar */}
+          {/* Notlar — basit biçimlendirme araç çubuğu + alan */}
           <div className="lo-tdetail__field">
             <span className="lo-tdetail__label">
               <AlignLeft size={13} strokeWidth={2} /> {t("taskDetail.notes")}
             </span>
-            <textarea
-              className="lo-tdetail__notes lo-scroll"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={t("taskDetail.notesPlaceholder")}
-              rows={4}
-            />
+            <div className="lo-noteed">
+              <div className="lo-noteed__bar">
+                {fmtBtns.map((f, i) => (
+                  <button
+                    key={i}
+                    className="lo-noteed__btn"
+                    title={f.title}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={f.run}
+                  >
+                    <f.Icon size={14} strokeWidth={2.3} />
+                  </button>
+                ))}
+              </div>
+              <textarea
+                ref={notesRef}
+                className="lo-tdetail__notes lo-scroll"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder={t("taskDetail.notesPlaceholder")}
+                rows={4}
+              />
+            </div>
           </div>
 
           {(task.tags.length > 0 || task.pomos > 0) && (
