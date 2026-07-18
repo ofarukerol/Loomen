@@ -1,43 +1,127 @@
 # Loomen
 
-Tauri 2.0 ile geliştirilen, **tamamen lokal** çalışan bir Obsidian klonu — gömülü günlük
-planlayıcı, takvim ve Pomodoro sistemiyle. Masaüstü (macOS/Windows/Linux) + mobil (iOS/Android),
-web arayüzü yok. Notlar düz `.md` dosyaları olarak yerel bir vault'ta tutulur.
+**Tamamen lokal çalışan bir kişisel bilgi yönetimi (PKM) uygulaması** — notlarını düz `.md`
+dosyalarında tutar, gömülü bir günlük planlayıcı, takvim ve Pomodoro ile birlikte gelir.
 
+Sunucu yok, hesap yok, abonelik yok. Notların senin diskinde, senin klasöründe, açık formatta durur.
+
+- **Platform:** macOS · Windows · Linux · iOS · Android (Tauri 2.0)
+- **Lisans:** [PolyForm Noncommercial 1.0.0](LICENSE) — kişisel kullanım serbest, ticari kullanım yasak
+- **Durum:** Aktif geliştirme (`v0.1.0`) — henüz yayınlanmış bir sürüm yok
 - **Domain:** loomen.org
-- **Durum:** Planlama (Faz 2 — Gereksinimlerin Tanımlanması). Henüz kod yazılmadı.
 
-## Planlama Dokümanları
+---
 
-Projenin anayasası [`docs/planning/`](docs/planning/) altındadır — sırayla okuyun:
+## Neden Loomen?
 
-1. [00 — README / İndeks](docs/planning/00-README.md)
-2. [01 — Spec (Gereksinimler)](docs/planning/01-spec.md)
-3. [02 — MVP Kapsamı](docs/planning/02-mvp-scope.md)
-4. [03 — System Design](docs/planning/03-system-design.md)
-5. [04 — Tech Stack](docs/planning/04-tech-stack.md)
-6. [05 — Acceptance Criteria](docs/planning/05-acceptance-criteria.md)
-7. [06 — Planlayıcı + Takvim + Pomodoro](docs/planning/06-planlayici-pomodoro.md)
-8. [07 — Çok Dilli Mimari (i18n)](docs/planning/07-i18n.md)
+Çoğu not uygulaması ya notlarını kendi sunucusunda tutar, ya kapalı bir formatta kilitler, ya da
+planlama tarafını ayrı bir uygulamaya bırakır. Loomen üçünü birden reddeder:
 
-## Temel Kararlar
+- **Veri sahipliği sende.** Notlar düz Markdown + YAML frontmatter. Uygulamayı silsen notların kalır.
+- **İnternet gerekmez.** Çekirdek işlevlerin hiçbiri ağa çıkmaz.
+- **Planlama not almanın içinde.** Görevler, takvim ve Pomodoro ayrı bir uygulama değil, notlarının yanında.
 
-- **Tamamen lokal:** sunucu/internet yok; vault = yerel `.md` klasörü.
-- **Platform:** Tauri 2.0 — masaüstü + iOS/Android. Web yok.
-- **Senkron:** 3. parti / manuel (iCloud / Syncthing / Git). Kendi sync sunucusu yok.
-- **Dil:** kaynak Türkçe + İngilizce + Arapça (RTL); 20 dile ölçeklenebilir i18n.
-- **Tech:** Tauri 2.0 + React + TypeScript + CodeMirror 6 + SQLite (cache) + Zustand.
+## Özellikler
 
-## Lisans
+### Notlar ve editör
+- CodeMirror 6 tabanlı Markdown editörü, **canlı önizleme** (live preview)
+- **Çift yönlü bağlantı** — `[[wiki-link]]` ve geri bağlantı (backlinks) paneli
+- Tablo düzenleme widget'ı, biçimlendirme araç çubuğu, sağ tık menüsü
+- Düz metin editörü modu (Markdown sözdizimi istemeyenler için)
+- Tam metin arama
+- **Günlük not** — tarih şablonundan otomatik oluşturma
+- **Çöp kutusu** — silinen notlar 30 gün saklanır, geri yüklenebilir
 
-Loomen **açık kaynak-görünür ama ticari kullanıma kapalıdır.**
+### Planlayıcı, takvim ve Pomodoro
+- Günlük plan görünümü, görev panosu ve zaman çizelgesi (timeline)
+- Takvim kartı, mini ajanda ve istatistik kartları
+- Görev detayı: alt görevler, tekrar, notlar
+- Hızlı görev ekleme (quick add)
+- Gömülü **Pomodoro** sayacı
 
-- Lisans: **[PolyForm Noncommercial 1.0.0](LICENSE)** — kişisel, eğitim, hobi ve ticari-olmayan
-  her amaçla kullanım **serbest**; **ticari kullanım yasaktır.**
-- Ticari lisans mi lazım? Proje sahibiyle iletişime geç — çift lisanslama mümkündür.
-- Copyright © 2026 Ömer Faruk Erol.
+### Görselleştirme
+- **Graph görünümü** — notlar arası bağlantı grafiği (d3-force)
+- **Çizim** — Excalidraw entegrasyonu
+- Raporlar ekranı
+
+### Ses
+- Uygulama içi **ses kaydı** (VoiceRecorder), WAV ve FLAC kodlama
+- Notlara gömülü ses oynatıcı
+
+### Senkronizasyon (isteğe bağlı)
+Kendi sync sunucumuz **yok**. Vault düz `.md` olduğu için iCloud / Syncthing / Git ile senkronlanır.
+Ek olarak uygulama içinden:
+- **GitHub senkronu** — OAuth Device Flow *(git tabanlı senkron yalnızca masaüstünde)*
+- **Google Takvim** — OAuth 2.0 loopback + PKCE
+
+### Çok dilli
+Türkçe · İngilizce · **Arapça (RTL birinci sınıf)**. Mimari kod değişmeden 20 dile ölçeklenir.
+
+---
+
+## Geliştirme
+
+**Gereksinimler:** Node.js 20+, Rust (stable), platformuna göre
+[Tauri ön koşulları](https://tauri.app/start/prerequisites/).
+
+```bash
+git clone https://github.com/ofarukerol/Loomen.git
+cd Loomen
+npm install
+cp .env.example .env      # entegrasyonlar için (isteğe bağlı, aşağıya bak)
+npm run tauri dev
+```
+
+Diğer komutlar:
+
+```bash
+npm run build             # tsc typecheck + Vite derleme
+npm run tauri build       # dağıtılabilir masaüstü paketi
+```
+
+### Yapılandırma
+
+GitHub ve Google Takvim entegrasyonları kendi OAuth istemcini gerektirir. `.env.example`
+dosyasında adım adım kurulum yazılı — kopyalayıp `.env` yap ve doldur. **Bu entegrasyonlar
+isteğe bağlıdır; uygulama onlarsız da tam çalışır.**
+
+### Bilinmesi gerekenler
+
+- `src-tauri/capabilities/` veya Rust tarafını değiştirdiysen uygulamayı **yeniden başlat** —
+  bunlar binary'ye derlenir, HMR almaz.
+- Sürükle-bırakta **pointer-event** kullan; Tauri'nin WKWebView'ı native HTML5 DnD'yi güvenilir
+  desteklemez.
+- `src-tauri/gen/` sürüm kontrolüne dahil değildir; `tauri ios init` / `tauri android init` ile üretilir.
+
+---
+
+## Mimari
+
+**Frontend:** React 19 · TypeScript · Zustand · CodeMirror 6 · i18next · Excalidraw · d3-force
+**Backend (yerel):** Rust / Tauri 2.0 — dosya sistemi, OAuth (PKCE), GitHub Git Data API
+
+Sunucu bileşeni ve veritabanı **yoktur**. Tek gerçek kaynak diskteki `.md` dosyalarıdır;
+bellekteki her şey önbellektir.
+
+> ⚠️ Not içeriğine dokunan her değişiklik [`NOTE_SAFETY_RULES.md`](NOTE_SAFETY_RULES.md)
+> kurallarına uymak zorundadır. Bu kurallar gerçek bir veri kaybı olayından sonra yazıldı.
+
+### Planlama dokümanları
+
+Ürün gereksinimleri ve tasarım kararları [`docs/planning/`](docs/planning/) altında —
+spec, MVP kapsamı, sistem tasarımı, tech stack, kabul kriterleri, planlayıcı spesifikasyonu,
+i18n mimarisi ve tasarım sistemi.
+
+---
 
 ## Katkı
 
-PR'lara açığız. Katkı yapmadan önce [`CONTRIBUTING.md`](CONTRIBUTING.md) ve
-[`CLA.md`](CLA.md) (Katkıcı Lisans Sözleşmesi — zorunlu) dosyalarını oku.
+PR'lara açığız. Katkı yapmadan önce [`CONTRIBUTING.md`](CONTRIBUTING.md) dosyasını oku —
+[`CLA.md`](CLA.md) (Katkıcı Lisans Sözleşmesi) kabulü **zorunludur** ve PR'larda otomatik kontrol edilir.
+
+## Lisans
+
+[PolyForm Noncommercial 1.0.0](LICENSE) — kişisel, eğitim, hobi ve ticari **olmayan** her amaçla
+kullanım serbesttir. **Ticari kullanım yasaktır.** Ticari lisans için proje sahibiyle iletişime geç.
+
+Copyright © 2026 Ömer Faruk Erol
