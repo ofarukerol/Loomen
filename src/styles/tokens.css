@@ -27,6 +27,11 @@
   --accent-2: #D89A4E;    /* ikincil amber: klasör ikonu, küçük vurgular */
   --daily: #2E8B7F;       /* soft teal: Günlük klasörü (sabit, ayrı renk) */
   --daily-soft: #2E8B7F1F; /* teal hover zemini */
+  --graph-tag: #5E8C6A;   /* graf #etiket düğümü (yeşil, Obsidian gibi) */
+  --graph-tag-soft: #5E8C6A3D; /* etiket düğüm zemini (~%24) */
+  --graph-node: #E6DFD2;  /* not düğümü dolgusu (krem zeminde okunur sıcak ton) */
+  --graph-node-line: #CDC4B2; /* not düğümü çeperi */
+  --graph-link: #D8CFBF;  /* bağlantı çizgisi (çizgiden bir tık sıcak/belirgin) */
 
   /* — Durum — */
   --danger: #C0473A;      --danger-bg: #C0473A12;  /* geciken görev */
@@ -65,6 +70,8 @@
   --line: #322F2A;        --line-soft: #27241F;
   --accent: #D67A4E;      --accent-soft: #D67A4E26;  --accent-2: #E0A85C;
   --daily: #4FB3A3;       --daily-soft: #4FB3A329;
+  --graph-tag: #7DB389;   --graph-tag-soft: #7DB3893D;
+  --graph-node: #2E2C28;  --graph-node-line: #45423B;  --graph-link: #37342E;
   --danger: #E0796B;      --danger-bg: #E0796B1F;    --success: #5DB17F;
   --sh1: 0 1px 2px rgba(0,0,0,0.3);
   --sh2: 0 2px 10px rgba(0,0,0,0.35);

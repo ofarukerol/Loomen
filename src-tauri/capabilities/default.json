@@ -7,29 +7,80 @@
     "core:default",
     "opener:default",
     "dialog:default",
+    "deep-link:default",
     "fs:default",
-    { "identifier": "fs:allow-read-text-file", "allow": [{ "path": "$HOME/**" }] },
-    { "identifier": "fs:allow-write-text-file", "allow": [{ "path": "$HOME/**" }] },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [{ "path": "$HOME/**" }, { "path": "$APPDATA/**" }]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [{ "path": "$HOME/**" }, { "path": "$APPDATA/**" }]
+    },
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [{ "path": "$HOME/**" }, { "path": "$APPDATA/**" }]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [{ "path": "$HOME/**" }, { "path": "$APPDATA/**" }]
+    },
     {
       "identifier": "fs:allow-read-dir",
-      "allow": [{ "path": "$HOME/**" }, { "path": "$HOME/**/.trash" }, { "path": "$HOME/**/.trash/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.trash" },
+        { "path": "$HOME/**/.trash/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPDATA/**/.trash" },
+        { "path": "$APPDATA/**/.trash/**" }
+      ]
     },
     {
       "identifier": "fs:allow-exists",
-      "allow": [{ "path": "$HOME/**" }, { "path": "$HOME/**/.trash" }, { "path": "$HOME/**/.trash/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.trash" },
+        { "path": "$HOME/**/.trash/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPDATA/**/.trash" },
+        { "path": "$APPDATA/**/.trash/**" }
+      ]
     },
     {
       "identifier": "fs:allow-mkdir",
-      "allow": [{ "path": "$HOME/**" }, { "path": "$HOME/**/.trash" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.trash" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPDATA/**/.trash" }
+      ]
     },
-    { "identifier": "fs:allow-watch", "allow": [{ "path": "$HOME/**" }] },
+    {
+      "identifier": "fs:allow-watch",
+      "allow": [{ "path": "$HOME/**" }, { "path": "$APPDATA/**" }]
+    },
     {
       "identifier": "fs:allow-rename",
-      "allow": [{ "path": "$HOME/**" }, { "path": "$HOME/**/.trash" }, { "path": "$HOME/**/.trash/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.trash" },
+        { "path": "$HOME/**/.trash/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPDATA/**/.trash" },
+        { "path": "$APPDATA/**/.trash/**" }
+      ]
     },
     {
       "identifier": "fs:allow-remove",
-      "allow": [{ "path": "$HOME/**" }, { "path": "$HOME/**/.trash" }, { "path": "$HOME/**/.trash/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/.trash" },
+        { "path": "$HOME/**/.trash/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPDATA/**/.trash" },
+        { "path": "$APPDATA/**/.trash/**" }
+      ]
     }
   ]
 }

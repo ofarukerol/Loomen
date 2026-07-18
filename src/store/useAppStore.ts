@@ -20,16 +20,29 @@ import {
   templatePathFor,
   TEMPLATES_DIR,
   DRAW_DIR,
+  AUDIO_DIR,
   TODO_HEADING,
 } from "../core/vault";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
-import { gh, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
+import { gh, appIsMobile, appPlatform, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
+import {
+  gcal,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  mobileClientId,
+  localTimeZone,
+  taskToEventPayload,
+  type GoogleTokens,
+  type GUser,
+  type GCalendar,
+  type GEvent,
+} from "../core/google";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
-export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab";
+export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help";
 export type PlannerLayout = "timeline" | "board";
 export type Lang = "tr" | "en" | "ar";
 export type EditorTab = "daily" | "proje" | "fikirler";
@@ -118,6 +131,9 @@ interface AppState {
   activeNote: string | null; // aktif not yolu
   editing: boolean;
   draft: string;
+  /** Taslağın AİT OLDUĞU not yolu. saveNote yalnızca draftPath === activeNote ise yazar —
+   *  böylece bir notun taslağı asla başka bir dosyaya yazılamaz (veri bütünlüğü güvencesi). */
+  draftPath: string | null;
   backlinksCollapsed: boolean;
 
   // Görev detay paneli (seçili görev id'si "file:line")
@@ -138,6 +154,26 @@ interface AppState {
   ghLastSync: string | null; // ISO
   ghStatus: string | null; // son durum/hata mesajı
   ghAutoSync: boolean;
+  ghBaseSha: string | null; // mobil API senkronunda son senkron commit'i (3-yönlü birleştirme temeli)
+
+  // Platform: mobil mi (Rust cfg(mobile))? Bootstrap'te belirlenir. Mobilde kasa = app-data + GitHub API senkron.
+  platformMobile: boolean;
+  platformOs: string; // "ios" | "android" | "macos" | "windows" | "linux" — Google mobil client seçimi
+
+  // Google Takvim entegrasyonu (OAuth Loopback+PKCE, çift yönlü)
+  gcalTokens: GoogleTokens | null;
+  gcalExpiresAt: number | null; // epoch ms — access token son geçerlilik
+  gcalUser: GUser | null;
+  gcalCalendarId: string | null; // seçili takvim (varsayılan "primary")
+  gcalCalendarName: string | null;
+  gcalConnecting: boolean; // tarayıcı onayı sürüyor
+  gcalSyncing: boolean;
+  gcalLastSync: string | null; // ISO
+  gcalStatus: string | null; // son durum/hata mesajı
+  gcalAutoSync: boolean;
+  gcalEvents: GEvent[]; // pull edilen etkinlikler (kalıcı değil)
+  /** vaultPath → { taskKey → Google event id } — push eşlemesi (cihaz-yerel). */
+  gcalMap: Record<string, Record<string, string>>;
 
   // Pomodoro
   pomo: PomodoroSettings;
@@ -214,6 +250,14 @@ interface AppState {
   newTemplate: () => Promise<void>;
   setDailyTemplate: (name: string) => void;
   saveDraw: (json: string) => Promise<void>;
+  /** Ses notu kaydını kasaya yaz (uzantı + isteğe bağlı ad ile), vault'a göre yolunu döner. */
+  saveAudioNote: (bytes: Uint8Array, ext: string, baseName?: string) => Promise<string>;
+  /** Bir ses notu dosyasını oku (AudioEmbedPlayer için). */
+  readAudioFile: (path: string) => Promise<Uint8Array>;
+  /** Ses kaydını yeniden adlandır (dosya rename + tüm notlardaki embed referansları). */
+  renameAudioNote: (path: string, newBase: string) => Promise<string | null>;
+  /** Ses kaydını sil (çöp kutusuna taşır) + embed satırlarını notlardan kaldır. */
+  deleteAudioNote: (path: string) => Promise<void>;
   toggleFavorite: (path: string) => void;
   renameNote: (path: string, newName: string) => Promise<void>;
   renameFolder: (folderPath: string, newName: string) => Promise<void>;
@@ -232,6 +276,7 @@ interface AppState {
 
   // GitHub aksiyonları
   ghBeginAuth: () => Promise<void>;
+  ghCopyCodeAndOpen: () => Promise<void>;
   ghCancelAuth: () => void;
   ghPoll: () => Promise<string>;
   ghDisconnect: () => void;
@@ -240,6 +285,14 @@ interface AppState {
   ghSelectRepo: (repo: GhRepo) => void;
   ghSync: () => Promise<void>;
   ghSetAutoSync: (v: boolean) => void;
+
+  // Google Takvim aksiyonları
+  gcalConnect: () => Promise<void>;
+  gcalDisconnect: () => void;
+  gcalLoadCalendars: () => Promise<GCalendar[]>;
+  gcalSelectCalendar: (id: string, name: string) => void;
+  gcalSync: () => Promise<void>;
+  gcalSetAutoSync: (v: boolean) => void;
 }
 
 /** Boş Excalidraw sahnesi (yeni çizim oluştururken). */
@@ -295,6 +348,32 @@ export const useAppStore = create<AppState>()(
     void refreshTrash();
   }
 
+  /**
+   * Ses dosyası yolu değişince/silinince embed referanslarını TÜM notlarda dönüştür.
+   * NOTE_SAFETY: her not yalnız KENDİ dönüştürülmüş içeriğiyle yazılır (çapraz sızıntı yok);
+   * draft'ın sahibi dosya (draftPath) değiştiyse draft da AYNI dönüşümle güncellenir — böylece
+   * bekleyen autosave, dönüşümü geri almaz.
+   */
+  async function rewriteAudioRefs(transform: (content: string) => string): Promise<void> {
+    const s = get();
+    const changed: string[] = [];
+    for (const [p, c] of Object.entries(s.noteContents)) {
+      const next = transform(c);
+      if (next !== c) {
+        await backend.writeNote(p, next);
+        changed.push(p);
+      }
+    }
+    const st = get();
+    if (st.draftPath && changed.includes(st.draftPath)) set({ draft: transform(st.draft) });
+    if (changed.length) await loadFromBackend();
+  }
+
+  /** Dosya adı için güvenli taban ad (yol ayraçları/markdown köşelileri temizlenir). */
+  function sanitizeAudioName(name: string): string {
+    return name.replace(/[\\/:*?"<>|[\]#^]/g, "-").trim();
+  }
+
   /** Çöp kutusunu yükle; saklama süresi (30 gün) dolmuş kayıtları kalıcı sil. */
   async function refreshTrash() {
     try {
@@ -308,6 +387,26 @@ export const useAppStore = create<AppState>()(
       set({ trash: entries });
     } catch {
       set({ trash: [] });
+    }
+  }
+
+  /** Geçerli Google access token döndür; süresi dolduysa refresh et. Bağlantı yoksa null. */
+  async function ensureGcalAccess(): Promise<string | null> {
+    const s = get();
+    const tok = s.gcalTokens;
+    if (!tok) return null;
+    const fresh = s.gcalExpiresAt != null && Date.now() < s.gcalExpiresAt - 60_000;
+    if (fresh) return tok.access_token;
+    if (!tok.refresh_token) return tok.access_token; // refresh yoksa eldekiyle dene
+    try {
+      // Mobil: secret'sız PKCE refresh (platform client id ile); masaüstü: secret'lı.
+      const next = get().platformMobile
+        ? await gcal.refreshPkce(mobileClientId(get().platformOs), tok.refresh_token)
+        : await gcal.refresh(tok.refresh_token);
+      set({ gcalTokens: next, gcalExpiresAt: Date.now() + next.expires_in * 1000 });
+      return next.access_token;
+    } catch {
+      return tok.access_token; // refresh başarısız → eldekiyle dene (401 ise sync hatayı yüzeye taşır)
     }
   }
 
@@ -344,6 +443,7 @@ export const useAppStore = create<AppState>()(
     activeNote: null,
     editing: false,
     draft: "",
+    draftPath: null,
     backlinksCollapsed: false,
     selectedTask: null,
     activeDraw: null,
@@ -357,6 +457,22 @@ export const useAppStore = create<AppState>()(
     ghLastSync: null,
     ghStatus: null,
     ghAutoSync: false,
+    ghBaseSha: null,
+    platformMobile: false,
+    platformOs: "desktop",
+
+    gcalTokens: null,
+    gcalExpiresAt: null,
+    gcalUser: null,
+    gcalCalendarId: null,
+    gcalCalendarName: null,
+    gcalConnecting: false,
+    gcalSyncing: false,
+    gcalLastSync: null,
+    gcalStatus: null,
+    gcalAutoSync: false,
+    gcalEvents: [],
+    gcalMap: {},
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoSound: true,
@@ -406,6 +522,7 @@ export const useAppStore = create<AppState>()(
         openTabs,
         editing: edit, // edit=true → doğrudan düzenleme modunda aç
         draft: st.noteContents[note.path] ?? "",
+        draftPath: note.path,
       });
     },
     setActiveTab: (path) => {
@@ -415,7 +532,7 @@ export const useAppStore = create<AppState>()(
         set({ screen: "draw", activeDraw: path });
         return;
       }
-      set({ screen: "editor", activeNote: path, editing: true, draft: s.noteContents[path] ?? "" });
+      set({ screen: "editor", activeNote: path, editing: true, draft: s.noteContents[path] ?? "", draftPath: path });
     },
     togglePin: (path) =>
       set((s) => ({
@@ -434,7 +551,8 @@ export const useAppStore = create<AppState>()(
         const next = openTabs[openTabs.length - 1] ?? null;
         const clearNote = s.activeNote === path ? null : s.activeNote;
         const clearDraw = s.activeDraw === path ? null : s.activeDraw;
-        if (!next) return { openTabs, pinnedTabs, activeNote: clearNote, activeDraw: clearDraw, draft: "" };
+        if (!next)
+          return { openTabs, pinnedTabs, activeNote: clearNote, activeDraw: clearDraw, draft: "", draftPath: null };
         const nextNote = s.notes.find((n) => n.path === next);
         if (nextNote?.kind === "draw") {
           return { openTabs, pinnedTabs, screen: "draw", activeDraw: next, activeNote: clearNote };
@@ -447,6 +565,7 @@ export const useAppStore = create<AppState>()(
           activeDraw: clearDraw,
           editing: true,
           draft: s.noteContents[next] ?? "",
+          draftPath: next,
         };
       }),
     setDraft: (draft) => set({ draft }),
@@ -455,6 +574,11 @@ export const useAppStore = create<AppState>()(
     saveNote: async () => {
       const s = get();
       if (!s.activeNote) return;
+      // GÜVENLİK: taslak başka bir nota aitse ASLA yazma (yanlış içeriğin yanlış dosyaya
+      // yazılıp notu bozmasını engeller — bkz NOTE_SAFETY_RULES.md).
+      if (s.draftPath !== s.activeNote) return;
+      // Gereksiz yazma yok: içerik değişmediyse dosyaya dokunma (NOTE_SAFETY_RULES kural 5).
+      if (s.draft === s.noteContents[s.activeNote]) return;
       await backend.writeNote(s.activeNote, s.draft);
       // Hafif kayıt: tüm dosyaları yeniden okumadan bellekte güncelle + görevleri yeniden hesapla.
       const noteContents = { ...s.noteContents, [s.activeNote]: s.draft };
@@ -599,9 +723,24 @@ export const useAppStore = create<AppState>()(
       ensureTemplates(backend).catch(() => {});
       await loadFromBackend();
       if (isTauri()) {
-        // Kalıcı vaultPath'i (rehydrate'ten) ya da eski localStorage anahtarını kullan.
-        const saved = get().vaultPath ?? localStorage.getItem(VAULT_KEY);
-        if (saved) await get().reopenVault(saved);
+        const [mobile, os] = await Promise.all([appIsMobile(), appPlatform()]);
+        set({ platformMobile: mobile, platformOs: os });
+        if (mobile) {
+          // Mobil: kasa app-data altında (klasör seçici yok). İçerik GitHub API ile senkronlanır.
+          try {
+            const { appDataDir, join } = await import("@tauri-apps/api/path");
+            const { exists, mkdir } = await import("@tauri-apps/plugin-fs");
+            const vault = await join(await appDataDir(), "vault");
+            if (!(await exists(vault))) await mkdir(vault, { recursive: true });
+            await get().reopenVault(vault);
+          } catch (e) {
+            console.error("Mobil kasa açılamadı:", e);
+          }
+        } else {
+          // Masaüstü: kalıcı vaultPath'i (rehydrate) ya da eski localStorage anahtarını kullan.
+          const saved = get().vaultPath ?? localStorage.getItem(VAULT_KEY);
+          if (saved) await get().reopenVault(saved);
+        }
       }
     },
 
@@ -644,6 +783,7 @@ export const useAppStore = create<AppState>()(
           activeNote: null,
           activeDraw: null,
           draft: "",
+          draftPath: null,
           screen: "planner",
         });
       }
@@ -738,6 +878,7 @@ export const useAppStore = create<AppState>()(
           patch.activeNote = activeNote;
           patch.activeDraw = activeDraw;
           patch.draft = activeNote ? cur.noteContents[activeNote] ?? "" : "";
+          patch.draftPath = activeNote;
           patch.editing = true;
           // Geçerli ekranı koru ama içerik yoksa anlamlı bir yere düş.
           if (prev.screen === "editor" && !activeNote) patch.screen = "planner";
@@ -816,6 +957,49 @@ export const useAppStore = create<AppState>()(
       await backend.writeNote(path, json);
       set((s) => ({ noteContents: { ...s.noteContents, [path]: json } }));
     },
+    saveAudioNote: async (bytes, ext, baseName) => {
+      await backend.ensureDir(AUDIO_DIR);
+      const stamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")
+        .replace("T", "_")
+        .slice(0, 19);
+      const base = sanitizeAudioName(baseName ?? "") || stamp;
+      let path = `${AUDIO_DIR}/${base}.${ext}`;
+      for (let n = 2; await backend.exists(path); n++) path = `${AUDIO_DIR}/${base} (${n}).${ext}`;
+      await backend.writeBinary(path, bytes);
+      return path;
+    },
+    readAudioFile: (path) => backend.readBinary(path),
+    renameAudioNote: async (path, newBase) => {
+      const base = sanitizeAudioName(newBase);
+      if (!base) return null;
+      const ext = path.slice(path.lastIndexOf(".") + 1);
+      let target = `${AUDIO_DIR}/${base}.${ext}`;
+      if (target === path) return path;
+      for (let n = 2; await backend.exists(target); n++) target = `${AUDIO_DIR}/${base} (${n}).${ext}`;
+      try {
+        await backend.rename(path, target); // taşıma yalnız rename (NOTE_SAFETY §2.3)
+        await rewriteAudioRefs((c) => c.split(`![[${path}]]`).join(`![[${target}]]`));
+        return target;
+      } catch (e) {
+        void notifyError(`Ses kaydı yeniden adlandırılamadı: ${e}`);
+        return null;
+      }
+    },
+    deleteAudioNote: async (path) => {
+      try {
+        await backend.trashNote(path); // çöp kutusuna taşı — kalıcı silme değil (NOTE_SAFETY §2.4)
+        await rewriteAudioRefs((c) =>
+          c
+            .split("\n")
+            .filter((l) => l.trim() !== `![[${path}]]`)
+            .join("\n")
+        );
+      } catch (e) {
+        void notifyError(`Ses kaydı silinemedi: ${e}`);
+      }
+    },
 
     // Yeni klasör oluştur; ağaçta görünmesi için içine başlangıç notu koyar (boş klasör türetilen ağaçta görünmez).
     newFolder: async () => {
@@ -844,6 +1028,7 @@ export const useAppStore = create<AppState>()(
       set({
         openTabs: s.openTabs.map((p) => (p === path ? to : p)),
         activeNote: s.activeNote === path ? to : s.activeNote,
+        draftPath: s.draftPath === path ? to : s.draftPath, // taslak ↔ dosya bağı korunur
       });
       await loadFromBackend();
     },
@@ -868,6 +1053,7 @@ export const useAppStore = create<AppState>()(
       set({
         openTabs: s.openTabs.map((p) => map.get(p) ?? p),
         activeNote: s.activeNote ? map.get(s.activeNote) ?? s.activeNote : null,
+        draftPath: s.draftPath ? map.get(s.draftPath) ?? s.draftPath : null,
       });
       await loadFromBackend();
     },
@@ -885,13 +1071,23 @@ export const useAppStore = create<AppState>()(
       }
       const openTabs = s.openTabs.filter((p) => p !== path);
       const pinnedTabs = s.pinnedTabs.filter((p) => p !== path);
-      const activeNote =
-        s.activeNote === path ? openTabs[openTabs.length - 1] ?? null : s.activeNote;
+      const activeChanged = s.activeNote === path;
+      const activeNote = activeChanged ? openTabs[openTabs.length - 1] ?? null : s.activeNote;
+      // Aktif not silindiyse: taslağı YENİ aktif nota göre sıfırla. Aksi halde silinen notun
+      // taslağı autosave ile yeni nota yazılıp onu bozardı (kök neden). draftPath sadece
+      // gerçek bir markdown notuna işaret eder; çizim/boş ise null → autosave yazmaz.
+      const nextNote = activeChanged && activeNote ? s.notes.find((n) => n.path === activeNote) : null;
+      const draftPatch = activeChanged
+        ? nextNote?.kind === "note"
+          ? { draft: s.noteContents[activeNote!] ?? "", draftPath: activeNote }
+          : { draft: "", draftPath: null }
+        : {};
       set({
         openTabs,
         pinnedTabs,
         activeNote,
         favorites: s.favorites.filter((p) => p !== path),
+        ...draftPatch,
       });
       await loadFromBackend(); // trash'i de tazeler
     },
@@ -1043,9 +1239,21 @@ export const useAppStore = create<AppState>()(
 
     // — GitHub —
     ghBeginAuth: async () => {
+      // Kodu göster; GitHub'a yönlendirme yalnız kullanıcı "kodu kopyala" butonuna
+      // basınca olur (bkz GitHubDeviceModal) — kopyalamadan sayfaya atlamasın.
       set({ ghStatus: null });
       const d = await gh.deviceStart();
       set({ ghDevice: d });
+    },
+    /** Kodu panoya kopyala, ardından GitHub onay sayfasını aç (bkz ghBeginAuth notu). */
+    ghCopyCodeAndOpen: async () => {
+      const d = get().ghDevice;
+      if (!d) return;
+      try {
+        await navigator.clipboard.writeText(d.user_code);
+      } catch {
+        /* pano izinsiz olabilir — yine de GitHub'a yönlendir */
+      }
       gh.openUrl(d.verification_uri).catch(() => {});
     },
     ghCancelAuth: () => set({ ghDevice: null }),
@@ -1061,7 +1269,8 @@ export const useAppStore = create<AppState>()(
       }
       return res.status;
     },
-    ghDisconnect: () => set({ ghToken: null, ghUser: null, ghRepo: null, ghDevice: null, ghStatus: null }),
+    ghDisconnect: () =>
+      set({ ghToken: null, ghUser: null, ghRepo: null, ghDevice: null, ghStatus: null, ghBaseSha: null }),
     ghLoadRepos: async () => {
       const token = get().ghToken;
       if (!token) return [];
@@ -1080,6 +1289,7 @@ export const useAppStore = create<AppState>()(
       const s = get();
       if (s.vaultPath) get().setVaultRepo(s.vaultPath, repo);
       else set({ ghRepo: repo });
+      set({ ghBaseSha: null }); // yeni repo → senkron temeli sıfırlanır (tam 3-yönlü ilk senkron)
     },
     ghSync: async () => {
       const s = get();
@@ -1093,25 +1303,165 @@ export const useAppStore = create<AppState>()(
       }
       set({ ghSyncing: true, ghStatus: null });
       try {
-        const login = s.ghUser?.login ?? "loomen";
-        const res = await gh.sync(
-          s.vaultPath,
-          s.ghRepo.clone_url,
-          s.ghToken,
-          login,
-          `${login}@users.noreply.github.com`
-        );
-        set({
-          ghSyncing: false,
-          ghLastSync: new Date().toISOString(),
-          ghStatus: res.pulled ? "pulledPushed" : "pushed",
-        });
-        await get().reloadVault();
+        if (s.platformMobile) {
+          // Mobil: git2 yok → GitHub REST (Git Data API) ile senkron.
+          const [owner, repo] = s.ghRepo.full_name.split("/");
+          const branch = s.ghRepo.default_branch || "main";
+          const res = await gh.apiSync(s.vaultPath, owner, repo, branch, s.ghToken, s.ghBaseSha);
+          set({
+            ghSyncing: false,
+            ghLastSync: new Date().toISOString(),
+            ghBaseSha: res.base_sha,
+            ghStatus: res.conflicts.length
+              ? `${res.conflicts.length} çakışma (kopya oluşturuldu)`
+              : res.pulled
+                ? "pulledPushed"
+                : "pushed",
+          });
+          await get().reloadVault();
+        } else {
+          // Masaüstü: git2 tabanlı senkron.
+          const login = s.ghUser?.login ?? "loomen";
+          const res = await gh.sync(
+            s.vaultPath,
+            s.ghRepo.clone_url,
+            s.ghToken,
+            login,
+            `${login}@users.noreply.github.com`
+          );
+          set({
+            ghSyncing: false,
+            ghLastSync: new Date().toISOString(),
+            ghStatus: res.pulled ? "pulledPushed" : "pushed",
+          });
+          await get().reloadVault();
+        }
       } catch (e) {
         set({ ghSyncing: false, ghStatus: String(e) });
       }
     },
     ghSetAutoSync: (ghAutoSync) => set({ ghAutoSync }),
+
+    // ---------- Google Takvim ----------
+    gcalConnect: async () => {
+      const mobile = get().platformMobile;
+      const clientId = mobileClientId(get().platformOs); // iOS/Android'e göre
+      // Mobil: platform client id yeter (secret yok). Masaüstü: client id + secret.
+      if (mobile ? !clientId : !GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+        set({ gcalStatus: "noClientId" });
+        return;
+      }
+      set({ gcalConnecting: true, gcalStatus: null });
+      try {
+        const tokens = mobile ? await gcal.mobileLogin(clientId) : await gcal.login();
+        set({ gcalTokens: tokens, gcalExpiresAt: Date.now() + tokens.expires_in * 1000 });
+        const user = await gcal.userinfo(tokens.access_token);
+        set((s) => ({
+          gcalUser: user,
+          gcalConnecting: false,
+          gcalCalendarId: s.gcalCalendarId ?? "primary",
+          gcalCalendarName: s.gcalCalendarName ?? "primary",
+        }));
+        // Bağlanınca ilk senkron: etkinlikler görsel takvimde + ajandada hemen görünsün.
+        void get().gcalSync();
+      } catch (e) {
+        set({ gcalConnecting: false, gcalStatus: String(e) });
+      }
+    },
+    gcalDisconnect: () =>
+      set({
+        gcalTokens: null,
+        gcalExpiresAt: null,
+        gcalUser: null,
+        gcalCalendarId: null,
+        gcalCalendarName: null,
+        gcalEvents: [],
+        gcalStatus: null,
+      }),
+    gcalLoadCalendars: async () => {
+      const token = await ensureGcalAccess();
+      if (!token) return [];
+      return gcal.listCalendars(token);
+    },
+    gcalSelectCalendar: (id, name) => set({ gcalCalendarId: id, gcalCalendarName: name }),
+    gcalSync: async () => {
+      const token = await ensureGcalAccess();
+      if (!token) {
+        set({ gcalStatus: "needAuth" });
+        return;
+      }
+      const s0 = get();
+      const vault = s0.vaultPath;
+      if (!vault) {
+        set({ gcalStatus: "needVault" });
+        return;
+      }
+      const calId = s0.gcalCalendarId ?? "primary";
+      set({ gcalSyncing: true, gcalStatus: null });
+      try {
+        const tz = localTimeZone();
+        // PUSH: tarihli + tamamlanmamış görevler → etkinlik (oluştur/güncelle).
+        const desired = s0.parsedTasks.filter((t) => t.due && !t.done && t.description.trim());
+        const prevMap = s0.gcalMap[vault] ?? {};
+        const nextMap: Record<string, string> = {};
+        const desiredKeys = new Set<string>(); // istenen tüm anahtarlar (başarısız upsert dahil)
+        for (const t of desired) {
+          const key = `${t.file}::${t.description}`;
+          if (desiredKeys.has(key)) continue; // aynı dosyada birebir aynı görev → tek etkinlik
+          desiredKeys.add(key);
+          const payload = taskToEventPayload({
+            summary: t.description,
+            due: t.due!,
+            time: t.time,
+            loomenKey: key,
+            timeZone: tz,
+          });
+          try {
+            const res = await gcal.upsertEvent(token, calId, prevMap[key] ?? null, payload);
+            nextMap[key] = res.id;
+          } catch {
+            // Güncellenecek etkinlik silinmişse (404/410) → yeniden oluştur.
+            try {
+              const res = await gcal.upsertEvent(token, calId, null, payload);
+              nextMap[key] = res.id;
+            } catch {
+              // Geçici hata → eski eşlemeyi koru ki yetim-silme bu etkinliği silmesin / kopya açılmasın.
+              if (prevMap[key]) nextMap[key] = prevMap[key];
+            }
+          }
+        }
+        // Yetim etkinlikleri sil: yalnızca artık İSTENMEYEN anahtarlar (başarısız upsert'ler değil).
+        for (const [key, id] of Object.entries(prevMap)) {
+          if (!desiredKeys.has(key)) {
+            try {
+              await gcal.deleteEvent(token, calId, id);
+            } catch {
+              /* yoksay */
+            }
+          }
+        }
+        // PULL: bugünden +30 gün etkinlikleri çek (kendi görevlerimizi hariç tut).
+        const now = new Date();
+        const timeMin = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+        const timeMax = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30).toISOString();
+        let events: GEvent[] = [];
+        try {
+          events = (await gcal.listEvents(token, calId, timeMin, timeMax)).filter((e) => !e.loomen);
+        } catch {
+          /* pull başarısız → push sonucu yine de kaydedilir */
+        }
+        set((s) => ({
+          gcalSyncing: false,
+          gcalLastSync: new Date().toISOString(),
+          gcalStatus: "synced",
+          gcalEvents: events,
+          gcalMap: { ...s.gcalMap, [vault]: nextMap },
+        }));
+      } catch (e) {
+        set({ gcalSyncing: false, gcalStatus: String(e) });
+      }
+    },
+    gcalSetAutoSync: (gcalAutoSync) => set({ gcalAutoSync }),
       };
     },
     {
@@ -1146,6 +1496,15 @@ export const useAppStore = create<AppState>()(
         ghRepo: s.ghRepo,
         ghLastSync: s.ghLastSync,
         ghAutoSync: s.ghAutoSync,
+        ghBaseSha: s.ghBaseSha,
+        gcalTokens: s.gcalTokens,
+        gcalExpiresAt: s.gcalExpiresAt,
+        gcalUser: s.gcalUser,
+        gcalCalendarId: s.gcalCalendarId,
+        gcalCalendarName: s.gcalCalendarName,
+        gcalLastSync: s.gcalLastSync,
+        gcalAutoSync: s.gcalAutoSync,
+        gcalMap: s.gcalMap,
       }),
     }
   )

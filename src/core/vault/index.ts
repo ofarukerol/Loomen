@@ -15,6 +15,8 @@ export { createTauriBackend } from "./tauriBackend";
 export const TEMPLATES_DIR = "Şablonlar";
 /** Excalidraw çizimlerinin yaşadığı özel klasör (Explorer'da en üstte, ayrı stil). */
 export const DRAW_DIR = "Çizimler";
+/** Ses notu kayıtlarının (.wav) yaşadığı klasör. */
+export const AUDIO_DIR = "Ses Notları";
 /** Günlük notların yaşadığı kök klasör (Explorer'da en başta, ayrı soft stil). */
 export const DAILY_DIR = "Günlük";
 /** Günlük not şablonu dosyası — ayarlardan düzenlenebilir. */

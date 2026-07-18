@@ -54,6 +54,10 @@ export interface VaultBackend {
   readNote(path: string): Promise<string>;
   /** Bir dosyaya yaz (atomik olması adapter'ın sorumluluğu). */
   writeNote(path: string, content: string): Promise<void>;
+  /** İkili dosya oku (ör. ses kaydı). */
+  readBinary(path: string): Promise<Uint8Array>;
+  /** İkili dosyaya yaz (ör. ses kaydı) — hedef klasör garanti edilir. */
+  writeBinary(path: string, data: Uint8Array): Promise<void>;
   /** Dosya var mı? */
   exists(path: string): Promise<boolean>;
   /** Bir klasörün var olduğundan emin ol (yoksa oluştur). */

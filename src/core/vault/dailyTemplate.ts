@@ -35,12 +35,11 @@ export function dailyNoteTemplate(_date: Date): string {
     ``,
     ``,
     ``,
-    `#günlük`,
-    ``,
   ].join("\n");
 }
 
-/** Eski günlük notları temizle: baştaki '# YYYY-MM-DD-...' başlığını kaldır, verbose '#günlük 📅...' → '#günlük'. */
+/** Eski günlük notları temizle: baştaki '# YYYY-MM-DD-...' başlığını ve '#günlük' etiketini
+ *  (artık üretilmiyor) kaldır. */
 export function migrateDailyContent(content: string): string | null {
   const lines = content.split("\n");
   let changed = false;
@@ -48,22 +47,16 @@ export function migrateDailyContent(content: string): string | null {
     lines.shift();
     changed = true;
   }
+  // '#günlük' etiket satırını (verbose halleri dahil) tamamen kaldır — hemen öncesindeki
+  // eski '---' ayracı ve aradaki boş satırlarla birlikte.
   for (let i = 0; i < lines.length; i++) {
-    if (/^#günlük\s+\S/.test(lines[i].trim())) {
-      lines[i] = "#günlük";
-      changed = true;
-    }
-  }
-  // '#günlük' hemen öncesindeki eski '---' ayracını kaldır
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i].trim() === "#günlük") {
+    if (/^#günlük\b/.test(lines[i].trim())) {
       let j = i - 1;
       while (j >= 0 && lines[j].trim() === "") j--;
-      if (j >= 0 && /^-{3,}$/.test(lines[j].trim())) {
-        lines.splice(j, 1);
-        changed = true;
-      }
-      break;
+      const from = j >= 0 && /^-{3,}$/.test(lines[j].trim()) ? j : i;
+      lines.splice(from, i - from + 1);
+      changed = true;
+      i = from - 1;
     }
   }
   // Baştaki (ilk '## ' başlığından önceki) boşluğu 4 boş satıra normalize et — banner ile
@@ -77,7 +70,7 @@ export function migrateDailyContent(content: string): string | null {
       }
     }
   }
-  // Boş bölümlerde (başlığın hemen ardından başka başlık/#günlük geliyorsa) başlık altına
+  // Boş bölümlerde (başlığın hemen ardından başka başlık geliyorsa) başlık altına
   // 3 tıklanabilir boş satır koy — kullanıcı başlığın altına tıklayıp yazabilsin. İçeriği
   // olan bölümlere dokunulmaz.
   const out: string[] = [];
@@ -90,7 +83,7 @@ export function migrateDailyContent(content: string): string | null {
         blanks++;
         j++;
       }
-      const nextIsSection = j >= lines.length || /^##\s/.test(lines[j].trim()) || /^#günlük/.test(lines[j].trim());
+      const nextIsSection = j >= lines.length || /^##\s/.test(lines[j].trim());
       if (nextIsSection) {
         out.push("", "", "");
         if (blanks !== 3) changed = true;

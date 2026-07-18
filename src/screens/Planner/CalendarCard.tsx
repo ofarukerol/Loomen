@@ -26,6 +26,7 @@ export function CalendarCard() {
   const noteContents = useAppStore((s) => s.noteContents);
   const activeNote = useAppStore((s) => s.activeNote);
   const goToDate = useAppStore((s) => s.goToDate);
+  const gcalEvents = useAppStore((s) => s.gcalEvents);
   const weekdays = t("calendar.weekdays", { returnObjects: true }) as string[];
   const locale = LOCALES[i18n.language] ?? tr;
 
@@ -48,6 +49,15 @@ export function CalendarCard() {
     if (!dm || note.kind === "draw") continue;
     if (Number(dm[1]) === view.y && Number(dm[2]) - 1 === view.m && hasContent(noteContents[note.path] ?? "")) {
       dotDays.add(Number(dm[3]));
+    }
+  }
+
+  // Görüntülenen ayda Google Takvim etkinliği olan günler (ayrı mavi nokta).
+  const gcalDays = new Set<number>();
+  for (const ev of gcalEvents) {
+    const d = ev.all_day ? new Date(ev.start + "T00:00:00") : new Date(ev.start);
+    if (!isNaN(d.getTime()) && d.getFullYear() === view.y && d.getMonth() === view.m) {
+      gcalDays.add(d.getDate());
     }
   }
 
@@ -98,7 +108,12 @@ export function CalendarCard() {
           return (
             <button className={cls} key={n} onClick={() => void goToDate(new Date(view.y, view.m, n))}>
               {n}
-              {dotDays.has(n) && <span className="lo-cal__dot" />}
+              {(dotDays.has(n) || gcalDays.has(n)) && (
+                <span className="lo-cal__dots">
+                  {dotDays.has(n) && <span className="lo-cal__dot" />}
+                  {gcalDays.has(n) && <span className="lo-cal__dot lo-cal__dot--gcal" />}
+                </span>
+              )}
             </button>
           );
         })}

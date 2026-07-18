@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Github, RefreshCw, LogOut, ExternalLink, X, AlertTriangle } from "lucide-react";
+import { Github, RefreshCw, LogOut, Copy, Check, X, AlertTriangle, Plus, ChevronDown } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
-import { GITHUB_CLIENT_ID } from "../../core/github";
+import { useIsMobile } from "../../hooks/useIsMobile";
+import { GITHUB_CLIENT_ID, type GhRepo } from "../../core/github";
+import { RepoPickerSheet } from "./RepoPickerSheet";
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
@@ -19,12 +21,14 @@ export function GitHubDeviceModal() {
   const device = useAppStore((s) => s.ghDevice);
   const poll = useAppStore((s) => s.ghPoll);
   const cancel = useAppStore((s) => s.ghCancelAuth);
-  const openUrlAction = useAppStore((s) => s.ghBeginAuth);
+  const copyAndOpen = useAppStore((s) => s.ghCopyCodeAndOpen);
   const [err, setErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!device) return;
     setErr(null);
+    setCopied(false);
     let stop = false;
     const id = setInterval(async () => {
       if (stop) return;
@@ -58,10 +62,17 @@ export function GitHubDeviceModal() {
 
         <p className="lo-ghdev__step">{t("github.deviceStep")}</p>
         <div className="lo-ghdev__code">{device.user_code}</div>
+        <p className="lo-ghdev__hint">{t("github.deviceCopyHint")}</p>
 
-        <button className="lo-ghdev__open" onClick={() => void openUrlAction()}>
-          <ExternalLink size={15} strokeWidth={2} />
-          {t("github.deviceOpen")}
+        <button
+          className="lo-ghdev__open"
+          onClick={() => {
+            setCopied(true);
+            void copyAndOpen();
+          }}
+        >
+          {copied ? <Check size={15} strokeWidth={2} /> : <Copy size={15} strokeWidth={2} />}
+          {copied ? t("github.deviceCopied") : t("github.deviceCopyOpen")}
         </button>
 
         {err ? (
@@ -73,6 +84,91 @@ export function GitHubDeviceModal() {
           <div className="lo-ghdev__wait">
             <RefreshCw size={14} strokeWidth={2} className="lo-spin" />
             {t("github.deviceWaiting")}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Mobil depo seçici — masaüstündeki "Kasalar" (VaultManager, klasör seçici içerir ve mobilde
+ * gizli) yerine, tek mobil kasa için sade seç/oluştur kontrolü. GitHubSync içinde, depo
+ * bağlanmamışken gösterilir. Native <select> yerine aranabilir sheet (RepoPickerSheet).
+ */
+function MobileRepoPicker({ vaultPath }: { vaultPath: string }) {
+  const { t } = useTranslation();
+  const setVaultRepo = useAppStore((s) => s.setVaultRepo);
+  const createRepoForVault = useAppStore((s) => s.createRepoForVault);
+  const loadRepos = useAppStore((s) => s.ghLoadRepos);
+
+  const [repos, setRepos] = useState<GhRepo[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPrivate, setNewPrivate] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    loadRepos().then(setRepos).catch(() => {});
+  }, [loadRepos]);
+
+  return (
+    <div className="lo-set__row lo-set__row--border">
+      <div style={{ width: "100%" }}>
+        <div className="lo-set__rowtitle">{t("settings.vaultRepo")}</div>
+        {creating ? (
+          <div className="lo-vdetail__create">
+            <input
+              className="lo-gh__input"
+              placeholder={t("github.repoName")}
+              value={newName}
+              autoFocus
+              onChange={(e) => setNewName(e.target.value.replace(/\s+/g, "-"))}
+            />
+            <label className="lo-gh__priv">
+              <Toggle on={newPrivate} onClick={() => setNewPrivate((x) => !x)} />
+              {t("github.private")}
+            </label>
+            <button
+              className="lo-gh__connect"
+              disabled={!newName.trim() || busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await createRepoForVault(vaultPath, newName.trim(), newPrivate);
+                  setCreating(false);
+                  setNewName("");
+                  setRepos(await loadRepos());
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <Check size={14} strokeWidth={2} />
+              {t("github.create")}
+            </button>
+            <button className="lo-gh__ghost" onClick={() => setCreating(false)}>
+              {t("github.cancel")}
+            </button>
+          </div>
+        ) : (
+          <div className="lo-vdetail__repoctl">
+            <button className="lo-repopick__trigger" onClick={() => setPickerOpen(true)}>
+              <Github size={15} strokeWidth={1.9} />
+              <span className="lo-repopick__triggertext">{t("github.selectRepo")}</span>
+              <ChevronDown size={15} strokeWidth={2} />
+            </button>
+            <button className="lo-gh__ghost" onClick={() => setCreating(true)}>
+              <Plus size={14} strokeWidth={2} />
+              {t("github.createRepo")}
+            </button>
+            <RepoPickerSheet
+              repos={repos}
+              open={pickerOpen}
+              onClose={() => setPickerOpen(false)}
+              onSelect={(r) => setVaultRepo(vaultPath, r)}
+            />
           </div>
         )}
       </div>
@@ -105,6 +201,7 @@ export function GitHubSync() {
   const setAutoSync = useAppStore((s) => s.ghSetAutoSync);
 
   const tauri = isTauri();
+  const isMobile = useIsMobile();
 
   return (
     <>
@@ -152,7 +249,10 @@ export function GitHubSync() {
               </button>
             </div>
 
-            {/* Senkron — depo seçimi Kasalar bölümünden yapılır */}
+            {/* Mobilde depo seçimi burada (Kasalar/VaultManager mobilde gizli — klasör seçici içerir). */}
+            {isMobile && vaultPath && !repo && <MobileRepoPicker vaultPath={vaultPath} />}
+
+            {/* Senkron — masaüstünde depo seçimi Kasalar bölümünden yapılır */}
             <div className="lo-set__row lo-set__row--border">
               <div>
                 <div className="lo-set__rowtitle">{t("github.syncTitle")}</div>
@@ -164,7 +264,7 @@ export function GitHubSync() {
                 {!vaultPath ? (
                   <div className="lo-gh__warn">{t("github.needVault")}</div>
                 ) : !repo ? (
-                  <div className="lo-gh__warn">{t("github.repoInVaults")}</div>
+                  !isMobile && <div className="lo-gh__warn">{t("github.repoInVaults")}</div>
                 ) : (
                   <div className="lo-set__rowsub">{repo.full_name}</div>
                 )}

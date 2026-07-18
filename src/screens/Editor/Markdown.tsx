@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
+import { AudioEmbedPlayer } from "./AudioEmbedPlayer";
 
 interface Props {
   content: string;
@@ -112,6 +113,14 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
       blocks.push(
         <hr key={k()} style={{ border: "none", borderTop: "1px solid var(--line)", margin: "20px 0" }} />
       );
+      i++;
+      continue;
+    }
+
+    // Ses notu embed: ![[Ses Notları/xxx.flac]] (VoiceRecorder'ın nota eklediği satır)
+    const audioEmbed = trimmed.match(/^!\[\[(.+\.(?:flac|wav|webm|m4a|mp3|aac))\]\]$/i);
+    if (audioEmbed) {
+      blocks.push(<AudioEmbedPlayer key={k()} path={audioEmbed[1]} />);
       i++;
       continue;
     }

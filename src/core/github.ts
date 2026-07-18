@@ -38,6 +38,19 @@ export interface SyncResult {
   pulled: boolean;
   message: string;
 }
+/** Mobil (ve isteğe bağlı masaüstü) için REST/Git-Data-API senkron sonucu. */
+export interface ApiSyncResult {
+  base_sha: string | null;
+  pulled: number;
+  pushed: number;
+  conflicts: string[];
+  message: string;
+}
+
+/** Platform mobil mi? (Rust cfg(mobile)) — komut yoksa false. */
+export const appIsMobile = () => invoke<boolean>("app_is_mobile").catch(() => false);
+/** Hedef platform ("ios"|"android"|"macos"|...) — komut yoksa "desktop". */
+export const appPlatform = () => invoke<string>("app_platform").catch(() => "desktop");
 
 export const gh = {
   deviceStart: () =>
@@ -48,7 +61,17 @@ export const gh = {
   listRepos: (token: string) => invoke<GhRepo[]>("github_list_repos", { token }),
   createRepo: (token: string, name: string, priv_: boolean) =>
     invoke<GhRepo>("github_create_repo", { token, name, private: priv_ }),
+  // Masaüstü: git2 tabanlı senkron.
   sync: (path: string, remoteUrl: string, token: string, name: string, email: string) =>
     invoke<SyncResult>("git_sync", { path, remoteUrl, token, name, email }),
+  // Tüm platformlar (mobil): GitHub REST API senkron. baseSha = son senkron commit'i (yoksa null).
+  apiSync: (
+    path: string,
+    owner: string,
+    repo: string,
+    branch: string,
+    token: string,
+    baseSha: string | null
+  ) => invoke<ApiSyncResult>("github_api_sync", { path, owner, repo, branch, token, baseSha }),
   openUrl: (url: string) => openUrl(url),
 };

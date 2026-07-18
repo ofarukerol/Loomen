@@ -1,8 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore, ACCENTS, type Lang, type EditorSettings } from "../../store/useAppStore";
 import { GitHubSync } from "./GitHubSync";
+import { GoogleCalendarSync } from "./GoogleCalendarSync";
 import { TemplatesSettings } from "./TemplatesSettings";
 import { VaultManager } from "./VaultManager";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -23,6 +25,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
 
 export function SettingsScreen() {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const accent = useAppStore((s) => s.accent);
@@ -158,11 +161,12 @@ export function SettingsScreen() {
           <Toggle on={pomoSound} onClick={() => setPomoSound(!pomoSound)} />
         </div>
 
-        {/* Kasalar (çoklu) */}
-        <VaultManager />
-
-        {/* GitHub Senkronizasyonu */}
+        {/* Kasa yönetimi (klasör seçici) yalnız masaüstü; mobilde kasa app-data'da otomatik. */}
+        {!isMobile && <VaultManager />}
+        {/* GitHub: mobilde REST API senkronuyla çalışır (git2 yerine). */}
         <GitHubSync />
+        {/* Google Takvim: mobilde deep-link OAuth (iOS client id gerekir). */}
+        <GoogleCalendarSync />
       </div>
     </div>
   );

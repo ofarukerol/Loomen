@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { NotebookPen, Share2, BarChart3, PencilRuler, Settings, Sun, Moon } from "lucide-react";
+import { NotebookPen, Share2, BarChart3, PencilRuler, Settings, Sun, Moon, HelpCircle } from "lucide-react";
 import { useAppStore, type Screen } from "../store/useAppStore";
 
 const ICON = 21;
@@ -53,6 +53,7 @@ export function Ribbon() {
 
       <div className="lo-ribbon__spacer" />
 
+      {btn("help", t("ribbon.help"), <HelpCircle size={ICON} strokeWidth={SW} />)}
       {btn("settings", t("ribbon.settings"), <Settings size={ICON} strokeWidth={SW} />)}
       <button
         className="lo-ribbon__btn"

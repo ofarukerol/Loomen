@@ -13,12 +13,14 @@ import {
   type SimulationNodeDatum,
 } from "d3-force";
 import { useAppStore } from "../../store/useAppStore";
-import { extractWikiLinks } from "../../core/markdown/links";
+import { extractWikiLinks, extractTags } from "../../core/markdown/links";
 
+type NodeKind = "note" | "tag";
 interface GNode extends SimulationNodeDatum {
-  id: string; // path
-  name: string;
+  id: string; // not: path · etiket: "#"+ad
+  name: string; // ekranda görünen etiket
   deg: number;
+  kind: NodeKind;
 }
 interface GLink {
   source: string | GNode;
@@ -32,18 +34,31 @@ interface Forces {
 }
 const DEFAULTS: Forces = { repel: 340, linkDist: 72, gravity: 0.11 };
 
+/** Obsidian'daki gibi açılıp kapanan görünüm seçenekleri. */
+interface Display {
+  tags: boolean; // #etiketleri düğüm olarak göster ve paylaşan notları bağla
+  orphans: boolean; // bağlantısız notları göster
+  arrows: boolean; // kenarlarda yön okları
+  textFade: number; // etiket solma eşiği (k); bunun altında yazılar kaybolur
+}
+const DISPLAY_DEFAULTS: Display = { tags: true, orphans: true, arrows: false, textFade: 1.1 };
+
 const FONT = "'DM Sans', system-ui, sans-serif";
 
-/** Düğüm yarıçapı (dünya birimi) — derece arttıkça yumuşakça büyür. */
+/** Düğüm yarıçapı (dünya birimi) — derece arttıkça yumuşakça büyür, üstten sınırlı. */
 function nodeRadius(deg: number) {
-  return 5 + Math.sqrt(deg) * 3.4;
+  return Math.min(26, 5 + Math.sqrt(deg) * 2.6);
 }
 
-/** Vault notları + [[link]]'lerden graf verisi (düğüm, kenar, hub, komşuluk). */
-function buildGraph(notes: { path: string; name: string }[], contents: Record<string, string>) {
+/** Vault notları + [[link]] + #etiketlerden graf verisi (düğüm, kenar, hub, komşuluk). */
+function buildGraph(
+  notes: { path: string; name: string }[],
+  contents: Record<string, string>,
+  opts: { tags: boolean; orphans: boolean },
+) {
   const byName = new Map(notes.map((n) => [n.name, n.path]));
-  const nodes: GNode[] = notes.map((n) => ({ id: n.path, name: n.name, deg: 0 }));
-  const deg = new Map(nodes.map((n) => [n.id, 0]));
+  const noteNodes: GNode[] = notes.map((n) => ({ id: n.path, name: n.name, deg: 0, kind: "note" }));
+  const deg = new Map<string, number>(noteNodes.map((n) => [n.id, 0]));
   const links: GLink[] = [];
   const seen = new Set<string>();
   const neighbors = new Map<string, Set<string>>();
@@ -51,24 +66,51 @@ function buildGraph(notes: { path: string; name: string }[], contents: Record<st
     if (!neighbors.has(a)) neighbors.set(a, new Set());
     neighbors.get(a)!.add(b);
   };
+  const addEdge = (a: string, b: string) => {
+    if (a === b) return;
+    const key = [a, b].sort().join("→");
+    if (seen.has(key)) return;
+    seen.add(key);
+    links.push({ source: a, target: b });
+    deg.set(a, (deg.get(a) ?? 0) + 1);
+    deg.set(b, (deg.get(b) ?? 0) + 1);
+    link(a, b);
+    link(b, a);
+  };
 
+  // [[wiki-link]] kenarları (not → not)
   for (const n of notes) {
     for (const targetName of extractWikiLinks(contents[n.path] ?? "")) {
       const tpath = byName.get(targetName);
-      if (!tpath || tpath === n.path) continue;
-      const key = [n.path, tpath].sort().join("→");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      links.push({ source: n.path, target: tpath });
-      deg.set(n.path, (deg.get(n.path) ?? 0) + 1);
-      deg.set(tpath, (deg.get(tpath) ?? 0) + 1);
-      link(n.path, tpath);
-      link(tpath, n.path);
+      if (tpath) addEdge(n.path, tpath);
     }
   }
+
+  // #etiket düğümleri + kenarları (not → etiket); paylaşan notlar etiket üzerinden bağlanır
+  const tagNodes = new Map<string, GNode>();
+  if (opts.tags) {
+    for (const n of notes) {
+      for (const tag of extractTags(contents[n.path] ?? "")) {
+        const id = "#" + tag;
+        if (!tagNodes.has(id)) {
+          tagNodes.set(id, { id, name: id, deg: 0, kind: "tag" });
+          deg.set(id, 0);
+        }
+        addEdge(n.path, id);
+      }
+    }
+  }
+
+  let nodes: GNode[] = [...noteNodes, ...tagNodes.values()];
   nodes.forEach((n) => (n.deg = deg.get(n.id) ?? 0));
+
+  // Yetimler: bağlantısı olmayan notları gizle (etiket düğümleri daima en az 1 bağlantılı)
+  if (!opts.orphans) nodes = nodes.filter((n) => n.kind === "tag" || n.deg > 0);
+
   const hubId = nodes.reduce<GNode | null>((a, b) => (!a || b.deg > a.deg ? b : a), null)?.id ?? null;
-  return { nodes, links, hubId, neighbors };
+  const noteCount = noteNodes.length;
+  const tagCount = tagNodes.size;
+  return { nodes, links, hubId, neighbors, noteCount, tagCount };
 }
 
 interface Colors {
@@ -76,7 +118,11 @@ interface Colors {
   accentSoft: string;
   line: string;
   nodeBg: string;
+  nodeLine: string;
+  linkCol: string;
   fg2: string;
+  tag: string;
+  tagSoft: string;
 }
 function readColors(): Colors {
   const cs = getComputedStyle(document.documentElement);
@@ -85,8 +131,12 @@ function readColors(): Colors {
     accent: g("--accent", "#C2603A"),
     accentSoft: g("--accent-soft", "#C2603A22"),
     line: g("--line", "#E9E6DF"),
-    nodeBg: g("--bg-elev", "#FFFFFF"),
+    nodeBg: g("--graph-node", "#E6DFD2"),
+    nodeLine: g("--graph-node-line", "#CDC4B2"),
+    linkCol: g("--graph-link", "#D8CFBF"),
     fg2: g("--fg2", "#6E6A62"),
+    tag: g("--graph-tag", "#5E8C6A"),
+    tagSoft: g("--graph-tag-soft", "#5E8C6A3D"),
   };
 }
 
@@ -98,9 +148,15 @@ export function GraphScreen() {
   const theme = useAppStore((s) => s.theme);
   const accent = useAppStore((s) => s.accent);
 
-  const graph = useMemo(() => buildGraph(notes, contents), [notes, contents]);
   const [showSettings, setShowSettings] = useState(false);
   const [forces, setForces] = useState<Forces>(DEFAULTS);
+  const [display, setDisplay] = useState<Display>(DISPLAY_DEFAULTS);
+
+  // Yapısal seçenekler (tags/orphans) grafı yeniden kurar; arrows/textFade yalnız çizimi etkiler.
+  const graph = useMemo(
+    () => buildGraph(notes, contents, { tags: display.tags, orphans: display.orphans }),
+    [notes, contents, display.tags, display.orphans],
+  );
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -110,6 +166,9 @@ export function GraphScreen() {
   const hoverRef = useRef<string | null>(null);
   const colorsRef = useRef<Colors>(readColors());
   const forcesRef = useRef<Forces>(forces);
+  const displayRef = useRef<Display>(display);
+  const fitRef = useRef<(() => void) | null>(null);
+  displayRef.current = display;
 
   // Tema/vurgu değişince renkleri yenile (sim'i yeniden kurmadan).
   useEffect(() => {
@@ -138,9 +197,8 @@ export function GraphScreen() {
     tf.k = k2;
   };
   const resetView = () => {
-    const { w, h } = sizeRef.current;
-    tfRef.current = { x: w / 2, y: h / 2, k: 1 };
-    simRef.current?.alpha(0.6).restart();
+    // Obsidian gibi: grafı viewport'a sığdır (mevcut yerleşimi çerçevele).
+    fitRef.current?.();
   };
 
   // Ana motor: simülasyon + canvas + etkileşim. Graf verisi değişince yeniden kurulur.
@@ -167,6 +225,31 @@ export function GraphScreen() {
       .velocityDecay(0.32);
     simRef.current = sim as unknown as Simulation<GNode, GLink>;
 
+    // Grafı viewport'a sığdır (Obsidian açılış davranışı + "sıfırla").
+    const fitView = () => {
+      const { w, h } = sizeRef.current;
+      if (!w || !h) return;
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+      for (const n of nodes) {
+        if (n.x == null) continue;
+        const r = nodeRadius(n.deg);
+        minX = Math.min(minX, n.x - r);
+        maxX = Math.max(maxX, n.x + r);
+        minY = Math.min(minY, n.y! - r);
+        maxY = Math.max(maxY, n.y! + r);
+      }
+      if (!isFinite(minX)) return;
+      const bw = maxX - minX || 1;
+      const bh = maxY - minY || 1;
+      const pad = 64;
+      const k = Math.min(2.5, Math.max(0.12, Math.min((w - pad) / bw, (h - pad) / bh)));
+      tfRef.current = { x: w / 2 - ((minX + maxX) / 2) * k, y: h / 2 - ((minY + maxY) / 2) * k, k };
+    };
+    fitRef.current = fitView;
+
     let inited = false;
     const ro = new ResizeObserver(() => {
       const r = wrap.getBoundingClientRect();
@@ -182,20 +265,40 @@ export function GraphScreen() {
     });
     ro.observe(wrap);
 
-    const labelAlpha = (n: GNode, k: number, hovering: boolean, isHover: boolean, near: boolean) => {
-      if (hovering) return near ? 1 : 0;
+    // Etiket görünürlüğü: yakınlaşınca belirir, uzaklaşınca solar (textFade eşiği).
+    // Tag düğümlerinin etiketleri daha erken görünür (bağlayıcı oldukları için).
+    const labelAlpha = (
+      n: GNode,
+      k: number,
+      hovering: boolean,
+      isHover: boolean,
+      near: boolean,
+      fade: number,
+    ) => {
       if (isHover) return 1;
-      if (k >= 1.0) return 1;
-      if (k <= 0.5) return n.deg >= 3 ? 0.75 : 0;
-      return (k - 0.5) / 0.5;
+      if (hovering) return near ? 1 : 0;
+      const thr = n.kind === "tag" ? fade * 0.6 : fade;
+      const band = 0.35;
+      if (k >= thr) return 1;
+      if (k <= thr - band) return 0;
+      return (k - (thr - band)) / band;
     };
+
+    let didFit = false;
 
     let raf = 0;
     const draw = () => {
       const tf = tfRef.current;
       const c = colorsRef.current;
       const hover = hoverRef.current;
+      const d = displayRef.current;
       const nb = hover ? graph.neighbors.get(hover) : null;
+
+      // İlk yerleşim oturunca grafı bir kez viewport'a sığdır.
+      if (!didFit && sizeRef.current.w > 0 && sim.alpha() < 0.4) {
+        fitView();
+        didFit = true;
+      }
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -204,7 +307,7 @@ export function GraphScreen() {
       ctx.scale(tf.k, tf.k);
       ctx.lineCap = "round";
 
-      // Kenarlar
+      // Kenarlar (+ isteğe bağlı yön okları)
       for (const l of links) {
         const s = l.source as GNode;
         const tg = l.target as GNode;
@@ -213,10 +316,25 @@ export function GraphScreen() {
         ctx.beginPath();
         ctx.moveTo(s.x, s.y!);
         ctx.lineTo(tg.x, tg.y!);
-        ctx.strokeStyle = act ? c.accent : c.line;
-        ctx.globalAlpha = hover ? (act ? 0.95 : 0.1) : 0.5;
+        ctx.strokeStyle = act ? c.accent : c.linkCol;
+        ctx.globalAlpha = hover ? (act ? 0.95 : 0.09) : 0.62;
         ctx.lineWidth = (act ? 1.9 : 1) / tf.k;
         ctx.stroke();
+
+        if (d.arrows) {
+          const tr = nodeRadius(tg.deg);
+          const ang = Math.atan2(tg.y! - s.y!, tg.x! - s.x!);
+          const ax = tg.x! - Math.cos(ang) * (tr + 1.5 / tf.k);
+          const ay = tg.y! - Math.sin(ang) * (tr + 1.5 / tf.k);
+          const ah = 5 / tf.k;
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(ax - Math.cos(ang - 0.42) * ah, ay - Math.sin(ang - 0.42) * ah);
+          ctx.lineTo(ax - Math.cos(ang + 0.42) * ah, ay - Math.sin(ang + 0.42) * ah);
+          ctx.closePath();
+          ctx.fillStyle = act ? c.accent : c.line;
+          ctx.fill();
+        }
       }
       ctx.globalAlpha = 1;
 
@@ -225,23 +343,40 @@ export function GraphScreen() {
         if (n.x == null) continue;
         const isHover = n.id === hover;
         const near = !hover || isHover || !!nb?.has(n.id);
-        const isHub = n.id === graph.hubId && n.deg > 0;
+        const isTag = n.kind === "tag";
+        const isHub = n.id === graph.hubId && n.deg > 0 && !isTag;
+        const stroke = isHover ? c.accent : isTag ? c.tag : isHub ? c.accent : c.nodeLine;
+        const glow = isHover || isHub || isTag;
         const r = nodeRadius(n.deg);
 
         ctx.globalAlpha = near ? 1 : 0.16;
         ctx.beginPath();
         ctx.arc(n.x, n.y!, r, 0, Math.PI * 2);
-        ctx.fillStyle = isHover ? c.accent : isHub ? c.accentSoft : c.nodeBg;
+        ctx.fillStyle = isHover
+          ? c.accent
+          : isTag
+            ? c.tagSoft
+            : isHub
+              ? c.accentSoft
+              : c.nodeBg;
+        // İnce derinlik: etiket/hub/hover düğümlerine yumuşak hale
+        if (glow && near) {
+          ctx.shadowColor = isTag ? c.tag : c.accent;
+          ctx.shadowBlur = 9;
+        }
         ctx.fill();
-        ctx.lineWidth = (isHover || isHub ? 2 : 1.4) / tf.k;
-        ctx.strokeStyle = isHover || isHub ? c.accent : c.line;
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = "transparent";
+        ctx.lineWidth = (isHover || isHub || isTag ? 2 : 1.4) / tf.k;
+        ctx.strokeStyle = stroke;
         ctx.stroke();
 
-        const la = labelAlpha(n, tf.k, !!hover, isHover, near);
+        const la = labelAlpha(n, tf.k, !!hover, isHover, near, d.textFade);
         if (la > 0.04) {
           ctx.globalAlpha = (near ? 1 : 0.16) * la;
-          ctx.fillStyle = isHover ? c.accent : c.fg2;
-          ctx.font = `${(isHover ? 600 : 400)} ${(isHover ? 12.5 : 11.5) / tf.k}px ${FONT}`;
+          ctx.fillStyle = isHover ? c.accent : isTag ? c.tag : c.fg2;
+          const weight = isHover || isTag ? 600 : 400;
+          ctx.font = `${weight} ${(isHover ? 12.5 : 11.5) / tf.k}px ${FONT}`;
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
           ctx.fillText(n.name, n.x, n.y! + r + 4 / tf.k);
@@ -328,7 +463,7 @@ export function GraphScreen() {
         dragNode.fx = null;
         dragNode.fy = null;
         sim.alphaTarget(0);
-        if (!moved) openNote(dragNode.id);
+        if (!moved && dragNode.kind === "note") openNote(dragNode.id);
       }
       mode = null;
       dragNode = null;
@@ -378,7 +513,11 @@ export function GraphScreen() {
       <div className="lo-graph__head">
         <span className="lo-graph__title">{t("graph.title")}</span>
         <span className="lo-graph__stats">
-          {t("graph.stats", { notes: graph.nodes.length, links: graph.links.length })}
+          {t("graph.stats", {
+            notes: graph.noteCount,
+            tags: graph.tagCount,
+            links: graph.links.length,
+          })}
         </span>
         <div style={{ flex: 1 }} />
         <span className="lo-graph__hint">
@@ -418,10 +557,47 @@ export function GraphScreen() {
               </button>
             </div>
 
-            {/* Kuvvet ayar paneli */}
+            {/* Görünüm + kuvvet ayar paneli */}
             {showSettings && (
               <div className="lo-graph__panel">
-                <div className="lo-graph__panelhead">{t("graph.settings")}</div>
+                <div className="lo-graph__panelhead">{t("graph.display")}</div>
+                <label className="lo-graph__check">
+                  <input
+                    type="checkbox"
+                    checked={display.tags}
+                    onChange={(e) => setDisplay((d) => ({ ...d, tags: e.target.checked }))}
+                  />
+                  <span>{t("graph.tags")}</span>
+                </label>
+                <label className="lo-graph__check">
+                  <input
+                    type="checkbox"
+                    checked={display.orphans}
+                    onChange={(e) => setDisplay((d) => ({ ...d, orphans: e.target.checked }))}
+                  />
+                  <span>{t("graph.orphans")}</span>
+                </label>
+                <label className="lo-graph__check">
+                  <input
+                    type="checkbox"
+                    checked={display.arrows}
+                    onChange={(e) => setDisplay((d) => ({ ...d, arrows: e.target.checked }))}
+                  />
+                  <span>{t("graph.arrows")}</span>
+                </label>
+                <label className="lo-graph__field">
+                  <span>{t("graph.textFade")}</span>
+                  <input
+                    type="range"
+                    min={0.4}
+                    max={2.2}
+                    step={0.05}
+                    value={display.textFade}
+                    onChange={(e) => setDisplay((d) => ({ ...d, textFade: Number(e.target.value) }))}
+                  />
+                </label>
+
+                <div className="lo-graph__panelhead lo-graph__panelhead--sep">{t("graph.forces")}</div>
                 <label className="lo-graph__field">
                   <span>{t("graph.repel")}</span>
                   <input

@@ -11,6 +11,20 @@ export function extractWikiLinks(content: string): string[] {
   return out;
 }
 
+// #etiket çıkarımı (graf "Etiketler" görünümü için). Etiket bir satır başında veya
+// boşluktan sonra gelir; başlık (`## Başlık`) ve kelime-içi `#` eşleşmez. taskParser ile
+// aynı karakter sınıfı (Unicode harf/rakam/_/-//).
+const TAG_RE = /(?:^|\s)#([\p{L}][\p{L}\d_/-]*)/gu;
+
+/** İçerikteki benzersiz #etiketleri döndür (baştaki `#` atılır, sıra korunur). */
+export function extractTags(content: string): string[] {
+  const seen = new Set<string>();
+  for (const m of content.matchAll(TAG_RE)) {
+    seen.add(m[1]);
+  }
+  return [...seen];
+}
+
 /** Bir not adına işaret eden ilk satırın kısa alıntısını bul (backlink önizlemesi). */
 export function excerptForLink(content: string, targetName: string): string {
   const needle = `[[${targetName}`;

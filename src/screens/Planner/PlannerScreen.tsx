@@ -1,10 +1,26 @@
 import { useAppStore } from "../../store/useAppStore";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import { TasksAgenda } from "./TasksAgenda";
 import { DailyPlanView } from "./DailyPlanView";
+import { RightPanel } from "../../components/RightPanel";
 
 /** Planlayıcı orta gövdesi — varsayılan Günün Planı, genişletince Görev Ajandası.
- *  (Sağ blok artık global; App'te kalıcı olarak render edilir.) */
+ *  Masaüstünde sağ blok (Pomodoro+Takvim+Ajanda) global; mobilde planner = yalnız o blok
+ *  (takvim + yapılacaklar + pomodoro). Günlük nota üst bardaki 📖 ile geçilir. */
 export function PlannerScreen() {
   const focusExpanded = useAppStore((s) => s.focusExpanded);
-  return focusExpanded ? <TasksAgenda /> : <DailyPlanView />;
+  const isMobile = useIsMobile();
+
+  if (focusExpanded) return <TasksAgenda />;
+
+  // Mobil: sadece takvim + pomodoro + bugünkü işler. Günlük journal burada gösterilmez (📖 ile açılır).
+  if (isMobile) {
+    return (
+      <div className="lo-mplan lo-scroll">
+        <RightPanel />
+      </div>
+    );
+  }
+
+  return <DailyPlanView />;
 }

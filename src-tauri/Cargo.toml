@@ -18,9 +18,21 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
+# Mobil OAuth redirect'i özel şema (loomen://) ile yakalamak için (loopback mobilde yok)
+tauri-plugin-deep-link = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# GitHub senkronizasyonu: HTTP (rustls → openssl gerekmez) + git (vendored libgit2, macOS'ta Secure Transport)
+# HTTP istemcisi: rustls → openssl gerekmez, mobil dahil cross-compile olur.
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# Google Takvim OAuth: PKCE (sha256 + base64url) + güvenli rastgele (verifier/state)
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+# GitHub REST (Git Data API) senkronu: git blob SHA-1 hesabı (github_api.rs, tüm platformlar)
+sha1 = "0.10"
+
+# GitHub git senkronizasyonu YALNIZ masaüstü. git2'nin `https` feature'ı openssl-sys çeker;
+# iOS/Android cross-compile'da OpenSSL bulunamaz (build hatası). Mobilde derlemeye girmez.
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
 git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "https"] }
 

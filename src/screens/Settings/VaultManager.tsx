@@ -5,6 +5,7 @@ import {
   Trash2,
   HardDrive,
   ChevronRight,
+  ChevronDown,
   Check,
   Github,
   FolderOpen,
@@ -13,6 +14,7 @@ import {
 import { useAppStore } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
 import type { GhRepo } from "../../core/github";
+import { RepoPickerSheet } from "./RepoPickerSheet";
 
 function folderName(path: string): string {
   return path.split("/").filter(Boolean).pop() ?? path;
@@ -43,8 +45,9 @@ export function VaultManager() {
 
   const [repos, setRepos] = useState<GhRepo[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
-  // Repo oluşturma formu (hangi kasa için).
+  // Repo oluşturma formu / depo seçici sheet'i (hangi kasa için — aynı anda tek kasa).
   const [creatingFor, setCreatingFor] = useState<string | null>(null);
+  const [pickerOpenFor, setPickerOpenFor] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newPrivate, setNewPrivate] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -54,6 +57,14 @@ export function VaultManager() {
   }, [token, loadRepos]);
 
   const tauri = isTauri();
+
+  // Aynı anda tek sheet açık olabilir — pickerOpenFor'a ait kasanın seçeneklerini (pinned + repos) üret.
+  const pickerVault = vaults.find((v) => v.path === pickerOpenFor);
+  const pickerOpts = pickerVault
+    ? pickerVault.repo && !repos.some((r) => r.full_name === pickerVault.repo!.full_name)
+      ? [pickerVault.repo, ...repos]
+      : repos
+    : [];
 
   return (
     <>
@@ -66,10 +77,6 @@ export function VaultManager() {
             const active = v.path === vaultPath;
             const open = expanded === v.path;
             const display = v.name || folderName(v.path);
-            const opts =
-              v.repo && !repos.some((r) => r.full_name === v.repo!.full_name)
-                ? [v.repo, ...repos]
-                : repos;
             return (
               <div
                 className={"lo-vault" + (i < vaults.length - 1 || open ? " lo-set__row--border" : "")}
@@ -173,22 +180,13 @@ export function VaultManager() {
                         </div>
                       ) : (
                         <div className="lo-vdetail__repoctl">
-                          <select
-                            className="lo-set__select"
-                            value={v.repo?.full_name ?? ""}
-                            onChange={(e) => {
-                              const r = opts.find((x) => x.full_name === e.target.value) ?? null;
-                              setVaultRepo(v.path, r);
-                            }}
-                          >
-                            <option value="">{t("settings.noRepo")}</option>
-                            {opts.map((r) => (
-                              <option key={r.full_name} value={r.full_name}>
-                                {r.full_name}
-                                {r.private ? " 🔒" : ""}
-                              </option>
-                            ))}
-                          </select>
+                          <button className="lo-repopick__trigger" onClick={() => setPickerOpenFor(v.path)}>
+                            <Github size={15} strokeWidth={1.9} />
+                            <span className="lo-repopick__triggertext">
+                              {v.repo?.full_name ?? t("settings.noRepo")}
+                            </span>
+                            <ChevronDown size={15} strokeWidth={2} />
+                          </button>
                           <button
                             className="lo-gh__ghost"
                             onClick={() => {
@@ -234,6 +232,15 @@ export function VaultManager() {
         </button>
         {!tauri && <div className="lo-vault__hint">{t("github.desktopOnly")}</div>}
       </div>
+
+      <RepoPickerSheet
+        repos={pickerOpts}
+        open={pickerOpenFor != null}
+        onClose={() => setPickerOpenFor(null)}
+        onSelect={(r) => {
+          if (pickerOpenFor) setVaultRepo(pickerOpenFor, r);
+        }}
+      />
     </>
   );
 }

@@ -71,6 +71,7 @@ Bkz: [[Proje X]]
 
 export function createSampleBackend(): VaultBackend {
   const store = { ...SEED };
+  const binStore = new Map<string, Uint8Array>();
   return {
     async listNotes(): Promise<VaultNote[]> {
       return Object.keys(store)
@@ -89,8 +90,14 @@ export function createSampleBackend(): VaultBackend {
     async writeNote(path, content) {
       store[path] = content;
     },
+    async readBinary(path) {
+      return binStore.get(path) ?? new Uint8Array();
+    },
+    async writeBinary(path, data) {
+      binStore.set(path, data);
+    },
     async exists(path) {
-      return path in store;
+      return path in store || binStore.has(path);
     },
     async ensureDir() {
       // in-memory: gerek yok

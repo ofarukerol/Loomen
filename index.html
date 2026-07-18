@@ -2,7 +2,9 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- maximum-scale=1: iOS, 16px altı fontlu input'a odaklanınca otomatik zumlar — uygulama
+         içinde istenmez (bu bir app, web sayfası değil; pinch-zoom'a zaten gerek yok). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Loomen</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

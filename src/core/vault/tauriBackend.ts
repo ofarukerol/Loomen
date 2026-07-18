@@ -1,4 +1,14 @@
-import { readDir, readTextFile, writeTextFile, exists, mkdir, rename, remove } from "@tauri-apps/plugin-fs";
+import {
+  readDir,
+  readTextFile,
+  writeTextFile,
+  readFile,
+  writeFile,
+  exists,
+  mkdir,
+  rename,
+  remove,
+} from "@tauri-apps/plugin-fs";
 import type { VaultBackend, VaultNote } from "./types";
 import { TRASH_DIR, encodeTrashName, toTrashEntry, type TrashEntry } from "./trash";
 
@@ -29,6 +39,12 @@ export function createTauriBackend(root: string): VaultBackend {
     },
     readNote: (p) => readTextFile(abs(p)),
     writeNote: (p, c) => writeTextFile(abs(p), c),
+    readBinary: (p) => readFile(abs(p)),
+    writeBinary: async (p, data) => {
+      const dir = p.split("/").slice(0, -1).join("/");
+      if (dir) await mkdir(abs(dir), { recursive: true });
+      await writeFile(abs(p), data);
+    },
     exists: (p) => exists(abs(p)),
     ensureDir: async (d) => {
       if (d) await mkdir(abs(d), { recursive: true });

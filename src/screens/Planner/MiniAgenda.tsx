@@ -1,10 +1,24 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Maximize2, Minimize2, FileText, GripVertical } from "lucide-react";
+import { Maximize2, Minimize2, FileText, GripVertical, CalendarDays } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import type { GroupKind, Task } from "../../data/sampleVault";
+import type { GEvent } from "../../core/google";
 import { StatCards, type TaskFilter } from "./StatCards";
 import { QuickAdd } from "./QuickAdd";
+
+/** Google etkinliğinin başlangıcını yerel biçimde göster (tüm gün → tarih; saatli → tarih + saat). */
+function formatEventStart(ev: GEvent, locale: string): string {
+  if (ev.all_day) {
+    return new Date(ev.start + "T00:00:00").toLocaleDateString(locale, { day: "2-digit", month: "short" });
+  }
+  return new Date(ev.start).toLocaleString(locale, {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 function labelClass(kind: GroupKind) {
   if (kind === "overdue") return "lo-mini__date--overdue";
@@ -14,9 +28,10 @@ function labelClass(kind: GroupKind) {
 
 /** Takvim altı kompakt ajanda — sayaç kartları filtre; canlı görevler kaydırılabilir listede. */
 export function MiniAgenda() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const groups = useAppStore((s) => s.groups);
   const unplannedTasks = useAppStore((s) => s.unplannedTasks);
+  const gcalEvents = useAppStore((s) => s.gcalEvents);
   const toggleTask = useAppStore((s) => s.toggleTask);
   const selectTask = useAppStore((s) => s.selectTask);
   const reorderTask = useAppStore((s) => s.reorderTask);
@@ -139,6 +154,26 @@ export function MiniAgenda() {
 
   // Aktif filtreye göre satırları kur (başlık = tarih ya da planlanmamışta kaynak not).
   const rows: ReactNode[] = [];
+
+  // Google Takvim etkinlikleri (salt okunur) — yalnızca "yapılacak" görünümünde, üstte.
+  if (filter === "yapilacak" && gcalEvents.length > 0) {
+    rows.push(
+      <div className="lo-mini__date lo-mini__date--gcal" key="gcal-h">
+        <CalendarDays size={11} strokeWidth={2} />
+        {t("gcal.agendaTitle")}
+      </div>
+    );
+    for (const ev of gcalEvents.slice(0, 20)) {
+      rows.push(
+        <div className="lo-mini__row lo-mini__row--event" key={"gc" + ev.id}>
+          <span className="lo-mini__evdot" aria-hidden />
+          <span className="lo-mini__text">{ev.summary}</span>
+          <span className="lo-mini__time">{formatEventStart(ev, i18n.language)}</span>
+        </div>
+      );
+    }
+  }
+
   if (filter === "planlanmamis") {
     const bySource = new Map<string, Task[]>();
     for (const tk of unplannedTasks) {
