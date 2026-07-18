@@ -13,6 +13,9 @@ out/
 src-tauri/target/
 target/
 
+# Tauri'nin urettigi mobil projeler (tauri ios/android init ile yeniden uretilir)
+src-tauri/gen/
+
 # i18n çeviri cache (build-time)
 .i18n-cache.json
 

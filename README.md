@@ -27,3 +27,17 @@ Projenin anayasası [`docs/planning/`](docs/planning/) altındadır — sırayla
 - **Senkron:** 3. parti / manuel (iCloud / Syncthing / Git). Kendi sync sunucusu yok.
 - **Dil:** kaynak Türkçe + İngilizce + Arapça (RTL); 20 dile ölçeklenebilir i18n.
 - **Tech:** Tauri 2.0 + React + TypeScript + CodeMirror 6 + SQLite (cache) + Zustand.
+
+## Lisans
+
+Loomen **açık kaynak-görünür ama ticari kullanıma kapalıdır.**
+
+- Lisans: **[PolyForm Noncommercial 1.0.0](LICENSE)** — kişisel, eğitim, hobi ve ticari-olmayan
+  her amaçla kullanım **serbest**; **ticari kullanım yasaktır.**
+- Ticari lisans mi lazım? Proje sahibiyle iletişime geç — çift lisanslama mümkündür.
+- Copyright © 2026 Ömer Faruk Erol.
+
+## Katkı
+
+PR'lara açığız. Katkı yapmadan önce [`CONTRIBUTING.md`](CONTRIBUTING.md) ve
+[`CLA.md`](CLA.md) (Katkıcı Lisans Sözleşmesi — zorunlu) dosyalarını oku.
