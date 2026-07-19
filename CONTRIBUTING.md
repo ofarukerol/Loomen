@@ -39,3 +39,5 @@ kurallarına uymak **zorundadır**. Veri kaybı riski taşıyan PR'lar reddedili
 
 - Commit mesajları **sade Türkçe**, ne yaptığını açıklayan tek satır.
 - Küçük, odaklı PR'lar tercih edilir.
+
+<!-- CLA akisi dogrulama testi -->
