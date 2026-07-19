@@ -12,6 +12,21 @@ Sunucu yok, hesap yok, abonelik yok. Notların senin diskinde, senin klasöründ
 
 ---
 
+![Loomen editörü — canlı Markdown, wiki-link ve geri bağlantı paneli](docs/screenshots/editor.png)
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/planner.png" alt="Planlayıcı — günlük plan, zaman çizelgesi ve Pomodoro"></td>
+<td width="50%"><img src="docs/screenshots/graph.png" alt="Graph görünümü — notlar ve etiketler arası bağlantılar"></td>
+</tr>
+<tr>
+<td align="center"><em>Planlayıcı — görevler, zaman çizelgesi, Pomodoro</em></td>
+<td align="center"><em>Graph — notlar ve etiketler arası bağlantılar</em></td>
+</tr>
+</table>
+
+---
+
 ## Neden Loomen?
 
 Çoğu not uygulaması ya notlarını kendi sunucusunda tutar, ya kapalı bir formatta kilitler, ya da
