@@ -1,0 +1,39 @@
+name: CLA
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  cla:
+    name: CLA Assistant
+    runs-on: ubuntu-latest
+    steps:
+      - name: CLA imza kontrolü
+        if: (github.event.comment.body == 'CLA.md dosyasındaki Katkıcı Lisans Sözleşmesini okudum ve kabul ediyorum.') || github.event_name == 'pull_request_target'
+        uses: contributor-assistant/github-action@v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # İmzalar ayrı bir branch'te tutulur — main korumalı olduğu için oraya yazılamaz.
+          branch: cla-signatures
+          path-to-signatures: signatures/v1/cla.json
+          path-to-document: https://github.com/ofarukerol/Loomen/blob/main/CLA.md
+          # Proje sahibi ve botlar imza istemez.
+          allowlist: ofarukerol,dependabot[bot],github-actions[bot]
+          custom-pr-sign-comment: 'CLA.md dosyasındaki Katkıcı Lisans Sözleşmesini okudum ve kabul ediyorum.'
+          custom-notsigned-prcomment: |
+            Katkın için teşekkürler! Bu PR birleştirilmeden önce **Katkıcı Lisans Sözleşmesini (CLA)** kabul etmen gerekiyor.
+
+            👉 Sözleşmeyi oku: [CLA.md](https://github.com/ofarukerol/Loomen/blob/main/CLA.md)
+
+            Kabul etmek için bu PR'a **aynen** şu yorumu yaz:
+          custom-allsigned-prcomment: '✅ Tüm katkıcılar CLA’yı imzaladı. Teşekkürler!'

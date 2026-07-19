@@ -12,12 +12,17 @@ kullanma hakkını kaybetmezsin** (CLA §5).
 
 ### Nasıl kabul edilir?
 
-Pull request açıklamana (description) **aşağıdaki cümleyi aynen** ekle:
+PR'ı açtığında bir bot yorum bırakıp CLA'yı kabul etmeni isteyecek. Kabul etmek için PR'a
+**yorum olarak** (açıklamaya değil) şu cümleyi **birebir** yaz:
 
-> **CLA.md dosyasındaki Katkıcı Lisans Sözleşmesi'ni okudum ve kabul ediyorum.**
-> *(I have read and agree to the Contributor License Agreement in CLA.md.)*
+```
+CLA.md dosyasındaki Katkıcı Lisans Sözleşmesini okudum ve kabul ediyorum.
+```
 
-Bu cümle olmadan PR birleştirilmez. (İleride bu adım `CLA Assistant` botuyla otomatikleştirilebilir.)
+Bot imzanı kaydeder ve PR'ın CLA kontrolü yeşile döner. **İmza olmadan PR birleştirilemez** —
+bu, GitHub tarafında zorunlu bir kontrol olarak uygulanır.
+
+Bir kez imzaladıktan sonra sonraki PR'ların için tekrar imzalaman gerekmez.
 
 ## 2. Not güvenliği kuralları
 
