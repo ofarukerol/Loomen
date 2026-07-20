@@ -327,7 +327,8 @@
     "vaultRepo": "مستودع GitHub",
     "connectGhFirst": "اربط حساب GitHub أولاً",
     "pomoSound": "صوت التنبيه",
-    "pomoSoundSub": "تشغيل صوت عند بدء وانتهاء البومودورو"
+    "pomoSoundSub": "تشغيل صوت عند بدء وانتهاء البومودورو",
+    "addAppVault": "إنشاء خزنة في تخزين التطبيق"
   },
   "syncStatus": {
     "error": "خطأ المزامنة"

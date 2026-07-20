@@ -36,3 +36,9 @@ sha1 = "0.10"
 [target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
 git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "https"] }
 
+# macOS App Store (sandbox): kullanıcının seçtiği kasa klasörüne erişimi uygulama yeniden
+# açıldığında da sürdürebilmek için security-scoped bookmark gerekir. Tauri'de yerleşik
+# desteği yok (tauri-apps/tauri#3716), NSURL API'leri objc2 ile çağrılır.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSURL", "NSString", "NSData", "NSError", "NSDictionary", "NSArray"] }

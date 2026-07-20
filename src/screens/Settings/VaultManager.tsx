@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import type { GhRepo } from "../../core/github";
 import { RepoPickerSheet } from "./RepoPickerSheet";
 
@@ -43,6 +44,11 @@ export function VaultManager() {
   const createRepoForVault = useAppStore((s) => s.createRepoForVault);
   const loadRepos = useAppStore((s) => s.ghLoadRepos);
 
+  const addMobileVault = useAppStore((s) => s.addMobileVault);
+  const isMobile = useIsMobile();
+  // Sandbox (Mac App Store): klasör seçmeden, izin gerektirmeyen kasa da oluşturulabilmeli.
+  const sandboxed = useAppStore((s) => s.platformSandboxed);
+
   const [repos, setRepos] = useState<GhRepo[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   // Repo oluşturma formu / depo seçici sheet'i (hangi kasa için — aynı anda tek kasa).
@@ -51,6 +57,9 @@ export function VaultManager() {
   const [newName, setNewName] = useState("");
   const [newPrivate, setNewPrivate] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Mobil "Kasa ekle": klasör seçici yok → ad girilerek app-data altında oluşturulur.
+  const [addingMobile, setAddingMobile] = useState(false);
+  const [mobileVaultName, setMobileVaultName] = useState("");
 
   useEffect(() => {
     if (token) loadRepos().then(setRepos).catch(() => {});
@@ -121,21 +130,23 @@ export function VaultManager() {
                       />
                     </label>
 
-                    {/* Yerel konum */}
-                    <div className="lo-vdetail__row">
-                      <span className="lo-vdetail__label">{t("settings.vaultLocation")}</span>
-                      <div className="lo-vdetail__pathline">
-                        <span className="lo-vdetail__path">{v.path}</span>
-                        <button
-                          className="lo-set__change"
-                          disabled={!tauri}
-                          onClick={() => void changeVaultPath(v.path)}
-                        >
-                          <FolderOpen size={14} strokeWidth={1.9} />
-                          {t("settings.change")}
-                        </button>
+                    {/* Yerel konum — mobilde anlamsız (sandbox içi otomatik yol, seçici yok) */}
+                    {!isMobile && (
+                      <div className="lo-vdetail__row">
+                        <span className="lo-vdetail__label">{t("settings.vaultLocation")}</span>
+                        <div className="lo-vdetail__pathline">
+                          <span className="lo-vdetail__path">{v.path}</span>
+                          <button
+                            className="lo-set__change"
+                            disabled={!tauri}
+                            onClick={() => void changeVaultPath(v.path)}
+                          >
+                            <FolderOpen size={14} strokeWidth={1.9} />
+                            {t("settings.change")}
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* GitHub deposu */}
                     <div className="lo-vdetail__row">
@@ -226,10 +237,57 @@ export function VaultManager() {
             );
           })
         )}
-        <button className="lo-vault__add" onClick={() => void addVault()} disabled={!tauri}>
-          <FolderPlus size={15} strokeWidth={1.9} />
-          {t("settings.addVault")}
-        </button>
+        {(isMobile || sandboxed) && addingMobile ? (
+          /* Mobil: ad gir → app-data altında kasa oluştur (klasör seçici yok) */
+          <div className="lo-vdetail__create" style={{ padding: "10px 14px" }}>
+            <input
+              className="lo-gh__input"
+              placeholder={t("settings.vaultName")}
+              value={mobileVaultName}
+              autoFocus
+              onChange={(e) => setMobileVaultName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && mobileVaultName.trim()) {
+                  void addMobileVault(mobileVaultName.trim());
+                  setAddingMobile(false);
+                  setMobileVaultName("");
+                }
+              }}
+            />
+            <button
+              className="lo-gh__connect"
+              disabled={!mobileVaultName.trim()}
+              onClick={() => {
+                void addMobileVault(mobileVaultName.trim());
+                setAddingMobile(false);
+                setMobileVaultName("");
+              }}
+            >
+              <Check size={14} strokeWidth={2} />
+              {t("github.create")}
+            </button>
+            <button className="lo-gh__ghost" onClick={() => setAddingMobile(false)}>
+              {t("github.cancel")}
+            </button>
+          </div>
+        ) : (
+          <button
+            className="lo-vault__add"
+            onClick={() => (isMobile ? setAddingMobile(true) : void addVault())}
+            disabled={!tauri}
+          >
+            <FolderPlus size={15} strokeWidth={1.9} />
+            {t("settings.addVault")}
+          </button>
+        )}
+        {/* Sandbox (Mac App Store): klasör seçmeye ek olarak, izin gerektirmeyen
+            uygulama-içi kasa seçeneği. Klasör seçimi de çalışır (bookmark ile kalıcı). */}
+        {sandboxed && !isMobile && !addingMobile && (
+          <button className="lo-vault__add" onClick={() => setAddingMobile(true)} disabled={!tauri}>
+            <FolderPlus size={15} strokeWidth={1.9} />
+            {t("settings.addAppVault")}
+          </button>
+        )}
         {!tauri && <div className="lo-vault__hint">{t("github.desktopOnly")}</div>}
       </div>
 

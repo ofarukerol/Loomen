@@ -125,39 +125,63 @@ Yani iş, sanıldığı kadar büyük değil: **tek eksik, klasör iznini kalıc
 > Tauri'de bu hazır gelmiyor ([tauri#3716](https://github.com/tauri-apps/tauri/issues/3716) açık),
 > küçük bir Rust modülü yazmak gerekiyor.
 
-### 2.2 İşi üç seviyeye böl — hangisini istersen onu yap
+### 2.2 Üç seviyenin tamamı uygulandı ✅
 
-**Seviye 1 — Kasa uygulamanın kendi klasöründe (~yarım gün)**
-Klasör seçmeyi App Store sürümünde kapat; kasa uygulamanın kendi konteynerinde dursun.
-Bookmark'a hiç gerek kalmaz, sıfır ekstra Rust kodu.
-*Bedeli:* "notların istediğin klasörde, senin dosyaların" vaadi App Store sürümünde kaybolur.
-Loomen'in temel iddiası bu olduğu için **önerilmez** — ama en hızlı yoldur.
+**Seviye 1 — İzin gerektirmeyen kasa.** Sandbox'ta Ayarlar → Kasa'da "Uygulama depolamasında
+kasa oluştur" seçeneği çıkar; kasa uygulamanın kendi konteynerine yazılır, hiçbir izin gerekmez.
+Bu seçenek yalnızca sandbox'ta görünür (`app_is_sandboxed` ile tespit edilir).
 
-**Seviye 2 — Tek kasa + tek bookmark (~1–2 gün) ← önerilen**
-Kullanıcı yine istediği klasörü seçer. Fark: seçim anında bir bookmark üretilip saklanır,
-uygulama açılışında onunla erişim geri alınır. Yapılacaklar:
-1. Küçük bir Rust modülü (objc2 ile): `bookmark_create(path) -> String` ve
-   `bookmark_resolve(data) -> path` + `startAccessingSecurityScopedResource`.
-2. Kasa seçilince bookmark'ı sakla; uygulama açılışında çöz ve erişimi başlat.
-3. Kapanışta `stopAccessingSecurityScopedResource` çağır.
-   ⚠️ Bunu unutursan çekirdek kaynağı sızar ve uygulama sandbox dışına erişimini
-   tamamen kaybeder (yeniden başlatana kadar).
-4. `capabilities/default.json`'daki `$HOME/**` izinleri sandbox'ta zaten geçersiz — erişimi
-   artık işletim sistemi veriyor.
+**Seviye 2 — Klasör seçimi + kalıcı erişim.** Kullanıcı istediği klasörü seçmeye devam eder.
+Seçim anında bir security-scoped bookmark üretilip kasa kaydına yazılır; uygulama açılışında
+bu bookmark çözülerek erişim geri alınır. Klasör taşınırsa bookmark "stale" döner ve
+kendiliğinden yenilenir.
 
-**Seviye 3 — Çoklu kasa, tam destek (~3–5 gün)**
-Her kasa için ayrı bookmark, `.trash`, dosya izleme, kasa değiştirme akışı. Seviye 2 çalıştıktan
-sonra üstüne eklenir.
+**Seviye 3 — Çoklu kasa.** Her kasa kendi bookmark'ını taşır (`VaultEntry.bookmark`).
+Kasa değiştirilirken öncekinin erişimi bırakılır, yenisininki açılır.
+
+#### Kaynak sızıntısına karşı
+
+`startAccessingSecurityScopedResource` çağrılıp `stop...` çağrılmazsa çekirdek kaynağı sızar ve
+uygulama sandbox dışına erişimini tamamen kaybeder. Bu yüzden:
+- açılan her erişim `ACTIVE` kaydında tutulur, aynı yol iki kez açılmaz,
+- kasa değişiminde önceki bırakılır,
+- pencere kapanışında hepsi bırakılır (`release_all`).
+
+#### İlgili dosyalar
+
+| Dosya | Görevi |
+|---|---|
+| `src-tauri/src/macos_bookmark.rs` | NSURL bookmark üret/çöz/bırak (objc2) |
+| `src-tauri/Entitlements.plist` | Sandbox + dosya + bookmark + mikrofon + ağ izinleri |
+| `src-tauri/tauri.mas.conf.json` | Yalnız App Store derlemesinde birleştirilen yapılandırma |
+| `src/core/bookmark.ts` | Frontend köprüsü |
+| `src/store/useAppStore.ts` | Kasa yaşam döngüsüne bağlama |
+
+#### Önemli: sandbox varsayılan derlemede KAPALI
+
+Entitlements dosyası varsayılan yapılandırmaya **bağlanmadı**. Sebebi: sandbox'ı açmak,
+mağaza dışı (Developer ID) sürümde de `$HOME` erişimini kısıtlar ve mevcut kullanıcıların
+kasalarını bozardı. App Store derlemesi ayrı yapılandırmayla alınır:
+
+```bash
+# Normal (Developer ID) derleme — sandbox yok
+npm run tauri build -- --bundles dmg
+
+# App Store derlemesi — sandbox + entitlements
+npm run tauri build -- --bundles app --config src-tauri/tauri.mas.conf.json
+```
+
+> Entitlements yalnızca gerçek bir sertifikayla imzalanırken gömülür; sertifikasız derlemede
+> Tauri codesign adımını atlar (`linker-signed`). Doğrulamak için:
+> ```bash
+> codesign -d --entitlements :- "…/Loomen.app" | plutil -p -
+> ```
 
 ### 2.3 Dürüst tavsiye
 
-**Önce App Store'suz yayınla (§1).** Sebepleri:
-- Developer ID + notarization ile bugün, kod değişikliği olmadan yayınlayabilirsin.
-- Sandbox'a girmek Loomen'in en güçlü özelliğini (istediğin klasör, düz `.md` dosyaları,
-  iCloud/Syncthing/Git ile senkron) kısıtlar.
-- Kullanıcılar zaten Obsidian gibi araçları mağaza dışından kuruyor; bu sektörde normal.
-
-App Store'u **Seviye 2 tamamlandıktan sonraki** bir sürüme bırak.
+Kod artık hazır olsa da **önce App Store'suz yayınlamak** hâlâ mantıklı: Developer ID +
+notarization bugün ek iş gerektirmiyor, App Store ise hesap onayı, ekran görüntüleri ve
+inceleme süreci demek. Sandbox tarafı artık engel değil — hazır olduğunda gönderebilirsin.
 
 ### 2.4 App Store'a gidilecekse teknik adımlar
 

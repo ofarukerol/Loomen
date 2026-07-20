@@ -26,6 +26,7 @@ import {
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
+import { createBookmark, resolveBookmark, releaseBookmark, appIsSandboxed } from "../core/bookmark";
 import { gh, appIsMobile, appPlatform, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
 import {
   gcal,
@@ -76,6 +77,12 @@ export interface VaultEntry {
   /** Kullanıcının verdiği görünen ad (yoksa klasör adı kullanılır). */
   name?: string;
   repo: GhRepo | null;
+  /**
+   * macOS security-scoped bookmark (base64). Sandbox'ta (Mac App Store) kullanıcının
+   * seçtiği klasöre erişim yalnızca o oturum için verilir; kalıcı erişim bu anahtarla
+   * geri alınır. Sandbox dışı derlemelerde ve diğer platformlarda kullanılmaz.
+   */
+  bookmark?: string;
 }
 
 /** Bir kasanın açık sekme durumu (kasa değişince geri yüklenir). */
@@ -159,6 +166,8 @@ interface AppState {
   // Platform: mobil mi (Rust cfg(mobile))? Bootstrap'te belirlenir. Mobilde kasa = app-data + GitHub API senkron.
   platformMobile: boolean;
   platformOs: string; // "ios" | "android" | "macos" | "windows" | "linux" — Google mobil client seçimi
+  /** macOS sandbox (Mac App Store sürümü) — kasa oluşturma seçeneklerini belirler. */
+  platformSandboxed: boolean;
 
   // Google Takvim entegrasyonu (OAuth Loopback+PKCE, çift yönlü)
   gcalTokens: GoogleTokens | null;
@@ -232,6 +241,8 @@ interface AppState {
   /** Kasa yolu → o kasanın açık sekmeleri. Kasa değişince sekmeler buradan değişir. */
   tabsByVault: Record<string, VaultTabs>;
   addVault: () => Promise<void>;
+  /** Mobil: klasör seçici yok — app-data altında adla yeni kasa oluştur ve geç. */
+  addMobileVault: (name: string) => Promise<void>;
   switchVault: (path: string) => Promise<void>;
   removeVault: (path: string) => Promise<void>;
   setVaultRepo: (path: string, repo: GhRepo | null) => void;
@@ -460,6 +471,7 @@ export const useAppStore = create<AppState>()(
     ghBaseSha: null,
     platformMobile: false,
     platformOs: "desktop",
+    platformSandboxed: false,
 
     gcalTokens: null,
     gcalExpiresAt: null,
@@ -723,8 +735,8 @@ export const useAppStore = create<AppState>()(
       ensureTemplates(backend).catch(() => {});
       await loadFromBackend();
       if (isTauri()) {
-        const [mobile, os] = await Promise.all([appIsMobile(), appPlatform()]);
-        set({ platformMobile: mobile, platformOs: os });
+        const [mobile, os, sandboxed] = await Promise.all([appIsMobile(), appPlatform(), appIsSandboxed()]);
+        set({ platformMobile: mobile, platformOs: os, platformSandboxed: sandboxed });
         if (mobile) {
           // Mobil: kasa app-data altında (klasör seçici yok). İçerik GitHub API ile senkronlanır.
           try {
@@ -750,7 +762,36 @@ export const useAppStore = create<AppState>()(
       if (!isTauri()) return; // tarayıcıda klasör seçici yok
       const path = await pickVaultFolder();
       if (!path) return;
+      // Sandbox'ta erişim yalnız seçim anında verilir — bookmark'ı HEMEN üret.
+      const bookmark = await createBookmark(path);
+      if (bookmark) {
+        set((st) => ({
+          vaults: st.vaults.some((v) => v.path === path)
+            ? st.vaults.map((v) => (v.path === path ? { ...v, bookmark } : v))
+            : [...st.vaults, { path, repo: null, bookmark }],
+        }));
+      }
       await get().switchVault(path);
+    },
+
+    // Uygulama verisi altında adla kasa oluştur (klasör seçici kullanmadan).
+    // Mobilde tek yol budur; masaüstünde ise Mac App Store (sandbox) sürümü için
+    // "izin gerektirmeyen kasa" seçeneğidir — uygulamanın kendi konteynerine yazar.
+    addMobileVault: async (name) => {
+      if (!isTauri()) return;
+      const safe = sanitizeAudioName(name); // aynı dosya-adı kuralları
+      if (!safe) return;
+      try {
+        const { appDataDir, join } = await import("@tauri-apps/api/path");
+        const { exists, mkdir } = await import("@tauri-apps/plugin-fs");
+        const root = await appDataDir();
+        let dir = await join(root, safe);
+        for (let n = 2; await exists(dir); n++) dir = await join(root, `${safe} (${n})`);
+        await mkdir(dir, { recursive: true });
+        await get().reopenVault(dir); // listeye ekler + geçer + şablonları seed'ler
+      } catch (e) {
+        void notifyError(`Kasa oluşturulamadı: ${e}`);
+      }
     },
 
     // Listedeki bir kasaya geç (backend'i yeniden aç; entry'deki repo aktif olur).
@@ -842,9 +883,28 @@ export const useAppStore = create<AppState>()(
             }
           : prev.tabsByVault;
 
+        // Sandbox (Mac App Store): klasöre erişimi bookmark ile geri al. Sandbox dışında
+        // bu çağrı zararsızdır (erişim zaten açıktır).
+        const saved = prev.vaults.find((v) => v.path === path)?.bookmark;
+        if (saved) {
+          const r = await resolveBookmark(saved);
+          // Bookmark eskimişse (klasör taşındı/yeniden adlandırıldı) yenisini üret ve sakla.
+          if (r?.stale) {
+            const fresh = await createBookmark(r.path);
+            if (fresh) {
+              set((st) => ({
+                vaults: st.vaults.map((v) => (v.path === path ? { ...v, bookmark: fresh } : v)),
+              }));
+            }
+          }
+        }
+
         const next = createTauriBackend(path);
         // Erişimi doğrula (kapsam/taşınma) — başarısızsa catch.
         await next.listNotes();
+
+        // Kasa değiştiyse öncekinin security-scoped erişimini bırak (kaynak sızıntısı önlemi).
+        if (isSwitch && prevPath) void releaseBookmark(prevPath);
         backend = next;
         localStorage.setItem(VAULT_KEY, path);
         // Şablon klasörünü loadFromBackend'den ÖNCE oluştur ki Şablonlar hemen görünsün.
@@ -889,7 +949,12 @@ export const useAppStore = create<AppState>()(
         unwatch?.();
         unwatch = await watchVaultRoot(path, () => get().reloadVault());
       } catch {
-        // Açılamadı (taşınmış/silinmiş/izin yok): mevcut durumu koru.
+        // Açılamadı: taşınmış/silinmiş olabilir ya da (sandbox'ta) erişim izni düşmüştür.
+        // Sessiz kalma — kullanıcı kasasını yeniden seçebilmeli.
+        void notifyError(
+          "Kasa açılamadı. Klasör taşınmış veya erişim izni düşmüş olabilir; " +
+            "Ayarlar → Kasa bölümünden yeniden seçin.",
+        );
       }
     },
 

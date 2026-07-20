@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Mac App Store zorunlu: uygulama kum havuzunda çalışır. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- Kullanıcının dosya seçiciyle seçtiği kasa klasörüne okuma/yazma. -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<!-- Seçilen klasöre erişimin uygulama yeniden açıldığında da sürmesi
+	     (security-scoped bookmark) — bkz src/macos_bookmark.rs -->
+	<key>com.apple.security.files.bookmarks.app-scope</key>
+	<true/>
+	<!-- Ses notu kaydı (VoiceRecorder). -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+	<!-- GitHub ve Google Takvim senkronu için giden ağ bağlantısı. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- Google OAuth loopback yönlendirmesi yerel bir dinleyici açar. -->
+	<key>com.apple.security.network.server</key>
+	<true/>
+</dict>
+</plist>

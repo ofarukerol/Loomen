@@ -330,7 +330,8 @@
     "vaultRepo": "GitHub deposu",
     "connectGhFirst": "Önce GitHub hesabını bağla",
     "pomoSound": "Zil sesi",
-    "pomoSoundSub": "Pomodoro başlayınca ve bitince ses çal"
+    "pomoSoundSub": "Pomodoro başlayınca ve bitince ses çal",
+    "addAppVault": "Uygulama depolamasında kasa oluştur"
   },
   "syncStatus": {
     "error": "Senkron hatası"

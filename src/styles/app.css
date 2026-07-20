@@ -2398,9 +2398,16 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-app.is-mobile .lo-set__pomocell { padding: 14px 6px; }
 .lo-app.is-mobile .lo-set__pomoinput { width: 100%; max-width: 58px; font-size: 20px; }
 /* Editör: masaüstü yan Backlinks paneli (288px) mobilde editörü daracık sütuna sıkıştırıyordu.
-   Mobilde body dikey + Backlinks gizli → editör tam genişlik. */
+   Mobilde yan panel render edilmez (JSX'te !isMobile); Bağlantılar alttan sheet olarak açılır. */
 .lo-app.is-mobile .lo-editor__body { flex-direction: column; }
-.lo-app.is-mobile .lo-backlinks { display: none; }
+/* Sheet içindeki Bağlantılar: yan panel stillerini nötrle (genişlik/kenarlık/zemin) */
+.lo-sheet .lo-backlinks {
+  width: auto;
+  border: none;
+  background: transparent;
+  padding: 2px 16px 14px;
+  overflow: visible;
+}
 /* Mobilde pencere sürükleme / trafik ışığı boşlukları anlamsız */
 .lo-app.is-mobile .lo-ribbon__os,
 .lo-app.is-mobile .lo-topbar__os { display: none; }

@@ -355,7 +355,8 @@
     "rounds": "Rounds",
     "vault": "Vault",
     "vaultLocation": "Vault location",
-    "change": "Change"
+    "change": "Change",
+    "addAppVault": "Create vault in app storage"
   },
   "mobile": {
     "search": "Search",

@@ -38,6 +38,10 @@ export function EditorScreen() {
 
   const viewRef = useRef<EditorView | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  // Mobil Bağlantılar sheet'i (masaüstünde yan panel; mobilde 288px panel editörü ezdiği
+  // için alttan sheet). Not değişince kapanır (bağlantıya dokununca doğal kapanış).
+  const [blSheetOpen, setBlSheetOpen] = useState(false);
+  useEffect(() => setBlSheetOpen(false), [activeNote]);
 
   // Otomatik kayıt — düzenlerken draft değişince debounce ile yaz (saveNote değişmediyse yazmaz).
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,8 +132,11 @@ export function EditorScreen() {
         <div className="lo-tabs__spacer" />
         {editing && <VoiceRecorder onInsert={insertAtEnd} />}
         <button
-          className={"lo-tab__action" + (!backlinksCollapsed ? " lo-tab__action--accent" : "")}
-          onClick={toggleBacklinks}
+          className={
+            "lo-tab__action" +
+            ((isMobile ? blSheetOpen : !backlinksCollapsed) ? " lo-tab__action--accent" : "")
+          }
+          onClick={() => (isMobile ? setBlSheetOpen(true) : toggleBacklinks())}
           title={t("editor.backlinks")}
         >
           <Link2 size={15} strokeWidth={1.9} />
@@ -172,8 +179,22 @@ export function EditorScreen() {
             </div>
           )}
         </div>
-        {!backlinksCollapsed && <BacklinksPanel />}
+        {/* Yan panel yalnız masaüstü — mobilde 288px'lik panel editörü eziyordu; sheet var. */}
+        {!isMobile && !backlinksCollapsed && <BacklinksPanel />}
       </div>
+
+      {/* Mobil: Bağlantılar alttan sheet olarak (drawer/sekme sheet'iyle aynı desen). */}
+      {isMobile && (
+        <>
+          <div className={"lo-scrim" + (blSheetOpen ? " is-open" : "")} onClick={() => setBlSheetOpen(false)} />
+          <div className={"lo-sheet" + (blSheetOpen ? " is-open" : "")} role="dialog" aria-hidden={!blSheetOpen}>
+            <div className="lo-sheet__grip" />
+            <div className="lo-sheet__list lo-scroll">
+              <BacklinksPanel />
+            </div>
+          </div>
+        </>
+      )}
 
       {ctxMenu && (
         <EditorContextMenu
