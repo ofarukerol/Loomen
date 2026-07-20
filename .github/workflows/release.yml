@@ -1,0 +1,57 @@
+name: Release
+
+# Sürüm etiketi atılınca (örn. v0.1.0) Windows kurulum dosyasını üretir ve taslak
+# GitHub Release'e ekler. Windows derlemesi macOS'ta yapılamaz (çapraz derleme yok),
+# bu yüzden windows-latest koşucusu kullanılır.
+#
+# Elle çalıştırmak için: Actions → Release → Run workflow
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows kurulum dosyası
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Rust derlemesi uzun sürer; önbellek olmadan her koşu ~10 dk.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # NSIS (.exe) ve MSI birlikte üretilir. İmzalama yapılmaz — imzalama
+      # sertifikası eklendiğinde tauri.conf.json > bundle.windows alanları doldurulur
+      # (bkz docs/yayinlama.md §3).
+      - name: Derle
+        run: npm run tauri build -- --bundles nsis,msi
+
+      - name: Çıktıları yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: loomen-windows
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+      # Etiketle tetiklendiyse taslak sürüme de ekle (workflow_dispatch'te atlanır).
+      - name: Taslak sürüme ekle
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi

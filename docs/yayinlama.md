@@ -201,81 +201,91 @@ inceleme süreci demek. Sandbox tarafı artık engel değil — hazır olduğund
 
 ---
 
-## 3. Windows — Yol A: İmzalı kurulum dosyası (önerilen başlangıç)
+## 3. Windows — önce şunu bil: imzalama maliyeti seçtiğin pakete bağlı
 
-### 3.1 Sertifika seçenekleri
+Bu, Windows tarafındaki en önemli karar ve çoğu rehberde atlanıyor:
+
+| Paket türü | Store'a gönderirsen | Sertifika maliyeti |
+|---|---|---|
+| **MSIX** | **Microsoft kendi sertifikasıyla yeniden imzalar** | **0 TL** |
+| EXE / MSI | Store yeniden imzalamaz, kendin imzalarsın | ~10 USD/ay veya 300+ USD/yıl |
+
+Yani **yalnızca Microsoft Store'da yayınlayacaksan MSIX ile sertifikaya hiç para vermezsin.**
+Buna karşılık kendi sitenden de dağıtacaksan (ki SmartScreen uyarısı çıkmasın istiyorsan)
+imzalı bir EXE gerekir ve sertifika almak zorundasın.
+
+> Tauri MSIX üretmez; NSIS (.exe) ve MSI üretir. MSIX gerekiyorsa üretilen kurulum dosyası
+> Windows'ta **MSIX Packaging Tool** ile sarmalanır (§3.3).
+
+### 3.1 Windows makinen yoksa — CI ile derle
+
+macOS'tan Windows'a çapraz derleme **yoktur**. Bu iş için depoda hazır bir akış var:
+[`.github/workflows/release.yml`](../.github/workflows/release.yml)
+
+- Elle çalıştırma: GitHub → **Actions** → *Release* → **Run workflow**
+- Ya da sürüm etiketi at:
+  ```bash
+  git tag v0.1.0 && git push origin v0.1.0
+  ```
+
+Çıktılar (`.exe` ve `.msi`) koşu sayfasındaki **Artifacts** bölümünden indirilir; etiketle
+tetiklendiyse ayrıca taslak bir GitHub Release'e eklenir.
+
+### 3.2 Yol A — Microsoft Store (sertifikasız, en ucuz)
+
+1. [partner.microsoft.com](https://partner.microsoft.com) → Windows & Xbox → şirket hesabı
+   (DATHA YAZILIM ile; hesap doğrulaması birkaç gün sürebilir)
+2. **Yeni uygulama** → ad rezerve et: `Loomen`
+3. CI'dan `.msi` dosyasını indir
+4. Bir Windows makinede (ya da Windows VM) **MSIX Packaging Tool** ile `.msi` → `.msix`
+   - Publisher alanı Partner Center'daki kimliğinle **birebir** eşleşmeli
+     (Partner Center → Product → Product identity ekranındaki değerler)
+5. Partner Center'a `.msix` yükle → Microsoft imzalar
+6. Mağaza kaydı: açıklama, en az 1 ekran görüntüsü (1366×768+), yaş sınırı anketi,
+   **gizlilik politikası URL'si** (zorunlu)
+7. Gönder → inceleme 1–3 iş günü
+
+### 3.3 Yol B — İmzalı EXE (kendi siten + istersen Store)
+
+Sertifika seçenekleri:
 
 | Seçenek | Maliyet | Not |
 |---|---|---|
-| **Azure Artifact Signing** | ~10 USD/ay | En ucuz ve modern yol; donanım anahtarı gerekmez |
-| EV sertifika (DigiCert, Sectigo…) | 300–600 USD/yıl | Donanım token'ı ile gelir; SmartScreen itibarı anında |
-| OV sertifika | 200–400 USD/yıl | 1 Haziran 2023 sonrası artık donanım gerektiriyor |
+| **Azure Artifact Signing** | ~10 USD/ay | Donanım token'ı gerekmez, CI ile çalışır — önerilen |
+| EV sertifika | 300–600 USD/yıl | Donanım token'ı gelir; SmartScreen itibarı anında |
+| OV sertifika | 200–400 USD/yıl | 2023'ten beri donanım token'ı zorunlu |
 
-> **İmzalamazsan ne olur:** Windows SmartScreen "Bilinmeyen yayımcı" uyarısı verir ve kullanıcı
-> "Yine de çalıştır" demek zorunda kalır. Ciddi bir kayıp — imzalamak şiddetle önerilir.
-
-### 3.2 Azure Artifact Signing ile (önerilen)
-
+Azure Artifact Signing ile:
 ```jsonc
-// src-tauri/tauri.conf.json
-"bundle": {
-  "windows": {
-    "signCommand": "artifact-signing-cli -e https://eus.codesigning.azure.net -a HESAP -c PROFIL -d Loomen %1"
-  }
-}
+// src-tauri/tauri.conf.json → bundle.windows
+"signCommand": "artifact-signing-cli -e https://eus.codesigning.azure.net -a HESAP -c PROFIL -d Loomen %1"
 ```
-Ön koşul: .NET 8, Azure CLI, `artifact-signing-cli`; ortam değişkenleri `AZURE_CLIENT_ID`,
-`AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`.
+Ön koşul: .NET 8, Azure CLI, `artifact-signing-cli`; gizli değişkenler `AZURE_CLIENT_ID`,
+`AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` (CI'da repo secret olarak).
 
-### 3.3 Klasik sertifika ile
-
+Klasik sertifika ile:
 ```jsonc
-"bundle": {
-  "windows": {
-    "certificateThumbprint": "A1B2C3…",       // certmgr.msc → sertifika → Ayrıntılar → Parmak izi
-    "digestAlgorithm": "sha256",
-    "timestampUrl": "http://timestamp.digicert.com"
-  }
+"windows": {
+  "certificateThumbprint": "A1B2C3…",   // certmgr.msc → sertifika → Ayrıntılar → Parmak izi
+  "digestAlgorithm": "sha256",
+  "timestampUrl": "http://timestamp.digicert.com"
 }
 ```
 
-### 3.4 Derle
+> **İmzalamazsan:** Windows SmartScreen "Bilinmeyen yayımcı" uyarısı verir; kullanıcı
+> "Daha fazla bilgi → Yine de çalıştır" demek zorunda kalır. Store dışı dağıtımda ciddi kayıp.
 
-**Windows makinede** (çapraz derleme desteklenmez):
+### 3.4 Store'a EXE/MSI gönderirken ek kurallar
 
-```powershell
-npm install
-npm run tauri build -- --bundles nsis,msi
-```
-
-Çıktı: `src-tauri/target/release/bundle/nsis/Loomen_0.1.0_x64-setup.exe`
-
-> Windows makinen yoksa: GitHub Actions'ta `windows-latest` runner ile derle (§5).
+Store, Win32 kurulum dosyalarını kabul eder ama şunları ister:
+- Sessiz kurulum ve kaldırma parametreleri (NSIS'te ikisi de `/S`)
+- Denetim Masası'nda düzgün bir "Programlar ve Özellikler" kaydı (Tauri bunu üretir)
+- Kurulum dosyası ve içindeki tüm çalıştırılabilirler Authenticode imzalı olmalı
+- Kurulum sırasında başka yazılım önerilmemeli
 
 ---
 
-## 4. Windows — Yol B: Microsoft Store
-
-Microsoft Store artık **Win32 kurulum dosyalarını** (EXE/MSI) doğrudan kabul ediyor —
-MSIX'e paketlemek **zorunlu değil**. Bu, Tauri için en kolay yoldur.
-
-1. [partner.microsoft.com](https://partner.microsoft.com) → Windows & Xbox → hesap aç
-2. **Yeni uygulama** → ad rezerve et ("Loomen")
-3. Ürün kurulumu:
-   - Paket türü: **EXE veya MSI** (App type: *Not packaged / MSI or EXE*)
-   - `Loomen_0.1.0_x64-setup.exe` dosyasını yükle (imzalı olmalı)
-   - Sessiz kurulum parametresi: `/S` (NSIS), kaldırma parametresi: `/S`
-4. Mağaza kaydı: açıklama, en az 1 ekran görüntüsü (1366×768 veya üstü), yaş sınırı anketi,
-   gizlilik politikası **URL'si** (zorunlu — Loomen veri toplamıyor olsa bile bir sayfa gerekir)
-5. Gönder → inceleme genelde 1–3 iş günü
-
-> **Gizlilik politikası:** Loomen tamamen yerel çalışıyor; "hiçbir veri toplanmaz, notlar
-> cihazda kalır; GitHub/Google entegrasyonları yalnızca kullanıcı bağlarsa devreye girer"
-> diyen kısa bir sayfa yeterli. loomen.org altında yayınlanabilir.
-
----
-
-## 5. CI ile otomatik derleme (isteğe bağlı ama önerilir)
+## 5. CI ile otomatik derleme
 
 Her iki platformu tek akışta üretmek için GitHub Actions:
 
