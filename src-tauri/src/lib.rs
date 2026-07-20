@@ -87,6 +87,36 @@ pub fn run() {
         google::google_refresh_pkce,
     ]);
 
+    // macOS: yerel menü çubuğu. KRİTİK — sistem "Start Dictation" (sesli yazma) ve
+    // "Emoji & Symbols" öğelerini otomatik olarak DÜZEN (Edit) menüsüne ekler. Uygulamanın
+    // Edit menüsü yoksa dikte klavye kısayolu hiç aktifleşmez (metin alanı odakta olsa bile).
+    #[cfg(target_os = "macos")]
+    let builder = builder.setup(|app| {
+        use tauri::menu::{MenuBuilder, SubmenuBuilder};
+
+        let app_menu = SubmenuBuilder::new(app, "Loomen")
+            .about(None)
+            .separator()
+            .hide()
+            .separator()
+            .quit()
+            .build()?;
+
+        let edit_menu = SubmenuBuilder::new(app, "Edit")
+            .undo()
+            .redo()
+            .separator()
+            .cut()
+            .copy()
+            .paste()
+            .select_all()
+            .build()?;
+
+        let menu = MenuBuilder::new(app).items(&[&app_menu, &edit_menu]).build()?;
+        app.set_menu(menu)?;
+        Ok(())
+    });
+
     builder
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

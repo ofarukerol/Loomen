@@ -1,14 +1,17 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, BookOpen, SquarePen, Link2 } from "lucide-react";
+import type { EditorView } from "@codemirror/view";
 import { useAppStore } from "../../store/useAppStore";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { Markdown } from "./Markdown";
-import { PlainTextEditor } from "./PlainTextEditor";
-import { PlainToolbar } from "./PlainToolbar";
+import { CodeMirrorEditor } from "./CodeMirrorEditor";
 import { BacklinksPanel } from "./BacklinksPanel";
+import { EditorToolbar } from "./EditorToolbar";
+import { EditorContextMenu } from "./EditorContextMenu";
 import { DailyHeader } from "./DailyHeader";
 import { VoiceRecorder } from "./VoiceRecorder";
+import { firstSectionCaret } from "./noteCaret";
 
 function breadcrumb(path: string): string[] {
   const segs = path.split("/");
@@ -24,7 +27,7 @@ export function EditorScreen() {
   const activeNote = useAppStore((s) => s.activeNote);
   const editing = useAppStore((s) => s.editing);
   const draft = useAppStore((s) => s.draft);
-  const spellCheck = useAppStore((s) => s.editorSettings.spellCheck);
+  const lineNumbers = useAppStore((s) => s.editorSettings.lineNumbers);
   const setDraft = useAppStore((s) => s.setDraft);
   const toggleEditing = useAppStore((s) => s.toggleEditing);
   const saveNote = useAppStore((s) => s.saveNote);
@@ -33,8 +36,8 @@ export function EditorScreen() {
   const backlinksCollapsed = useAppStore((s) => s.backlinksCollapsed);
   const toggleBacklinks = useAppStore((s) => s.toggleBacklinks);
 
-  // Düzenleme alanı yerel <textarea> — macOS sesli yazma (dictation) doğrudan çalışsın diye.
-  const taRef = useRef<HTMLTextAreaElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Otomatik kayıt — düzenlerken draft değişince debounce ile yaz (saveNote değişmediyse yazmaz).
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,14 +62,17 @@ export function EditorScreen() {
   const content = contents[activeNote] ?? "";
   const crumbs = breadcrumb(activeNote);
 
+  // Günlük not (2026-07-19-Pazar gibi) açılınca imleç ilk bölüme — "Ephemeral Notlar" — gitsin.
+  const isDaily = /^\d{4}-\d{2}-\d{2}/.test(crumbs[crumbs.length - 1] ?? "");
+  const initialCaret = isDaily ? firstSectionCaret(draft) : undefined;
+
   // Okuma moduna geçerken son hâli kaydet (okuma güncel içeriği göstersin).
   const toggleMode = async () => {
     if (editing) await saveNote();
     toggleEditing();
   };
 
-  // Okuma modunda içeriğe tıklayınca otomatik düzenlemeye geç (link/görev tıklaması hariç —
-  // onlar kendi aksiyonlarını yapsın). Düzenleyici mount olunca odaklanıp imleci sona alır.
+  // Okuma modunda içeriğe tıklayınca otomatik düzenlemeye geç (link/görev tıklaması hariç).
   const enterEditFromReading = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button, a, .lo-checkbox, .lo-wiki")) return;
     toggleEditing();
@@ -92,8 +98,17 @@ export function EditorScreen() {
     return { pos: doc.length, insert: `${prefix}${AUDIO_HEADING}\n${embed}\n` };
   };
 
-  // Kontrollü <textarea> — value draft'a bağlı, setDraft yeterli.
+  // CodeMirror dış value değişikliklerini almaz (yalnız key ile yeniden kurulur) — setDraft tek
+  // başına editörde görünmez ve sonraki tuş vuruşu CM'in eski içeriğiyle draft'ı ezip eklemeyi
+  // SİLERDİ. Bu yüzden CM varken doğrudan dispatch edilir.
   const insertAtEnd = (text: string) => {
+    const view = viewRef.current;
+    if (view) {
+      const docStr = view.state.doc.toString();
+      const { pos, insert } = audioInsertion(docStr, text);
+      view.dispatch({ changes: { from: pos, insert }, scrollIntoView: true });
+      return;
+    }
     const cur = useAppStore.getState().draft;
     const { pos, insert } = audioInsertion(cur, text);
     useAppStore.getState().setDraft(cur.slice(0, pos) + insert + cur.slice(pos));
@@ -129,7 +144,7 @@ export function EditorScreen() {
         </button>
       </div>
 
-      {editing && <PlainToolbar getEl={() => taRef.current} onChange={setDraft} />}
+      {editing && <EditorToolbar getView={() => viewRef.current} />}
 
       {crumbs.length > 0 && <DailyHeader noteName={crumbs[crumbs.length - 1]} />}
 
@@ -137,7 +152,15 @@ export function EditorScreen() {
         <div className={"lo-editor__scroll lo-scroll" + (editing ? "" : " lo-editor__scroll--preview")}>
           {editing ? (
             <div className="lo-editor__editwrap">
-              <PlainTextEditor ref={taRef} key={activeNote} value={draft} onChange={setDraft} spellCheck={spellCheck} />
+              <CodeMirrorEditor
+                key={`${activeNote}:${lineNumbers}`}
+                value={draft}
+                onChange={setDraft}
+                lineNumbers={lineNumbers}
+                onView={(v) => (viewRef.current = v)}
+                onContextMenu={(x, y) => setCtxMenu({ x, y })}
+                initialCaret={initialCaret}
+              />
             </div>
           ) : (
             <div className="lo-editor__preview lo-editor__preview--clickedit" onClick={enterEditFromReading}>
@@ -151,6 +174,16 @@ export function EditorScreen() {
         </div>
         {!backlinksCollapsed && <BacklinksPanel />}
       </div>
+
+      {ctxMenu && (
+        <EditorContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          getView={() => viewRef.current}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
+
     </div>
   );
 }

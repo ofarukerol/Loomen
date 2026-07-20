@@ -14,6 +14,8 @@ interface Props {
   lineNumbers: boolean;
   onView?: (v: EditorView | null) => void;
   onContextMenu?: (x: number, y: number) => void;
+  /** Açılışta imlecin gideceği konum (günlük notta "Ephemeral Notlar" bölümü). */
+  initialCaret?: number;
 }
 
 // Token'larımıza dayalı sözdizimi vurgusu (light/dark otomatik — var() kullanır).
@@ -130,7 +132,7 @@ const cmTheme = EditorView.theme({
   },
 });
 
-export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onContextMenu }: Props) {
+export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onContextMenu, initialCaret }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   // Stale closure olmasın diye callback'leri ref'te tut.
   const onChangeRef = useRef(onChange);
@@ -166,11 +168,19 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
     ];
     if (lineNumbers) exts.push(lineNumbersExt());
 
+    // Günlük notta imleç "Ephemeral Notlar" bölümüne; verilmezse CM varsayılanı (metin başı).
+    const caret = initialCaret == null ? undefined : Math.max(0, Math.min(initialCaret, value.length));
+
     const view = new EditorView({
-      state: EditorState.create({ doc: value, extensions: exts }),
+      state: EditorState.create({
+        doc: value,
+        extensions: exts,
+        ...(caret == null ? {} : { selection: { anchor: caret } }),
+      }),
       parent: ref.current,
     });
     view.focus();
+    if (caret != null) view.dispatch({ effects: EditorView.scrollIntoView(caret, { y: "center" }) });
     onViewRef.current?.(view);
     return () => {
       onViewRef.current?.(null);

@@ -777,27 +777,13 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-editor__scroll { flex: 1; overflow-y: auto; padding: 0; }
 .lo-editor__scroll--preview { padding: 40px 0; }
 .lo-cm { height: 100%; }
-/* Düz metin (sesli yazma) editörü — CM6 tipografisiyle eşleşir; auto-grow için yükseklik JS'te. */
-.lo-plaineditor {
-  display: block;
-  width: 100%;
-  min-height: 300px;
-  border: none;
-  outline: none;
-  resize: none;
-  overflow: hidden;
-  background: transparent;
-  color: var(--fg1);
-  caret-color: var(--accent);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.7;
-  padding: 22px 0 200px;
-}
-.lo-plaineditor::selection { background: var(--accent-soft); }
 .lo-editor__preview { max-width: 760px; margin: 0 auto; padding: 0 40px; }
 /* Okuma modunda boş alana tıklayınca düzenlemeye geçilir — metin imleci ipucu ver. */
 .lo-editor__preview--clickedit { cursor: text; min-height: 60vh; }
+
+.lo-spin { animation: loSpin 1s linear infinite; }
+@keyframes loSpin { to { transform: rotate(360deg); } }
+
 .lo-prose { max-width: 680px; margin: 0 auto; padding: 0 40px; animation: loFade 0.3s ease; }
 
 .lo-prose h1 { margin: 0 0 4px; font-size: 30px; font-weight: 700; color: var(--fg1); letter-spacing: -0.02em; }
@@ -1456,7 +1442,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-pomoc__break-time {
   font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--fg2);
 }
-.lo-pomoc__break-ctl { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.lo-pomoc__break-ctl { margin-inline-start: auto; display: flex; align-items: center; gap: 6px; }
 .lo-pomoc__break-play {
   width: 26px; height: 26px; border: none; border-radius: 50%;
   background: var(--accent-soft); color: var(--accent); cursor: pointer;
@@ -1522,7 +1508,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-mini__row--event { cursor: default; }
 .lo-mini__row--event:hover { background: transparent; }
 .lo-mini__evdot {
-  width: 8px; height: 8px; flex-shrink: 0; margin-left: 5px; border-radius: 50%;
+  width: 8px; height: 8px; flex-shrink: 0; margin-inline-start: 5px; border-radius: 50%;
   background: #4285f4; box-shadow: 0 0 0 3px color-mix(in srgb, #4285f4 18%, transparent);
 }
 .lo-mini__row--event .lo-mini__text { color: var(--fg2); }
