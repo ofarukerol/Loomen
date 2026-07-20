@@ -125,7 +125,7 @@ fn wait_for_code(listener: TcpListener, expected_state: String) -> Result<String
 <script>setTimeout(function(){window.close()},800)</script></body></html>";
                 let resp = format!(
                     "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                    body.as_bytes().len(),
+                    body.len(),
                     body
                 );
                 let _ = stream.write_all(resp.as_bytes());

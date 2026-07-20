@@ -28,7 +28,9 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["loomen"]
+        "schemes": [
+          "loomen"
+        ]
       }
     }
   },
@@ -41,6 +43,23 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "publisher": "Ömer Faruk Erol",
+    "copyright": "© 2026 Ömer Faruk Erol",
+    "category": "Productivity",
+    "shortDescription": "Yerel çalışan not, planlayıcı ve Pomodoro uygulaması",
+    "longDescription": "Loomen; notlarını düz Markdown dosyaları olarak kendi klasöründe tutan, tamamen çevrimdışı çalışan bir kişisel bilgi yönetimi uygulamasıdır. Çift yönlü bağlantı, graf görünümü, günlük planlayıcı, takvim ve Pomodoro içerir.",
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "nsis": {
+        "languages": [
+          "Turkish",
+          "English"
+        ],
+        "installMode": "perMachine"
+      }
+    }
   }
 }
