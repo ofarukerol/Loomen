@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Mac App Store ZORUNLU: uygulama kimliği (Team ID + bundle id). Provisioning
+	     profile'daki App ID ile birebir aynı olmalı, yoksa yükleme reddedilir. -->
+	<key>com.apple.application-identifier</key>
+	<string>X82U3597A7.org.loomen.notes</string>
+	<key>com.apple.developer.team-identifier</key>
+	<string>X82U3597A7</string>
 	<!-- Mac App Store zorunlu: uygulama kum havuzunda çalışır. -->
 	<key>com.apple.security.app-sandbox</key>
 	<true/>

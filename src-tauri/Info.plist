@@ -4,5 +4,9 @@
 <dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Not editörüne ses notu kaydetmek için mikrofon erişimi gerekir.</string>
+	<!-- Uygulama yalnızca HTTPS kullanır (muaf şifreleme). Bu anahtar olmadan her
+	     App Store yüklemesinde ihracat uyumluluğu sorusu tekrar sorulur. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
