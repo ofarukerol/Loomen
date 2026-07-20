@@ -14,8 +14,8 @@ export const GOOGLE_CLIENT_SECRET =
 /**
  * Mobil OAuth: platforma özel "iOS" / "Android" client id (secret'sız, ters-client-id özel şema).
  * Google Cloud Console'da ilgili tipte client oluşturup .env'e:
- *   VITE_GOOGLE_IOS_CLIENT_ID=...        (Application type: iOS, Bundle ID: org.loomen.app)
- *   VITE_GOOGLE_ANDROID_CLIENT_ID=...    (Application type: Android, package: org.loomen.app + SHA-1)
+ *   VITE_GOOGLE_IOS_CLIENT_ID=...        (Application type: iOS, Bundle ID: org.loomen.notes)
+ *   VITE_GOOGLE_ANDROID_CLIENT_ID=...    (Application type: Android, package: org.loomen.notes + SHA-1)
  */
 export const GOOGLE_IOS_CLIENT_ID =
   (import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID as string | undefined)?.trim() ?? "";

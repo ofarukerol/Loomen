@@ -11,24 +11,22 @@ gerektiği de yazılıdır.
 
 ## 0. Yayın öncesi kararlar (önce bunlar)
 
-### 0.1 Uygulama kimliği (`identifier`) — ilk yayından önce değiştirilmeli
+### 0.1 Uygulama kimliği (`identifier`) — ✅ yapıldı
 
-Şu an: `org.loomen.app`
+`org.loomen.app` → **`org.loomen.notes`** olarak değiştirildi.
 
-Tauri her derlemede şu uyarıyı veriyor:
+**Neden gerekiyordu:** `.app` ile biten kimlik macOS'ta uygulama paketi uzantısıyla çakışıyor
+(Tauri her derlemede uyarıyordu). Kimlik; uygulama veri klasörünü, TCC izinlerini (mikrofon),
+kod imzasını ve mağaza kaydını belirler ve **yayından sonra değiştirilemez** — App Store'da
+kimlik kalıcıdır, değiştirmek "yeni uygulama" demektir. Bu yüzden ilk yayından önce halledildi.
 
-> The bundle identifier "org.loomen.app" ends with `.app`. This is not recommended because it
-> conflicts with the application bundle extension on macOS.
+**Neden `.desktop` değil:** Aynı kimlik iOS bundle ID ve Android paket adı olarak da kullanılıyor.
 
-**Neden önemli:** Kimlik; macOS'ta uygulama veri klasörünü, TCC izinlerini (mikrofon),
-kod imzasını ve mağaza kaydını belirler. **Yayından sonra değiştirilemez** — App Store'da
-kimlik kalıcıdır, değiştirmek "yeni uygulama" demektir.
-
-**Öneri:** `org.loomen.desktop` veya `com.omerfarukerol.loomen`.
-
-**Yan etki:** Kimlik değişince uygulama veri klasörü değişir → yerel ayarlar (tema, kasa listesi,
-Pomodoro geçmişi) sıfırlanır ve mikrofon izni yeniden sorulur. **Notlar etkilenmez** (onlar
-kasa klasöründe, düz `.md` dosyaları). Bu yüzden şimdi yapmak en ucuzu.
+**Yan etki:** Uygulama veri klasörü değişti → yerel ayarlar (tema, kasa listesi, Pomodoro
+geçmişi) bir kez sıfırlanır ve mikrofon izni yeniden sorulur. **Notlar etkilenmez** (kasa
+klasöründe düz `.md` dosyaları). Mobil projeler (`src-tauri/gen/`) yeniden üretilmelidir:
+`npm run tauri ios init` / `android init`. Google OAuth mobil istemcileri kayıtlıysa
+bundle ID / package adı yeni kimliğe göre güncellenmelidir.
 
 ### 0.2 Sürüm numarası
 
@@ -103,28 +101,69 @@ spctl -a -vvv -t install "…/Loomen.app"
 
 ---
 
-## 2. macOS — Yol B: Mac App Store
+## 2. macOS — Yol B: Mac App Store (sandbox)
 
-### ⚠️ Önce bilinmesi gereken engel
+### 2.1 Sandbox nedir, sade anlatım
 
-Mac App Store **sandbox zorunludur**. Loomen şu anda kullanıcının seçtiği herhangi bir klasörü
-okuyup yazıyor (`capabilities/default.json` içinde `$HOME/**`). **Sandbox bunu yasaklar.**
+Mac App Store'daki her uygulama **kum havuzunda (sandbox)** çalışmak zorundadır. Basitçe:
 
-Sandbox'ta bir uygulama yalnızca şunlara erişebilir:
-- kendi konteyner klasörü,
-- kullanıcının **dosya seçiciyle** açıkça seçtiği yollar — ve bu erişimin uygulama yeniden
-  açıldığında da sürmesi için **security-scoped bookmark** saklanması gerekir.
+> Uygulama, kullanıcının diskine serbestçe uzanamaz. Yalnızca **kendi klasörüne** ve
+> **kullanıcının bir dosya seçiciyle bizzat gösterdiği** yerlere erişebilir.
 
-Loomen'in kasa mantığı (klasörü bir kez seç, sonra hep kullan; `.trash`; dosya izleme) bunun
-için **yeniden yazılmalıdır**. Bu, günler süren bir iştir ve şu an yapılmamıştır.
+Loomen bugün bunun tersini yapıyor: kullanıcı bir kasa klasörü seçiyor ve uygulama o klasörü
+sonsuza kadar okuyup yazıyor (`capabilities/default.json` → `$HOME/**`). Sandbox'ta bu geçersiz.
 
-**Karar:** Önce §1 (Developer ID + notarization) ile yayınla. App Store'u sonraki bir sürüme bırak.
+İki ayrı sorun var, karıştırmamak önemli:
 
-### 2.1 Yine de App Store'a gidilecekse
+| | Sorun | Çözümü |
+|---|---|---|
+| **A** | Uygulama açıkken seçilen klasöre erişim | **Zaten çözülü.** Tauri'nin dosya seçicisi macOS'un yerel panelidir; kullanıcı bir klasör seçtiğinde sandbox o oturum için erişimi kendiliğinden verir. |
+| **B** | Uygulama **kapanıp yeniden açılınca** aynı klasöre erişim | Çözülmesi gereken tek şey. macOS bunu "**security-scoped bookmark**" ile yapar: seçilen klasör için bir anahtar üretip saklarsın, açılışta o anahtarla erişimi geri alırsın. |
+
+Yani iş, sanıldığı kadar büyük değil: **tek eksik, klasör iznini kalıcı kılmak.**
+
+> Tauri'de bu hazır gelmiyor ([tauri#3716](https://github.com/tauri-apps/tauri/issues/3716) açık),
+> küçük bir Rust modülü yazmak gerekiyor.
+
+### 2.2 İşi üç seviyeye böl — hangisini istersen onu yap
+
+**Seviye 1 — Kasa uygulamanın kendi klasöründe (~yarım gün)**
+Klasör seçmeyi App Store sürümünde kapat; kasa uygulamanın kendi konteynerinde dursun.
+Bookmark'a hiç gerek kalmaz, sıfır ekstra Rust kodu.
+*Bedeli:* "notların istediğin klasörde, senin dosyaların" vaadi App Store sürümünde kaybolur.
+Loomen'in temel iddiası bu olduğu için **önerilmez** — ama en hızlı yoldur.
+
+**Seviye 2 — Tek kasa + tek bookmark (~1–2 gün) ← önerilen**
+Kullanıcı yine istediği klasörü seçer. Fark: seçim anında bir bookmark üretilip saklanır,
+uygulama açılışında onunla erişim geri alınır. Yapılacaklar:
+1. Küçük bir Rust modülü (objc2 ile): `bookmark_create(path) -> String` ve
+   `bookmark_resolve(data) -> path` + `startAccessingSecurityScopedResource`.
+2. Kasa seçilince bookmark'ı sakla; uygulama açılışında çöz ve erişimi başlat.
+3. Kapanışta `stopAccessingSecurityScopedResource` çağır.
+   ⚠️ Bunu unutursan çekirdek kaynağı sızar ve uygulama sandbox dışına erişimini
+   tamamen kaybeder (yeniden başlatana kadar).
+4. `capabilities/default.json`'daki `$HOME/**` izinleri sandbox'ta zaten geçersiz — erişimi
+   artık işletim sistemi veriyor.
+
+**Seviye 3 — Çoklu kasa, tam destek (~3–5 gün)**
+Her kasa için ayrı bookmark, `.trash`, dosya izleme, kasa değiştirme akışı. Seviye 2 çalıştıktan
+sonra üstüne eklenir.
+
+### 2.3 Dürüst tavsiye
+
+**Önce App Store'suz yayınla (§1).** Sebepleri:
+- Developer ID + notarization ile bugün, kod değişikliği olmadan yayınlayabilirsin.
+- Sandbox'a girmek Loomen'in en güçlü özelliğini (istediğin klasör, düz `.md` dosyaları,
+  iCloud/Syncthing/Git ile senkron) kısıtlar.
+- Kullanıcılar zaten Obsidian gibi araçları mağaza dışından kuruyor; bu sektörde normal.
+
+App Store'u **Seviye 2 tamamlandıktan sonraki** bir sürüme bırak.
+
+### 2.4 App Store'a gidilecekse teknik adımlar
 
 1. Sertifika: **Apple Distribution** (Developer ID değil)
 2. Xcode → provisioning profile oluştur
-3. `src-tauri/Entitlements.plist` oluştur:
+3. `src-tauri/Entitlements.plist`:
    ```xml
    <key>com.apple.security.app-sandbox</key><true/>
    <key>com.apple.security.files.user-selected.read-write</key><true/>
@@ -132,9 +171,9 @@ için **yeniden yazılmalıdır**. Bu, günler süren bir iştir ve şu an yapı
    <key>com.apple.security.device.audio-input</key><true/>   <!-- ses notu -->
    <key>com.apple.security.network.client</key><true/>       <!-- GitHub/Google senkron -->
    ```
-   ve `tauri.conf.json` → `bundle.macOS.entitlements` ile bağla.
-4. Kasa erişimini security-scoped bookmark'lara taşı (yukarıdaki engel).
-5. `.pkg` üret, **Transporter** uygulamasıyla App Store Connect'e yükle.
+   `tauri.conf.json` → `bundle.macOS.entitlements` ile bağla.
+4. Seviye 2'yi (bookmark) uygula.
+5. `.pkg` üret, **Transporter** ile App Store Connect'e yükle.
 
 ---
 
