@@ -1,3 +1,5 @@
+Türkçe · **[English](README.en.md)** · **[العربية](README.ar.md)**
+
 # Loomen
 
 **Tamamen lokal çalışan bir kişisel bilgi yönetimi (PKM) uygulaması** — notlarını düz `.md`

@@ -42,7 +42,8 @@
     "addFavorite": "Favorilere ekle",
     "removeFavorite": "Favorilerden çıkar",
     "switchVault": "Kasa değiştir",
-    "delete": "Çöp kutusuna taşı"
+    "delete": "Çöp kutusuna taşı",
+    "clearSearch": "Temizle"
   },
   "trash": {
     "title": "Çöp Kutusu",
@@ -80,7 +81,8 @@
     "completed": "Tamamlananlar",
     "toggleLeft": "Sol paneli aç/kapat",
     "toggleRight": "Sağ paneli aç/kapat",
-    "moreTasks": "+{{count}} görev daha"
+    "moreTasks": "+{{count}} görev daha",
+    "addTask": "Ekle"
   },
   "board": {
     "overdue": "Geciken",
@@ -142,7 +144,10 @@
       "Cum",
       "Cmt",
       "Paz"
-    ]
+    ],
+    "prevMonth": "Önceki ay",
+    "nextMonth": "Sonraki ay",
+    "goToday": "Bugüne dön"
   },
   "pomodoro": {
     "title": "POMODORO",
@@ -152,7 +157,8 @@
     "start": "Başlat",
     "pause": "Duraklat",
     "focusOn": "Odak:",
-    "currentTask": "Tasarımı bitir"
+    "currentTask": "Tasarımı bitir",
+    "reset": "Sıfırla"
   },
   "editor": {
     "backlinks": "Bağlantılar",
@@ -164,9 +170,7 @@
     "preview": "Önizleme",
     "empty": "Soldaki gezginden bir not aç.",
     "reading": "Okuma",
-    "emptyMobile": "Menüden bir not aç.",
-    "plainMode": "Düz metin (sesli yazma)",
-    "richMode": "Zengin editöre dön"
+    "emptyMobile": "Menüden bir not aç."
   },
   "github": {
     "title": "GitHub Senkronizasyonu",
@@ -299,7 +303,6 @@
     "livePreview": "Canlı önizleme",
     "lineNumbers": "Satır numaraları",
     "spellCheck": "Yazım denetimi",
-    "plainEditor": "Düz metin editörü (sesli yazma)",
     "pomodoro": "Pomodoro",
     "focusMin": "Odak dk",
     "shortBreak": "Kısa mola",
@@ -404,5 +407,9 @@
     "namePlaceholder": "Kayıt adı (isteğe bağlı)",
     "rename": "Yeniden adlandır",
     "delete": "Sil"
+  },
+  "a11y": {
+    "decrease": "Azalt",
+    "increase": "Artır"
   }
 }

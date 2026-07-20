@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Minus, Plus } from "lucide-react";
 
 /** Modern sayı artır/azalt kontrolü (native number spinner yerine). */
@@ -12,6 +13,7 @@ export function Stepper({
   max?: number;
   onChange: (v: number) => void;
 }) {
+  const { t } = useTranslation();
   const clamp = (n: number) => Math.max(min, Math.min(max, n));
   return (
     <div className="lo-stepper">
@@ -20,7 +22,7 @@ export function Stepper({
         type="button"
         onClick={() => onChange(clamp(value - 1))}
         disabled={value <= min}
-        aria-label="azalt"
+        aria-label={t("a11y.decrease")}
       >
         <Minus size={14} strokeWidth={2.6} />
       </button>
@@ -39,7 +41,7 @@ export function Stepper({
         type="button"
         onClick={() => onChange(clamp(value + 1))}
         disabled={value >= max}
-        aria-label="artır"
+        aria-label={t("a11y.increase")}
       >
         <Plus size={14} strokeWidth={2.6} />
       </button>

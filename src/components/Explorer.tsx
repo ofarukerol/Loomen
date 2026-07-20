@@ -400,7 +400,7 @@ export function Explorer() {
           <Search size={15} strokeWidth={2} color="var(--fg3)" />
           <input placeholder={t("explorer.search")} value={query} onChange={(e) => setQuery(e.target.value)} />
           {query ? (
-            <button className="lo-search__clear" onClick={() => setQuery("")} aria-label="Temizle">
+            <button className="lo-search__clear" onClick={() => setQuery("")} aria-label={t("explorer.clearSearch")}>
               ✕
             </button>
           ) : (

@@ -77,13 +77,13 @@ export function CalendarCard() {
   return (
     <div className="lo-card lo-cal">
       <div className="lo-cal__head">
-        <button className="lo-cal__nav" onClick={prev} aria-label="Önceki ay">
+        <button className="lo-cal__nav" onClick={prev} aria-label={t("calendar.prevMonth")}>
           <ChevronLeft size={16} strokeWidth={2} />
         </button>
-        <button className="lo-cal__month" onClick={goToday} title="Bugüne dön">
+        <button className="lo-cal__month" onClick={goToday} title={t("calendar.goToday")}>
           {monthLabel}
         </button>
-        <button className="lo-cal__nav" onClick={next} aria-label="Sonraki ay">
+        <button className="lo-cal__nav" onClick={next} aria-label={t("calendar.nextMonth")}>
           <ChevronRight size={16} strokeWidth={2} />
         </button>
       </div>

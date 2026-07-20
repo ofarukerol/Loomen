@@ -20,7 +20,7 @@ export function QuickAdd({ compact }: { compact?: boolean }) {
             if (e.key === "Enter") addTask();
           }}
         />
-        <button className="lo-quick__btn" onClick={addTask} aria-label="Ekle">
+        <button className="lo-quick__btn" onClick={addTask} aria-label={t("planner.addTask")}>
           <CornerDownLeft size={16} strokeWidth={2.2} />
         </button>
       </div>

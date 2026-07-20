@@ -186,7 +186,7 @@ function statusText(t: (k: string) => string, status: string | null): string | n
 
 /** Ayarlar → GitHub Senkronizasyonu bölümü. */
 export function GitHubSync() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const token = useAppStore((s) => s.ghToken);
   const user = useAppStore((s) => s.ghUser);
   const repo = useAppStore((s) => s.ghRepo);
@@ -258,7 +258,7 @@ export function GitHubSync() {
                 <div className="lo-set__rowtitle">{t("github.syncTitle")}</div>
                 <div className="lo-set__rowsub">
                   {t("github.lastSync")}{" "}
-                  {lastSync ? new Date(lastSync).toLocaleString("tr") : t("github.never")}
+                  {lastSync ? new Date(lastSync).toLocaleString(i18n.language) : t("github.never")}
                 </div>
                 {status && <div className="lo-gh__status">{statusText(t, status)}</div>}
                 {!vaultPath ? (

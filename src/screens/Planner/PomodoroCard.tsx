@@ -67,7 +67,7 @@ export function PomodoroCard() {
           <button className="lo-pomoc__start" onClick={togglePomo} aria-label={running ? t("pomodoro.pause") : t("pomodoro.start")}>
             {running ? <Pause size={15} fill="currentColor" strokeWidth={0} /> : <Play size={15} fill="currentColor" strokeWidth={0} />}
           </button>
-          <button className="lo-pomoc__reset" onClick={resetPomo} aria-label="Sıfırla">
+          <button className="lo-pomoc__reset" onClick={resetPomo} aria-label={t("pomodoro.reset")}>
             <RotateCcw size={14} strokeWidth={2} />
           </button>
         </div>

@@ -39,7 +39,8 @@
     "addFavorite": "Add to favorites",
     "removeFavorite": "Remove from favorites",
     "switchVault": "Switch vault",
-    "delete": "Move to trash"
+    "delete": "Move to trash",
+    "clearSearch": "Clear"
   },
   "trash": {
     "title": "Trash",
@@ -76,7 +77,9 @@
     "completed": "Completed",
     "toggleLeft": "Toggle left panel",
     "toggleRight": "Toggle right panel",
-    "moreTasks": "+{{count}} more tasks"
+    "moreTasks": "+{{count}} more tasks",
+    "today": "Saturday, 13 June",
+    "addTask": "Add"
   },
   "taskDetail": {
     "title": "Task",
@@ -130,7 +133,9 @@
     "skip": "Skip",
     "start": "Start",
     "pause": "Pause",
-    "focusOn": "Focus:"
+    "focusOn": "Focus:",
+    "currentTask": "Finish the design",
+    "reset": "Reset"
   },
   "editor": {
     "backlinks": "Links",
@@ -142,9 +147,7 @@
     "preview": "Preview",
     "empty": "Open a note from the explorer.",
     "reading": "Reading",
-    "emptyMobile": "Open a note from the menu.",
-    "plainMode": "Plain text (dictation)",
-    "richMode": "Back to rich editor"
+    "emptyMobile": "Open a note from the menu."
   },
   "github": {
     "title": "GitHub Sync",
@@ -329,7 +332,30 @@
     "vaultRepo": "GitHub repository",
     "connectGhFirst": "Connect a GitHub account first",
     "pomoSound": "Chime",
-    "pomoSoundSub": "Play a sound when a pomodoro starts and ends"
+    "pomoSoundSub": "Play a sound when a pomodoro starts and ends",
+    "title": "Settings",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeSub": "Light or dark interface.",
+    "light": "Light",
+    "dark": "Dark",
+    "accent": "Accent colour",
+    "accentSub": "Colour used for active items and highlights.",
+    "langRegion": "Language & Region",
+    "appLang": "App language",
+    "appLangSub": "Interface language. Arabic switches the layout to right-to-left.",
+    "editor": "Editor",
+    "livePreview": "Live preview",
+    "lineNumbers": "Line numbers",
+    "spellCheck": "Spell check",
+    "pomodoro": "Pomodoro",
+    "focusMin": "Focus min",
+    "shortBreak": "Short break",
+    "longBreak": "Long break",
+    "rounds": "Rounds",
+    "vault": "Vault",
+    "vaultLocation": "Vault location",
+    "change": "Change"
   },
   "mobile": {
     "search": "Search",
@@ -358,5 +384,32 @@
     "namePlaceholder": "Recording name (optional)",
     "rename": "Rename",
     "delete": "Delete"
+  },
+  "app": {
+    "name": "Loomen"
+  },
+  "board": {
+    "overdue": "Overdue",
+    "today": "Today",
+    "upcoming": "Upcoming"
+  },
+  "calendar": {
+    "month": "June 2026",
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "goToday": "Go to today"
+  },
+  "a11y": {
+    "decrease": "Decrease",
+    "increase": "Increase"
   }
 }

@@ -9,7 +9,8 @@
     "settings": "الإعدادات",
     "theme": "السمة",
     "draw": "رسم",
-    "help": "المساعدة"
+    "help": "المساعدة",
+    "mobile": "الجوّال"
   },
   "reports": {
     "title": "التقارير",
@@ -38,7 +39,8 @@
     "addFavorite": "أضف إلى المفضلة",
     "removeFavorite": "أزل من المفضلة",
     "switchVault": "تبديل الخزينة",
-    "delete": "نقل إلى سلة المهملات"
+    "delete": "نقل إلى سلة المهملات",
+    "clearSearch": "مسح"
   },
   "trash": {
     "title": "سلة المهملات",
@@ -76,7 +78,8 @@
     "completed": "المكتملة",
     "toggleLeft": "تبديل اللوحة اليسرى",
     "toggleRight": "تبديل اللوحة اليمنى",
-    "moreTasks": "+{{count}} مهام أخرى"
+    "moreTasks": "+{{count}} مهام أخرى",
+    "addTask": "إضافة"
   },
   "board": {
     "overdue": "متأخرة",
@@ -138,7 +141,10 @@
       "ج",
       "س",
       "أح"
-    ]
+    ],
+    "prevMonth": "الشهر السابق",
+    "nextMonth": "الشهر التالي",
+    "goToday": "الانتقال إلى اليوم"
   },
   "pomodoro": {
     "title": "بومودورو",
@@ -148,7 +154,8 @@
     "start": "ابدأ",
     "pause": "إيقاف",
     "focusOn": "التركيز:",
-    "currentTask": "إنهاء التصميم"
+    "currentTask": "إنهاء التصميم",
+    "reset": "إعادة ضبط"
   },
   "editor": {
     "backlinks": "روابط",
@@ -160,9 +167,7 @@
     "preview": "معاينة",
     "empty": "افتح ملاحظة من المستكشف.",
     "reading": "قراءة",
-    "emptyMobile": "افتح ملاحظة من القائمة.",
-    "plainMode": "نص عادي (الإملاء الصوتي)",
-    "richMode": "العودة إلى المحرر الغني"
+    "emptyMobile": "افتح ملاحظة من القائمة."
   },
   "github": {
     "title": "مزامنة GitHub",
@@ -295,7 +300,6 @@
     "livePreview": "معاينة مباشرة",
     "lineNumbers": "أرقام الأسطر",
     "spellCheck": "التدقيق الإملائي",
-    "plainEditor": "محرر نص عادي (الإملاء الصوتي)",
     "pomodoro": "بومودورو",
     "focusMin": "دقائق التركيز",
     "shortBreak": "استراحة قصيرة",
@@ -400,5 +404,12 @@
     "namePlaceholder": "اسم التسجيل (اختياري)",
     "rename": "إعادة تسمية",
     "delete": "حذف"
+  },
+  "app": {
+    "name": "Loomen"
+  },
+  "a11y": {
+    "decrease": "إنقاص",
+    "increase": "زيادة"
   }
 }

@@ -24,7 +24,7 @@ function statusText(t: (k: string) => string, status: string | null): string | n
 
 /** Ayarlar → Google Takvim bölümü (çift yönlü senkron). */
 export function GoogleCalendarSync() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const tokens = useAppStore((s) => s.gcalTokens);
   const user = useAppStore((s) => s.gcalUser);
   const calendarId = useAppStore((s) => s.gcalCalendarId);
@@ -140,7 +140,7 @@ export function GoogleCalendarSync() {
               <div>
                 <div className="lo-set__rowtitle">{t("gcal.syncTitle")}</div>
                 <div className="lo-set__rowsub">
-                  {t("gcal.lastSync")} {lastSync ? new Date(lastSync).toLocaleString("tr") : t("gcal.never")}
+                  {t("gcal.lastSync")} {lastSync ? new Date(lastSync).toLocaleString(i18n.language) : t("gcal.never")}
                 </div>
                 {status && <div className="lo-gh__status">{statusText(t, status)}</div>}
                 {!vaultPath && <div className="lo-gh__warn">{t("gcal.needVault")}</div>}

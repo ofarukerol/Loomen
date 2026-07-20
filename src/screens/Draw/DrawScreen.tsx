@@ -22,8 +22,11 @@ function parseScene(content?: string) {
 }
 
 /** Gömülü Excalidraw çizim tahtası — vault'taki .excalidraw dosyasına bağlı. */
+/** Uygulama dili → Excalidraw arayüz dili kodu. */
+const EXCALIDRAW_LANG: Record<string, string> = { tr: "tr-TR", en: "en", ar: "ar-SA" };
+
 export function DrawScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const theme = useAppStore((s) => s.theme);
   const activeDraw = useAppStore((s) => s.activeDraw);
   const content = useAppStore((s) => (activeDraw ? s.noteContents[activeDraw] : undefined));
@@ -55,7 +58,7 @@ export function DrawScreen() {
         key={activeDraw}
         initialData={initialData ?? undefined}
         theme={theme === "dark" ? "dark" : "light"}
-        langCode="tr-TR"
+        langCode={EXCALIDRAW_LANG[i18n.language] ?? "en"}
         onChange={(elements, appState, files) => {
           if (timer.current) clearTimeout(timer.current);
           timer.current = setTimeout(() => {
