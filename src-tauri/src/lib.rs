@@ -3,6 +3,8 @@
 //  - github_api  : GitHub REST (Git Data API) senkronu (reqwest) — tüm platformlar (mobil dahil)
 //  - github_git  : git2/libgit2 senkron — YALNIZ masaüstü (openssl mobilde derlenmez)
 //  - google      : Google Takvim OAuth + API
+//  - ai          : AI asistanı (LLM sağlayıcı köprüsü + anahtar deposu) — opsiyonel modül
+mod ai;
 mod github;
 mod github_api;
 #[cfg(desktop)]
@@ -129,6 +131,12 @@ pub fn run() {
         google::google_auth_url,
         google::google_exchange,
         google::google_refresh_pkce,
+        ai::keys::ai_key_set,
+        ai::keys::ai_key_delete,
+        ai::keys::ai_key_has,
+        ai::llm::ai_chat_stream,
+        ai::llm::ai_chat_cancel,
+        ai::llm::ai_provider_test,
     ]);
 
     // Mobil: git_sync YOK (git2 derlenmez); senkron github_api ile.
@@ -156,6 +164,12 @@ pub fn run() {
         google::google_auth_url,
         google::google_exchange,
         google::google_refresh_pkce,
+        ai::keys::ai_key_set,
+        ai::keys::ai_key_delete,
+        ai::keys::ai_key_has,
+        ai::llm::ai_chat_stream,
+        ai::llm::ai_chat_cancel,
+        ai::llm::ai_provider_test,
     ]);
 
     // macOS: yerel menü çubuğu. KRİTİK — sistem "Start Dictation" (sesli yazma) ve

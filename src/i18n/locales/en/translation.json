@@ -10,7 +10,8 @@
     "settings": "Settings",
     "theme": "Theme",
     "draw": "Draw",
-    "help": "Help"
+    "help": "Help",
+    "assistant": "Assistant"
   },
   "reports": {
     "title": "Reports",
@@ -412,5 +413,35 @@
   "a11y": {
     "decrease": "Decrease",
     "increase": "Increase"
+  },
+  "ai": {
+    "title": "AI assistant",
+    "enable": "Enable assistant",
+    "consent": "While off, no AI request is made at all. Once enabled, your question and the content of the open note are sent to the provider you choose. To stay fully offline, pick \"OpenAI compatible\" and point it at a local address such as Ollama.",
+    "appOnly": "The assistant only works in the desktop and mobile app.",
+    "activeProvider": "Provider to use",
+    "activeProviderSub": "This provider is used in chat; you can also switch it from the assistant screen.",
+    "addProvider": "Add provider",
+    "addProviderSub": "You can add several providers and switch between them.",
+    "add": "Add",
+    "remove": "Delete provider",
+    "test": "Test",
+    "testOk": "Connection works.",
+    "labelPh": "Display name",
+    "modelPh": "Model name",
+    "keyPh": "API key",
+    "keySaved": "Key saved",
+    "keySave": "Save",
+    "keyClear": "Delete",
+    "startHint": "Ask something about the note you have open.",
+    "placeholder": "Type your question… (Enter sends)",
+    "send": "Send",
+    "stop": "Stop",
+    "clear": "Clear chat",
+    "cancelled": "Interrupted.",
+    "noContext": "No note open",
+    "offHint": "The assistant is off. Enable it in settings and add a provider.",
+    "noProviderHint": "No provider added yet. Add a provider and API key in settings.",
+    "openSettings": "Open settings"
   }
 }

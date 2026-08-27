@@ -13,7 +13,8 @@
     "settings": "Ayarlar",
     "theme": "Tema",
     "draw": "Çizim",
-    "help": "Yardım"
+    "help": "Yardım",
+    "assistant": "Asistan"
   },
   "reports": {
     "title": "Raporlar",
@@ -412,5 +413,35 @@
   "a11y": {
     "decrease": "Azalt",
     "increase": "Artır"
+  },
+  "ai": {
+    "title": "Yapay zekâ asistanı",
+    "enable": "Asistanı aç",
+    "consent": "Kapalıyken hiçbir yapay zekâ isteği yapılmaz. Açtığınızda sorduğunuz soru ve açık olan notun içeriği seçtiğiniz sağlayıcıya gönderilir. Tamamen çevrimdışı çalışmak için \"OpenAI uyumlu\" seçip Ollama gibi kendi bilgisayarınızdaki bir adresi girebilirsiniz.",
+    "appOnly": "Asistan yalnızca masaüstü ve mobil uygulamada çalışır.",
+    "activeProvider": "Kullanılacak sağlayıcı",
+    "activeProviderSub": "Sohbette bu sağlayıcı kullanılır; asistan ekranından da değiştirebilirsiniz.",
+    "addProvider": "Sağlayıcı ekle",
+    "addProviderSub": "Birden fazla sağlayıcı ekleyip aralarında geçiş yapabilirsiniz.",
+    "add": "Ekle",
+    "remove": "Sağlayıcıyı sil",
+    "test": "Test et",
+    "testOk": "Bağlantı çalışıyor.",
+    "labelPh": "Görünen ad",
+    "modelPh": "Model adı",
+    "keyPh": "API anahtarı",
+    "keySaved": "Anahtar kayıtlı",
+    "keySave": "Kaydet",
+    "keyClear": "Sil",
+    "startHint": "Açık olan notunuz hakkında bir şey sorun.",
+    "placeholder": "Sorunuzu yazın… (Enter gönderir)",
+    "send": "Gönder",
+    "stop": "Durdur",
+    "clear": "Sohbeti temizle",
+    "cancelled": "Yarıda kesildi.",
+    "noContext": "Açık not yok",
+    "offHint": "Asistan kapalı. Ayarlardan açıp bir sağlayıcı ekleyin.",
+    "noProviderHint": "Henüz sağlayıcı eklenmemiş. Ayarlardan bir sağlayıcı ve API anahtarı ekleyin.",
+    "openSettings": "Ayarları aç"
   }
 }

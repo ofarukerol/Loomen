@@ -23,18 +23,24 @@ tauri-plugin-deep-link = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # HTTP istemcisi: rustls → openssl gerekmez, mobil dahil cross-compile olur.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 # Google Takvim OAuth: PKCE (sha256 + base64url) + güvenli rastgele (verifier/state)
 sha2 = "0.10"
 base64 = "0.22"
 rand = "0.8"
 # GitHub REST (Git Data API) senkronu: git blob SHA-1 hesabı (github_api.rs, tüm platformlar)
 sha1 = "0.10"
+# AI asistanı: LLM cevaplarının SSE akışını parça parça okumak için (ai/llm.rs)
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 
 # GitHub git senkronizasyonu YALNIZ masaüstü. git2'nin `https` feature'ı openssl-sys çeker;
 # iOS/Android cross-compile'da OpenSSL bulunamaz (build hatası). Mobilde derlemeye girmez.
 [target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
 git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "https"] }
+# AI sağlayıcı anahtarları işletim sisteminin anahtar zincirinde saklanır (Keychain /
+# Credential Manager / Secret Service) — webview'e ve localStorage'a hiç girmez.
+# Mobilde gerekmez: uygulama konteyneri zaten izole, orada ai/keys.rs dosya deposunu kullanır.
+keyring = "4"
 
 # macOS App Store (sandbox): kullanıcının seçtiği kasa klasörüne erişimi uygulama yeniden
 # açıldığında da sürdürebilmek için security-scoped bookmark gerekir. Tauri'de yerleşik

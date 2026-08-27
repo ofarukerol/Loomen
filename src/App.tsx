@@ -18,6 +18,7 @@ import { DrawScreen } from "./screens/Draw/DrawScreen";
 import { NewTabScreen } from "./screens/NewTab/NewTabScreen";
 import { SettingsScreen } from "./screens/Settings/SettingsScreen";
 import { HelpScreen } from "./screens/Help/HelpScreen";
+import { AssistantScreen } from "./screens/Assistant/AssistantScreen";
 import { TaskDetail } from "./screens/Planner/TaskDetail";
 import { GitHubDeviceModal } from "./screens/Settings/GitHubSync";
 
@@ -118,7 +119,7 @@ export default function App() {
     setTabsOpen(false);
   }, [screen, activeNote, activeDraw]);
 
-  const explorerEligible = ["planner", "editor", "graph", "reports", "draw", "newtab"].includes(screen);
+  const explorerEligible = ["planner", "editor", "graph", "reports", "draw", "newtab", "assistant"].includes(screen);
   const showExplorer = explorerEligible && !leftCollapsed;
   const rightEligible = ["planner", "editor", "graph", "draw"].includes(screen);
   const showRight = rightEligible && !rightCollapsed;
@@ -154,6 +155,7 @@ export default function App() {
           {screen === "reports" && <ReportsScreen />}
           {screen === "settings" && <SettingsScreen />}
           {screen === "help" && <HelpScreen />}
+          {screen === "assistant" && <AssistantScreen />}
         </div>
       </div>
       {!isMobile && showRight && <RightPanel />}

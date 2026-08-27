@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore, ACCENTS, type Lang, type EditorSettings } from "../../store/useAppStore";
+import { AiSettings } from "./AiSettings";
 import { GitHubSync } from "./GitHubSync";
 import { GoogleCalendarSync } from "./GoogleCalendarSync";
 import { TemplatesSettings } from "./TemplatesSettings";
@@ -163,6 +164,8 @@ export function SettingsScreen() {
             seçici yerine); konum değiştirme yalnız masaüstü. */}
         <VaultManager />
         {/* GitHub: mobilde REST API senkronuyla çalışır (git2 yerine). */}
+        <AiSettings />
+
         <GitHubSync />
         {/* Google Takvim: mobilde deep-link OAuth (iOS client id gerekir). */}
         <GoogleCalendarSync />

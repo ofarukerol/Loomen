@@ -40,10 +40,12 @@ import {
   type GCalendar,
   type GEvent,
 } from "../core/google";
+import { chatStream, cancelChat, testProvider, aiKeys } from "../core/ai/llm";
+import { newProviderId, DEFAULT_MODEL, KIND_LABEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
-export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help";
+export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help" | "assistant";
 export type PlannerLayout = "timeline" | "board";
 export type Lang = "tr" | "en" | "ar";
 export type EditorTab = "daily" | "proje" | "fikirler";
@@ -184,6 +186,18 @@ interface AppState {
   /** vaultPath → { taskKey → Google event id } — push eşlemesi (cihaz-yerel). */
   gcalMap: Record<string, Record<string, string>>;
 
+  // AI asistanı — opsiyonel modül, varsayılan KAPALI.
+  // Kapalıyken hiçbir AI kodu ağa çıkmaz. API anahtarları burada TUTULMAZ; yalnızca
+  // Rust tarafındaki anahtar zincirinde durur (bkz. src-tauri/src/ai/keys.rs).
+  aiEnabled: boolean;
+  aiProviders: AiProvider[];
+  aiActiveProviderId: string | null;
+  /** Sohbet oturumluktur — kalıcı değil; kullanıcı isterse cevabı nota kaydeder. */
+  aiMessages: AiMessage[];
+  aiBusy: boolean;
+  /** Süren akışın kimliği — iptal için. */
+  aiRequestId: string | null;
+
   // Pomodoro
   pomo: PomodoroSettings;
   /** Pomodoro başlayınca/bitince ses çal. */
@@ -304,6 +318,19 @@ interface AppState {
   gcalSelectCalendar: (id: string, name: string) => void;
   gcalSync: () => Promise<void>;
   gcalSetAutoSync: (v: boolean) => void;
+
+  // AI asistanı aksiyonları
+  aiSetEnabled: (v: boolean) => void;
+  aiAddProvider: (kind: ProviderKind) => string;
+  aiUpdateProvider: (id: string, patch: Partial<AiProvider>) => void;
+  aiRemoveProvider: (id: string) => Promise<void>;
+  aiSetActiveProvider: (id: string) => void;
+  aiSaveKey: (id: string, key: string) => Promise<void>;
+  aiClearKey: (id: string) => Promise<void>;
+  aiTestProvider: (id: string) => Promise<string>;
+  aiSend: (text: string) => Promise<void>;
+  aiCancel: () => void;
+  aiClearChat: () => void;
 }
 
 /** Boş Excalidraw sahnesi (yeni çizim oluştururken). */
@@ -485,6 +512,13 @@ export const useAppStore = create<AppState>()(
     gcalAutoSync: false,
     gcalEvents: [],
     gcalMap: {},
+
+    aiEnabled: false,
+    aiProviders: [],
+    aiActiveProviderId: null,
+    aiMessages: [],
+    aiBusy: false,
+    aiRequestId: null,
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoSound: true,
@@ -1527,6 +1561,125 @@ export const useAppStore = create<AppState>()(
       }
     },
     gcalSetAutoSync: (gcalAutoSync) => set({ gcalAutoSync }),
+
+    // ---------------------------------------------------------------- AI asistanı
+
+    aiSetEnabled: (aiEnabled) => set({ aiEnabled }),
+
+    aiAddProvider: (kind) => {
+      const s = get();
+      const id = newProviderId(kind, s.aiProviders);
+      const provider: AiProvider = { id, kind, label: KIND_LABEL[kind], model: DEFAULT_MODEL[kind] };
+      set({
+        aiProviders: [...s.aiProviders, provider],
+        aiActiveProviderId: s.aiActiveProviderId ?? id,
+      });
+      return id;
+    },
+
+    aiUpdateProvider: (id, patch) =>
+      set((s) => ({ aiProviders: s.aiProviders.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
+
+    aiRemoveProvider: async (id) => {
+      // Sağlayıcı silinince anahtarı da işletim sistemi deposundan sil — artık sahipsiz kalmasın.
+      await aiKeys.remove(id).catch(() => {});
+      set((s) => {
+        const aiProviders = s.aiProviders.filter((p) => p.id !== id);
+        const active = s.aiActiveProviderId === id ? (aiProviders[0]?.id ?? null) : s.aiActiveProviderId;
+        return { aiProviders, aiActiveProviderId: active };
+      });
+    },
+
+    aiSetActiveProvider: (aiActiveProviderId) => set({ aiActiveProviderId }),
+
+    aiSaveKey: async (id, key) => {
+      await aiKeys.set(id, key);
+    },
+
+    aiClearKey: async (id) => {
+      await aiKeys.remove(id);
+    },
+
+    aiTestProvider: async (id) => {
+      const p = get().aiProviders.find((x) => x.id === id);
+      if (!p) throw new Error("Sağlayıcı bulunamadı");
+      return testProvider(p);
+    },
+
+    aiSend: async (text) => {
+      const body = text.trim();
+      if (!body) return;
+      const s = get();
+      if (s.aiBusy) return;
+      const provider = s.aiProviders.find((p) => p.id === s.aiActiveProviderId);
+      if (!provider) {
+        set({
+          aiMessages: [
+            ...s.aiMessages,
+            { id: `err-${Date.now()}`, role: "assistant", content: "", error: "Önce ayarlardan bir sağlayıcı ekleyin." },
+          ],
+        });
+        return;
+      }
+
+      // Faz 0 bağlamı: yalnızca aktif not. (RAG faz 1'de gelir.)
+      // Diskteki içerik yerine editördeki taslak kullanılır ki kullanıcının gördüğü metin sorulsun.
+      const notePath = s.activeNote;
+      const noteText = notePath
+        ? s.draftPath === notePath
+          ? s.draft
+          : (s.noteContents[notePath] ?? "")
+        : "";
+      const system = notePath
+        ? `Kullanıcının not defterinde çalışan bir asistansın. Kısa ve net cevap ver. ` +
+          `Aşağıda kullanıcının açık olan notu var; soru bu notla ilgiliyse ondan yararlan, ` +
+          `ilgisizse notu görmezden gel. Notta olmayan bir şeyi biliyormuş gibi anlatma.\n\n` +
+          `--- NOT: ${notePath} ---\n${noteText}\n--- NOT SONU ---`
+        : `Kullanıcının not defterinde çalışan bir asistansın. Kısa ve net cevap ver.`;
+
+      const stamp = Date.now();
+      const userMsg: AiMessage = { id: `u-${stamp}`, role: "user", content: body };
+      const replyId = `a-${stamp}`;
+      const history = [...s.aiMessages, userMsg];
+      set({
+        aiMessages: [...history, { id: replyId, role: "assistant", content: "", streaming: true }],
+        aiBusy: true,
+      });
+
+      const patchReply = (patch: Partial<AiMessage>) =>
+        set((st) => ({
+          aiMessages: st.aiMessages.map((m) => (m.id === replyId ? { ...m, ...patch } : m)),
+        }));
+
+      try {
+        const res = await chatStream(
+          provider,
+          history.filter((m) => !m.error).map((m) => ({ role: m.role, content: m.content })),
+          {
+            system,
+            onStart: (aiRequestId) => set({ aiRequestId }),
+            onDelta: (delta) =>
+              set((st) => ({
+                aiMessages: st.aiMessages.map((m) =>
+                  m.id === replyId ? { ...m, content: m.content + delta } : m
+                ),
+              })),
+          }
+        );
+        patchReply({ content: res.text, streaming: false, cancelled: res.cancelled || undefined });
+      } catch (e) {
+        patchReply({ streaming: false, error: String(e instanceof Error ? e.message : e) });
+      } finally {
+        set({ aiBusy: false, aiRequestId: null });
+      }
+    },
+
+    aiCancel: () => {
+      const id = get().aiRequestId;
+      if (id) cancelChat(id);
+    },
+
+    aiClearChat: () => set({ aiMessages: [] }),
       };
     },
     {
@@ -1570,6 +1723,11 @@ export const useAppStore = create<AppState>()(
         gcalLastSync: s.gcalLastSync,
         gcalAutoSync: s.gcalAutoSync,
         gcalMap: s.gcalMap,
+        // AI: yalnızca yapılandırma kalıcı. API anahtarları BURAYA ASLA EKLENMEZ —
+        // onlar işletim sistemi anahtar zincirinde durur. Sohbet oturumluktur.
+        aiEnabled: s.aiEnabled,
+        aiProviders: s.aiProviders,
+        aiActiveProviderId: s.aiActiveProviderId,
       }),
     }
   )
