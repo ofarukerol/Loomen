@@ -4,6 +4,9 @@
 // anahtar yalnızca Rust tarafındaki anahtar zincirinde/kumbarada durur (bkz. src-tauri/src/ai/keys.rs).
 // Bu ayrım bilinçlidir: anahtar hiçbir zaman localStorage'a veya JS bundle'ına girmemelidir.
 
+import type { Citation } from "./context";
+export type { Citation };
+
 /** Sağlayıcı protokolü. `compat` = OpenAI-uyumlu herhangi bir endpoint (Ollama, LM Studio, OpenRouter…). */
 export type ProviderKind = "openai" | "anthropic" | "gemini" | "compat";
 
@@ -28,6 +31,10 @@ export interface AiMessage {
   error?: string;
   /** Kullanıcı akışı yarıda kestiyse. */
   cancelled?: boolean;
+  /** Cevabın dayandığı not bölümleri — [1], [2] numaraları bunlara karşılık gelir. */
+  citations?: Citation[];
+  /** "Gönderilen bağlamı göster" açıksa modele giden ham bağlam. */
+  contextText?: string;
 }
 
 export interface ChatResult {

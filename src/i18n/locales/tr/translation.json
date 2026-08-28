@@ -439,9 +439,19 @@
     "stop": "Durdur",
     "clear": "Sohbeti temizle",
     "cancelled": "Yarıda kesildi.",
-    "noContext": "Açık not yok",
     "offHint": "Asistan kapalı. Ayarlardan açıp bir sağlayıcı ekleyin.",
     "noProviderHint": "Henüz sağlayıcı eklenmemiş. Ayarlardan bir sağlayıcı ve API anahtarı ekleyin.",
-    "openSettings": "Ayarları aç"
+    "openSettings": "Ayarları aç",
+    "sources": "Kaynaklar:",
+    "scope": "{{n}} notta aranıyor",
+    "scopeHint": "Asistan sorunuzla ilgili not bölümlerini bulup yalnızca onları gönderir.",
+    "showContext": "Gönderilen bağlamı göster",
+    "showContextSetting": "Gönderilen bağlamı sakla",
+    "showContextSettingSub": "Her cevabın altında, sağlayıcıya tam olarak neyin gönderildiğini görebilirsiniz.",
+    "excluded": "AI'dan hariç tutulan klasörler",
+    "excludedSub": "Buradaki klasörlerin notları hiç okunmaz ve sağlayıcıya gönderilmez.",
+    "excludedPick": "Klasör seçin…",
+    "excludedNone": "Eklenecek klasör yok",
+    "excludedRemove": "Listeden çıkar"
   }
 }

@@ -4,18 +4,20 @@
 // yazmaz; notlara dokunan tek yol faz 3'teki "öneri + onay" akışıdır.
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Sparkles, Send, Square, Eraser, Settings2, FileText } from "lucide-react";
+import { Sparkles, Send, Square, Eraser, Settings2, Library, ChevronDown } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import type { AiMessage } from "../../core/ai/types";
-
-/** "klasor/Not.md" → "Not" */
-function baseName(path: string): string {
-  return (path.split("/").pop() ?? path).replace(/\.md$/i, "");
-}
+import { sourceLabel } from "../../core/ai/context";
 
 function Bubble({ m }: { m: AiMessage }) {
   const { t } = useTranslation();
+  const openNote = useAppStore((s) => s.openNote);
+  const [showCtx, setShowCtx] = useState(false);
   const mine = m.role === "user";
+  // Alıntılar yalnızca cevapta gerçekten [n] ile anılanlarla sınırlanır — modelin
+  // kullanmadığı bir kaynağı "kaynak" diye göstermek yanıltıcı olur.
+  const cited = (m.citations ?? []).filter((c) => m.content.includes(`[${c.n}]`));
+
   return (
     <div className={"lo-ai__msg" + (mine ? " is-user" : "")}>
       <div className="lo-ai__bubble">
@@ -23,6 +25,37 @@ function Bubble({ m }: { m: AiMessage }) {
         {m.streaming && !m.content && <span className="lo-ai__dots" aria-hidden />}
         {m.cancelled && <div className="lo-ai__note">{t("ai.cancelled")}</div>}
         {m.error && <div className="lo-ai__err">{m.error}</div>}
+
+        {!m.streaming && cited.length > 0 && (
+          <div className="lo-ai__cites">
+            <span className="lo-ai__citelabel">{t("ai.sources")}</span>
+            {cited.map((c) => (
+              <button
+                key={c.n}
+                className="lo-ai__cite"
+                onClick={() => openNote(c.path)}
+                title={c.path}
+              >
+                <span className="lo-ai__citen">{c.n}</span>
+                {sourceLabel(c)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!m.streaming && m.contextText && (
+          <div className="lo-ai__ctxbox">
+            <button className="lo-ai__ctxtoggle" onClick={() => setShowCtx((v) => !v)}>
+              <ChevronDown
+                size={13}
+                strokeWidth={2}
+                className={showCtx ? "lo-ai__chev is-open" : "lo-ai__chev"}
+              />
+              {t("ai.showContext")}
+            </button>
+            {showCtx && <pre className="lo-ai__ctxpre">{m.contextText}</pre>}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -39,7 +72,8 @@ export function AssistantScreen() {
   const send = useAppStore((s) => s.aiSend);
   const cancel = useAppStore((s) => s.aiCancel);
   const clear = useAppStore((s) => s.aiClearChat);
-  const activeNote = useAppStore((s) => s.activeNote);
+  // Çizimler aranmaz — yalnızca markdown notlar.
+  const noteCount = useAppStore((s) => s.notes.filter((n) => n.kind === "note").length);
   const setScreen = useAppStore((s) => s.setScreen);
 
   const [text, setText] = useState("");
@@ -78,9 +112,9 @@ export function AssistantScreen() {
   return (
     <div className="lo-ai">
       <div className="lo-ai__head">
-        <div className="lo-ai__ctx">
-          <FileText size={13} strokeWidth={2} />
-          {activeNote ? baseName(activeNote) : t("ai.noContext")}
+        <div className="lo-ai__ctx" title={t("ai.scopeHint")}>
+          <Library size={13} strokeWidth={2} />
+          {t("ai.scope", { n: noteCount })}
         </div>
         <div className="lo-ai__headright">
           {providers.length > 1 && (

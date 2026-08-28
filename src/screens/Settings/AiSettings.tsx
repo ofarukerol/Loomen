@@ -5,7 +5,7 @@
 // zaman boş açılır; kayıtlı olup olmadığı yalnızca "kayıtlı" rozetiyle gösterilir.
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Sparkles, Plus, Trash2, Check, KeyRound, Loader2 } from "lucide-react";
+import { Sparkles, Plus, Trash2, Check, KeyRound, Loader2, X } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
 import { aiKeys } from "../../core/ai/llm";
@@ -161,6 +161,83 @@ function ProviderRow({ p }: { p: AiProvider }) {
   );
 }
 
+/** AI'ın hiç okumayacağı klasörler — özel/arşiv notları bağlamdan tamamen çıkarmak için. */
+function ExcludedFolders() {
+  const { t } = useTranslation();
+  const excluded = useAppStore((s) => s.aiExcluded);
+  const setExcluded = useAppStore((s) => s.aiSetExcluded);
+  const notes = useAppStore((s) => s.notes);
+  const [pick, setPick] = useState("");
+
+  // Klasör listesi notlardan türetilir (store ayrı bir klasör listesi tutmuyor).
+  const folders = [...new Set(notes.map((n) => n.folder).filter(Boolean))].sort();
+
+  const add = (dir: string) => {
+    const clean = dir.replace(/^\/+|\/+$/g, "");
+    if (!clean || excluded.includes(clean)) return;
+    setExcluded([...excluded, clean]);
+  };
+
+  const remaining = folders.filter((f) => !excluded.includes(f));
+
+  return (
+    <div className="lo-set__row lo-set__row--border lo-ai__prow">
+      <div className="lo-ai__pgrid">
+        <div style={{ width: "100%" }}>
+          <div className="lo-set__rowtitle">{t("ai.excluded")}</div>
+          <div className="lo-set__rowsub">{t("ai.excludedSub")}</div>
+        </div>
+
+        {excluded.length > 0 && (
+          <div className="lo-ai__chips">
+            {excluded.map((d) => (
+              <span key={d} className="lo-ai__chip">
+                {d}
+                <button
+                  className="lo-ai__chipx"
+                  onClick={() => setExcluded(excluded.filter((x) => x !== d))}
+                  aria-label={t("ai.excludedRemove")}
+                >
+                  <X size={12} strokeWidth={2.4} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="lo-ai__keyrow">
+          <select
+            className="lo-set__select lo-ai__inp--wide"
+            value={pick}
+            onChange={(e) => setPick(e.target.value)}
+            disabled={remaining.length === 0}
+          >
+            <option value="">
+              {remaining.length === 0 ? t("ai.excludedNone") : t("ai.excludedPick")}
+            </option>
+            {remaining.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+          <button
+            className="lo-gh__ghost"
+            disabled={!pick}
+            onClick={() => {
+              add(pick);
+              setPick("");
+            }}
+          >
+            <Plus size={14} strokeWidth={2} />
+            {t("ai.add")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AiSettings() {
   const { t } = useTranslation();
   const enabled = useAppStore((s) => s.aiEnabled);
@@ -169,6 +246,8 @@ export function AiSettings() {
   const activeId = useAppStore((s) => s.aiActiveProviderId);
   const setActive = useAppStore((s) => s.aiSetActiveProvider);
   const addProvider = useAppStore((s) => s.aiAddProvider);
+  const showContext = useAppStore((s) => s.aiShowContext);
+  const setShowContext = useAppStore((s) => s.aiSetShowContext);
   const [newKind, setNewKind] = useState<ProviderKind>("openai");
 
   return (
@@ -217,6 +296,16 @@ export function AiSettings() {
             {providers.map((p) => (
               <ProviderRow key={p.id} p={p} />
             ))}
+
+            <ExcludedFolders />
+
+            <div className="lo-set__row lo-set__row--border">
+              <div>
+                <div className="lo-set__rowtitle">{t("ai.showContextSetting")}</div>
+                <div className="lo-set__rowsub">{t("ai.showContextSettingSub")}</div>
+              </div>
+              <Toggle on={showContext} onClick={() => setShowContext(!showContext)} />
+            </div>
 
             <div className="lo-set__row lo-gh__createrow">
               <div>

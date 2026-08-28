@@ -439,9 +439,19 @@
     "stop": "Stop",
     "clear": "Clear chat",
     "cancelled": "Interrupted.",
-    "noContext": "No note open",
     "offHint": "The assistant is off. Enable it in settings and add a provider.",
     "noProviderHint": "No provider added yet. Add a provider and API key in settings.",
-    "openSettings": "Open settings"
+    "openSettings": "Open settings",
+    "sources": "Sources:",
+    "scope": "searching {{n}} notes",
+    "scopeHint": "The assistant finds the note sections relevant to your question and sends only those.",
+    "showContext": "Show what was sent",
+    "showContextSetting": "Keep the sent context",
+    "showContextSettingSub": "Under each answer you can see exactly what was sent to the provider.",
+    "excluded": "Folders excluded from AI",
+    "excludedSub": "Notes in these folders are never read and never sent to the provider.",
+    "excludedPick": "Pick a folder…",
+    "excludedNone": "No folder left to add",
+    "excludedRemove": "Remove from list"
   }
 }

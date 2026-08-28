@@ -42,6 +42,8 @@ import {
 } from "../core/google";
 import { chatStream, cancelChat, testProvider, aiKeys } from "../core/ai/llm";
 import { newProviderId, DEFAULT_MODEL, KIND_LABEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
+import { retrieve, resetIndex } from "../core/ai/retrieve";
+import { buildContext, buildSystemPrompt } from "../core/ai/context";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
@@ -192,6 +194,10 @@ interface AppState {
   aiEnabled: boolean;
   aiProviders: AiProvider[];
   aiActiveProviderId: string | null;
+  /** AI'ın hiç okumayacağı klasörler (kasa köküne göre). */
+  aiExcluded: string[];
+  /** Modele gönderilen ham bağlam cevapla birlikte saklansın mı (şeffaflık). */
+  aiShowContext: boolean;
   /** Sohbet oturumluktur — kalıcı değil; kullanıcı isterse cevabı nota kaydeder. */
   aiMessages: AiMessage[];
   aiBusy: boolean;
@@ -321,6 +327,8 @@ interface AppState {
 
   // AI asistanı aksiyonları
   aiSetEnabled: (v: boolean) => void;
+  aiSetExcluded: (dirs: string[]) => void;
+  aiSetShowContext: (v: boolean) => void;
   aiAddProvider: (kind: ProviderKind) => string;
   aiUpdateProvider: (id: string, patch: Partial<AiProvider>) => void;
   aiRemoveProvider: (id: string) => Promise<void>;
@@ -516,6 +524,8 @@ export const useAppStore = create<AppState>()(
     aiEnabled: false,
     aiProviders: [],
     aiActiveProviderId: null,
+    aiExcluded: [],
+    aiShowContext: false,
     aiMessages: [],
     aiBusy: false,
     aiRequestId: null,
@@ -939,6 +949,8 @@ export const useAppStore = create<AppState>()(
 
         // Kasa değiştiyse öncekinin security-scoped erişimini bırak (kaynak sızıntısı önlemi).
         if (isSwitch && prevPath) void releaseBookmark(prevPath);
+        // AI arama önbelleği kasaya özeldir — başka kasanın parçaları taşınmasın.
+        if (isSwitch) resetIndex();
         backend = next;
         localStorage.setItem(VAULT_KEY, path);
         // Şablon klasörünü loadFromBackend'den ÖNCE oluştur ki Şablonlar hemen görünsün.
@@ -1566,6 +1578,10 @@ export const useAppStore = create<AppState>()(
 
     aiSetEnabled: (aiEnabled) => set({ aiEnabled }),
 
+    aiSetExcluded: (aiExcluded) => set({ aiExcluded }),
+
+    aiSetShowContext: (aiShowContext) => set({ aiShowContext }),
+
     aiAddProvider: (kind) => {
       const s = get();
       const id = newProviderId(kind, s.aiProviders);
@@ -1622,27 +1638,32 @@ export const useAppStore = create<AppState>()(
         return;
       }
 
-      // Faz 0 bağlamı: yalnızca aktif not. (RAG faz 1'de gelir.)
-      // Diskteki içerik yerine editördeki taslak kullanılır ki kullanıcının gördüğü metin sorulsun.
-      const notePath = s.activeNote;
-      const noteText = notePath
-        ? s.draftPath === notePath
-          ? s.draft
-          : (s.noteContents[notePath] ?? "")
-        : "";
-      const system = notePath
-        ? `Kullanıcının not defterinde çalışan bir asistansın. Kısa ve net cevap ver. ` +
-          `Aşağıda kullanıcının açık olan notu var; soru bu notla ilgiliyse ondan yararlan, ` +
-          `ilgisizse notu görmezden gel. Notta olmayan bir şeyi biliyormuş gibi anlatma.\n\n` +
-          `--- NOT: ${notePath} ---\n${noteText}\n--- NOT SONU ---`
-        : `Kullanıcının not defterinde çalışan bir asistansın. Kısa ve net cevap ver.`;
+      // Bağlam: kasadaki notlarda arama (RAG). Yalnızca okuma yapılır, diske dokunulmaz.
+      // Editördeki kaydedilmemiş taslak da hesaba katılır ki kullanıcının EKRANDA GÖRDÜĞÜ
+      // metin sorulabilsin — aksi hâlde yeni yazdığı satır asistana görünmezdi.
+      const contents: Record<string, string> = { ...s.noteContents };
+      if (s.draftPath && s.draftPath === s.activeNote) contents[s.draftPath] = s.draft;
+
+      const hits = retrieve(contents, body, { k: 6, excluded: s.aiExcluded });
+      const context = buildContext(hits);
+      const system = buildSystemPrompt({ activeNote: s.activeNote, context });
 
       const stamp = Date.now();
       const userMsg: AiMessage = { id: `u-${stamp}`, role: "user", content: body };
       const replyId = `a-${stamp}`;
       const history = [...s.aiMessages, userMsg];
       set({
-        aiMessages: [...history, { id: replyId, role: "assistant", content: "", streaming: true }],
+        aiMessages: [
+          ...history,
+          {
+            id: replyId,
+            role: "assistant",
+            content: "",
+            streaming: true,
+            citations: context.citations,
+            contextText: s.aiShowContext ? context.text : undefined,
+          },
+        ],
         aiBusy: true,
       });
 
@@ -1728,6 +1749,8 @@ export const useAppStore = create<AppState>()(
         aiEnabled: s.aiEnabled,
         aiProviders: s.aiProviders,
         aiActiveProviderId: s.aiActiveProviderId,
+        aiExcluded: s.aiExcluded,
+        aiShowContext: s.aiShowContext,
       }),
     }
   )
