@@ -55,9 +55,29 @@ export const DEFAULT_BASE_URL: Record<ProviderKind, string> = {
 export const DEFAULT_MODEL: Record<ProviderKind, string> = {
   openai: "gpt-5",
   anthropic: "claude-sonnet-5",
-  gemini: "gemini-2.5-pro",
+  gemini: "gemini-3.8-flash",
   compat: "llama3.1",
 };
+
+/**
+ * Gemini'nin ücretsiz kotayla kullanılabilen metin modelleri (AI Studio anahtarı, ücretsiz kademe).
+ * Ayarlarda öneri listesi olarak gösterilir; kullanıcı elle başka bir model de yazabilir.
+ * Üstteki en yetenekli, alttakiler daha hafif — kota dolduğunda aşağı inmek işe yarar.
+ */
+export const GEMINI_FREE_MODELS = [
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+] as const;
+
+/** Ücretsiz Gemini anahtarının alındığı yer — ayarlarda bağlantı olarak gösterilir. */
+export const GEMINI_KEY_URL = "https://aistudio.google.com/apikey";
 
 /** Sağlayıcı türünün kullanıcıya görünen adı (i18n'e taşınmayacak kadar teknik). */
 export const KIND_LABEL: Record<ProviderKind, string> = {

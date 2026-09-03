@@ -1576,7 +1576,12 @@ export const useAppStore = create<AppState>()(
 
     // ---------------------------------------------------------------- AI asistanı
 
-    aiSetEnabled: (aiEnabled) => set({ aiEnabled }),
+    // Asistan ilk kez açıldığında hazır bir Gemini sağlayıcısı kurulur: Google'ın ücretsiz
+    // kotası bu iş için yeterli, kullanıcıya yalnızca anahtarı yapıştırmak kalır.
+    aiSetEnabled: (aiEnabled) => {
+      set({ aiEnabled });
+      if (aiEnabled && get().aiProviders.length === 0) get().aiAddProvider("gemini");
+    },
 
     aiSetExcluded: (aiExcluded) => set({ aiExcluded }),
 

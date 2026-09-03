@@ -6,11 +6,14 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Sparkles, Plus, Trash2, Check, KeyRound, Loader2, X } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
 import { aiKeys } from "../../core/ai/llm";
 import {
   DEFAULT_BASE_URL,
+  GEMINI_FREE_MODELS,
+  GEMINI_KEY_URL,
   KIND_LABEL,
   type AiProvider,
   type ProviderKind,
@@ -104,6 +107,7 @@ function ProviderRow({ p }: { p: AiProvider }) {
           className="lo-gh__input lo-ai__inp"
           value={p.model}
           placeholder={t("ai.modelPh")}
+          list={p.kind === "gemini" ? "lo-gemini-models" : undefined}
           onChange={(e) => update(p.id, { model: e.target.value })}
         />
         <input
@@ -133,6 +137,15 @@ function ProviderRow({ p }: { p: AiProvider }) {
             </button>
           ) : null}
         </div>
+
+        {p.kind === "gemini" && !hasKey && (
+          <div className="lo-set__rowsub lo-ai__hint">
+            {t("ai.geminiFree")}{" "}
+            <button className="lo-ai__link" onClick={() => void openUrl(GEMINI_KEY_URL)}>
+              {t("ai.geminiKeyLink")}
+            </button>
+          </div>
+        )}
 
         {result && (
           <div className={"lo-ai__result" + (result.ok ? " is-ok" : " is-err")}>{result.msg}</div>
@@ -248,7 +261,7 @@ export function AiSettings() {
   const addProvider = useAppStore((s) => s.aiAddProvider);
   const showContext = useAppStore((s) => s.aiShowContext);
   const setShowContext = useAppStore((s) => s.aiSetShowContext);
-  const [newKind, setNewKind] = useState<ProviderKind>("openai");
+  const [newKind, setNewKind] = useState<ProviderKind>("gemini");
 
   return (
     <>
@@ -333,6 +346,11 @@ export function AiSettings() {
           </>
         )}
       </div>
+      <datalist id="lo-gemini-models">
+        {GEMINI_FREE_MODELS.map((m) => (
+          <option key={m} value={m} />
+        ))}
+      </datalist>
     </>
   );
 }

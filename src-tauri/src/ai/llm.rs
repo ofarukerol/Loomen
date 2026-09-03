@@ -192,10 +192,32 @@ fn build(
     }
 }
 
+/// 429 gövdesinden "ne kadar sonra tekrar dene" bilgisini çıkar.
+/// Gemini bunu `error.details[]` içinde `RetryInfo.retryDelay` ("23s") olarak verir.
+fn retry_delay(v: &serde_json::Value) -> Option<String> {
+    v["error"]["details"]
+        .as_array()?
+        .iter()
+        .find_map(|d| d["retryDelay"].as_str())
+        .map(|s| s.trim_end_matches('s').to_string())
+        .filter(|s| !s.is_empty())
+}
+
 /// Hata gövdesinden kullanıcıya gösterilebilir bir mesaj çıkar (sağlayıcılar farklı şema kullanır).
 fn error_message(status: reqwest::StatusCode, body: &str) -> String {
-    let detail = serde_json::from_str::<serde_json::Value>(body)
-        .ok()
+    let parsed = serde_json::from_str::<serde_json::Value>(body).ok();
+
+    // Kota dolması hata değil, bekleme sebebidir — kullanıcıya sade bir dille söylenir.
+    if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        return match parsed.as_ref().and_then(retry_delay) {
+            Some(sn) => format!("Ücretsiz kullanım hakkın şu an dolu. Yaklaşık {sn} saniye sonra tekrar dene."),
+            None => "Ücretsiz kullanım hakkın şu an dolu. Dakikalık sınırsa birkaç dakika içinde, \
+günlük sınırsa yarın yeniden açılır. Daha hafif bir model seçmek de yardımcı olur."
+                .into(),
+        };
+    }
+
+    let detail = parsed
         .and_then(|v| {
             v["error"]["message"]
                 .as_str()

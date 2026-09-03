@@ -452,6 +452,8 @@
     "excludedSub": "لا تُقرأ ملاحظات هذه المجلدات ولا تُرسل إلى المزوّد إطلاقًا.",
     "excludedPick": "اختر مجلدًا…",
     "excludedNone": "لا يوجد مجلد للإضافة",
-    "excludedRemove": "إزالة من القائمة"
+    "excludedRemove": "إزالة من القائمة",
+    "geminiFree": "الحصة المجانية من Google Gemini كافية لهذا الغرض.",
+    "geminiKeyLink": "احصل على مفتاح مجاني"
   }
 }

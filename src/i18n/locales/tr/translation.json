@@ -452,6 +452,8 @@
     "excludedSub": "Buradaki klasörlerin notları hiç okunmaz ve sağlayıcıya gönderilmez.",
     "excludedPick": "Klasör seçin…",
     "excludedNone": "Eklenecek klasör yok",
-    "excludedRemove": "Listeden çıkar"
+    "excludedRemove": "Listeden çıkar",
+    "geminiFree": "Google Gemini'nin ücretsiz kullanım hakkı bu iş için yeterli.",
+    "geminiKeyLink": "Ücretsiz anahtar al"
   }
 }

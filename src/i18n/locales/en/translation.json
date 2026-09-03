@@ -452,6 +452,8 @@
     "excludedSub": "Notes in these folders are never read and never sent to the provider.",
     "excludedPick": "Pick a folder…",
     "excludedNone": "No folder left to add",
-    "excludedRemove": "Remove from list"
+    "excludedRemove": "Remove from list",
+    "geminiFree": "Google Gemini's free tier is enough for this.",
+    "geminiKeyLink": "Get a free key"
   }
 }
