@@ -19,6 +19,7 @@ import { NewTabScreen } from "./screens/NewTab/NewTabScreen";
 import { SettingsScreen } from "./screens/Settings/SettingsScreen";
 import { HelpScreen } from "./screens/Help/HelpScreen";
 import { AssistantScreen } from "./screens/Assistant/AssistantScreen";
+import { ReviewScreen } from "./screens/Review/ReviewScreen";
 import { TaskDetail } from "./screens/Planner/TaskDetail";
 import { GitHubDeviceModal } from "./screens/Settings/GitHubSync";
 
@@ -156,6 +157,7 @@ export default function App() {
           {screen === "settings" && <SettingsScreen />}
           {screen === "help" && <HelpScreen />}
           {screen === "assistant" && <AssistantScreen />}
+          {screen === "review" && <ReviewScreen />}
         </div>
       </div>
       {!isMobile && showRight && <RightPanel />}

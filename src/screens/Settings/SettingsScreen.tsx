@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore, ACCENTS, type Lang, type EditorSettings } from "../../store/useAppStore";
 import { AiSettings } from "./AiSettings";
+import { ReviewSettings } from "./ReviewSettings";
 import { GitHubSync } from "./GitHubSync";
 import { GoogleCalendarSync } from "./GoogleCalendarSync";
 import { TemplatesSettings } from "./TemplatesSettings";
@@ -159,6 +160,9 @@ export function SettingsScreen() {
           </div>
           <Toggle on={pomoSound} onClick={() => setPomoSound(!pomoSound)} />
         </div>
+
+        {/* Tekrar (aralıklı tekrar) — kendi bölümü, üç kademeli (Basit/Gelişmiş/Uzman). */}
+        <ReviewSettings />
 
         {/* Kasa yönetimi — mobilde de var: kasa app-data altında adla oluşturulur (klasör
             seçici yerine); konum değiştirme yalnız masaüstü. */}
