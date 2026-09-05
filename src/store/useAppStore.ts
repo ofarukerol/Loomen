@@ -43,9 +43,37 @@ import {
   type GEvent,
 } from "../core/google";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, taskLineMatches, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
+import {
+  DEFAULT_SETTINGS as SRS_DEFAULTS,
+  PRESETS as SRS_PRESETS,
+  appendLog,
+  apply as srsApply,
+  avgSeconds,
+  balanceDays,
+  buildQueue,
+  collectCards,
+  futureLoad,
+  isoDay,
+  loadLog,
+  loadSettings,
+  loadStates,
+  matchStates,
+  migratePath,
+  saveSettings,
+  saveStates,
+  schedule as srsSchedule,
+  spreadBacklog,
+  type DayCount,
+  type Grade,
+  type QueueItem,
+  type SrsCard,
+  type SrsLog,
+  type SrsSettings,
+  type SrsState,
+} from "../core/srs";
 
 export type Theme = "light" | "dark";
-export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help";
+export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help" | "review";
 export type PlannerLayout = "timeline" | "board";
 export type Lang = "tr" | "en" | "ar";
 export type EditorTab = "daily" | "proje" | "fikirler";
@@ -193,6 +221,30 @@ interface AppState {
   /** vaultPath → { taskKey → Google event id } — push eşlemesi (cihaz-yerel). */
   gcalMap: Record<string, Record<string, string>>;
 
+  // Tekrar (aralıklı tekrar) — tüm kalıcı veri kasadaki Tekrar/ klasöründe durur,
+  // localStorage'da DEĞİL: cihazlar arası senkron olsun diye.
+  srsLoaded: boolean;
+  srsSettings: SrsSettings;
+  /** Kart kimliği → kalıcı durum. */
+  srsStates: Record<string, SrsState>;
+  /** ISO gün → o gün yapılan iş (tavanlar buradan hesaplanır). */
+  srsDaily: Record<string, DayCount>;
+  /** Notlardan çıkarılmış kartlar — her yüklemede yeniden üretilir. */
+  srsCards: SrsCard[];
+  /** Ölçülen ortalama cevap süresi (saniye) — süre bütçesi bundan hesaplanır. */
+  srsSecPerCard: number;
+  /** Süren oturumun kuyruğu. */
+  srsQueue: QueueItem[];
+  srsIndex: number;
+  /** Cevap açıldı mı. */
+  srsShow: boolean;
+  /** Bu oturumda cevaplanan kart sayısı. */
+  srsAnswered: number;
+  /** Kart ne zaman gösterildi (süre ölçümü için, epoch ms). */
+  srsShownAt: number;
+  /** Seçili deste (null = tüm kasa). */
+  srsDeck: string | null;
+
   // Pomodoro
   pomo: PomodoroSettings;
   /** Pomodoro başlayınca/bitince ses çal. */
@@ -325,6 +377,22 @@ interface AppState {
   gcalSelectCalendar: (id: string, name: string) => void;
   gcalSync: () => Promise<void>;
   gcalSetAutoSync: (v: boolean) => void;
+  // Tekrar aksiyonları
+  srsLoad: () => Promise<void>;
+  srsSetSettings: (patch: Partial<SrsSettings>) => Promise<void>;
+  srsApplyPreset: (name: keyof typeof SRS_PRESETS) => Promise<void>;
+  srsStart: (deck?: string | null) => void;
+  srsReveal: () => void;
+  srsAnswer: (g: Grade) => Promise<void>;
+  /** Kartı dondur — bir daha çıkmaz, durumu korunur. */
+  srsFreeze: (id: string) => Promise<void>;
+  /** Kartı bugünlük ertele. */
+  srsPostpone: (id: string) => Promise<void>;
+  /** Birikeni N güne yay. */
+  srsSpread: (days: number) => Promise<void>;
+  /** Bir kartın geçmişini sıfırla (yeniden öğren). */
+  srsResetCard: (id: string) => Promise<void>;
+  srsEndSession: () => void;
 }
 
 /** Boş Excalidraw sahnesi (yeni çizim oluştururken). */
@@ -371,6 +439,8 @@ const TASKS_FILE = "Yapılacaklar.md"; // görevler günlük nottan ayrı, kendi
 // Modül seviyesi: serileştirilemeyen backend + watcher (store dışında tutulur).
 let backend: VaultBackend = createSampleBackend();
 let unwatch: (() => void) | null = null;
+/** Tekrar verisi hangi kasa için yüklendi (kasa değişince baştan okunur). */
+let srsVault: string | null = null;
 
 /**
  * Kasa açma/değiştirme işlemleri SIRAYLA çalışır. bootstrap() ile persist rehydrate'i
@@ -451,6 +521,29 @@ export const useAppStore = create<AppState>()(
     }
     set(patch);
     void refreshTrash();
+    void refreshSrs();
+  }
+
+  /**
+   * Kartları notlardan yeniden çıkar ve kayıtlı durumlarla eşleştir.
+   * Diske YALNIZCA modül açıkken yazar — kapalıyken kasada Tekrar/ klasörü oluşmaz.
+   */
+  async function refreshSrs(): Promise<void> {
+    try {
+      const vault = get().vaultPath;
+      if (!get().srsLoaded || srsVault !== vault) {
+        srsVault = vault;
+        await get().srsLoad();
+        return;
+      }
+      const cfg = get().srsSettings;
+      const cards = collectCards(get().noteContents, cfg.syntax, cfg.excluded);
+      const m = matchStates(cards, get().srsStates);
+      set({ srsCards: cards, srsStates: m.states });
+      if (cfg.enabled && m.changed && cards.length > 0) await saveStates(backend, m.states, get().srsDaily);
+    } catch (err) {
+      console.error("[srs] kartlar tazelenemedi:", err);
+    }
   }
 
   /**
@@ -607,6 +700,19 @@ export const useAppStore = create<AppState>()(
     gcalAutoSync: false,
     gcalEvents: [],
     gcalMap: {},
+
+    srsLoaded: false,
+    srsSettings: { ...SRS_DEFAULTS },
+    srsStates: {},
+    srsDaily: {},
+    srsCards: [],
+    srsSecPerCard: 15,
+    srsQueue: [],
+    srsIndex: 0,
+    srsShow: false,
+    srsAnswered: 0,
+    srsShownAt: 0,
+    srsDeck: null,
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoSound: true,
@@ -1384,6 +1490,12 @@ export const useAppStore = create<AppState>()(
         activeNote: st.activeNote === path ? to : st.activeNote,
         draftPath: st.draftPath === path ? to : st.draftPath, // taslak ↔ dosya bağı korunur
       }));
+      // Tekrar kartlarının geçmişi yeni yola taşınır (kimlik yolu içerdiği için yeniden hesaplanır).
+      const srsNext = migratePath(get().srsStates, path, to);
+      if (srsNext !== get().srsStates) {
+        set({ srsStates: srsNext });
+        if (get().srsSettings.enabled) await saveStates(backend, srsNext, get().srsDaily);
+      }
       await loadFromBackend();
     },
 
@@ -1447,6 +1559,12 @@ export const useAppStore = create<AppState>()(
         activeNote: st.activeNote ? map.get(st.activeNote) ?? st.activeNote : null,
         draftPath: st.draftPath ? map.get(st.draftPath) ?? st.draftPath : null,
       }));
+      // Tekrar kartlarının geçmişi de yeni klasör yoluna taşınır.
+      const srsMoved = migratePath(get().srsStates, folderPath, to);
+      if (srsMoved !== get().srsStates) {
+        set({ srsStates: srsMoved });
+        if (get().srsSettings.enabled) await saveStates(backend, srsMoved, get().srsDaily);
+      }
       await loadFromBackend();
     },
 
@@ -1924,6 +2042,189 @@ export const useAppStore = create<AppState>()(
       }
     },
     gcalSetAutoSync: (gcalAutoSync) => set({ gcalAutoSync }),
+    // ——— Tekrar (aralıklı tekrar) ———
+    // NOTE_SAFETY: buradaki hiçbir kod not dosyasına yazmaz. Yalnız Tekrar/ altındaki
+    // üç dosya yazılır: durum.json, gecmis.jsonl, ayarlar.json.
+
+    srsLoad: async () => {
+      const cfg = await loadSettings(backend);
+      const { states: saved, daily } = await loadStates(backend);
+      const log = await loadLog(backend);
+      const sec = avgSeconds(log.slice(-200).map((l) => l.ms));
+
+      const cards = collectCards(get().noteContents, cfg.syntax, cfg.excluded);
+      const m = matchStates(cards, saved);
+      // Oturum sürerken diskten gelen eski kayıt bellektekini ezmesin: daha yeni olan kazanır.
+      const mem = get().srsStates;
+      const merged: Record<string, SrsState> = { ...m.states };
+      for (const [id, st] of Object.entries(mem)) {
+        const disk = merged[id];
+        if (!disk) continue;
+        const a = st.last ? Date.parse(st.last) : 0;
+        const b = disk.last ? Date.parse(disk.last) : 0;
+        if (a > b || (a === b && st.reps > disk.reps)) merged[id] = st;
+      }
+      set({ srsLoaded: true, srsSettings: cfg, srsStates: merged, srsDaily: daily, srsCards: cards, srsSecPerCard: sec });
+      if (cfg.enabled && m.changed && cards.length > 0) await saveStates(backend, merged, daily);
+    },
+
+    srsSetSettings: async (patch) => {
+      const next = { ...get().srsSettings, ...patch };
+      set({ srsSettings: next });
+      await saveSettings(backend, next);
+      // İşaretleme biçimleri değiştiyse kart listesi yeniden çıkarılmalı.
+      if (patch.syntax || patch.excluded || patch.enabled) {
+        const cards = collectCards(get().noteContents, next.syntax, next.excluded);
+        const m = matchStates(cards, get().srsStates);
+        set({ srsCards: cards, srsStates: m.states });
+        if (next.enabled && cards.length > 0) await saveStates(backend, m.states, get().srsDaily);
+      }
+    },
+
+    srsApplyPreset: async (name) => {
+      await get().srsSetSettings(SRS_PRESETS[name]);
+    },
+
+    srsStart: (deck) => {
+      const s = get();
+      const cfg = s.srsSettings;
+      const deckId = deck === undefined ? s.srsDeck : deck;
+      const d = deckId ? cfg.desteler.find((x) => x.id === deckId) : null;
+      let cards = s.srsCards;
+      if (d) {
+        cards = cards.filter(
+          (c) =>
+            (!d.folder || c.file === d.folder || c.file.startsWith(d.folder + "/")) &&
+            (!d.tag || (s.noteContents[c.file] ?? "").includes("#" + d.tag)),
+        );
+      }
+      const cfg2: SrsSettings = d
+        ? { ...cfg, newPerDay: d.newPerDay ?? cfg.newPerDay, maxPerDay: d.maxPerDay ?? cfg.maxPerDay }
+        : cfg;
+      const q = buildQueue(cards, s.srsStates, s.srsDaily, cfg2, new Date(), s.srsSecPerCard);
+      set({
+        srsQueue: q.items,
+        srsIndex: 0,
+        srsShow: false,
+        srsAnswered: 0,
+        srsDeck: deckId ?? null,
+        srsShownAt: Date.now(),
+        screen: "review",
+      });
+    },
+
+    srsReveal: () => set({ srsShow: true }),
+
+    srsEndSession: () => set({ srsQueue: [], srsIndex: 0, srsShow: false }),
+
+    srsAnswer: async (g) => {
+      const s = get();
+      const item = s.srsQueue[s.srsIndex];
+      if (!item) return;
+      const now = new Date();
+      const cfg = s.srsSettings;
+      const prev = s.srsStates[item.card.id] ?? item.state;
+
+      const next = srsSchedule(prev, g, cfg, now);
+      // Aynı güne yığmama: yalnız gün ölçeğindeki aralıklar kaydırılır.
+      if (next.days >= 1 && cfg.balance) {
+        const d = balanceDays(next.days, cfg, futureLoad(s.srsStates, now), now);
+        next.days = d;
+        next.minutes = d * 1440;
+      }
+      let st = srsApply(prev, g, next, now);
+
+      // Çok unutulan kartı işaretle.
+      if (st.lapses >= cfg.leechAt && !st.leech) {
+        st = { ...st, leech: true, frozen: cfg.leechAction === "freeze" ? true : st.frozen };
+      }
+
+      const ms = Math.min(120000, Math.max(0, Date.now() - s.srsShownAt));
+      const states = { ...s.srsStates, [item.card.id]: st };
+
+      // Aynı notun diğer kartlarını bugünlük ertele (arka arkaya aynı konuyu sormasın).
+      if (cfg.burySiblings) {
+        const today = isoDay(now);
+        for (const c of s.srsCards) {
+          if (c.file !== item.card.file || c.id === item.card.id) continue;
+          const o = states[c.id];
+          if (o && o.phase !== "learning" && o.phase !== "relearning") states[c.id] = { ...o, postponed: today };
+        }
+      }
+
+      const day = isoDay(now);
+      const dc = s.srsDaily[day] ?? { n: 0, r: 0, ms: 0 };
+      const daily = {
+        ...s.srsDaily,
+        [day]: { n: dc.n + (item.bucket === "new" ? 1 : 0), r: dc.r + 1, ms: dc.ms + ms },
+      };
+
+      const log: SrsLog = {
+        id: item.card.id,
+        t: now.getTime(),
+        g,
+        p: prev.phase,
+        s: st.stability,
+        d: st.difficulty,
+        i: next.days,
+        pi: prev.stability,
+        ms,
+      };
+
+      // "Bilemedim" dendiyse kart aynı oturumda tekrar sorulur (öğrenme adımı).
+      const queue = [...s.srsQueue];
+      if (g === 1 && next.minutes < 1440) queue.push({ ...item, state: st });
+
+      set({
+        srsStates: states,
+        srsDaily: daily,
+        srsQueue: queue,
+        srsIndex: s.srsIndex + 1,
+        srsShow: false,
+        srsAnswered: s.srsAnswered + 1,
+        srsShownAt: Date.now(),
+      });
+
+      await saveStates(backend, states, daily);
+      await appendLog(backend, [log]);
+    },
+
+    srsFreeze: async (id) => {
+      const s = get();
+      const st = s.srsStates[id];
+      if (!st) return;
+      const states = { ...s.srsStates, [id]: { ...st, frozen: !st.frozen } };
+      set({ srsStates: states, srsQueue: s.srsQueue.filter((q) => q.card.id !== id) });
+      await saveStates(backend, states, s.srsDaily);
+    },
+
+    srsPostpone: async (id) => {
+      const s = get();
+      const st = s.srsStates[id];
+      if (!st) return;
+      const states = { ...s.srsStates, [id]: { ...st, postponed: isoDay(new Date()) } };
+      set({ srsStates: states, srsQueue: s.srsQueue.filter((q) => q.card.id !== id) });
+      await saveStates(backend, states, s.srsDaily);
+    },
+
+    srsSpread: async (days) => {
+      const s = get();
+      const states = spreadBacklog(s.srsStates, Math.max(1, days));
+      set({ srsStates: states });
+      await saveStates(backend, states, s.srsDaily);
+    },
+
+    srsResetCard: async (id) => {
+      const s = get();
+      const st = s.srsStates[id];
+      if (!st) return;
+      const states = {
+        ...s.srsStates,
+        [id]: { ...st, phase: "new" as const, due: new Date().toISOString(), stability: 0, difficulty: 0, reps: 0, lapses: 0, step: 0, last: null, leech: false, frozen: false },
+      };
+      set({ srsStates: states });
+      await saveStates(backend, states, s.srsDaily);
+    },
       };
     },
     {

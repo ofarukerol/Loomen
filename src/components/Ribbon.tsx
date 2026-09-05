@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { NotebookPen, Share2, BarChart3, PencilRuler, Settings, Sun, Moon, HelpCircle } from "lucide-react";
+import { NotebookPen, Share2, BarChart3, PencilRuler, Settings, Sun, Moon, HelpCircle, Repeat2 } from "lucide-react";
 import { useAppStore, type Screen } from "../store/useAppStore";
 
 const ICON = 21;
@@ -14,6 +14,9 @@ export function Ribbon() {
   const todayNotePath = useAppStore((s) => s.todayNotePath);
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
+  // Asistan düğmesi yalnızca modül açıkken görünür (varsayılan kapalı).
+  // Tekrar düğmesi yalnızca modül açıkken görünür (varsayılan kapalı).
+  const srsEnabled = useAppStore((s) => s.srsSettings.enabled);
   const dayNoteActive = screen === "editor" && activeNote === todayNotePath();
 
   const btn = (target: Screen, title: string, node: React.ReactNode) => (
@@ -49,6 +52,7 @@ export function Ribbon() {
       </button>
       {btn("graph", t("ribbon.graph"), <Share2 size={ICON} strokeWidth={SW} />)}
       {btn("draw", t("ribbon.draw"), <PencilRuler size={ICON} strokeWidth={SW} />)}
+      {srsEnabled && btn("review", t("ribbon.review"), <Repeat2 size={ICON} strokeWidth={SW} />)}
       {btn("reports", t("ribbon.reports"), <BarChart3 size={ICON} strokeWidth={SW} />)}
 
       <div className="lo-ribbon__spacer" />

@@ -18,6 +18,7 @@ import { DrawScreen } from "./screens/Draw/DrawScreen";
 import { NewTabScreen } from "./screens/NewTab/NewTabScreen";
 import { SettingsScreen } from "./screens/Settings/SettingsScreen";
 import { HelpScreen } from "./screens/Help/HelpScreen";
+import { ReviewScreen } from "./screens/Review/ReviewScreen";
 import { TaskDetail } from "./screens/Planner/TaskDetail";
 import { GitHubDeviceModal } from "./screens/Settings/GitHubSync";
 
@@ -192,6 +193,7 @@ export default function App() {
           {screen === "reports" && <ReportsScreen />}
           {screen === "settings" && <SettingsScreen />}
           {screen === "help" && <HelpScreen />}
+          {screen === "review" && <ReviewScreen />}
         </div>
       </div>
       {!isMobile && showRight && <RightPanel />}

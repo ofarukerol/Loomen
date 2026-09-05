@@ -60,6 +60,34 @@ Loomen'in çekirdek planlama deneyimi. İlgili: [[Fikirler]]
 - [ ] Sunum hazırlığı 📅 2026-07-17 #Yapılacaklar
 - [ ] Kira ödemesi · 12.000 ₺ 📅 2026-06-23 #Ödemeler
 `,
+  "Notlar/Tekrar örneği.md": `# Tekrar örneği
+
+Bu not, tekrar özelliğinin nasıl işaretlendiğini gösterir. Ayarlar > Tekrar'dan
+özelliği açarsan bu satırlar soruya dönüşür.
+
+## Tek satırlık soru-cevap
+
+Dünyanın en uzun nehri hangisidir :: Nil
+Işık bir saniyede kaç kilometre yol alır :: yaklaşık 300.000 km
+Su kaç derecede kaynar :: deniz seviyesinde 100 °C
+
+## Çift yönlü (iki kart olur)
+
+kitap ::: book
+pencere ::: window
+
+## Cümlede gizlenen kelime
+
+Fotosentezde bitkiler ==karbondioksit== alıp ==oksijen== verir.
+
+## Çok satırlı
+
+Bir aşı neden işe yarar?
+Kısaca anlat.
+?
+Vücuda zararsız bir parça verilir, bağışıklık sistemi onu tanır
+ve gerçek mikropla karşılaşınca hazırlıklı olur.
+`,
   "Notlar/Fikirler.md": `# Fikirler
 
 - [ ] Faturaları otomatik tekrar eden görevlere bağla #Kişisel
@@ -76,6 +104,9 @@ export function createSampleBackend(): VaultBackend {
     async listNotes(): Promise<VaultNote[]> {
       return Object.keys(store)
         .filter((path) => !path.startsWith(".")) // .trash vb. dotfolder'ları atla
+        // Tauri backend'iyle aynı davran: yalnız not ve çizim dosyaları ağaçta görünür
+        // (ör. Tekrar/durum.json senkronlanır ama listelenmez).
+        .filter((path) => /\.(md|excalidraw)$/i.test(path))
         .map((path) => {
           const parts = path.split("/");
           const file = parts.pop()!;
