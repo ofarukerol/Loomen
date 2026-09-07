@@ -553,7 +553,7 @@
   "ai": {
     "title": "AI assistant",
     "enable": "Enable assistant",
-    "consent": "While off, no AI request is made at all. Once enabled, your question and the content of the open note are sent to the provider you choose. To stay fully offline, pick \"OpenAI compatible\" and point it at a local address such as Ollama.",
+    "consent": "While off, no AI request is made at all. Once enabled, your question and the content of the open note are sent to the provider you choose. To stay fully offline, pick \"My own server\" and point it at a local address such as Ollama.",
     "appOnly": "The assistant only works in the desktop and mobile app.",
     "activeProvider": "Provider to use",
     "activeProviderSub": "This provider is used in chat; you can also switch it from the assistant screen.",
@@ -590,6 +590,19 @@
     "excludedNone": "No folder left to add",
     "excludedRemove": "Remove from list",
     "geminiFree": "Google Gemini's free tier is enough for this.",
-    "geminiKeyLink": "Get a free key"
+    "geminiKeyLink": "Get a free key",
+    "kind": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "compat": "My own server (Ollama, LM Studio)"
+    },
+    "fLabel": "Display name",
+    "fModel": "Model",
+    "fBaseUrl": "Server address",
+    "fKey": "API key",
+    "keyBadge": "saved",
+    "keyHint": "Press Save to store the key.",
+    "keyMissing": "No API key saved. Paste the key into the box and press Save."
   }
 }

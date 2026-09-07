@@ -125,7 +125,7 @@ export function AssistantScreen() {
             >
               {providers.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.label || p.id}
+                  {p.label || t(`ai.kind.${p.kind}`)}
                 </option>
               ))}
             </select>

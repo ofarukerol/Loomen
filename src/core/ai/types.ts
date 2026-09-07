@@ -79,14 +79,6 @@ export const GEMINI_FREE_MODELS = [
 /** Ücretsiz Gemini anahtarının alındığı yer — ayarlarda bağlantı olarak gösterilir. */
 export const GEMINI_KEY_URL = "https://aistudio.google.com/apikey";
 
-/** Sağlayıcı türünün kullanıcıya görünen adı (i18n'e taşınmayacak kadar teknik). */
-export const KIND_LABEL: Record<ProviderKind, string> = {
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  gemini: "Google Gemini",
-  compat: "OpenAI uyumlu",
-};
-
 /** Çakışmayan kısa kimlik üret (anahtar zinciri girdisi bu adla açılır). */
 export function newProviderId(kind: ProviderKind, existing: AiProvider[]): string {
   let n = 1;

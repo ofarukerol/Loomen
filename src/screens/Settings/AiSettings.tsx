@@ -14,7 +14,6 @@ import {
   DEFAULT_BASE_URL,
   GEMINI_FREE_MODELS,
   GEMINI_KEY_URL,
-  KIND_LABEL,
   type AiProvider,
   type ProviderKind,
 } from "../../core/ai/types";
@@ -80,14 +79,23 @@ function ProviderRow({ p }: { p: AiProvider }) {
     }
   };
 
+  // Test, kutuda duran ama henüz kaydedilmemiş anahtarı önce kaydeder: kullanıcının
+  // "Kaydet"e basmayı unutup anlamsız bir "anahtar bulunamadı" hatası alması bu yüzdendi.
   const onTest = async () => {
     setBusy(true);
     setResult(null);
     try {
+      const k = keyDraft.trim();
+      if (k) {
+        await saveKey(p.id, k);
+        setKeyDraft("");
+        setHasKey(true);
+      }
       const txt = await testProvider(p.id);
       setResult({ ok: true, msg: txt.slice(0, 120) || t("ai.testOk") });
     } catch (e) {
-      setResult({ ok: false, msg: String(e) });
+      const raw = String(e);
+      setResult({ ok: false, msg: raw.includes("API anahtarı kayıtlı değil") ? t("ai.keyMissing") : raw });
     } finally {
       setBusy(false);
     }
@@ -96,50 +104,92 @@ function ProviderRow({ p }: { p: AiProvider }) {
   return (
     <div className="lo-set__row lo-set__row--border lo-ai__prow">
       <div className="lo-ai__pgrid">
-        <input
-          className="lo-gh__input lo-ai__inp"
-          value={p.label}
-          placeholder={t("ai.labelPh")}
-          onChange={(e) => update(p.id, { label: e.target.value })}
-        />
-        <span className="lo-ai__kind">{KIND_LABEL[p.kind]}</span>
-        <input
-          className="lo-gh__input lo-ai__inp"
-          value={p.model}
-          placeholder={t("ai.modelPh")}
-          list={p.kind === "gemini" ? "lo-gemini-models" : undefined}
-          onChange={(e) => update(p.id, { model: e.target.value })}
-        />
-        <input
-          className="lo-gh__input lo-ai__inp lo-ai__inp--wide"
-          value={p.baseUrl ?? ""}
-          placeholder={DEFAULT_BASE_URL[p.kind]}
-          onChange={(e) => update(p.id, { baseUrl: e.target.value.trim() || undefined })}
-        />
+        <div className="lo-ai__kind">{t(`ai.kind.${p.kind}`)}</div>
 
-        <div className="lo-ai__keyrow">
-          <KeyRound size={14} strokeWidth={2} className="lo-ai__keyicon" />
+        <label className="lo-ai__field">
+          <span className="lo-ai__flabel">{t("ai.fLabel")}</span>
           <input
-            className="lo-gh__input lo-ai__inp lo-ai__inp--wide"
-            type="password"
-            autoComplete="off"
-            value={keyDraft}
-            placeholder={hasKey ? t("ai.keySaved") : t("ai.keyPh")}
-            onChange={(e) => setKeyDraft(e.target.value)}
+            className="lo-gh__input lo-ai__inp"
+            value={p.label}
+            placeholder={t(`ai.kind.${p.kind}`)}
+            onChange={(e) => update(p.id, { label: e.target.value })}
           />
-          {keyDraft.trim() ? (
-            <button className="lo-gh__ghost" disabled={busy} onClick={() => void onSaveKey()}>
-              {t("ai.keySave")}
-            </button>
-          ) : hasKey ? (
-            <button className="lo-gh__ghost" disabled={busy} onClick={() => void onClearKey()}>
-              {t("ai.keyClear")}
-            </button>
-          ) : null}
+        </label>
+
+        <label className="lo-ai__field">
+          <span className="lo-ai__flabel">{t("ai.fModel")}</span>
+          {p.kind === "gemini" ? (
+            // Gemini'de model listesi belli — serbest metin yerine seçim kutusu, çünkü
+            // buraya yanlışlıkla başka bir şey yazmak sessiz bir hataya dönüşüyordu.
+            <select
+              className="lo-set__select lo-ai__inp"
+              value={p.model}
+              onChange={(e) => update(p.id, { model: e.target.value })}
+            >
+              {(GEMINI_FREE_MODELS as readonly string[]).includes(p.model) ? null : (
+                <option value={p.model}>{p.model}</option>
+              )}
+              {GEMINI_FREE_MODELS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="lo-gh__input lo-ai__inp"
+              value={p.model}
+              placeholder={t("ai.modelPh")}
+              onChange={(e) => update(p.id, { model: e.target.value })}
+            />
+          )}
+        </label>
+
+        {/* Adres yalnızca kendi sunucusunu kullananlar için anlamlı; diğerlerinde
+            varsayılanı elle değiştirmek yalnızca bağlantıyı bozar. */}
+        {p.kind === "compat" && (
+          <label className="lo-ai__field lo-ai__field--wide">
+            <span className="lo-ai__flabel">{t("ai.fBaseUrl")}</span>
+            <input
+              className="lo-gh__input lo-ai__inp lo-ai__inp--wide"
+              value={p.baseUrl ?? ""}
+              placeholder={DEFAULT_BASE_URL[p.kind]}
+              onChange={(e) => update(p.id, { baseUrl: e.target.value.trim() || undefined })}
+            />
+          </label>
+        )}
+
+        <div className="lo-ai__field lo-ai__field--wide">
+          <span className="lo-ai__flabel">
+            {t("ai.fKey")}
+            {hasKey && <span className="lo-ai__badge">{t("ai.keyBadge")}</span>}
+          </span>
+          <div className="lo-ai__keyrow">
+            <KeyRound size={14} strokeWidth={2} className="lo-ai__keyicon" />
+            <input
+              className="lo-gh__input lo-ai__inp lo-ai__inp--wide"
+              type="password"
+              autoComplete="off"
+              value={keyDraft}
+              placeholder={hasKey ? t("ai.keySaved") : t("ai.keyPh")}
+              onChange={(e) => setKeyDraft(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void onSaveKey()}
+            />
+            {keyDraft.trim() ? (
+              <button className="lo-gh__connect" disabled={busy} onClick={() => void onSaveKey()}>
+                {t("ai.keySave")}
+              </button>
+            ) : hasKey ? (
+              <button className="lo-gh__ghost" disabled={busy} onClick={() => void onClearKey()}>
+                {t("ai.keyClear")}
+              </button>
+            ) : null}
+          </div>
+          {keyDraft.trim() !== "" && <div className="lo-ai__keyhint">{t("ai.keyHint")}</div>}
         </div>
 
         {p.kind === "gemini" && !hasKey && (
-          <div className="lo-set__rowsub lo-ai__hint">
+          <div className="lo-ai__keyhint">
             {t("ai.geminiFree")}{" "}
             <button className="lo-ai__link" onClick={() => void openUrl(GEMINI_KEY_URL)}>
               {t("ai.geminiKeyLink")}
@@ -299,7 +349,7 @@ export function AiSettings() {
                 >
                   {providers.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.label || p.id}
+                      {p.label || t(`ai.kind.${p.kind}`)}
                     </option>
                   ))}
                 </select>
@@ -333,7 +383,7 @@ export function AiSettings() {
                 >
                   {KINDS.map((k) => (
                     <option key={k} value={k}>
-                      {KIND_LABEL[k]}
+                      {t(`ai.kind.${k}`)}
                     </option>
                   ))}
                 </select>
@@ -346,11 +396,6 @@ export function AiSettings() {
           </>
         )}
       </div>
-      <datalist id="lo-gemini-models">
-        {GEMINI_FREE_MODELS.map((m) => (
-          <option key={m} value={m} />
-        ))}
-      </datalist>
     </>
   );
 }

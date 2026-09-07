@@ -553,7 +553,7 @@
   "ai": {
     "title": "Yapay zekâ asistanı",
     "enable": "Asistanı aç",
-    "consent": "Kapalıyken hiçbir yapay zekâ isteği yapılmaz. Açtığınızda sorduğunuz soru ve açık olan notun içeriği seçtiğiniz sağlayıcıya gönderilir. Tamamen çevrimdışı çalışmak için \"OpenAI uyumlu\" seçip Ollama gibi kendi bilgisayarınızdaki bir adresi girebilirsiniz.",
+    "consent": "Kapalıyken hiçbir yapay zekâ isteği yapılmaz. Açtığınızda sorduğunuz soru ve açık olan notun içeriği seçtiğiniz sağlayıcıya gönderilir. Tamamen çevrimdışı çalışmak için \"Kendi sunucum\" seçip Ollama gibi kendi bilgisayarınızdaki bir adresi girebilirsiniz.",
     "appOnly": "Asistan yalnızca masaüstü ve mobil uygulamada çalışır.",
     "activeProvider": "Kullanılacak sağlayıcı",
     "activeProviderSub": "Sohbette bu sağlayıcı kullanılır; asistan ekranından da değiştirebilirsiniz.",
@@ -590,6 +590,19 @@
     "excludedNone": "Eklenecek klasör yok",
     "excludedRemove": "Listeden çıkar",
     "geminiFree": "Google Gemini'nin ücretsiz kullanım hakkı bu iş için yeterli.",
-    "geminiKeyLink": "Ücretsiz anahtar al"
+    "geminiKeyLink": "Ücretsiz anahtar al",
+    "kind": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "compat": "Kendi sunucum (Ollama, LM Studio)"
+    },
+    "fLabel": "Görünen ad",
+    "fModel": "Model",
+    "fBaseUrl": "Sunucu adresi",
+    "fKey": "API anahtarı",
+    "keyBadge": "kayıtlı",
+    "keyHint": "Anahtarı kaydetmek için Kaydet’e basın.",
+    "keyMissing": "API anahtarı kayıtlı değil. Anahtarı kutuya yapıştırıp Kaydet’e basın."
   }
 }

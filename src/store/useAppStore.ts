@@ -41,7 +41,7 @@ import {
   type GEvent,
 } from "../core/google";
 import { chatStream, cancelChat, testProvider, aiKeys } from "../core/ai/llm";
-import { newProviderId, DEFAULT_MODEL, KIND_LABEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
+import { newProviderId, DEFAULT_MODEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
 import { retrieve, resetIndex } from "../core/ai/retrieve";
 import { buildContext, buildSystemPrompt } from "../core/ai/context";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
@@ -1704,7 +1704,8 @@ export const useAppStore = create<AppState>()(
     aiAddProvider: (kind) => {
       const s = get();
       const id = newProviderId(kind, s.aiProviders);
-      const provider: AiProvider = { id, kind, label: KIND_LABEL[kind], model: DEFAULT_MODEL[kind] };
+      // Ad boş bırakılır: arayüz boşsa sağlayıcı türünü gösterir, böylece aynı ad iki kez yazılmaz.
+      const provider: AiProvider = { id, kind, label: "", model: DEFAULT_MODEL[kind] };
       set({
         aiProviders: [...s.aiProviders, provider],
         aiActiveProviderId: s.aiActiveProviderId ?? id,

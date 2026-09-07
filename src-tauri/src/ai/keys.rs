@@ -31,7 +31,7 @@ pub fn set(_app: &AppHandle, provider_id: &str, key: &str) -> Result<(), String>
 pub fn get(_app: &AppHandle, provider_id: &str) -> Result<String, String> {
     entry(provider_id)?
         .get_password()
-        .map_err(|_| format!("'{provider_id}' için API anahtarı bulunamadı"))
+        .map_err(|_| format!("API anahtarı kayıtlı değil ({provider_id}). Ayarlar'dan anahtarı yapıştırıp Kaydet'e basın."))
 }
 
 #[cfg(desktop)]
@@ -95,7 +95,7 @@ pub fn get(app: &AppHandle, provider_id: &str) -> Result<String, String> {
         .get(provider_id)
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
-        .ok_or_else(|| format!("'{provider_id}' için API anahtarı bulunamadı"))
+        .ok_or_else(|| format!("API anahtarı kayıtlı değil ({provider_id}). Ayarlar'dan anahtarı yapıştırıp Kaydet'e basın."))
 }
 
 #[cfg(mobile)]
