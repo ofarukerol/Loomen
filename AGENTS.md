@@ -4,7 +4,7 @@
 
 ## 0. Once bunu yap
 
-Bu repoda `CLAUDE.md` yok; kurallar bu dosyada ve `DathaDocs/DathaWiki/` defterindedir.
+Bu repoda `CLAUDE.md` yok; kurallar bu dosyada ve `LoomenWiki/` defterindedir.
 Ayrintili kurallar, mimari ve modul haritasi orada. Bu dosya yalnizca ozettir;
 celiski olursa **bu dosya kazanir**.
 
@@ -29,23 +29,6 @@ oturum linki - hicbiri eklenmez.
 - Dogrulanmamis / riskli is `main`'e degil **`fix/DAT-NNN`** dalina gider.
   Sebep: paralel oturumlar ayni checkout'u paylasiyor, `main`'deki yerel commit
   baskasinin push'uyla canliya sizabilir.
-
-## 4. Veri guvenligi - KATI
-
-- Magaza **1008 (Esnaf Durum)** ve **1019 / 1025** canli beta musterileridir.
-  Veri kaybi riski tasiyan hicbir islem onay alinmadan yapilmaz.
-- Magaza 1007 deneme ortamidir.
-- Sir iceren dosyalari (`.env`, anahtar, sertifika) commit'e sokma.
-
-## 5. DAT karti
-
-- Yapilan her is icin DathaMaster'da DAT karti acilir. **"Kart acayim mi?" diye
-  sorma** - acmak ve kapatmak isin parcasidir, sonuc raporlanir.
-- Testi ajan bitirebiliyorsa **DONE**, kullanici fiilen test edecekse
-  **AWAITING_APPROVAL**.
-- Is bitince karta yorum yaz: (1) ne yaptim - sade 3-6 madde, (2) nasil test
-  edeceksin - hangi ekran, hangi buton, ne gormeli.
-- **Kullanicinin yazdigi aciklama asla ezilmez.**
 
 ## 7. Bu repoya ozel
 
