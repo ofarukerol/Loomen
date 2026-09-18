@@ -2319,6 +2319,32 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .cm-audioembed { display: block; width: 100%; }
 .cm-audioembed .lo-audioembed { margin: 4px 0; }
 
+/* ---- Not içine gömülü resim (ImageEmbed) ----
+   NOT: CodeMirror satır ölçümünü bozduğu için burada margin YOK — yalnız padding
+   (margin satır kutusu dışındadır, CM hesaba katamaz → imleç/fare isabeti kayar). */
+.lo-imgembed { display: block; padding: 6px 0; }
+.lo-imgembed img {
+  display: block; max-width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg-sunken);
+}
+/* Yüklenirken/çözülemediğinde sabit min yükseklik — satır yüksekliği zıplamasın. */
+.lo-imgembed--loading {
+  min-height: 120px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg-sunken);
+}
+.lo-imgembed--missing {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 40px; padding: 8px 10px;
+  border: 1px dashed var(--line); border-radius: 10px;
+  background: var(--bg-sunken);
+  color: var(--fg3); font-size: 12.5px;
+}
+.lo-imgembed__raw { font-family: var(--font-mono); word-break: break-all; }
+/* Düzenleme modu (CM canlı önizleme) içindeki resim widget'ı — okuma moduyla aynı görünüm. */
+.cm-imgembed { display: block; width: 100%; }
+
 /* Editör başlık çubuğu: breadcrumb + modern mod-toggle */
 .lo-crumbs { display: flex; align-items: center; gap: 2px; font-size: 12.5px; color: var(--fg3); overflow: hidden; }
 .lo-crumbs__seg { display: flex; align-items: center; gap: 2px; white-space: nowrap; }

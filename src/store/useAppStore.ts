@@ -421,6 +421,20 @@ export const useAppStore = create<AppState>()(
     }
   }
 
+  /**
+   * Bekleyen taslağı (EditorScreen'in 700 ms debounce'u henüz yazmadıysa) diske al.
+   * Not/sekme değiştiren her eylemden ÖNCE çağrılır; yoksa debounce dolmadan yapılan
+   * geçiş draft'ı ezer ve son yazılanlar kaybolur.
+   * NOTE_SAFETY: saveNote'un güvenceleri aynen geçerli — taslak aktif nota ait değilse
+   * (draftPath !== activeNote) ya da içerik dosyadakiyle aynıysa hiçbir şey yazılmaz.
+   */
+  async function flushDraft(): Promise<void> {
+    const s = get();
+    if (!s.activeNote || s.draftPath !== s.activeNote) return;
+    if (s.draft === s.noteContents[s.activeNote]) return;
+    await get().saveNote();
+  }
+
   return {
     theme: "light",
     screen: "planner",
@@ -505,6 +519,8 @@ export const useAppStore = create<AppState>()(
     setLang: (lang) => set({ lang }),
     setEditorTab: (editorTab) => set({ editorTab }),
     openNote: async (nameOrPath, edit = true) => {
+      // Açılış draft'ı ezmeden önce bekleyen yazıyı kaydet (hızlı not değiştirmede veri kaybı).
+      await flushDraft();
       const s = get();
       // Yol mu yoksa ad mı? Önce yol, sonra ada göre çöz.
       const byPath = s.notes.find((n) => n.path === nameOrPath);
@@ -537,8 +553,11 @@ export const useAppStore = create<AppState>()(
         draftPath: note.path,
       });
     },
-    setActiveTab: (path) => {
-      const s = get();
+    // async ama çağrı yerleri beklemez (openNote gibi): önce bekleyen taslak yazılır, sonra
+    // sekme değişir — böylece debounce dolmadan sekme değiştirmek son yazılanı silmez.
+    setActiveTab: async (path) => {
+      await flushDraft();
+      const s = get(); // flushDraft noteContents'i güncelledi → taslak TAZE içerikten kurulur
       const note = s.notes.find((n) => n.path === path);
       if (note?.kind === "draw") {
         set({ screen: "draw", activeDraw: path });
@@ -554,7 +573,9 @@ export const useAppStore = create<AppState>()(
       })),
     // Boş "Yeni sekme" — dosya oluştur / dosyaya git seçenekleri.
     newTab: () => set({ screen: "newtab" }),
-    closeTab: (path) =>
+    closeTab: async (path) => {
+      // Sekme kapanınca draft sıfırlanıyor → önce bekleyen yazıyı diske al.
+      await flushDraft();
       set((s) => {
         const openTabs = s.openTabs.filter((p) => p !== path);
         const pinnedTabs = s.pinnedTabs.filter((p) => p !== path);
@@ -579,7 +600,8 @@ export const useAppStore = create<AppState>()(
           draft: s.noteContents[next] ?? "",
           draftPath: next,
         };
-      }),
+      });
+    },
     setDraft: (draft) => set({ draft }),
     toggleEditing: () => set((s) => ({ editing: !s.editing })),
     toggleBacklinks: () => set((s) => ({ backlinksCollapsed: !s.backlinksCollapsed })),

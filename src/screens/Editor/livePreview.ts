@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { syntaxTree } from "@codemirror/language";
-import { RangeSetBuilder } from "@codemirror/state";
+import { RangeSetBuilder, type Extension } from "@codemirror/state";
 import {
   Decoration,
   type DecorationSet,
@@ -11,6 +11,9 @@ import {
   WidgetType,
 } from "@codemirror/view";
 import { AudioEmbedPlayer } from "./AudioEmbedPlayer";
+import { ImageEmbed, parseImageLine, type ImageRef } from "./ImageEmbed";
+import { createTauriBackend, isTauri } from "../../core/vault";
+import { useAppStore } from "../../store/useAppStore";
 
 /** Obsidian "Canlı Önizleme" benzeri: markdown işaretlerini aktif satır dışında gizle, biçimle. */
 
@@ -68,6 +71,46 @@ class AudioEmbedWidget extends WidgetType {
   }
 }
 
+/**
+ * Düzenleme modunda resim embed satırının yerine resmin kendisini koyar (aktif satır hariç —
+ * orada ham metin düzenlenir). Resim yüklenince satır yüksekliği değiştiği için CM'den yeniden
+ * ölçüm istenir; yoksa imleç/fare isabeti resmin altındaki satırlarda kayar.
+ */
+class ImageEmbedWidget extends WidgetType {
+  private root: Root | null = null;
+  constructor(
+    readonly raw: string,
+    readonly ref: ImageRef
+  ) {
+    super();
+  }
+  eq(other: ImageEmbedWidget) {
+    return other.raw === this.raw; // aynı satır → DOM yeniden kurulmaz (resim yeniden yüklenmez)
+  }
+  toDOM(view: EditorView) {
+    const wrap = document.createElement("span");
+    wrap.className = "cm-imgembed";
+    this.root = createRoot(wrap);
+    this.root.render(
+      createElement(ImageEmbed, {
+        ...this.ref,
+        raw: this.raw,
+        onLoad: () => view.requestMeasure(),
+      })
+    );
+    return wrap;
+  }
+  destroy() {
+    // React unmount'unu CM güncelleme döngüsünün dışına ertele (senkron unmount uyarısı).
+    const root = this.root;
+    this.root = null;
+    if (root) setTimeout(() => root.unmount(), 0);
+  }
+  ignoreEvent() {
+    return true; // resme tıklamak imleci sıçratmasın
+  }
+}
+
 interface Pending {
   from: number;
   to: number;
@@ -79,22 +122,35 @@ function buildDecos(view: EditorView): DecorationSet {
   const cursorLine = state.doc.lineAt(state.selection.main.head).number;
   const out: Pending[] = [];
 
-  // Ses embed satırları → oynatıcı widget'ı (aktif satır hariç — orada ham metin düzenlenir).
-  // Bu satırlar wiki-link işlemesinden muaf tutulur (çakışan dekorasyon olmasın).
-  const audioLines = new Set<number>();
+  // Ses/resim embed satırları → oynatıcı ya da resim widget'ı (aktif satır hariç — orada ham
+  // metin düzenlenir). Bu satırlar wiki-link işlemesinden muaf tutulur (çakışan dekorasyon olmasın).
+  const embedLines = new Set<number>();
   for (const { from, to } of view.visibleRanges) {
     let pos = from;
     while (pos <= to) {
       const line = state.doc.lineAt(pos);
-      const m = line.text.trim().match(AUDIO_EMBED);
+      const raw = line.text.trim();
+      const m = raw.match(AUDIO_EMBED);
       if (m) {
-        audioLines.add(line.number);
+        embedLines.add(line.number);
         if (line.number !== cursorLine && line.to > line.from) {
           out.push({
             from: line.from,
             to: line.to,
             deco: Decoration.replace({ widget: new AudioEmbedWidget(m[1]) }),
           });
+        }
+      } else {
+        const img = parseImageLine(raw);
+        if (img) {
+          embedLines.add(line.number);
+          if (line.number !== cursorLine && line.to > line.from) {
+            out.push({
+              from: line.from,
+              to: line.to,
+              deco: Decoration.replace({ widget: new ImageEmbedWidget(raw, img) }),
+            });
+          }
         }
       }
       if (line.to + 1 > to) break;
@@ -134,7 +190,7 @@ function buildDecos(view: EditorView): DecorationSet {
       const start = from + m.index;
       const stop = start + m[0].length;
       const line = state.doc.lineAt(start);
-      if (audioLines.has(line.number)) continue; // embed satırı — widget hallediyor
+      if (embedLines.has(line.number)) continue; // embed satırı — widget hallediyor
       out.push({ from: start + 2, to: stop - 2, deco: Decoration.mark({ class: "cm-wikilink" }) });
       if (line.number !== cursorLine) {
         out.push({ from: start, to: start + 2, deco: HIDE });
@@ -150,7 +206,80 @@ function buildDecos(view: EditorView): DecorationSet {
   return builder.finish();
 }
 
-export const livePreview = ViewPlugin.fromClass(
+/** Panodan yapıştırılan resimlerin kasadaki klasörü. */
+const ATTACH_DIR = "Ekler";
+
+/** MIME → dosya uzantısı (pano resmi çoğu platformda PNG gelir). */
+function extFromMime(mime: string): string {
+  const sub = mime.split("/")[1]?.split("+")[0]?.toLowerCase() ?? "";
+  if (sub === "jpeg") return "jpg";
+  if (/^(png|gif|webp|bmp|avif|svg)$/.test(sub)) return sub;
+  return "png";
+}
+
+/** Dosya adı için zaman damgası: 2026-09-18_14-03-21 */
+function stamp(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
+    `_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`
+  );
+}
+
+/** Pano resmini `Ekler/` altına yaz, kasaya göre yolunu dön (klasörü writeBinary oluşturur). */
+async function saveClipboardImage(file: File, vaultRoot: string): Promise<string> {
+  const backend = createTauriBackend(vaultRoot);
+  const ext = extFromMime(file.type);
+  const base = `Görsel ${stamp(new Date())}`;
+  let path = `${ATTACH_DIR}/${base}.${ext}`;
+  for (let n = 2; await backend.exists(path); n++) path = `${ATTACH_DIR}/${base} (${n}).${ext}`;
+  await backend.writeBinary(path, new Uint8Array(await file.arrayBuffer()));
+  return path;
+}
+
+/** Embed satırını imlece yaz — kendi satırında dursun (widget satır bazlı çalışır). */
+function insertImageEmbed(view: EditorView, path: string): void {
+  const { from, to } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  const head = view.state.doc.sliceString(line.from, from);
+  const insert = `${head.trim() === "" ? "" : "\n"}![[${path}]]\n`;
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: { anchor: from + insert.length },
+    scrollIntoView: true,
+  });
+  view.focus();
+}
+
+/**
+ * Panodan resim yapıştırma: dosyayı `Ekler/` altına kaydedip yerine `![[...]]` embed'i yazar.
+ * Tarayıcı/örnek kasa modunda (gerçek dosya sistemi yok) dokunmaz — CM'in varsayılan
+ * yapıştırması çalışır, böylece metin yapıştırma hiçbir koşulda kaybolmaz.
+ */
+const imagePaste = EditorView.domEventHandlers({
+  paste(event, view) {
+    const items = event.clipboardData?.items;
+    if (!items) return false;
+    let file: File | null = null;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind !== "file" || !items[i].type.startsWith("image/")) continue;
+      file = items[i].getAsFile();
+      if (file) break;
+    }
+    if (!file) return false;
+    const vaultRoot = useAppStore.getState().vaultPath;
+    if (!vaultRoot || !isTauri()) return false;
+    // Dosya elde edildi (getAsFile senkron) → yapıştırmayı devralabiliriz.
+    event.preventDefault();
+    const picked = file;
+    void saveClipboardImage(picked, vaultRoot)
+      .then((path) => insertImageEmbed(view, path))
+      .catch((e) => console.error("Resim kasaya kaydedilemedi:", e));
+    return true;
+  },
+});
+
+const livePreviewPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
     constructor(view: EditorView) {
@@ -167,3 +296,6 @@ export const livePreview = ViewPlugin.fromClass(
       EditorView.atomicRanges.of((view) => view.plugin(plugin)?.decorations ?? Decoration.none),
   }
 );
+
+/** Canlı önizleme uzantısı: dekorasyonlar + panodan resim yapıştırma. */
+export const livePreview: Extension = [livePreviewPlugin, imagePaste];

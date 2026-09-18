@@ -45,14 +45,47 @@ export function EditorScreen() {
 
   // Otomatik kayıt — düzenlerken draft değişince debounce ile yaz (saveNote değişmediyse yazmaz).
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Zamanlayıcı kurulu mu? Temizlik (cleanup) zamanlayıcıyı iptal ettiği için tek başına
+  // clearTimeout bekleyen kaydı YUTARDI; bu bayrak sayesinde iptal edilen kayıt flush'ta yazılır.
+  const pending = useRef(false);
   useEffect(() => {
     if (!editing || !activeNote) return;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => void saveNote(), 700);
+    pending.current = true;
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      pending.current = false;
+      void saveNote();
+    }, 700);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
   }, [draft, editing, activeNote, saveNote]);
+
+  // Bekleyen kaydı zorla yaz: ekrandan çıkarken (unmount), pencere odağı gidince ve sekme/uygulama
+  // arka plana düşünce. Yoksa debounce dolmadan yapılan geçişte son yazılanlar kaybolur.
+  // getState() ile okunur: dinleyiciler bir kez bağlanır, kapanışta bayat draft'a takılmasın.
+  useEffect(() => {
+    const flush = () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+      if (!pending.current) return;
+      pending.current = false;
+      void useAppStore.getState().saveNote(); // kendi güvenceleri var: yanlış/aynı içeriği yazmaz
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("blur", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("blur", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      flush();
+    };
+  }, []);
 
   if (!activeNote || openTabs.length === 0) {
     return (
