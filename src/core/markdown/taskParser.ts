@@ -126,10 +126,25 @@ export function toggleDoneLine(raw: string, todayISO: string): string {
   return out;
 }
 
-/** Dosya içeriğindeki belirli satırın görev durumunu değiştir. */
-export function toggleTaskInContent(content: string, line: number, todayISO: string): string {
+/**
+ * Dosya içeriğindeki belirli satırın görev durumunu değiştir.
+ *
+ * `expectedRaw` verilirse aynı güvenlik kilidi `applyTaskPatch`teki gibi uygulanır: görev
+ * ayrıştırıldıktan sonra dosya dışarıdan değişmişse (senkron, başka pencere, kullanıcının
+ * kendi editörü) `line` artık başka bir satırı gösterir ve kullanıcı A görevini işaretlerken
+ * B görevi işaretlenirdi. Satır beklenenle birebir tutmuyorsa içerik olduğu gibi döner.
+ */
+export function toggleTaskInContent(
+  content: string,
+  line: number,
+  todayISO: string,
+  expectedRaw?: string,
+): string {
   const lines = splitLines(content);
   if (line < 0 || line >= lines.length) return content;
+  if (expectedRaw !== undefined && lines[line].replace(/\r$/, "") !== expectedRaw.replace(/\r$/, "")) {
+    return content; // satır kaymış — yanlış görevi işaretlemektense hiç işaretleme
+  }
   lines[line] = toggleDoneLine(lines[line], todayISO);
   return joinLines(lines, eolOf(content));
 }

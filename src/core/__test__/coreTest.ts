@@ -80,6 +80,25 @@ eq("CR-only içerik parse edilir", parseTasks("mac.md", "- [ ] A\r- [ ] B").leng
 const lf = "- [ ] A\n- [ ] B\n";
 check("LF dosya LF kalır", !toggleTaskInContent(lf, 0, "2026-06-17").includes("\r"));
 
+// Satır kayması kilidi: dosya arada dışarıdan değiştiyse (senkron, başka pencere) satır
+// numarası artık başka bir görevi gösterir. Beklenen satır verilince yanlış görev
+// işaretlenmemeli — kullanıcı A'ya basıp B'nin tamamlandığını görmesin.
+const shiftedDoc = "- [ ] Yeni satır araya girdi\n- [ ] A\n- [ ] B\n";
+eq("Satır kaymışsa toggle reddedilir", toggleTaskInContent(shiftedDoc, 0, "2026-06-17", "- [ ] A"), shiftedDoc);
+check(
+  "Beklenen satır tutuyorsa toggle uygulanır",
+  toggleTaskInContent(shiftedDoc, 1, "2026-06-17", "- [ ] A").includes("- [x] A"),
+);
+check(
+  "Beklenen satır CRLF'li dosyada da tutar",
+  toggleTaskInContent(crlf, 1, "2026-06-18", "- [ ] Birinci 📅 2026-06-17 #İş").includes("- [x] Birinci"),
+);
+eq(
+  "Beklenen satır verilmezse eski davranış sürer",
+  toggleTaskInContent(shiftedDoc, 0, "2026-06-17").includes("- [x] Yeni satır"),
+  true,
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 section("Görev satırı — # etiket ayrımı");
 

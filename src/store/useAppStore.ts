@@ -28,7 +28,7 @@ import { rewriteWikiLinks } from "../core/markdown/links";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
-import { createBookmark, resolveBookmark, releaseBookmark, appIsSandboxed } from "../core/bookmark";
+import { createBookmark, resolveBookmark, releaseBookmark, appIsSandboxed, allowVaultPath } from "../core/bookmark";
 import { gh, appIsMobile, appPlatform, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
 import {
   gcal,
@@ -1072,6 +1072,11 @@ export const useAppStore = create<AppState>()(
             }
           }
 
+          // Kasa klasörünü fs kapsamına al. macOS'ta bookmark çözümü zaten erişim veriyor;
+          // Windows/Linux'ta bookmark yok, bu çağrı olmadan ev klasörü dışındaki kasa her
+          // açılışta "forbidden path" ile reddedilirdi.
+          await allowVaultPath(target);
+
           const next = createTauriBackend(target);
           // Erişimi doğrula (kapsam/taşınma) — başarısızsa catch.
           await next.listNotes();
@@ -1276,9 +1281,15 @@ export const useAppStore = create<AppState>()(
       if (!clean) return;
       const to = note.folder ? `${note.folder}/${clean}.md` : `${clean}.md`;
       if (to === path) return; // değişmedi
+      // Yalnız büyük/küçük harf değişimi (toplanti → Toplanti): macOS/Windows dosya adları
+      // harf duyarsız olduğu için hedef "zaten var" görünür — bulunan şey notun KENDİSİdir.
+      // Bu durumda çakışma kontrolü atlanır, aksi halde kullanıcı notun harfini düzeltemez.
+      const caseOnly = to.toLocaleLowerCase("tr") === path.toLocaleLowerCase("tr");
       // Çakışma kontrolü DİSKTE de yapılır: bellekteki liste bayat olabilir (dış değişiklik,
       // GitHub senkronu). rename üzerine yazsaydı hedef notun içeriği sessizce yok olurdu.
-      if (s.notes.some((n) => n.path === to) || (await backend.exists(to))) {
+      // (Harf duyarlı sistemlerde gerçekten ayrı bir not "Toplanti.md" olarak durabilir;
+      // tam yol eşleşmesi her hâlükârda çakışmadır, yalnız disk kontrolü atlanır.)
+      if (s.notes.some((n) => n.path === to) || (!caseOnly && (await backend.exists(to)))) {
         await notifyError(`Bu adda bir not zaten var: ${clean}`);
         return;
       }
@@ -1333,13 +1344,37 @@ export const useAppStore = create<AppState>()(
       const prefix = folderPath + "/";
       const affected = s.notes.filter((n) => n.path.startsWith(prefix));
       if (affected.length === 0) return;
+      // Yalnız büyük/küçük harf değişimi ("projeler" → "Projeler"): harf duyarsız dosya
+      // sistemlerinde hedef klasörün kendisi bulunur, çakışma sayılmamalı.
+      const caseOnly = to.toLocaleLowerCase("tr") === folderPath.toLocaleLowerCase("tr");
+      // Çakışma kontrolü: hedef klasör zaten varsa rename dosyaları TEK TEK taşır ve aynı
+      // adlı notların üzerine sessizce yazar — kullanıcının notu çöpe bile gitmeden kaybolur.
+      // Hem bellekteki ağaca hem diske bakılır (bellek bayat olabilir: dış değişiklik, senkron).
+      const taken =
+        s.notes.some((n) => n.path === to || n.path.startsWith(to + "/")) ||
+        (!caseOnly && (await backend.exists(to)));
+      if (taken) {
+        await notifyError(`Bu adda bir klasör zaten var: ${clean}`);
+        return;
+      }
       // Bekleyen taslağı önce eski yola yaz (rename sonrası yazılamaz/yanlış yere yazılır).
       await flushDraft();
       const map = new Map<string, string>();
       for (const n of affected) {
         const np = to + n.path.slice(folderPath.length);
+        try {
+          await backend.rename(n.path, np);
+        } catch (e) {
+          // Ortada kalan hata: klasörün bir kısmı taşınmış olur. Geri sarmak yerine durup
+          // durumu bildiriyoruz — taşınanlar yeni yolda, kalanlar eskisinde duruyor;
+          // loadFromBackend ikisini de gösterir, hiçbir not kaybolmaz.
+          await notifyError(
+            `Klasör yeniden adlandırılamadı (${n.path}): ${e instanceof Error ? e.message : String(e)}`,
+          );
+          await loadFromBackend();
+          return;
+        }
         map.set(n.path, np);
-        await backend.rename(n.path, np);
       }
       // Not adları değişmedi → [[bağlantı]]lar hâlâ çözülür; yalnız yola göre anahtarlanan
       // durum taşınır (sabitlenen sekme, favori, manuel görev sırası).
@@ -1440,12 +1475,24 @@ export const useAppStore = create<AppState>()(
 
     toggleTask: async (id) =>
       queueFileOp(async () => {
+        const s = get(); // sırada bekleyen önceki yazmadan SONRAKİ satır numaraları
         const sep = id.lastIndexOf(":");
         const file = id.slice(0, sep);
         const line = Number(id.slice(sep + 1));
+        // Beklenen satır metni: dosya arada dışarıdan değiştiyse (senkron, başka pencere)
+        // satır numarası kaymış olur ve kullanıcı A'yı işaretlerken B işaretlenirdi.
+        const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
         try {
           const content = await backend.readNote(file);
-          await backend.writeNote(file, toggleTaskInContent(content, line, todayISO()));
+          const next = toggleTaskInContent(content, line, todayISO(), task?.raw);
+          if (next === content) {
+            // Satır kaymış (ya da zaten aynı): yazma, listeyi tazele ki kullanıcı güncel
+            // hâli görsün ve tekrar deneyebilsin.
+            await loadFromBackend();
+            if (task) await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            return;
+          }
+          await backend.writeNote(file, next);
         } catch (e) {
           await notifyError(`Görev güncellenemedi: ${e instanceof Error ? e.message : String(e)}`);
           return;

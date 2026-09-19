@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "node scripts/run-tests.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.0",

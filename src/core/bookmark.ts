@@ -57,3 +57,22 @@ export async function releaseBookmark(path: string): Promise<void> {
 
 /** Uygulama macOS sandbox'ında mı çalışıyor (Mac App Store sürümü)? */
 export const appIsSandboxed = () => invoke<boolean>("app_is_sandboxed").catch(() => false);
+
+/**
+ * Kasa klasörünü fs eklentisinin çalışma zamanı kapsamına alır.
+ *
+ * Statik kapsam yalnız `$HOME`/`$APPDATA` altını kapsar. macOS'ta erişim bookmark çözülürken
+ * zaten veriliyor, ama Windows/Linux'ta bookmark üretilmez: kasa klasörü seçildiği anda izinli
+ * olur, uygulama kapatılıp açılınca bir daha olmaz. Kasası ev klasörünün dışında olan
+ * (D: sürücüsü, harici disk) kullanıcı her açılışta "Kasa açılamadı" görürdü.
+ *
+ * Başarısızlık ölümcül değildir: kapsam zaten kasayı içeriyor olabilir.
+ */
+export async function allowVaultPath(path: string): Promise<void> {
+  if (!path) return;
+  try {
+    await invoke("vault_allow", { path });
+  } catch (e) {
+    console.warn("[vault] kapsama alınamadı:", e);
+  }
+}
