@@ -3,7 +3,7 @@ name: LOM-2 — Genel Test
 description: Mağazaya göndermeden önce uygulamanın tamamı kod üzerinden denetlendi; veri kaybı, tarih/sayaç, çeviri ve paketleme tarafında bulunan hatalar düzeltilecek, çekirdek mantık için otomatik testler eklenecek ve elle denenmesi gerekenler raporlanacak.
 type: project
 proje: loomen
-kaynak: kart LOM-2 · dal fix/LOM-2 · Loomen@715bcd24cf2aa1eecf670999019f42b386e59739 · test koşusu 7d695e36-6cee-4f70-b942-366429a1ca54 (Air)
+kaynak: kart LOM-2 · dal fix/LOM-2 · Loomen@7c49665799e391cacab5d7c2ecb4e65e4ae2ca20 · test koşusu 23bc13de-083e-40fb-acf5-ac4794dac8ce (Air)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-09-19
@@ -85,13 +85,13 @@ Mağazaya göndermeden önce uygulamanın tamamı kod üzerinden denetlendi; ver
 
 Testler geçti.
 
-> Dört doğrulama kapısının tamamı temiz: coreTest 93/93, vaultTest 18/18, `npx tsc --noEmit` çıkış 0, `npm run build` çıkış 0, src-tauri'de `cargo check` çıkış 0 ve uyarısız. Ek olarak tr/en/ar çeviri dosyalarının anahtar kümesini ve {{yer tutucu}}larını betikle karşılaştırdım — 375 anahtar, üçünde birebir aynı; `bash -n scripts/mas-build.sh` temiz. Nokta doğrulamaları tuttu: Rust'ta `.expect("` kal
+> Donmus test kopyasinda (is/Loomen, snapshot b7e1a31, calisma agaci temiz) planin dogrulama adimindaki butun kontrolleri kosturdum ve hepsi yesil. npm test: coreTest 97/97 ve vaultTest tumu gecti, cikis kodu 0. npx tsc --noEmit temiz (cikis 0). npm run build cikis 0, hata yok (yalniz chunk boyutu uyarisi). src-tauri icinde cargo check cikis 0. tr/en/ar ceviri dosyalari 375 anahtarla birebir ayni, e
 
 ## Kanıt
 
 - Dal: `fix/LOM-2`
-- Commit: `Loomen@715bcd24cf2aa1eecf670999019f42b386e59739`
-- Test koşusu: `7d695e36-6cee-4f70-b942-366429a1ca54` (Air)
+- Commit: `Loomen@7c49665799e391cacab5d7c2ecb4e65e4ae2ca20`
+- Test koşusu: `23bc13de-083e-40fb-acf5-ac4794dac8ce` (Air)
 
 ## Durum
 
