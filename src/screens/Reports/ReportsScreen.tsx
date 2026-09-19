@@ -2,13 +2,16 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Timer, Flame, CalendarDays, Hourglass } from "lucide-react";
 import { format, subDays, startOfWeek, parseISO } from "date-fns";
-import { tr } from "date-fns/locale";
+import { tr, enUS, ar } from "date-fns/locale";
 import { useAppStore } from "../../store/useAppStore";
 
 const DAYS = 7;
 
+const LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
+
 export function ReportsScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = LOCALES[i18n.language] ?? tr;
   const history = useAppStore((s) => s.pomoHistory);
   const focusMin = useAppStore((s) => s.pomo.focusMin);
 
@@ -27,15 +30,18 @@ export function ReportsScreen() {
     const last7 = Array.from({ length: DAYS }, (_, i) => {
       const d = subDays(now, DAYS - 1 - i);
       const key = format(d, "yyyy-MM-dd");
-      return { key, label: format(d, "EEEEEE", { locale: tr }), count: history[key] ?? 0 };
+      return { key, label: format(d, "EEEEEE", { locale }), count: history[key] ?? 0 };
     });
 
     return { todayCount: history[todayKey] ?? 0, weekCount, total, last7 };
-  }, [history]);
+  }, [history, locale]);
 
   const peak = Math.max(1, ...last7.map((d) => d.count));
   const totalMin = total * focusMin;
-  const focusHours = totalMin >= 60 ? `${Math.floor(totalMin / 60)}s ${totalMin % 60}dk` : `${totalMin}dk`;
+  const focusHours =
+    totalMin >= 60
+      ? t("reports.hoursMinutes", { h: Math.floor(totalMin / 60), m: totalMin % 60 })
+      : t("reports.minutes", { m: totalMin });
 
   const stats = [
     { icon: <Flame size={16} strokeWidth={2} />, val: todayCount, label: t("reports.today"), accent: true },

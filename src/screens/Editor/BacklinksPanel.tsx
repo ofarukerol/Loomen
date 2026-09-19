@@ -1,7 +1,8 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link2, FileText } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
-import { extractWikiLinks, excerptForLink } from "../../core/markdown/links";
+import { extractWikiLinks, excerptForLink, resolveLink } from "../../core/markdown/links";
 
 export function BacklinksPanel() {
   const { t } = useTranslation();
@@ -12,14 +13,27 @@ export function BacklinksPanel() {
 
   const active = notes.find((n) => n.path === activeNote);
 
-  // Bu nota [[link]] veren notlar.
-  const backlinks = active
-    ? notes
-        .filter((n) => n.path !== active.path)
-        .map((n) => ({ note: n, links: extractWikiLinks(contents[n.path] ?? "") }))
-        .filter((x) => x.links.includes(active.name))
-        .map((x) => ({ note: x.note, excerpt: excerptForLink(contents[x.note.path] ?? "", active.name) }))
-    : [];
+  // Bu nota [[link]] veren notlar. Hedefler resolveLink ile çözülür: `[[Not#Başlık]]`,
+  // `[[Not|takma ad]]`, `[[Klasör/Not]]` ve farklı yazılmış Türkçe harfler de sayılır;
+  // `![[gömü]]` sayılmaz. Çözüm hedef metnine göre önbelleklenir — her not için
+  // baştan tarama vault büyüdükçe pahalıya patlar.
+  const backlinks = useMemo(() => {
+    if (!active) return [];
+    const resolved = new Map<string, string | undefined>();
+    const pathOf = (target: string) => {
+      if (!resolved.has(target)) resolved.set(target, resolveLink(target, notes)?.path);
+      return resolved.get(target);
+    };
+    const out: { note: (typeof notes)[number]; excerpt: string }[] = [];
+    for (const n of notes) {
+      if (n.path === active.path) continue;
+      const content = contents[n.path] ?? "";
+      const hit = extractWikiLinks(content).find((target) => pathOf(target) === active.path);
+      if (hit === undefined) continue;
+      out.push({ note: n, excerpt: excerptForLink(content, hit) });
+    }
+    return out;
+  }, [active, notes, contents]);
 
   return (
     <div className="lo-backlinks lo-scroll">

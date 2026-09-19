@@ -1,15 +1,33 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { addMonths, startOfMonth, getDaysInMonth, isSameDay, parseISO, format } from "date-fns";
-import { tr } from "date-fns/locale";
+import {
+  addDays,
+  addMonths,
+  startOfMonth,
+  startOfWeek,
+  getDaysInMonth,
+  isSameDay,
+  parseISO,
+  format,
+} from "date-fns";
+import { tr, enUS, ar } from "date-fns/locale";
 
-const WEEK = ["Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz"];
+const LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
 
 /** Modern, satır-içi takvim (görev detayında). value = ISO yyyy-mm-dd ("" = yok). */
 export function DatePicker({ value, onChange }: { value: string; onChange: (iso: string) => void }) {
+  const { t, i18n } = useTranslation();
+  const locale = LOCALES[i18n.language] ?? tr;
   const selected = value ? parseISO(value) : null;
   const today = new Date();
   const [view, setView] = useState(() => startOfMonth(selected ?? today));
+
+  // Gün kısaltmaları aktif dilin yerel ayarından üretilir (elle yazılmaz).
+  const week = useMemo(() => {
+    const first = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => format(addDays(first, i), "EEEEEE", { locale }));
+  }, [locale]);
 
   const lead = (view.getDay() + 6) % 7; // Pazartesi-ilk hizalama
   const count = getDaysInMonth(view);
@@ -22,17 +40,27 @@ export function DatePicker({ value, onChange }: { value: string; onChange: (iso:
   return (
     <div className="lo-dp">
       <div className="lo-dp__head">
-        <button className="lo-dp__nav" type="button" onClick={() => setView(addMonths(view, -1))}>
+        <button
+          className="lo-dp__nav"
+          type="button"
+          aria-label={t("calendar.prevMonth")}
+          onClick={() => setView(addMonths(view, -1))}
+        >
           <ChevronLeft size={16} strokeWidth={2.2} />
         </button>
-        <span className="lo-dp__month">{format(view, "LLLL yyyy", { locale: tr })}</span>
-        <button className="lo-dp__nav" type="button" onClick={() => setView(addMonths(view, 1))}>
+        <span className="lo-dp__month">{format(view, "LLLL yyyy", { locale })}</span>
+        <button
+          className="lo-dp__nav"
+          type="button"
+          aria-label={t("calendar.nextMonth")}
+          onClick={() => setView(addMonths(view, 1))}
+        >
           <ChevronRight size={16} strokeWidth={2.2} />
         </button>
       </div>
       <div className="lo-dp__grid">
-        {WEEK.map((w) => (
-          <span className="lo-dp__wd" key={w}>
+        {week.map((w, i) => (
+          <span className="lo-dp__wd" key={i}>
             {w}
           </span>
         ))}

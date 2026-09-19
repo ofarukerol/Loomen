@@ -41,7 +41,19 @@ export function encodeTrashName(originalPath: string, deletedAt: number): string
   return `${deletedAt}__${b64urlEncode(originalPath)}`;
 }
 
-/** Çöp dosya adını çöz → kayıt; tanınmayan biçim için null. */
+/**
+ * Geri yüklenebilir bir vault yolu mu?
+ * Özgün yol çöp dosyasının adından çözülür; `.trash` klasörüne elle bırakılmış ya da
+ * senkronla gelmiş bir dosya buraya "../../.ssh/config" gibi bir yol kodlayabilir ve
+ * geri yükleme onu vault dışına yazardı. Göreli ve `..`'sız olmayan yol kabul edilmez.
+ */
+function isSafeVaultPath(p: string): boolean {
+  const norm = p.replace(/\\/g, "/");
+  if (!norm || norm.startsWith("/") || /^[A-Za-z]:/.test(norm)) return false;
+  return !norm.split("/").includes("..");
+}
+
+/** Çöp dosya adını çöz → kayıt; tanınmayan biçim veya güvensiz yol için null. */
 export function toTrashEntry(trashName: string): TrashEntry | null {
   const sep = trashName.indexOf("__");
   if (sep <= 0) return null;
@@ -53,7 +65,7 @@ export function toTrashEntry(trashName: string): TrashEntry | null {
   } catch {
     return null;
   }
-  if (!originalPath) return null;
+  if (!originalPath || !isSafeVaultPath(originalPath)) return null;
   const parts = originalPath.split("/");
   const file = parts.pop()!;
   const kind = /\.excalidraw$/i.test(file) ? "draw" : "note";

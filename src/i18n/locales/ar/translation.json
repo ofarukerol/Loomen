@@ -5,7 +5,6 @@
     "notes": "الملاحظات",
     "graph": "الرسم",
     "reports": "التقارير",
-    "rtl": "عربي / RTL",
     "settings": "الإعدادات",
     "theme": "السمة",
     "draw": "رسم",
@@ -20,7 +19,9 @@
     "total": "إجمالي الجلسات",
     "focusTime": "وقت التركيز",
     "last7": "آخر ٧ أيام",
-    "empty": "لا توجد جلسات بومودورو مكتملة بعد."
+    "empty": "لا توجد جلسات بومودورو مكتملة بعد.",
+    "hoursMinutes": "{{h}}س {{m}}د",
+    "minutes": "{{m}}د"
   },
   "explorer": {
     "vault": "الخزنة",
@@ -59,7 +60,6 @@
   },
   "planner": {
     "focusToday": "ركّز على اليوم",
-    "today": "السبت، ١٣ يونيو",
     "timeline": "الجدول الزمني",
     "board": "لوحة",
     "todo": "مهام اليوم",
@@ -79,7 +79,9 @@
     "toggleLeft": "تبديل اللوحة اليسرى",
     "toggleRight": "تبديل اللوحة اليمنى",
     "moreTasks": "+{{count}} مهام أخرى",
-    "addTask": "إضافة"
+    "addTask": "إضافة",
+    "markDone": "إتمام",
+    "markUndone": "تراجع"
   },
   "board": {
     "overdue": "متأخرة",
@@ -132,7 +134,6 @@
     "list": "قائمة"
   },
   "calendar": {
-    "month": "يونيو ٢٠٢٦",
     "weekdays": [
       "إث",
       "ث",
@@ -153,8 +154,6 @@
     "skip": "تخطٍّ",
     "start": "ابدأ",
     "pause": "إيقاف",
-    "focusOn": "التركيز:",
-    "currentTask": "إنهاء التصميم",
     "reset": "إعادة ضبط"
   },
   "editor": {
@@ -251,7 +250,8 @@
     "gravity": "جاذبية المركز",
     "reset": "إعادة ضبط العرض",
     "zoomIn": "تكبير",
-    "zoomOut": "تصغير"
+    "zoomOut": "تصغير",
+    "hintTouch": "اسحب · حرّك · قرّب بإصبعين"
   },
   "help": {
     "title": "المساعدة والدليل",
@@ -412,5 +412,24 @@
   "a11y": {
     "decrease": "إنقاص",
     "increase": "زيادة"
+  },
+  "rel": {
+    "today": "اليوم",
+    "inOneDay": "بعد يوم",
+    "inDays": "بعد {{n}} أيام",
+    "inOneWeek": "بعد أسبوع",
+    "inWeeks": "بعد {{n}} أسابيع",
+    "inOneMonth": "بعد شهر",
+    "inMonths": "بعد {{n}} أشهر",
+    "inOneYear": "بعد سنة",
+    "inYears": "بعد {{n}} سنوات",
+    "oneDayAgo": "قبل يوم",
+    "daysAgo": "قبل {{n}} أيام",
+    "oneWeekAgo": "قبل أسبوع",
+    "weeksAgo": "قبل {{n}} أسابيع",
+    "oneMonthAgo": "قبل شهر",
+    "monthsAgo": "قبل {{n}} أشهر",
+    "oneYearAgo": "قبل سنة",
+    "yearsAgo": "قبل {{n}} سنوات"
   }
 }

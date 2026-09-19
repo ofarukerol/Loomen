@@ -28,6 +28,7 @@ export function EditorScreen() {
   const editing = useAppStore((s) => s.editing);
   const draft = useAppStore((s) => s.draft);
   const lineNumbers = useAppStore((s) => s.editorSettings.lineNumbers);
+  const draftEpoch = useAppStore((s) => s.draftEpoch);
   const setDraft = useAppStore((s) => s.setDraft);
   const toggleEditing = useAppStore((s) => s.toggleEditing);
   const saveNote = useAppStore((s) => s.saveNote);
@@ -53,6 +54,18 @@ export function EditorScreen() {
       if (timer.current) clearTimeout(timer.current);
     };
   }, [draft, editing, activeNote, saveNote]);
+
+  // Editörden çıkarken (başka ekrana geçiş, uygulama kapanışı) bekleyen kaydı boşalt.
+  // Yukarıdaki temizleme yalnız zamanlayıcıyı iptal eder; boşaltılmazsa debounce
+  // penceresindeki son yazılanlar hiç diske gitmeden kaybolur.
+  useEffect(() => {
+    const flush = () => void useAppStore.getState().flushDraft();
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      flush();
+    };
+  }, []);
 
   if (!activeNote || openTabs.length === 0) {
     return (
@@ -160,7 +173,7 @@ export function EditorScreen() {
           {editing ? (
             <div className="lo-editor__editwrap">
               <CodeMirrorEditor
-                key={`${activeNote}:${lineNumbers}`}
+                key={`${activeNote}:${lineNumbers}:${draftEpoch}`}
                 value={draft}
                 onChange={setDraft}
                 lineNumbers={lineNumbers}

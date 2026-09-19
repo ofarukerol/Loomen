@@ -1,8 +1,10 @@
+import { useTranslation } from "react-i18next";
 import { Check, Pencil, FileText, Target } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import type { Task } from "../../data/sampleVault";
 
 export function TaskRow({ task }: { task: Task }) {
+  const { t } = useTranslation();
   const toggleTask = useAppStore((s) => s.toggleTask);
   const openNote = useAppStore((s) => s.openNote);
   const selectTask = useAppStore((s) => s.selectTask);
@@ -21,7 +23,7 @@ export function TaskRow({ task }: { task: Task }) {
           e.stopPropagation();
           toggleTask(task.id);
         }}
-        aria-label={task.done ? "Tamamlandı" : "Tamamla"}
+        aria-label={task.done ? t("planner.markUndone") : t("planner.markDone")}
       >
         <span className={"lo-checkbox-md" + (task.done ? " is-done" : "") + (overdueOpen ? " is-overdue" : "")}>
           {task.done && <Check size={14} strokeWidth={3} color="#fff" />}

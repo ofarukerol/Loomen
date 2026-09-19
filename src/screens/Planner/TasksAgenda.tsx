@@ -17,7 +17,7 @@ export function TasksAgenda() {
     <div className="lo-planner__center">
       <div className="lo-planner__head">
         <div>
-          <div className="lo-year">2026</div>
+          <div className="lo-year">{new Date().getFullYear()}</div>
           <div className="lo-planner__titlerow">
             <h1 className="lo-planner__title">{t("planner.focusToday")}</h1>
           </div>

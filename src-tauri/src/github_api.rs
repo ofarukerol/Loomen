@@ -11,11 +11,13 @@ use std::path::Path;
 const UA: &str = "Loomen-App";
 const API: &str = "https://api.github.com";
 
-fn http() -> reqwest::Client {
+/// HTTP istemcisi. Kurulum başarısız olabilir (TLS kökleri okunamazsa); panik yerine
+/// hata döner, çağıran komut bunu arayüze mesaj olarak iletir.
+fn http() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent(UA)
         .build()
-        .expect("reqwest client")
+        .map_err(|e| format!("http istemcisi kurulamadı: {e}"))
 }
 
 #[derive(Serialize)]
@@ -217,7 +219,7 @@ pub async fn github_api_sync(
     token: String,
     base_sha: Option<String>,
 ) -> Result<ApiSyncResult, String> {
-    let c = http();
+    let c = http()?;
     let (o, r, br) = (owner.as_str(), repo.as_str(), branch.as_str());
 
     // 1) Uzak head + tree dosyaları

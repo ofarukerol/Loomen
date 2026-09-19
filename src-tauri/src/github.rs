@@ -5,11 +5,13 @@ use serde::Serialize;
 const UA: &str = "Loomen-App";
 const API: &str = "https://api.github.com";
 
-fn http() -> reqwest::Client {
+/// HTTP istemcisi. Kurulum başarısız olabilir (TLS kökleri okunamazsa); panik yerine
+/// hata döner, çağıran komut bunu arayüze mesaj olarak iletir.
+fn http() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent(UA)
         .build()
-        .expect("reqwest client")
+        .map_err(|e| format!("http istemcisi kurulamadı: {e}"))
 }
 
 // ---------- OAuth Device Flow ----------
@@ -25,7 +27,7 @@ pub struct DeviceStart {
 
 #[tauri::command]
 pub async fn github_device_start(client_id: String, scope: String) -> Result<DeviceStart, String> {
-    let res = http()
+    let res = http()?
         .post("https://github.com/login/device/code")
         .header("Accept", "application/json")
         .form(&[("client_id", client_id.as_str()), ("scope", scope.as_str())])
@@ -60,7 +62,7 @@ pub async fn github_device_poll(
     client_id: String,
     device_code: String,
 ) -> Result<DevicePoll, String> {
-    let res = http()
+    let res = http()?
         .post("https://github.com/login/oauth/access_token")
         .header("Accept", "application/json")
         .form(&[
@@ -96,7 +98,7 @@ pub struct GhUser {
 
 #[tauri::command]
 pub async fn github_user(token: String) -> Result<GhUser, String> {
-    let res = http()
+    let res = http()?
         .get(format!("{API}/user"))
         .header("Authorization", format!("Bearer {token}"))
         .header("Accept", "application/vnd.github+json")
@@ -137,7 +139,7 @@ fn to_repo(v: &serde_json::Value) -> GhRepo {
 
 #[tauri::command]
 pub async fn github_list_repos(token: String) -> Result<Vec<GhRepo>, String> {
-    let res = http()
+    let res = http()?
         .get(format!(
             "{API}/user/repos?per_page=100&sort=updated&affiliation=owner"
         ))
@@ -168,7 +170,7 @@ pub async fn github_create_repo(
         "auto_init": false, // boş repo → ilk senkron temiz push (unrelated-history merge'ü yok)
         "description": "Loomen kasası"
     });
-    let res = http()
+    let res = http()?
         .post(format!("{API}/user/repos"))
         .header("Authorization", format!("Bearer {token}"))
         .header("Accept", "application/vnd.github+json")

@@ -11,6 +11,30 @@ mod google;
 #[cfg(target_os = "macos")]
 mod macos_bookmark;
 
+use tauri_plugin_fs::FsExt;
+
+/// Kasa klasörünü fs eklentisinin çalışma zamanı kapsamına alır.
+///
+/// Statik kapsam (capabilities/default.json) yalnız `$HOME` ve `$APPDATA` altını kapsar;
+/// kullanıcı kasayı harici disk gibi başka bir yere koyduğunda ya da macOS kum havuzunda
+/// `$HOME` konteynere işaret ettiğinde okuma/yazma "forbidden path" ile reddedilir.
+/// Bu yüzden kasa yolu seçildiği ve yer imi çözüldüğü anda kapsama eklenir.
+fn allow_vault(app: &tauri::AppHandle, path: &str) -> Result<(), String> {
+    if path.is_empty() {
+        return Ok(());
+    }
+    app.fs_scope()
+        .allow_directory(path, true)
+        .map_err(|e| format!("kasa kapsama alınamadı: {e}"))
+}
+
+/// Kayıtlı kasa yolunu fs kapsamına alır — macOS dışı platformlarda (yer imi yok) açılışta
+/// ve kasa değiştirildiğinde arayüz bunu çağırır.
+#[tauri::command]
+fn vault_allow(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    allow_vault(&app, &path)
+}
+
 /// Frontend'in platforma göre davranması için (mobilde yerel kasa + API sync).
 #[tauri::command]
 fn app_is_mobile() -> bool {
@@ -54,29 +78,32 @@ fn app_is_sandboxed() -> bool {
 /// Kasa klasörü için security-scoped bookmark üretir (macOS sandbox / App Store).
 /// Diğer platformlarda sandbox yoktur; boş döner ve çağıran taraf yok sayar.
 #[tauri::command]
-fn bookmark_create(path: String) -> Result<String, String> {
+fn bookmark_create(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    // Kasa az önce seçildi: hangi platform olursa olsun kapsama al.
+    allow_vault(&app, &path)?;
     #[cfg(target_os = "macos")]
     {
         macos_bookmark::bookmark_create(path)
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = path;
         Ok(String::new())
     }
 }
 
 /// Bookmark'ı çözer ve klasöre erişimi başlatır (macOS sandbox).
 #[tauri::command]
-fn bookmark_resolve(data: String) -> Result<serde_json::Value, String> {
+fn bookmark_resolve(app: tauri::AppHandle, data: String) -> Result<serde_json::Value, String> {
     #[cfg(target_os = "macos")]
     {
         let r = macos_bookmark::bookmark_resolve(data)?;
+        // Yer imi erişimi açtı; fs eklentisinin kapsamı ayrı bir katman, onu da aç.
+        allow_vault(&app, &r.path)?;
         Ok(serde_json::json!({ "path": r.path, "stale": r.stale }))
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = data;
+        let _ = (app, data);
         Err("unsupported-platform".into())
     }
 }
@@ -109,6 +136,7 @@ pub fn run() {
         app_is_mobile,
         app_platform,
         app_is_sandboxed,
+        vault_allow,
         bookmark_create,
         bookmark_resolve,
         bookmark_release,
@@ -137,6 +165,7 @@ pub fn run() {
         app_is_mobile,
         app_platform,
         app_is_sandboxed,
+        vault_allow,
         bookmark_create,
         bookmark_resolve,
         bookmark_release,
@@ -197,7 +226,9 @@ pub fn run() {
         }
     });
 
-    builder
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    // Panik yerine okunur hata + çıkış kodu: çökme raporu yerine anlaşılır bir mesaj.
+    if let Err(e) = builder.run(tauri::generate_context!()) {
+        eprintln!("Loomen başlatılamadı: {e}");
+        std::process::exit(1);
+    }
 }

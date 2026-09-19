@@ -3,6 +3,7 @@
 // sadece amaçlanan değişiklik (tamamla / pomodoro / ekle) yazılır.
 
 import type { ParsedTask } from "../vault/types";
+import { matchTags, stripTags } from "./links";
 
 const TASK_RE = /^(\s*)- \[([ xX])\]\s+(.*)$/;
 const DATE = "(\\d{4}-\\d{2}-\\d{2})";
@@ -16,18 +17,50 @@ const EMOJI = {
 
 const PRIORITIES = ["🔺", "⏫", "🔼", "🔽", "⏬"];
 
+// — Satır sonu yönetimi —
+// Windows'ta yazılmış vault'lar CRLF kullanır. `\r` bir satır sonlandırıcı olduğundan
+// regex'teki `.` onu eşleştirmez; içerik yalnız "\n" ile bölünürse her satırın sonunda
+// kalan `\r` TASK_RE'yi bozar ve dosyadaki TÜM görevler kaybolur. Bu yüzden bölme her
+// üç biçimi de tanır, birleştirme dosyanın kendi satır sonunu korur.
+const EOL_RE = /\r\n|\r|\n/;
+
+function splitLines(content: string): string[] {
+  return content.split(EOL_RE);
+}
+
+function eolOf(content: string): string {
+  return content.includes("\r\n") ? "\r\n" : "\n";
+}
+
+const joinLines = (lines: string[], eol: string) => lines.join(eol);
+
+/**
+ * Takvimde gerçekten var olan bir gün mü?
+ * `\d{4}-\d{2}-\d{2}` deseni "2026-13-45" gibi imkansız tarihleri de geçirir; bunlar
+ * `parseISO` → Invalid Date üretip tarih biçimlendiren her yerde (gruplama, ajanda)
+ * RangeError ile patlar. Geçersiz tarih tarihsiz sayılır — görev kaybolmaz, kasa açılır.
+ */
+function isValidISODate(s: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+}
+
 function matchDate(text: string, emoji: string): string | undefined {
   const m = text.match(new RegExp(emoji + "\\s*" + DATE));
-  return m ? m[1] : undefined;
+  return m && isValidISODate(m[1]) ? m[1] : undefined;
 }
 
 /** Tek bir görev satırını parse et (eşleşmezse null). */
 export function parseTaskLine(file: string, line: number, raw: string): ParsedTask | null {
-  const m = raw.match(TASK_RE);
+  // Çağıran ham bir CRLF satırı verdiyse sondaki `\r`'ı at; yoksa TASK_RE eşleşmez.
+  const m = raw.replace(/\r$/, "").match(TASK_RE);
   if (!m) return null;
   const body = m[3];
 
-  const tags = Array.from(body.matchAll(/#([\p{L}\d_/-]+)/gu)).map((x) => x[1]);
+  const tags = matchTags(body);
   const pomoMatch = body.match(/🍅\s*[×x]\s*(\d+)/);
   const priority = PRIORITIES.find((p) => body.includes(p));
   const recMatch = body.match(/🔁\s*([^📅⏳🛫✅🔺⏫🔼🔽⏬#🍅⏰]+)/u);
@@ -36,12 +69,17 @@ export function parseTaskLine(file: string, line: number, raw: string): ParsedTa
   const time = timeMatch ? timeMatch[1] : undefined;
 
   // Açıklama: tüm meta token'ları çıkar, kalan metni temizle.
+  // Geçersiz tarih token'ı bilerek bırakılır: alan olarak okunmadığı için sökülseydi
+  // yeniden serileştirmede tamamen kaybolurdu.
   let description = body
-    .replace(new RegExp(`[${EMOJI.due}${EMOJI.scheduled}${EMOJI.start}${EMOJI.done}]\\s*${DATE}`, "gu"), "")
+    .replace(
+      new RegExp(`[${EMOJI.due}${EMOJI.scheduled}${EMOJI.start}${EMOJI.done}]\\s*${DATE}`, "gu"),
+      (whole, d: string) => (isValidISODate(d) ? "" : whole)
+    )
     .replace(/🍅\s*[×x]\s*\d+/g, "")
     .replace(/⏰\s*\d{1,2}:\d{2}/g, "")
-    .replace(/🔁[^📅⏳🛫✅🔺⏫🔼🔽⏬#⏰]*/g, "")
-    .replace(/#[\p{L}\d_/-]+/gu, "");
+    .replace(/🔁[^📅⏳🛫✅🔺⏫🔼🔽⏬#⏰]*/g, "");
+  description = stripTags(description);
   for (const p of PRIORITIES) description = description.split(p).join("");
   description = description.replace(/\s+/g, " ").trim();
 
@@ -67,7 +105,7 @@ export function parseTaskLine(file: string, line: number, raw: string): ParsedTa
 /** Bir dosyanın tüm görevlerini parse et. */
 export function parseTasks(file: string, content: string): ParsedTask[] {
   const tasks: ParsedTask[] = [];
-  content.split("\n").forEach((raw, i) => {
+  splitLines(content).forEach((raw, i) => {
     const t = parseTaskLine(file, i, raw);
     if (t) tasks.push(t);
   });
@@ -90,10 +128,10 @@ export function toggleDoneLine(raw: string, todayISO: string): string {
 
 /** Dosya içeriğindeki belirli satırın görev durumunu değiştir. */
 export function toggleTaskInContent(content: string, line: number, todayISO: string): string {
-  const lines = content.split("\n");
+  const lines = splitLines(content);
   if (line < 0 || line >= lines.length) return content;
   lines[line] = toggleDoneLine(lines[line], todayISO);
-  return lines.join("\n");
+  return joinLines(lines, eolOf(content));
 }
 
 /** Bir görevde düzenlenebilir alanlar. null = ilgili token'ı kaldır. */
@@ -140,12 +178,21 @@ export function serializeTaskLine(t: ParsedTask, patch: TaskPatch = {}): string 
   return parts.join(" ");
 }
 
-/** İçerikteki belirli satırı, görev yamasıyla güncelle. */
+/**
+ * İçerikteki belirli satırı, görev yamasıyla güncelle.
+ *
+ * Güvenlik kilidi: görev parse edildikten sonra dosya dışarıdan değişmiş olabilir
+ * (senkron istemci, başka bir pencere, kullanıcının kendi editörü). O durumda `line`
+ * artık başka bir satırı gösterir ve yama masum bir satırın üzerine yazar. `t.raw`
+ * beklenen satırla birebir tutmuyorsa yama reddedilir ve içerik olduğu gibi döner —
+ * kayıp bir düzenleme, kaybolmuş bir satırdan iyidir.
+ */
 export function applyTaskPatch(content: string, line: number, t: ParsedTask, patch: TaskPatch): string {
-  const lines = content.split("\n");
+  const lines = splitLines(content);
   if (line < 0 || line >= lines.length) return content;
+  if (lines[line].replace(/\r$/, "") !== t.raw.replace(/\r$/, "")) return content; // satır kaymış
   lines[line] = serializeTaskLine(t, patch);
-  return lines.join("\n");
+  return joinLines(lines, eolOf(content));
 }
 
 const CHILD_INDENT = "    "; // 4 boşluk — alt görev / not bir seviye girinti
@@ -177,7 +224,7 @@ export interface SubtaskItem {
 
 /** Bir görev satırından sonraki alt görevleri oku. */
 export function getSubtasks(content: string, line: number): SubtaskItem[] {
-  const lines = content.split("\n");
+  const lines = splitLines(content);
   if (line < 0 || line >= lines.length) return [];
   const [s, e] = childBlockRange(lines, line);
   const out: SubtaskItem[] = [];
@@ -190,13 +237,13 @@ export function getSubtasks(content: string, line: number): SubtaskItem[] {
 
 /** Görev satırından sonraki girintili not bloğunu düz metin olarak oku (alt görev satırları hariç). */
 export function getTaskNotes(content: string, line: number): string {
-  const lines = content.split("\n");
+  const lines = splitLines(content);
   if (line < 0 || line >= lines.length) return "";
   const [s, e] = childBlockRange(lines, line);
   const out: string[] = [];
   for (let i = s; i < e; i++) {
     if (TASK_RE.test(lines[i])) continue; // alt görev → not değil
-    out.push(lines[i].replace(/^\s{1,4}|\t/, ""));
+    out.push(lines[i].replace(/^(?:\t|[ ]{1,4})/, "")); // yalnız satır başındaki bir seviye girinti
   }
   return out.join("\n");
 }
@@ -208,16 +255,19 @@ export function setTaskChildren(
   subtasks: { text: string; done: boolean }[],
   notes: string
 ): string {
-  const lines = content.split("\n");
+  const lines = splitLines(content);
   if (line < 0 || line >= lines.length) return content;
+  // Hedef satır gerçekten bir görev değilse dosya kaymış demektir; bu blok yazımı
+  // başka bir paragrafın altındaki satırları silerdi (bkz applyTaskPatch kilidi).
+  if (!TASK_RE.test(lines[line])) return content;
   const childIndent = leadWs(lines[line]) + CHILD_INDENT;
   const [s, e] = childBlockRange(lines, line);
   const subLines = subtasks
     .filter((st) => st.text.trim())
     .map((st) => `${childIndent}- [${st.done ? "x" : " "}] ${st.text.trim()}`);
-  const noteLines = notes.trim() ? notes.trim().split("\n").map((l) => childIndent + l) : [];
+  const noteLines = notes.trim() ? splitLines(notes.trim()).map((l) => childIndent + l) : [];
   lines.splice(s, e - s, ...subLines, ...noteLines);
-  return lines.join("\n");
+  return joinLines(lines, eolOf(content));
 }
 
 /** Görev satırının altındaki not bloğunu değiştir (alt görevleri korur). */
@@ -233,11 +283,11 @@ export function setSubtasks(content: string, line: number, subtasks: { text: str
 
 /** Bir görev satırını dosya içinde başka bir satıra taşı (sürükle-bırak sıralama). */
 export function moveTaskLine(content: string, from: number, to: number): string {
-  const lines = content.split("\n");
+  const lines = splitLines(content);
   if (from < 0 || from >= lines.length || to < 0 || to >= lines.length || from === to) return content;
   const [moved] = lines.splice(from, 1);
   lines.splice(to, 0, moved);
-  return lines.join("\n");
+  return joinLines(lines, eolOf(content));
 }
 
 /** Hızlı-ekle: tek satır metinden görev satırı üret (📅 bugün ekler). */
@@ -249,17 +299,18 @@ export function buildTaskLine(text: string, dueISO?: string): string {
 
 /** İçeriğin sonuna yeni görev satırı ekle (boş satır yönetimiyle). */
 export function appendTaskToContent(content: string, taskLine: string): string {
+  const eol = eolOf(content);
   const trimmed = content.replace(/\s*$/, "");
-  return (trimmed ? trimmed + "\n" : "") + taskLine + "\n";
+  return (trimmed ? trimmed + eol : "") + taskLine + eol;
 }
 
 /** Görevi belirli bir başlığın hemen altına ekle; başlık yoksa sona ekle. */
 export function insertTaskUnderHeading(content: string, headingRe: RegExp, taskLine: string): string {
-  const lines = content.split("\n");
+  const lines = splitLines(content);
   const idx = lines.findIndex((l) => headingRe.test(l));
   if (idx === -1) return appendTaskToContent(content, taskLine);
   let at = idx + 1;
   while (at < lines.length && lines[at].trim() === "") at++; // başlık sonrası boş satırları atla
   lines.splice(at, 0, taskLine);
-  return lines.join("\n");
+  return joinLines(lines, eolOf(content));
 }

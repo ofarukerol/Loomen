@@ -1,5 +1,6 @@
 import { differenceInCalendarDays, parseISO, format } from "date-fns";
-import { tr } from "date-fns/locale";
+import { tr, enUS, ar } from "date-fns/locale";
+import i18n from "../../i18n";
 import { relativeLabel } from "../../lib/relativeDate";
 import type { Task, TaskGroup, GroupKind } from "../../data/sampleVault";
 import type { ParsedTask } from "./types";
@@ -58,7 +59,19 @@ function kindOf(dateISO: string, todayISO: string): GroupKind {
   return "upcoming";
 }
 
-const SUB: Record<GroupKind, string> = { today: "Bugün", overdue: "Geciken", upcoming: "Yaklaşan" };
+/** Grup rozeti anahtarları — metin çeviri dosyasından gelir. */
+const SUB_KEY: Record<GroupKind, string> = {
+  today: "board.today",
+  overdue: "board.overdue",
+  upcoming: "board.upcoming",
+};
+
+const DATE_LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
+
+/** Aktif dilin date-fns yerel ayarı (gün/ay adları elle yazılmaz). */
+function activeLocale() {
+  return DATE_LOCALES[i18n.language] ?? tr;
+}
 
 export interface GroupedTasks {
   groups: TaskGroup[];
@@ -117,8 +130,8 @@ export function groupTasks(
         .map((t) => toUiTask(t, todayISO, kind));
       return {
         id: dateISO,
-        label: format(date, "EEEE, d MMM", { locale: tr }),
-        sub: SUB[kind],
+        label: format(date, "EEEE, d MMM", { locale: activeLocale() }),
+        sub: i18n.t(SUB_KEY[kind]),
         kind,
         tasks: tasksOfDay,
       };

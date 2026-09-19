@@ -21,11 +21,13 @@ const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const LOGIN_TIMEOUT_SECS: u64 = 300; // kullanıcının tarayıcıda onaylaması için süre
 
-fn http() -> reqwest::Client {
+/// HTTP istemcisi. Kurulum başarısız olabilir (TLS kökleri okunamazsa); panik yerine
+/// hata döner, çağıran komut bunu arayüze mesaj olarak iletir.
+fn http() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent(UA)
         .build()
-        .expect("reqwest client")
+        .map_err(|e| format!("http istemcisi kurulamadı: {e}"))
 }
 
 /// URL-safe base64 (padding'siz) rastgele dize — PKCE verifier ve state için.
@@ -154,7 +156,7 @@ async fn exchange_code(
     verifier: &str,
     redirect_uri: &str,
 ) -> Result<GoogleTokens, String> {
-    let res = http()
+    let res = http()?
         .post(TOKEN_URL)
         .form(&[
             ("client_id", client_id),
@@ -265,7 +267,7 @@ pub async fn google_exchange(
     verifier: String,
     redirect_uri: String,
 ) -> Result<GoogleTokens, String> {
-    let res = http()
+    let res = http()?
         .post(TOKEN_URL)
         .form(&[
             ("client_id", client_id.as_str()),
@@ -291,7 +293,7 @@ pub async fn google_refresh_pkce(
     client_id: String,
     refresh_token: String,
 ) -> Result<GoogleTokens, String> {
-    let res = http()
+    let res = http()?
         .post(TOKEN_URL)
         .form(&[
             ("client_id", client_id.as_str()),
@@ -320,7 +322,7 @@ pub async fn google_refresh(
     client_secret: String,
     refresh_token: String,
 ) -> Result<GoogleTokens, String> {
-    let res = http()
+    let res = http()?
         .post(TOKEN_URL)
         .form(&[
             ("client_id", client_id.as_str()),
@@ -355,7 +357,7 @@ pub struct GUser {
 
 #[tauri::command]
 pub async fn google_userinfo(access_token: String) -> Result<GUser, String> {
-    let res = http()
+    let res = http()?
         .get("https://www.googleapis.com/oauth2/v3/userinfo")
         .bearer_auth(&access_token)
         .send()
@@ -384,7 +386,7 @@ pub struct GCalendar {
 
 #[tauri::command]
 pub async fn google_list_calendars(access_token: String) -> Result<Vec<GCalendar>, String> {
-    let res = http()
+    let res = http()?
         .get(format!("{CAL_API}/users/me/calendarList?minAccessRole=writer"))
         .bearer_auth(&access_token)
         .send()
@@ -439,7 +441,7 @@ pub async fn google_list_events(
         ],
     )
     .map_err(|e| e.to_string())?;
-    let res = http()
+    let res = http()?
         .get(url)
         .bearer_auth(&access_token)
         .send()
@@ -509,7 +511,7 @@ pub async fn google_upsert_event(
     payload: Value,
 ) -> Result<UpsertResult, String> {
     let base = format!("{CAL_API}/calendars/{}/events", urlencode_path(&calendar_id));
-    let client = http();
+    let client = http()?;
     let req = match &event_id {
         Some(id) => client
             .patch(format!("{base}/{}", urlencode_path(id)))
@@ -542,7 +544,7 @@ pub async fn google_delete_event(
         urlencode_path(&calendar_id),
         urlencode_path(&event_id)
     );
-    let res = http()
+    let res = http()?
         .delete(url)
         .bearer_auth(&access_token)
         .send()

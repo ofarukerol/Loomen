@@ -9,7 +9,6 @@
     "graph": "Graf",
     "reports": "Raporlar",
     "mobile": "Mobil",
-    "rtl": "عربي / RTL",
     "settings": "Ayarlar",
     "theme": "Tema",
     "draw": "Çizim",
@@ -23,7 +22,9 @@
     "total": "Toplam Seans",
     "focusTime": "Odak Süresi",
     "last7": "Son 7 Gün",
-    "empty": "Henüz tamamlanmış Pomodoro seansı yok."
+    "empty": "Henüz tamamlanmış Pomodoro seansı yok.",
+    "hoursMinutes": "{{h}}s {{m}}dk",
+    "minutes": "{{m}}dk"
   },
   "explorer": {
     "vault": "Kasa",
@@ -62,7 +63,6 @@
   },
   "planner": {
     "focusToday": "Bugüne Odaklan",
-    "today": "Cumartesi, 13 Haziran",
     "timeline": "Zaman Çizelgesi",
     "board": "Pano",
     "todo": "Yapılacak",
@@ -82,7 +82,9 @@
     "toggleLeft": "Sol paneli aç/kapat",
     "toggleRight": "Sağ paneli aç/kapat",
     "moreTasks": "+{{count}} görev daha",
-    "addTask": "Ekle"
+    "addTask": "Ekle",
+    "markDone": "Tamamla",
+    "markUndone": "Geri al"
   },
   "board": {
     "overdue": "Geciken",
@@ -135,7 +137,6 @@
     "list": "Liste"
   },
   "calendar": {
-    "month": "Haziran 2026",
     "weekdays": [
       "Pzt",
       "Sal",
@@ -156,8 +157,6 @@
     "skip": "Es geç",
     "start": "Başlat",
     "pause": "Duraklat",
-    "focusOn": "Odak:",
-    "currentTask": "Tasarımı bitir",
     "reset": "Sıfırla"
   },
   "editor": {
@@ -254,7 +253,8 @@
     "gravity": "Merkez çekimi",
     "reset": "Görünümü sıfırla",
     "zoomIn": "Yakınlaştır",
-    "zoomOut": "Uzaklaştır"
+    "zoomOut": "Uzaklaştır",
+    "hintTouch": "Sürükle · kaydır · parmakla yakınlaştır"
   },
   "help": {
     "title": "Yardım & Rehber",
@@ -412,5 +412,24 @@
   "a11y": {
     "decrease": "Azalt",
     "increase": "Artır"
+  },
+  "rel": {
+    "today": "bugün",
+    "inOneDay": "bir gün sonra",
+    "inDays": "{{n}} gün sonra",
+    "inOneWeek": "bir hafta sonra",
+    "inWeeks": "{{n}} hafta sonra",
+    "inOneMonth": "bir ay sonra",
+    "inMonths": "{{n}} ay sonra",
+    "inOneYear": "bir yıl sonra",
+    "inYears": "{{n}} yıl sonra",
+    "oneDayAgo": "bir gün önce",
+    "daysAgo": "{{n}} gün önce",
+    "oneWeekAgo": "bir hafta önce",
+    "weeksAgo": "{{n}} hafta önce",
+    "oneMonthAgo": "bir ay önce",
+    "monthsAgo": "{{n}} ay önce",
+    "oneYearAgo": "bir yıl önce",
+    "yearsAgo": "{{n}} yıl önce"
   }
 }
