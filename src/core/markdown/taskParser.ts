@@ -202,10 +202,23 @@ export function serializeTaskLine(t: ParsedTask, patch: TaskPatch = {}): string 
  * beklenen satırla birebir tutmuyorsa yama reddedilir ve içerik olduğu gibi döner —
  * kayıp bir düzenleme, kaybolmuş bir satırdan iyidir.
  */
+/**
+ * O satırda hâlâ AYNI görev mi duruyor?
+ *
+ * Dosya dışarıdan değiştiyse (senkron, ikinci pencere) satır numarası kayar ve
+ * orada başka bir görev bulunur. Yazmadan önce bunu sormak şart: yalnız
+ * "bu satır bir görev mi" diye bakmak, kullanıcının alt görev/not bloğunu
+ * masum bir görevin altına yazıp onunkileri silmeye yetiyor.
+ */
+export function taskLineMatches(content: string, line: number, raw: string): boolean {
+  const lines = splitLines(content);
+  if (line < 0 || line >= lines.length) return false;
+  return lines[line].replace(/\r$/, "") === raw.replace(/\r$/, "");
+}
+
 export function applyTaskPatch(content: string, line: number, t: ParsedTask, patch: TaskPatch): string {
   const lines = splitLines(content);
-  if (line < 0 || line >= lines.length) return content;
-  if (lines[line].replace(/\r$/, "") !== t.raw.replace(/\r$/, "")) return content; // satır kaymış
+  if (!taskLineMatches(content, line, t.raw)) return content; // satır kaymış
   lines[line] = serializeTaskLine(t, patch);
   return joinLines(lines, eolOf(content));
 }

@@ -42,7 +42,7 @@ import {
   type GCalendar,
   type GEvent,
 } from "../core/google";
-import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
+import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, taskLineMatches, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
 
 export type Theme = "light" | "dark";
 export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help";
@@ -232,7 +232,8 @@ interface AppState {
   toggleBacklinks: () => void;
   saveNote: () => Promise<void>;
   /** Bekleyen taslağı hemen diske yaz (editör kapanırken / not değişirken çağrılır). */
-  flushDraft: () => Promise<void>;
+  /** Bekleyen taslağı yazar. `false` = yazılamadı (çağıran devam etmemeli). */
+  flushDraft: () => Promise<boolean>;
   setAccent: (hex: string) => void;
   toggleEditorSetting: (key: keyof EditorSettings) => void;
   toggleArabic: () => void;
@@ -410,10 +411,23 @@ export const useAppStore = create<AppState>()(
    * ve kullanıcının yazılmamış değişikliği YOKSA (draft === eski içerik) taslak yeni içerikle
    * güncellenir. Yoksa bekleyen autosave bayat taslağı geri yazıp değişikliği geri alırdı.
    */
+  /**
+   * Okuma sırası sayacı: hangi okumanın EN GÜNCEL okuma olduğunu söyler.
+   *
+   * loadFromBackend'i izleyici (400 ms), git senkronu, görev işaretleme ve
+   * dakikalık tarih kontrolü aynı anda çağırabiliyor. "Backend değişti mi"
+   * kontrolü aynı kasa içindeki yarışı yakalamıyordu: erken başlayan bir okuma
+   * geç bitip yeni içeriğin üstüne düşerse, taslak "temiz" göründüğü için
+   * editöre ESKİ metin konuyor ve sonraki autosave onu diske geri yazıyordu.
+   */
+  let loadSeq = 0;
+
   async function loadFromBackend() {
     const src = backend;
+    const bu = ++loadSeq;
     const { tasks, notes, contents } = await loadVaultData(src);
     if (backend !== src) return; // arada kasa değişti → eski kasanın verisini yazma
+    if (bu !== loadSeq) return; // daha yeni bir okuma başladı → bu sonuç bayat
     const today = todayISO();
     const s = get();
     const { groups, unplannedTasks } = groupTasks(tasks, today, s.taskOrder);
@@ -444,20 +458,25 @@ export const useAppStore = create<AppState>()(
    * Kasa değişmeden ve dosya taşınmadan önce çağrılır: aksi halde bekleyen autosave
    * ya yeni kasaya ya da artık var olmayan eski yola yazardı (veri kaybı).
    */
-  async function flushDraft(): Promise<void> {
+  async function flushDraft(): Promise<boolean> {
     // Değerler ŞİMDİ yakalanır: çağıran hemen ardından aktif notu değiştirebilir
     // (openNote/closeTab) — yazma o zaman bile DOĞRU dosyaya, doğru metinle gider.
     const s = get();
     const p = s.draftPath;
     const text = s.draft;
-    if (!p || p !== s.activeNote) return; // sahipsiz taslak asla yazılmaz (NOTE_SAFETY)
-    if (text === s.noteContents[p]) return;
-    if (!s.notes.some((n) => n.path === p && n.kind === "note")) return;
+    if (!p || p !== s.activeNote) return true; // sahipsiz taslak asla yazılmaz (NOTE_SAFETY)
+    if (text === s.noteContents[p]) return true;
+    if (!s.notes.some((n) => n.path === p && n.kind === "note")) return true;
     try {
       await backend.writeNote(p, text);
       set((st) => ({ noteContents: { ...st.noteContents, [p]: text } }));
+      return true;
     } catch (e) {
       await notifyError(`Not kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+      // Sonuç DÖNDÜRÜLÜR: çağıran bunu bilmeden devam edip taslağı temizlerse
+      // kullanıcı önce "kaydedilemedi" uyarısını görüyor, hemen ardından
+      // yazdığı metni de kaybediyordu.
+      return false;
     }
   }
 
@@ -607,7 +626,13 @@ export const useAppStore = create<AppState>()(
     setTheme: (theme) => set({ theme }),
     setScreen: (screen) => set({ screen }),
     setLayout: (layout) => set({ layout }),
-    setLang: (lang) => set({ lang }),
+    // Grup başlıkları ve göreli tarihler VERİ ÜRETİM ANINDA çevriliyor; yalnız
+    // `lang`'i değiştirmek ekranı eski dilde bırakıyordu (kasa yeniden
+    // yüklenene kadar). Dil değişince gruplar yeniden türetilir.
+    setLang: (lang) => {
+      set({ lang });
+      void loadFromBackend();
+    },
     setEditorTab: (editorTab) => set({ editorTab }),
     openNote: async (nameOrPath, edit = true) => {
       // Ayrılan notun bekleyen taslağını yaz: autosave 700 ms gecikmeli, o pencerede not
@@ -1032,7 +1057,13 @@ export const useAppStore = create<AppState>()(
 
           // Kasa değişmeden ÖNCE bekleyen taslağı eski kasaya yaz; aksi halde debounce'lu
           // autosave backend değiştikten sonra ateşler ve notu YENİ kasaya yazardı.
-          if (isSwitch) await flushDraft();
+          // Yazma BAŞARISIZSA kasa değişimi iptal edilir: aşağıda taslak zaten
+          // temizleniyor ve kullanıcı "kaydedilemedi" uyarısının hemen ardından
+          // yazdığı metni de kaybediyordu.
+          if (isSwitch && !(await flushDraft())) {
+            await notifyError("Not kaydedilemediği için kasa değiştirilmedi; metniniz duruyor.");
+            return;
+          }
 
           // Mevcut kasanın açık sekmelerini sakla (geri dönülünce geri yüklenir).
           const curTabs = get();
@@ -1308,14 +1339,37 @@ export const useAppStore = create<AppState>()(
       // Yalnız markdown notları: noteContents .excalidraw sahnelerini de tutar, onların
       // JSON'unu bağlantı yeniden yazımıyla ellemek çizimi bozardı.
       const isMd = (p: string) => cur.notes.some((n) => n.path === p && n.kind === "note");
+      // Yazılamayan notlar sayılır: `.catch(() => {})` izin/disk/kilit hatasını
+      // tamamen gizliyordu — dosya yeniden adlandırılmış, bağlantıların bir
+      // kısmı güncellenmiş, kalanı kırık kalmış oluyor ve kullanıcı
+      // hangilerinin bozulduğunu asla öğrenmiyordu.
+      const bozuklar: string[] = [];
       for (const [p, c] of Object.entries(cur.noteContents)) {
         if (p === path || !isMd(p)) continue; // taşındı; içeriği yeni yolda okunacak
         const nextC = rewriteWikiLinks(c, note.name, clean);
-        if (nextC !== c) await backend.writeNote(p, nextC).catch(() => {});
+        if (nextC === c) continue;
+        try {
+          await backend.writeNote(p, nextC);
+        } catch {
+          bozuklar.push(p);
+        }
       }
-      // Notun kendi gövdesindeki kendine-bağlantılar da güncellenir.
-      const own = rewriteWikiLinks(cur.noteContents[path] ?? "", note.name, clean);
-      if (own !== (cur.noteContents[path] ?? "")) await backend.writeNote(to, own).catch(() => {});
+      // Notun kendi gövdesindeki kendine-bağlantılar da güncellenir. İçerik
+      // DİSKTEN okunur: bellekteki kopya bayatsa dış değişikliği ezerdi
+      // (openNote'ta aynı özen gösteriliyor, burada gösterilmemişti).
+      try {
+        const diskten = await backend.readNote(to);
+        const own = rewriteWikiLinks(diskten, note.name, clean);
+        if (own !== diskten) await backend.writeNote(to, own);
+      } catch {
+        bozuklar.push(to);
+      }
+      if (bozuklar.length) {
+        await notifyError(
+          `Yeniden adlandırma bitti ama ${bozuklar.length} notta bağlantılar güncellenemedi: ` +
+            `${bozuklar.slice(0, 5).join(", ")}${bozuklar.length > 5 ? "…" : ""}`,
+        );
+      }
       // Yola göre anahtarlanan her şey taşınır — aksi halde sabitlenen sekme, favori ve
       // manuel görev sırası yeniden adlandırmada sessizce düşerdi.
       const moveOrderKey = (key: string) =>
@@ -1513,6 +1567,15 @@ export const useAppStore = create<AppState>()(
         if (!task) return;
         try {
           const content = await backend.readNote(file);
+          // Satır kaymışsa applyTaskPatch içeriği DEĞİŞTİRMEDEN döndürür ve
+          // eskiden aynı içerik sessizce geri yazılıyordu: kullanıcı kaydettim
+          // sanıyor, değişiklik bir an görünüp kayboluyordu. toggleTask bu
+          // durumda düzgünce uyarıyor; burada da aynısı yapılır.
+          if (!taskLineMatches(content, line, task.raw)) {
+            await loadFromBackend();
+            await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            return;
+          }
           await backend.writeNote(file, applyTaskPatch(content, line, task, patch));
         } catch (e) {
           await notifyError(`Görev güncellenemedi: ${e instanceof Error ? e.message : String(e)}`);
@@ -1532,6 +1595,15 @@ export const useAppStore = create<AppState>()(
         if (!task) return;
         try {
           const content = await backend.readNote(file);
+          // KRİTİK: satır kaymışsa applyTaskPatch reddediyor ama setTaskChildren
+          // bundan habersiz çalışıyordu. O satırda artık BAŞKA bir görev
+          // duruyorsa kullanıcının alt görev/not bloğu onun altına yazılıyor ve
+          // onun mevcut alt satırları siliniyordu — geri alınamaz veri kaybı.
+          if (!taskLineMatches(content, line, task.raw)) {
+            await loadFromBackend();
+            await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            return;
+          }
           let next = applyTaskPatch(content, line, task, patch);
           // Alt görevler ve notlar aynı çocuk bloğunu paylaşır — tek seferde birlikte yazılır.
           if (notes !== undefined || subtasks !== undefined) {
@@ -1574,6 +1646,14 @@ export const useAppStore = create<AppState>()(
         if (tDate && dDate !== tDate) {
           const field: "scheduled" | "due" = dTask.scheduled && !dTask.due ? "scheduled" : "due";
           const content = await backend.readNote(dTask.file);
+          // Satır kaymışsa yazma hiç olmuyor ama aşağıda `rescheduled` true
+          // yapılıp yerel liste güncelleniyordu: ekranda taşınmış görünen görev
+          // diskte eski gününde kalıyordu.
+          if (!taskLineMatches(content, dTask.line, dTask.raw)) {
+            await loadFromBackend();
+            await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            return;
+          }
           await backend.writeNote(dTask.file, applyTaskPatch(content, dTask.line, dTask, { [field]: tDate }));
           // Yerel kopyayı güncelle ki gruplama yeni günü hemen yansıtsın.
           parsedTasks = s.parsedTasks.map((p) =>
@@ -1890,23 +1970,33 @@ export const useAppStore = create<AppState>()(
       },
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        // Uygulama kapalıyken süresi dolmuş sayaç: kullanıcı masa başında mıydı bilinmiyor,
-        // hayalet bir "tamamlandı" kaydı yazma — temiz başlangıca dön.
-        if (state.pomoRunning && (state.pomoEndsAt ?? 0) <= Date.now()) {
-          useAppStore.setState({
-            pomoRunning: false,
-            pomoEndsAt: null,
-            pomoRemaining: state.pomo.focusMin * 60,
-          });
-        }
-        if (state.pomoBreakRunning && (state.pomoBreakEndsAt ?? 0) <= Date.now()) {
-          useAppStore.setState({ pomoBreakRunning: false, pomoBreakEndsAt: null, pomoBreakActive: false });
-        }
-        // Kayıtlı kasayı backend olarak yeniden aç (HMR/yeniden başlatmada vaultPath
-        // kaybolup "Kasa seç"e düşmesin).
-        if (state.vaultPath && isTauri()) {
-          queueMicrotask(() => void useAppStore.getState().reopenVault(state.vaultPath!));
-        }
+        // TÜM iş mikrogörevde: localStorage senkron olduğu için bu geri çağrı
+        // doğrudan create() çağrısının içinde çalışıyor ve o anda `useAppStore`
+        // sabiti HENÜZ TANIMLI DEĞİL. Buradan doğrudan `useAppStore.setState`
+        // çağırmak ReferenceError atıyordu; zustand hatayı yutup geri çağrıyı
+        // state=undefined ile tekrar çalıştırıyor, o da ilk satırda çıkıyordu.
+        // Sonuç: süresi dolmuş sayaç temizlenmiyor VE altındaki kasa geri
+        // yükleme adımına hiç sıra gelmiyordu — kullanıcı "Kasa seç" ekranına
+        // düşüyordu. Kasa satırı zaten mikrogörevdeydi, sayaç satırları değildi.
+        queueMicrotask(() => {
+          // Uygulama kapalıyken süresi dolmuş sayaç: kullanıcı masa başında mıydı
+          // bilinmiyor, hayalet bir "tamamlandı" kaydı yazma — temiz başlangıca dön.
+          if (state.pomoRunning && (state.pomoEndsAt ?? 0) <= Date.now()) {
+            useAppStore.setState({
+              pomoRunning: false,
+              pomoEndsAt: null,
+              pomoRemaining: state.pomo.focusMin * 60,
+            });
+          }
+          if (state.pomoBreakRunning && (state.pomoBreakEndsAt ?? 0) <= Date.now()) {
+            useAppStore.setState({ pomoBreakRunning: false, pomoBreakEndsAt: null, pomoBreakActive: false });
+          }
+          // Kayıtlı kasayı backend olarak yeniden aç (HMR/yeniden başlatmada
+          // vaultPath kaybolup "Kasa seç"e düşmesin).
+          if (state.vaultPath && isTauri()) {
+            void useAppStore.getState().reopenVault(state.vaultPath);
+          }
+        });
       },
       // Yalnızca kullanıcı tercihlerini + seçili kasa yolunu kalıcı yap (vault verisi türetilir).
       partialize: (s) => ({

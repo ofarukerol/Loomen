@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { addDays, format, startOfWeek } from "date-fns";
+import { tr, enUS, ar, type Locale } from "date-fns/locale";
 import {
   X,
   FileText,
@@ -34,7 +36,18 @@ import { Stepper } from "./Stepper";
 type RecurKey = "none" | "daily" | "weekly" | "monthly" | "yearly";
 
 const WD_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const WD_TR = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+/**
+ * Gün kısaltmaları aktif dilin yerel ayarından üretilir.
+ *
+ * Sabit Türkçe liste her dilde "Pzt, Sal…" gösteriyordu; DatePicker aynı sorunu
+ * date-fns yerel ayarıyla çözmüşken burada çözülmemişti.
+ */
+function haftaGunleri(locale: Locale): string[] {
+  const ilk = startOfWeek(new Date(), { weekStartsOn: 1 });
+  return Array.from({ length: 7 }, (_, i) => format(addDays(ilk, i), "EEEEEE", { locale }));
+}
+
+const LOCALES: Record<string, Locale> = { tr, en: enUS, ar };
 
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -89,7 +102,8 @@ function noteName(file: string) {
 
 /** Görev detay/düzenleme modalı — modern takvim, saat, tekrar, öncelik, notlar. */
 export function TaskDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const haftaAdlari = useMemo(() => haftaGunleri(LOCALES[i18n.language] ?? tr), [i18n.language]);
   const id = useAppStore((s) => s.selectedTask);
   const tasks = useAppStore((s) => s.parsedTasks);
   const contents = useAppStore((s) => s.noteContents);
@@ -331,7 +345,7 @@ export function TaskDetail() {
                   <div className="lo-recur__row">
                     <span className="lo-recur__lbl">{t("taskDetail.onDay")}</span>
                     <div className="lo-recur__days">
-                      {WD_TR.map((w, i) => (
+                      {haftaAdlari.map((w, i) => (
                         <button
                           key={w}
                           className={"lo-recur__day" + (weekday === i ? " is-active" : "")}

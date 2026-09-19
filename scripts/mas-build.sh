@@ -62,9 +62,14 @@ xcrun productbuild --sign "$PKG_CERT" --component "$APP" /Applications Loomen.pk
 : "${APPLE_API_ISSUER:?APPLE_API_ISSUER gerekli (App Store Connect issuer id)}"
 
 KEY_FILE="AuthKey_${APPLE_API_KEY_ID}.p8"
-if ! ls "./private_keys/$KEY_FILE" "$HOME/private_keys/$KEY_FILE" \
-        "$HOME/.private_keys/$KEY_FILE" "$HOME/.appstoreconnect/private_keys/$KEY_FILE" \
-        >/dev/null 2>&1; then
+# `ls A B C D` operandlardan HERHANGİ biri yoksa sıfırdan farklı döner, hepsi
+# yoksa değil. Anahtar gerçek hayattaki gibi dört klasörden yalnız BİRİNDE
+# durduğunda betik "bulunamadı" deyip çıkıyordu; mağazaya gönderme yolu fiilen
+# kapalıydı. Doğru soru "herhangi birinde var mı".
+if [ ! -f "./private_keys/$KEY_FILE" ] \
+   && [ ! -f "$HOME/private_keys/$KEY_FILE" ] \
+   && [ ! -f "$HOME/.private_keys/$KEY_FILE" ] \
+   && [ ! -f "$HOME/.appstoreconnect/private_keys/$KEY_FILE" ]; then
   echo "HATA: $KEY_FILE bulunamadı. altool anahtarı yalnız şu klasörlerde arar:" >&2
   echo "      ./private_keys, ~/private_keys, ~/.private_keys, ~/.appstoreconnect/private_keys" >&2
   echo "      Çözüm: mkdir -p ~/.appstoreconnect/private_keys && cp \"\$APPLE_API_KEY_PATH\" ~/.appstoreconnect/private_keys/$KEY_FILE" >&2

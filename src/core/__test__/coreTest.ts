@@ -18,6 +18,7 @@ import {
   setTaskChildren,
   appendTaskToContent,
   buildTaskLine,
+  taskLineMatches,
 } from "../markdown/taskParser";
 import {
   extractWikiLinks,
@@ -288,6 +289,22 @@ eq("30 günden yeni kayıt dolmamış", isExpired(now - 29 * 86400000, now), fal
 eq("31 günlük kayıt dolmuş", isExpired(now - 31 * 86400000, now), true);
 eq("Kalan gün", daysLeft(now - 10 * 86400000, now), 20);
 eq("Dolmuş kayıtta kalan gün 0", daysLeft(now - 40 * 86400000, now), 0);
+
+// ─────────────────────────────────────────────────────────────────────────────
+section("Satır kayması koruması (LOM-10)");
+
+{
+  const dosya = ["- [ ] A görevi", "    - [ ] A'nın alt görevi", "- [ ] B görevi"].join("\n");
+  eq("Satır yerindeyse tutar", taskLineMatches(dosya, 0, "- [ ] A görevi"), true);
+  // KRİTİK: dosya dışarıdan değişti, 0. satırda artık BAŞKA bir görev var.
+  // Eskiden yalnız applyTaskPatch reddediyordu; setTaskChildren habersiz
+  // çalışıp bu masum görevin alt satırlarını siliyordu.
+  eq("Satır kaymışsa tutmaz", taskLineMatches(dosya, 0, "- [ ] Bambaşka görev"), false);
+  eq("Dosya sonu aşılırsa tutmaz", taskLineMatches(dosya, 99, "- [ ] A görevi"), false);
+  eq("Eksi satır tutmaz", taskLineMatches(dosya, -1, "- [ ] A görevi"), false);
+  // Windows satır sonu ikisinde de tolere edilir (CRLF düzeltmesiyle uyumlu).
+  eq("CRLF farkı kaymaya sayılmaz", taskLineMatches("- [ ] A görevi\r\n- [ ] B", 0, "- [ ] A görevi"), true);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log(`\n${fails === 0 ? `✅ ${ran} testin tümü geçti` : `❌ ${ran} testten ${fails} tanesi başarısız`}`);

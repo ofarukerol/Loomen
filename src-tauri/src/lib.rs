@@ -23,9 +23,51 @@ fn allow_vault(app: &tauri::AppHandle, path: &str) -> Result<(), String> {
     if path.is_empty() {
         return Ok(());
     }
+    let yol = dogrula_kasa_yolu(path)?;
     app.fs_scope()
-        .allow_directory(path, true)
+        .allow_directory(&yol, true)
         .map_err(|e| format!("kasa kapsama alınamadı: {e}"))
+}
+
+/// Kapsama alınacak yolu doğrular.
+///
+/// Uygulamanın kendi komutları Tauri v2'de ACL ile sınırlanmıyor: webview'deki
+/// herhangi bir betik `invoke("vault_allow", { path: "/" })` diyerek statik
+/// kapsamı tamamen kaldırabilirdi. `csp: null` olduğu için not içeriğinden
+/// gelen bir betik gerçek bir ihtimal. Bu yüzden yol burada elenir:
+///
+/// - göreli yol ve `..` yok (gerçek konum belirsiz kalmasın),
+/// - gerçekten var olan bir KLASÖR olmalı (canonicalize),
+/// - kök ve ev klasörünün kendisi reddedilir (tüm diski açmak demek).
+fn dogrula_kasa_yolu(path: &str) -> Result<std::path::PathBuf, String> {
+    let ham = std::path::Path::new(path);
+    if !ham.is_absolute() {
+        return Err("Kasa yolu tam yol olmalı".into());
+    }
+    if ham.components().any(|c| c == std::path::Component::ParentDir) {
+        return Err("Kasa yolunda `..` olamaz".into());
+    }
+    let yol = ham
+        .canonicalize()
+        .map_err(|e| format!("Kasa klasörü bulunamadı: {e}"))?;
+    if !yol.is_dir() {
+        return Err("Kasa yolu bir klasör olmalı".into());
+    }
+    if yol.parent().is_none() {
+        return Err("Kök klasör kasa olarak açılamaz".into());
+    }
+    if let Some(ev) = dirs_ev() {
+        if yol == ev {
+            return Err("Ev klasörünün tamamı kasa olarak açılamaz".into());
+        }
+    }
+    Ok(yol)
+}
+
+/// Ev klasörü (ortam değişkeninden; yeni bağımlılık eklemeden).
+fn dirs_ev() -> Option<std::path::PathBuf> {
+    let ham = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
+    std::path::PathBuf::from(ham).canonicalize().ok()
 }
 
 /// Kayıtlı kasa yolunu fs kapsamına alır — macOS dışı platformlarda (yer imi yok) açılışta

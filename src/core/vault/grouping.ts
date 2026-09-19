@@ -1,7 +1,7 @@
 import { differenceInCalendarDays, parseISO, format } from "date-fns";
 import { tr, enUS, ar } from "date-fns/locale";
 import i18n from "../../i18n";
-import { relativeLabel } from "../../lib/relativeDate";
+import { relativeLabel, relativeKey } from "../../lib/relativeDate";
 import type { Task, TaskGroup, GroupKind } from "../../data/sampleVault";
 import type { ParsedTask } from "./types";
 
@@ -24,6 +24,7 @@ function toUiTask(t: ParsedTask, todayISO: string, kind: GroupKind): Task {
     done: t.done,
     overdue: kind === "overdue" && !t.done,
     rel: relativeLabel(date, todayISO),
+    relKey: relativeKey(date, todayISO).key,
     source: noteName(t.file),
     tag: t.tags[0] ?? "",
     pomos: t.pomos,
@@ -89,6 +90,7 @@ function toUnplannedUiTask(t: ParsedTask): Task {
     done: t.done,
     overdue: false,
     rel: "",
+    relKey: "",
     source: noteName(t.file),
     tag: t.tags[0] ?? "",
     pomos: t.pomos,

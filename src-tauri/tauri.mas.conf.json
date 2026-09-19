@@ -5,7 +5,8 @@
       "entitlements": "Entitlements.plist",
       "signingIdentity": "3rd Party Mac Developer Application: DATHA YAZILIM VE TEKNOLOJI GELISTIRME TICARET LIMITED SIRKETI (X82U3597A7)",
       "files": {
-        "embedded.provisionprofile": "Loomen_MAS.provisionprofile"
+        "embedded.provisionprofile": "Loomen_MAS.provisionprofile",
+        "Resources/PrivacyInfo.xcprivacy": "PrivacyInfo.xcprivacy"
       }
     }
   }
