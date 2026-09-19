@@ -28,7 +28,10 @@ function BoardCard({ task, danger }: { task: Task; danger?: boolean }) {
         </div>
       </div>
       <div className="lo-bcard__meta">
-        {task.rel !== "bugün" && (
+        {/* Bugünün kartında göreli tarih etiketi gereksiz. Karar ANAHTAR üzerinden verilir:
+            `rel` metni aktif dile göre üretildiği için "bugün" karşılaştırması yalnız
+            Türkçede tutar, İngilizce/Arapçada her kartta "today/اليوم" beliriyordu. */}
+        {task.relKey !== "rel.today" && (
           <span style={{ fontSize: 11, color: danger ? "var(--danger)" : "var(--fg3)" }}>{task.rel}</span>
         )}
         <span className="lo-chip lo-chip--tag" style={{ fontSize: 10.5 }}>

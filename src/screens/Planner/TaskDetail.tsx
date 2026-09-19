@@ -26,6 +26,8 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { addDays, startOfWeek, format } from "date-fns";
+import { tr, enUS, ar } from "date-fns/locale";
 import { useAppStore } from "../../store/useAppStore";
 import { getTaskNotes, getSubtasks } from "../../core/markdown/taskParser";
 import { DatePicker } from "./DatePicker";
@@ -33,8 +35,17 @@ import { Stepper } from "./Stepper";
 
 type RecurKey = "none" | "daily" | "weekly" | "monthly" | "yearly";
 
+/** Obsidian Tasks tekrar söz dizimi İNGİLİZCEDİR — bu dizi arayüz metni değil, dosya biçimi. */
 const WD_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const WD_TR = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+
+const DATE_LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
+
+/** Gün kısaltmaları (Pazartesi-ilk) aktif dilin yerel ayarından üretilir — elle yazılmaz. */
+function weekdayShortNames(lang: string): string[] {
+  const locale = DATE_LOCALES[lang] ?? tr;
+  const first = startOfWeek(new Date(), { weekStartsOn: 1 });
+  return Array.from({ length: 7 }, (_, i) => format(addDays(first, i), "EEEEEE", { locale }));
+}
 
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -89,7 +100,8 @@ function noteName(file: string) {
 
 /** Görev detay/düzenleme modalı — modern takvim, saat, tekrar, öncelik, notlar. */
 export function TaskDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const weekdays = useMemo(() => weekdayShortNames(i18n.language), [i18n.language]);
   const id = useAppStore((s) => s.selectedTask);
   const tasks = useAppStore((s) => s.parsedTasks);
   const contents = useAppStore((s) => s.noteContents);
@@ -331,9 +343,9 @@ export function TaskDetail() {
                   <div className="lo-recur__row">
                     <span className="lo-recur__lbl">{t("taskDetail.onDay")}</span>
                     <div className="lo-recur__days">
-                      {WD_TR.map((w, i) => (
+                      {weekdays.map((w, i) => (
                         <button
-                          key={w}
+                          key={i}
                           className={"lo-recur__day" + (weekday === i ? " is-active" : "")}
                           onClick={() => setWeekday(i)}
                         >

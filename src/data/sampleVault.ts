@@ -8,8 +8,16 @@ export interface Task {
   text: string;
   done: boolean;
   overdue: boolean;
-  /** Göreli tarih etiketi — şimdilik sabit; ileride date-fns ile hesaplanacak. */
+  /** Göreli tarih etiketi — aktif dilde ("bugün", "6 gün sonra"). */
   rel: string;
+  /**
+   * `rel`in üretildiği çeviri anahtarı ("rel.today", "rel.inDays"…).
+   *
+   * Arayüz "bu görev bugüne mi ait" gibi kararları ANAHTAR üzerinden verir; `rel` metni
+   * aktif dile göre değiştiği için ona bakan bir karşılaştırma yalnız Türkçede tutar
+   * (bkz. Board.tsx). Örnek kasa verisinde yoktur.
+   */
+  relKey?: string;
   /** Görevin geldiği kaynak not. */
   source: string;
   /** #etiket / 🎯 */

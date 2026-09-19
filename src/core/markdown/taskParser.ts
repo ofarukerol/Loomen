@@ -205,9 +205,23 @@ export function serializeTaskLine(t: ParsedTask, patch: TaskPatch = {}): string 
 export function applyTaskPatch(content: string, line: number, t: ParsedTask, patch: TaskPatch): string {
   const lines = splitLines(content);
   if (line < 0 || line >= lines.length) return content;
-  if (lines[line].replace(/\r$/, "") !== t.raw.replace(/\r$/, "")) return content; // satır kaymış
+  if (!taskLineMatches(content, line, t.raw)) return content; // satır kaymış
   lines[line] = serializeTaskLine(t, patch);
   return joinLines(lines, eolOf(content));
+}
+
+/**
+ * `line` hâlâ beklenen görev satırını mı gösteriyor?
+ *
+ * Yamanın reddedildiğini "içerik değişmedi" diye anlamak güvenilir değildir: boş bir yama da
+ * içeriği aynı bırakır. Çağıranlar (saveTask, updateTask, reorderTask) kaymayı bu fonksiyonla
+ * AÇIKÇA sorar; çünkü kayma varsa yalnız yamayı atlamak yetmez, aynı satıra dayanan çocuk
+ * bloğu yazımı da iptal edilmelidir (bkz. setTaskChildren).
+ */
+export function taskLineMatches(content: string, line: number, expectedRaw: string): boolean {
+  const lines = splitLines(content);
+  if (line < 0 || line >= lines.length) return false;
+  return lines[line].replace(/\r$/, "") === expectedRaw.replace(/\r$/, "");
 }
 
 const CHILD_INDENT = "    "; // 4 boşluk — alt görev / not bir seviye girinti
@@ -268,13 +282,18 @@ export function setTaskChildren(
   content: string,
   line: number,
   subtasks: { text: string; done: boolean }[],
-  notes: string
+  notes: string,
+  expectedRaw?: string
 ): string {
   const lines = splitLines(content);
   if (line < 0 || line >= lines.length) return content;
   // Hedef satır gerçekten bir görev değilse dosya kaymış demektir; bu blok yazımı
   // başka bir paragrafın altındaki satırları silerdi (bkz applyTaskPatch kilidi).
   if (!TASK_RE.test(lines[line])) return content;
+  // "Görev mi" yetmez, "AYNI görev mi" diye de sorulmalı: dosya dışarıdan değiştiyse
+  // (senkron, ikinci pencere) o satırda BAŞKA bir görev durur ve aşağıdaki splice o masum
+  // görevin mevcut alt görev/not satırlarını silerdi.
+  if (expectedRaw !== undefined && !taskLineMatches(content, line, expectedRaw)) return content;
   const childIndent = leadWs(lines[line]) + CHILD_INDENT;
   const [s, e] = childBlockRange(lines, line);
   const subLines = subtasks

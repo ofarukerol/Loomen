@@ -128,7 +128,12 @@ export default function App() {
 
   // Dil değişince i18next + <html dir> güncelle (RTL).
   useEffect(() => {
-    i18n.changeLanguage(lang);
+    void i18n.changeLanguage(lang).then(() => {
+      // Grup başlıkları ve göreli tarihler türetme anında çevrildiği için kendiliğinden
+      // tazelenmez; dil GERÇEKTEN değiştikten sonra yeniden türetilmeli, yoksa planlayıcı
+      // kasa yeniden yüklenene kadar eski dilde kalır.
+      useAppStore.getState().regroupTasks();
+    });
     applyDir(lang);
   }, [lang, i18n]);
 

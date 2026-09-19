@@ -16,6 +16,7 @@ import {
   getSubtasks,
   getTaskNotes,
   setTaskChildren,
+  taskLineMatches,
   appendTaskToContent,
   buildTaskLine,
 } from "../markdown/taskParser";
@@ -150,6 +151,18 @@ check(
 );
 eq("Aralık dışı satır reddedilir", applyTaskPatch(doc, 99, alfa, { due: "2026-06-20" }), doc);
 
+// Çağıranlar kaymayı "içerik değişmedi" diye anlayamaz (boş yama da içeriği aynı bırakır);
+// taskLineMatches bunu açıkça söyler.
+check("taskLineMatches — doğru satır", taskLineMatches(doc, 0, alfa.raw));
+check("taskLineMatches — kaymış satır", !taskLineMatches(shifted, 0, alfa.raw));
+check("taskLineMatches — kayma sonrası yeni satır", taskLineMatches(shifted, 1, alfa.raw));
+check("taskLineMatches — aralık dışı", !taskLineMatches(doc, 99, alfa.raw));
+eq(
+  "taskLineMatches — CRLF farkı kaymaya sayılmaz",
+  taskLineMatches("- [ ] Alfa 📅 2026-06-17\r\n- [ ] Beta", 0, alfa.raw),
+  true
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 section("Görev satırı — alt görev ve not bloğu");
 
@@ -174,6 +187,27 @@ eq("Çok satırlı not bloğu", getTaskNotes(setTaskChildren(withKids, 0, [], "A
 const prose = "# Başlık\nDüz paragraf\n    Girintili satır";
 eq("Görev olmayan satıra çocuk bloğu yazılmaz", setTaskChildren(prose, 1, [{ text: "X", done: false }], ""), prose);
 eq("Aralık dışı satırda blok yazılmaz", setTaskChildren(withKids, 99, [], "X"), withKids);
+
+// VERİ KAYBI KİLİDİ: "bu satır bir görev mi" yetmez, "AYNI görev mi" de sorulmalı. Dosya
+// dışarıdan değişip o satırda BAŞKA bir görev durduğunda blok yazımı, masum görevin mevcut
+// alt satırlarını splice ile silerdi.
+const parentRaw = "- [ ] Üst görev 📅 2026-06-17";
+eq(
+  "Aynı görevdeyken beklenen satır kilidi yazmayı engellemez",
+  setTaskChildren(withKids, 0, [{ text: "Tek alt", done: false }], "Yeni not", parentRaw),
+  rewritten
+);
+// 0. satırda artık "Masum görev" duruyor; onun alt satırları silinmemeli.
+const swapped = [
+  "- [ ] Masum görev",
+  "    - [ ] Masumun alt görevi",
+  "- [ ] Başka görev",
+].join("\n");
+eq(
+  "Kaymış satırdaki BAŞKA görevin alt satırları silinmez",
+  setTaskChildren(swapped, 0, [{ text: "Tek alt", done: false }], "Yeni not", parentRaw),
+  swapped
+);
 
 eq("buildTaskLine", buildTaskLine("Yeni görev", "2026-06-17"), "- [ ] Yeni görev 📅 2026-06-17");
 eq("appendTaskToContent", appendTaskToContent("# X\n", "- [ ] Y"), "# X\n- [ ] Y\n");
