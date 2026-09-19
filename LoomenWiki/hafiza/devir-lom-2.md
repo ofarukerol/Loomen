@@ -3,7 +3,7 @@ name: LOM-2 — Genel Test
 description: Mağazaya göndermeden önce uygulamanın tamamı kod üzerinden denetlendi; veri kaybı, tarih/sayaç, çeviri ve paketleme tarafında bulunan hatalar düzeltilecek, çekirdek mantık için otomatik testler eklenecek ve elle denenmesi gerekenler raporlanacak.
 type: project
 proje: loomen
-kaynak: kart LOM-2 · dal fix/LOM-2 · Loomen@7c49665799e391cacab5d7c2ecb4e65e4ae2ca20 · test koşusu 23bc13de-083e-40fb-acf5-ac4794dac8ce (Air)
+kaynak: kart LOM-2 · dal fix/LOM-2 · Loomen@3495512277196ee6b5cd7cb2bc6e9dc737406d31 · test koşusu 60f5169c-c0a8-4e2f-bb2e-4f2b6cf3826d (Air)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-09-19
@@ -85,13 +85,13 @@ Mağazaya göndermeden önce uygulamanın tamamı kod üzerinden denetlendi; ver
 
 Testler geçti.
 
-> Donmus test kopyasinda (is/Loomen, snapshot b7e1a31, calisma agaci temiz) planin dogrulama adimindaki butun kontrolleri kosturdum ve hepsi yesil. npm test: coreTest 97/97 ve vaultTest tumu gecti, cikis kodu 0. npx tsc --noEmit temiz (cikis 0). npm run build cikis 0, hata yok (yalniz chunk boyutu uyarisi). src-tauri icinde cargo check cikis 0. tr/en/ar ceviri dosyalari 375 anahtarla birebir ayni, e
+> Hepsi yeşil. `npm test` ile iki node takımı koştu: coreTest 104/104, vaultTest tamamı geçti (srsTest/aiTest/editorTest bu dalda dosya olarak yok, koşucu kaynağı bulunmayanı atlıyor; src/core/srs dizininin gerçekten bulunmadığını doğruladım). `npx tsc --noEmit` çıktısız ve kod 0; `npm run build` (tsc + vite) 13.97s'de başarılı — tek uyarı değişiklikle ilgisiz parça boyutu uyarısı (mermaid/katex/cyt
 
 ## Kanıt
 
 - Dal: `fix/LOM-2`
-- Commit: `Loomen@7c49665799e391cacab5d7c2ecb4e65e4ae2ca20`
-- Test koşusu: `23bc13de-083e-40fb-acf5-ac4794dac8ce` (Air)
+- Commit: `Loomen@3495512277196ee6b5cd7cb2bc6e9dc737406d31`
+- Test koşusu: `60f5169c-c0a8-4e2f-bb2e-4f2b6cf3826d` (Air)
 
 ## Durum
 
