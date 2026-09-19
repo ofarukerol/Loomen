@@ -1099,14 +1099,24 @@ export const useAppStore = create<AppState>()(
         }
         set(patch);
 
-        unwatch?.();
-        unwatch = await watchVaultRoot(path, () => get().reloadVault());
-      } catch {
+        // İzleyici kasanın AÇILMASININ parçası değil: burada patlarsa notlar zaten
+        // yüklenmiştir, sadece dış değişiklikler otomatik yansımaz. "Kasa açılamadı"
+        // demek yanlış olur — sessizce not düş, kullanıcıyı yanıltma.
+        try {
+          unwatch?.();
+          unwatch = await watchVaultRoot(path, () => get().reloadVault());
+        } catch (e) {
+          console.error("[kasa] klasör izleyici kurulamadı (kasa açık, otomatik yenileme yok):", e);
+        }
+      } catch (e) {
         // Açılamadı: taşınmış/silinmiş olabilir ya da (sandbox'ta) erişim izni düşmüştür.
-        // Sessiz kalma — kullanıcı kasasını yeniden seçebilmeli.
+        // Sessiz kalma — kullanıcı kasasını yeniden seçebilmeli. Sebebi de göster:
+        // yutulan hata teşhisi imkânsız kılıyordu.
+        console.error("[kasa] açılamadı:", path, e);
+        const reason = e instanceof Error ? e.message : String(e);
         void notifyError(
           "Kasa açılamadı. Klasör taşınmış veya erişim izni düşmüş olabilir; " +
-            "Ayarlar → Kasa bölümünden yeniden seçin.",
+            `Ayarlar → Kasa bölümünden yeniden seçin. (Sebep: ${reason})`,
         );
       }
     },
