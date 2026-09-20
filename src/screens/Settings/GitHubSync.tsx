@@ -47,6 +47,17 @@ export function GitHubDeviceModal() {
     };
   }, [device, poll, t]);
 
+  // Esc → pencereyi kapat. Diğer pencerelerle aynı davranış; Android geri tuşu da bu yolu kullanır
+  // (App.tsx geri basışını açık pencereye Escape olarak iletir).
+  useEffect(() => {
+    if (!device) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [device, cancel]);
+
   if (!device) return null;
 
   return (
@@ -201,7 +212,11 @@ export function GitHubSync() {
   const setAutoSync = useAppStore((s) => s.ghSetAutoSync);
 
   const tauri = isTauri();
-  const isMobile = useIsMobile();
+  // Gerçek mobil platform DAİMA mobil sayılır — tablet/yatay ekranda (>768px) depo seçici
+  // hiç görünmüyor, masaüstündeki "Kasalar bölümünden seç" uyarısı çıkıyordu ama o bölüm
+  // mobilde klasör seçici içerdiği için kullanılamıyor.
+  const platformMobile = useAppStore((s) => s.platformMobile);
+  const isMobile = useIsMobile() || platformMobile;
 
   return (
     <>

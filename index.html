@@ -3,8 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <!-- maximum-scale=1: iOS, 16px altı fontlu input'a odaklanınca otomatik zumlar — uygulama
-         içinde istenmez (bu bir app, web sayfası değil; pinch-zoom'a zaten gerek yok). -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+         içinde istenmez (bu bir app, web sayfası değil; pinch-zoom'a zaten gerek yok).
+         viewport-fit=cover ŞART: bu olmadan iOS env(safe-area-inset-*) değerlerini 0 döner,
+         CSS'teki bütün çentik/alt-çizgi boşlukları etkisiz kalır (üst bar çentiğin altına girer). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <title>Loomen</title>
     <!-- Favicon (tarayıcı/geliştirme sekmesi + WKWebView). Masaüstü paketi native ikonu kullanır. -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />

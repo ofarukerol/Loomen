@@ -45,7 +45,11 @@ export function VaultManager() {
   const loadRepos = useAppStore((s) => s.ghLoadRepos);
 
   const addMobileVault = useAppStore((s) => s.addMobileVault);
-  const isMobile = useIsMobile();
+  // Gerçek mobil platform DAİMA mobil sayılır. Eşik yalnız genişliğe bakıyordu: tablet ve
+  // yatay çevrilmiş telefon 768px'i aşıp masaüstü yoluna düşüyor, orada klasör seçici
+  // açılmaya çalışılıyor ve mobilde böyle bir seçici olmadığı için kasa hiç eklenemiyordu.
+  const platformMobile = useAppStore((s) => s.platformMobile);
+  const isMobile = useIsMobile() || platformMobile;
   // Sandbox (Mac App Store): klasör seçmeden, izin gerektirmeyen kasa da oluşturulabilmeli.
   const sandboxed = useAppStore((s) => s.platformSandboxed);
 

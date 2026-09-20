@@ -161,6 +161,17 @@ async fn tree_files(
     Ok(out)
 }
 
+/// Uzak dosyanın sha'sını panik yapmadan çıkarır.
+///
+/// Çağrıldığı yerlerde dosyanın uzakta olduğu (`in_r`) zaten kontrol edilmiştir, yani
+/// bugün değer her zaman doludur. Yine de `unwrap()` kullanılmıyor: birleştirme koşulları
+/// ileride değişirse sonuç, senkronun ortasında uygulamanın ÇÖKMESİ olurdu. Böyle bir
+/// durumda kullanıcı hata mesajı görsün, notları yarım yazılmış hâlde kalmasın.
+fn remote_sha<'a>(sha: Option<&'a String>, path: &str) -> Result<&'a str, String> {
+    sha.map(String::as_str)
+        .ok_or_else(|| format!("uzak dosyanın sürüm bilgisi okunamadı: {path}"))
+}
+
 async fn get_blob(c: &reqwest::Client, token: &str, o: &str, r: &str, sha: &str) -> Result<Vec<u8>, String> {
     let url = format!("{API}/repos/{o}/{r}/git/blobs/{sha}");
     let v = gh_get(c, token, &url).await?.ok_or("blob bulunamadı")?;
@@ -273,13 +284,13 @@ pub async fn github_api_sync(
 
         if !in_b {
             if in_r && !in_l {
-                to_write.push((p.clone(), get_blob(&c, &token, o, r, r_sha.unwrap()).await?));
+                to_write.push((p.clone(), get_blob(&c, &token, o, r, remote_sha(r_sha, p)?).await?));
                 pulled += 1;
             } else if !in_r && in_l {
                 pushed += 1; // yerel yeni → tree'de kalır
             } else if in_r && in_l {
                 // ikisi de farklı yeni → çakışma: yerel kalsın, uzak kopya yaz
-                to_write.push((conflict_path(p), get_blob(&c, &token, o, r, r_sha.unwrap()).await?));
+                to_write.push((conflict_path(p), get_blob(&c, &token, o, r, remote_sha(r_sha, p)?).await?));
                 conflicts.push(p.clone());
             }
         } else {
@@ -289,7 +300,7 @@ pub async fn github_api_sync(
                 // değişmemiş
             } else if changed_r && !changed_l {
                 if in_r {
-                    to_write.push((p.clone(), get_blob(&c, &token, o, r, r_sha.unwrap()).await?));
+                    to_write.push((p.clone(), get_blob(&c, &token, o, r, remote_sha(r_sha, p)?).await?));
                 } else {
                     to_delete.push(p.clone()); // uzak sildi, yerel dokunulmamış
                 }
@@ -301,7 +312,7 @@ pub async fn github_api_sync(
             } else {
                 // gerçek çakışma → yerel korunur, uzak kopya (varsa)
                 if in_r {
-                    to_write.push((conflict_path(p), get_blob(&c, &token, o, r, r_sha.unwrap()).await?));
+                    to_write.push((conflict_path(p), get_blob(&c, &token, o, r, remote_sha(r_sha, p)?).await?));
                 }
                 conflicts.push(p.clone());
             }
