@@ -35,7 +35,12 @@ export interface MicRecorder {
   cancel: () => void;
 }
 
-export function useMicRecorder(): MicRecorder {
+/**
+ * @param onLimit Üst sınıra ulaşıldığında çağrılır. Çağıran kaydı bitirip metne çevirmelidir:
+ *   hook kendi başına durursa kullanıcı mikrofona bastığında YENİ bir kayıt başlar ve
+ *   konuştuğu her şey sessizce silinirdi.
+ */
+export function useMicRecorder(onLimit?: () => void): MicRecorder {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [level, setLevel] = useState(0);
@@ -52,6 +57,9 @@ export function useMicRecorder(): MicRecorder {
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // stop() içinde okunur: state güncellemesi asenkron olduğu için ref şart.
   const rateRef = useRef(STT_SAMPLE_RATE);
+  // Callback ref'te tutulur: interval'in closure'ı kurulduğu andaki değeri yakalar.
+  const onLimitRef = useRef(onLimit);
+  onLimitRef.current = onLimit;
 
   /** Ses grafiğini ve akışı kapat. Örnekler ELDE KALIR (stop bunları kodlayacak). */
   const teardown = useCallback(() => {
@@ -132,10 +140,11 @@ export function useMicRecorder(): MicRecorder {
         setSeconds(Math.floor(sec));
         setLevel(peakRef.current);
         if (sec >= MAX_SECONDS) {
-          // Üst sınır: kaydı kes ama örnekleri koru — kullanıcı durdurmuş gibi davran.
+          // Üst sınır: örnek eklemeyi durdur (ses korunur) ve çağırana "bitir" de.
           activeRef.current = false;
           if (tickRef.current != null) clearInterval(tickRef.current);
           tickRef.current = null;
+          onLimitRef.current?.();
         }
       }, LEVEL_TICK_MS);
     } catch (e) {

@@ -168,7 +168,10 @@ export function AssistantScreen() {
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
-  const mic = useMicRecorder();
+  // Kaydı bitir → metne çevir. Hem mikrofon düğmesi hem de 2 dakikalık üst sınır bunu çağırır;
+  // ref üzerinden, çünkü hook'a verilen callback kurulduğu andaki closure'ı taşır.
+  const finishRef = useRef<() => void>(() => {});
+  const mic = useMicRecorder(() => finishRef.current());
 
   // Yeni parça geldikçe en alta kaydır (kullanıcı yukarı kaydırmadıysa).
   useEffect(() => {
@@ -185,28 +188,35 @@ export function AssistantScreen() {
     void send(q);
   };
 
+  /** Kaydı bitir, metne çevir, sonucu kutuya (ya da doğrudan gönderime) ver. */
+  const finishRecording = async () => {
+    setVoiceError(null);
+    try {
+      const wav = await mic.stop();
+      if (!wav) return;
+      const said = (await transcribe(wav)).trim();
+      if (!said) {
+        setVoiceError(t("ai.voiceEmpty"));
+        return;
+      }
+      // Metin KUTUYA yazılır: kullanıcı ne anlaşıldığını görür, düzeltebilir.
+      // "Doğrudan gönder" ayarı açıksa soru kendiliğinden gider.
+      if (autoSend) submit(said);
+      else {
+        setText((prev) => (prev.trim() ? `${prev.trim()} ${said}` : said));
+        taRef.current?.focus();
+      }
+    } catch (e) {
+      setVoiceError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  finishRef.current = () => void finishRecording();
+
   /** Mikrofon: ilk tıklama kaydı başlatır, ikincisi bitirip metne çevirir. */
   const toggleMic = async () => {
     setVoiceError(null);
     if (mic.recording) {
-      try {
-        const wav = await mic.stop();
-        if (!wav) return;
-        const said = (await transcribe(wav)).trim();
-        if (!said) {
-          setVoiceError(t("ai.voiceEmpty"));
-          return;
-        }
-        // Metin KUTUYA yazılır: kullanıcı ne anlaşıldığını görür, düzeltebilir.
-        // "Doğrudan gönder" ayarı açıksa soru kendiliğinden gider.
-        if (autoSend) submit(said);
-        else {
-          setText((prev) => (prev.trim() ? `${prev.trim()} ${said}` : said));
-          taRef.current?.focus();
-        }
-      } catch (e) {
-        setVoiceError(e instanceof Error ? e.message : String(e));
-      }
+      await finishRecording();
       return;
     }
     try {
