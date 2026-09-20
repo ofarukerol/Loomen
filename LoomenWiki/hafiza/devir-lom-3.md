@@ -3,7 +3,7 @@ name: LOM-3 — Mobil Test
 description: Mobil sürüm (iPhone/Android) mağazaya gitmeden önce kod üzerinden denetlendi; dokunmatik kullanımda çalışmayan yerler (not silme/yeniden adlandırma, planlayıcıda kaydırma, klavye altında kalan alanlar, Android geri tuşu), çentik/ekran kenarı boşlukları ve mağaza paketindeki eksikler (TV girdileri, gizlilik bildirimi, mikrofon izni metni, yedekleme ayarı) düzeltilecek, sonra derleme ve testlerle doğrulanıp elle denenecekler raporlanacak.
 type: project
 proje: loomen
-kaynak: kart LOM-3 · dal fix/LOM-3 · Loomen@19e75e59bda69e428baf37f76940822a39e545bf · test koşusu 69ef2e45-2ea9-4754-a6ab-acc95d6d7892 (Air)
+kaynak: kart LOM-3 · dal fix/LOM-3 · Loomen@571e9a955b93e738b8a7120b96c166f20a51782b · test koşusu 1bf93006-8bb5-4da9-9ade-797fdbc57539 (Air)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-09-20
@@ -78,13 +78,13 @@ Mobil sürüm (iPhone/Android) mağazaya gitmeden önce kod üzerinden denetlend
 
 Testler geçti.
 
-> Hepsi yeşil. npm test: 3 test dosyası, 151 kontrolün tümü geçti (coreTest 102, vaultTest, mobileTest 32). npx tsc --noEmit temiz. npm run build başarılı (10.77 s). src-tauri'de cargo check --all-targets 0 hata / 0 uyarı ile geçti; soğuk derleme olduğu için capabilities JSON'ları da tauri-build tarafından doğrulandı. Ek doğrulamalar: tr/en/ar çeviri dosyaları 404'er anahtarla birebir eşit ve yer tu
+> Calisma kopyasinda (fix/LOM-3 icerigi) butun dogrulamalar temiz gecti. npm test: 3 test dosyasi (coreTest, vaultTest, mobileTest), mobileTest'teki 35 kontrolun tumu dahil hepsi gecti. npx tsc --noEmit ciktisiz, cikis kodu 0. npm run build 11.58 s'de basarili (yalnizca bilinen 500 kB ustu parca boyutu uyarisi, hata degil). src-tauri icinde cargo check --all-targets 59.70 s'de uyarisiz bitti. Uc cev
 
 ## Kanıt
 
 - Dal: `fix/LOM-3`
-- Commit: `Loomen@19e75e59bda69e428baf37f76940822a39e545bf`
-- Test koşusu: `69ef2e45-2ea9-4754-a6ab-acc95d6d7892` (Air)
+- Commit: `Loomen@571e9a955b93e738b8a7120b96c166f20a51782b`
+- Test koşusu: `1bf93006-8bb5-4da9-9ade-797fdbc57539` (Air)
 
 ## Durum
 
