@@ -2295,34 +2295,38 @@ export const useAppStore = create<AppState>()(
       const prop = msg?.proposals?.[index];
       if (!prop || prop.appliedPath) return; // iki kez uygulanmaz
 
-      try {
-        if (!(await flushDraft())) throw new Error("Açık not kaydedilemedi");
-        const dir = prop.path.includes("/") ? prop.path.slice(0, prop.path.lastIndexOf("/")) : "";
+      // Sıraya alınır: iki öneri aynı nota arka arkaya uygulanırsa ikisi de AYNI içeriği
+      // okuyup birbirini ezerdi, ilk ekleme sessizce kaybolurdu.
+      await queueFileOp(async () => {
+        try {
+          if (!(await flushDraft())) throw new Error("Açık not kaydedilemedi");
+          const dir = prop.path.includes("/") ? prop.path.slice(0, prop.path.lastIndexOf("/")) : "";
 
-        let target = prop.path;
-        if (prop.action === "create") {
-          // Çakışan ad ÜZERİNE YAZILMAZ: sıradaki boş ada geçilir.
-          target = await uniquePath(target, (x) => backend.exists(x));
-          if (dir) await backend.ensureDir(dir);
-          await backend.writeNote(target, appendText("", prop.text));
-        } else {
-          if (!(await backend.exists(target))) {
-            // Model olmayan bir nota eklemek isteyebilir; sessizce oluşturmak yerine
-            // kullanıcıya söylenir — yanlış yola yazmanın tek çaresi budur.
-            throw new Error(`Not bulunamadı: ${target}`);
+          let target = prop.path;
+          if (prop.action === "create") {
+            // Çakışan ad ÜZERİNE YAZILMAZ: sıradaki boş ada geçilir.
+            target = await uniquePath(target, (x) => backend.exists(x));
+            if (dir) await backend.ensureDir(dir);
+            await backend.writeNote(target, appendText("", prop.text));
+          } else {
+            if (!(await backend.exists(target))) {
+              // Model olmayan bir nota eklemek isteyebilir; sessizce oluşturmak yerine
+              // kullanıcıya söylenir — yanlış yola yazmanın tek çaresi budur.
+              throw new Error(`Not bulunamadı: ${target}`);
+            }
+            const current = await backend.readNote(target);
+            await backend.writeNote(target, appendText(current, prop.text));
+            // Bellekteki kopya BİLEREK güncellenmiyor: aşağıdaki loadFromBackend, taslak
+            // temizken (flushDraft sayesinde öyle) hem taslağı hem editörü yeni içerikle
+            // tazeliyor (draftEpoch). Burada elle set edilseydi o tazeleme atlanır,
+            // CodeMirror eski metinde kalır ve ilk tuşta autosave eklemeyi geri silerdi.
           }
-          const current = await backend.readNote(target);
-          await backend.writeNote(target, appendText(current, prop.text));
-          // Bellekteki kopya BİLEREK güncellenmiyor: aşağıdaki loadFromBackend, taslak
-          // temizken (flushDraft sayesinde öyle) hem taslağı hem editörü yeni içerikle
-          // tazeliyor (draftEpoch). Burada elle set edilseydi o tazeleme atlanır,
-          // CodeMirror eski metinde kalır ve ilk tuşta autosave eklemeyi geri silerdi.
+          await loadFromBackend();
+          patch({ appliedPath: target, error: undefined });
+        } catch (e) {
+          patch({ error: e instanceof Error ? e.message : String(e) });
         }
-        await loadFromBackend();
-        patch({ appliedPath: target, error: undefined });
-      } catch (e) {
-        patch({ error: e instanceof Error ? e.message : String(e) });
-      }
+      });
     },
 
     aiClearChat: () => set({ aiMessages: [] }),
