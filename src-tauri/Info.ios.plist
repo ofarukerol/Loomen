@@ -13,6 +13,13 @@
   tauri-plugin-deep-link kendi derleme betiginden uretilen Info.plist'e kendisi
   yaziyor; buraya da yazilirsa ustune biner ve eklentinin girdisini siler.
   Semalar tauri.conf.json → plugins → deep-link → mobile listesinde tutulur.
+  Orada iki sema var:
+    - "loomen"                                  → uygulamanin kendi baglantilari
+    - "com.googleusercontent.apps.GOOGLE_IOS_CLIENT" → Google Takvim girisinin
+      geri donus adresi (src/core/google.ts, reversedRedirectUri). YER TUTUCU —
+      INSAN ISI: gercek iOS client olusunca bu sema o client'in ters id'siyle
+      degistirilmeli. Adimlar .env.example icinde (VITE_GOOGLE_IOS_CLIENT_ID).
+      Sema kayitli olmadan iPhone'da Google girisi uygulamaya GERI DONEMEZ.
 
   Asagidaki iki anahtar paylasilan Info.plist'te de var. Bilerek tekrarlandi:
   ikisi de App Store icin zorunlu ve eksikligi pahali (mikrofon aciklamasi yoksa

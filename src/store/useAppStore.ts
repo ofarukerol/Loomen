@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import i18n from "../i18n";
@@ -157,6 +158,16 @@ interface AppState {
   // Görev detay paneli (seçili görev id'si "file:line")
   selectedTask: string | null;
 
+  /**
+   * Açık pencere (modal) sayısı — Android geri tuşunun katman sayımı için (bkz App.tsx).
+   *
+   * Pencerelerin bir kısmı açık olup olmadığını KENDİ İÇİNDE tutuyor (çöp kutusu) ya da
+   * document.body'ye çiziliyor; dışarıdan görülmüyorlar. Geri tuşu yalnız saydığı katmanlar
+   * için geçmişe kayıt ittiğinden, sayılmayan bir pencere açıkken geri basmak pencereyi
+   * kapatmak yerine UYGULAMADAN ÇIKARIR. Pencereler `useModalLayer` ile buraya kaydolur.
+   */
+  modalLayers: number;
+
   // Aktif Excalidraw çizimi (yol)
   activeDraw: string | null;
 
@@ -304,6 +315,8 @@ interface AppState {
   addTask: () => Promise<void>;
   toggleTask: (id: string) => Promise<void>;
   selectTask: (id: string | null) => void;
+  /** Açık pencere sayacını bir artır/azalt (bkz `modalLayers`, `useModalLayer`). */
+  addModalLayer: (delta: 1 | -1) => void;
   updateTask: (id: string, patch: TaskPatch) => Promise<void>;
   saveTask: (id: string, patch: TaskPatch, notes?: string, subtasks?: { text: string; done: boolean }[]) => Promise<void>;
   reorderTask: (fromId: string, toId: string, position: "before" | "after") => Promise<void>;
@@ -601,6 +614,7 @@ export const useAppStore = create<AppState>()(
     draftEpoch: 0,
     backlinksCollapsed: false,
     selectedTask: null,
+    modalLayers: 0,
     activeDraw: null,
     favorites: [],
 
@@ -1596,6 +1610,7 @@ export const useAppStore = create<AppState>()(
       }),
 
     selectTask: (selectedTask) => set({ selectedTask }),
+    addModalLayer: (delta) => set((s) => ({ modalLayers: Math.max(0, s.modalLayers + delta) })),
 
     // Görev detayını (açıklama/tarih/öncelik) dosyaya yaz.
     updateTask: async (id, patch) =>
@@ -2095,4 +2110,20 @@ export const useAppStore = create<AppState>()(
 /** "Bugüne Odaklan" sayaçları — gerçek vault verisinden. */
 export function useFocusCounts(): FocusCounts {
   return useAppStore((s) => s.counts);
+}
+
+/**
+ * Açık bir pencereyi (modal) Android geri tuşunun katman sayımına kaydeder; kapanınca
+ * kaydı düşer. Kaydolmayan pencere açıkken geri tuşu uygulamadan çıkar (bkz `modalLayers`).
+ *
+ * Durumunu üstündeki ekranda tutan pencereler (görev detayı) buna gerek duymaz — onları
+ * App.tsx zaten kendi durumundan sayıyor; iki kez sayılmasınlar.
+ */
+export function useModalLayer(open = true): void {
+  useEffect(() => {
+    if (!open) return;
+    const add = useAppStore.getState().addModalLayer;
+    add(1);
+    return () => add(-1);
+  }, [open]);
 }

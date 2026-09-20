@@ -6,9 +6,10 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-    <!-- allowBackup=false: GitHub oturum bilgisi ve AI anahtarlari uygulama
-         verisinde duz dosyada duruyor (src-tauri/src/ai/keys.rs). Acik birakilirsa
-         Google bulut yedegine ve cihaz-cihaz aktarimina kopyalanirlar. -->
+    <!-- allowBackup=false: GitHub erisim jetonu ve Google Takvim jetonlari uygulama
+         ayarlarinda DUZ METIN duruyor — zustand persist, "loomen.settings" anahtari,
+         WebView localStorage (src/store/useAppStore.ts partialize: ghToken, gcalTokens).
+         Acik birakilirsa Google bulut yedegine ve cihaz-cihaz aktarimina kopyalanirlar. -->
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"

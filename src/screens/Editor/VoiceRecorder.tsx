@@ -27,12 +27,15 @@ const SAVE_SAMPLE_RATE = 24000;
 /** Dalga formu/süre güncelleme aralığı (ms) — kayıt sürerken. */
 const UI_TICK_MS = 150;
 /**
- * Tek kayıt için üst sınır (dakika).
+ * Tek kayıt için üst sınır (dakika) — YALNIZ telefon/tablette.
  *
  * Ham PCM tamamen BELLEKTE tutulur (Float32, donanım hızında): ≈11 MB/dakika. Ek olarak her
  * duraklatmada önizleme WAV'ı için tüm örnekler bir kez daha kopyalanır. Sınır olmadan uzun bir
  * kayıt telefonda belleği tüketip uygulamayı düşürüyordu. Sınıra gelince kayıt DURAKLATILIR —
  * veri kaybı yok: kullanıcı kaydeder ve istiyorsa yeni bir kayda başlar.
+ *
+ * Masaüstünde sınır UYGULANMAZ: bellek darboğazı orada yok ve uzun ders/toplantı kaydı
+ * uygulamanın eski davranışı — sınır koymak gerileme olurdu.
  */
 const MAX_RECORD_MIN = 10;
 
@@ -51,6 +54,11 @@ const MAX_RECORD_MIN = 10;
  */
 export function VoiceRecorder({ onInsert }: Props) {
   const { t } = useTranslation();
+  // Süre sınırı gerçek mobil platforma bağlı (bkz MAX_RECORD_MIN) — dar pencereye göre DEĞİL:
+  // masaüstünde pencereyi daraltmak kaydı sınırlamamalı. Tick içinden okunacağı için ref'te.
+  const platformMobile = useAppStore((s) => s.platformMobile);
+  const limitedRef = useRef(platformMobile);
+  limitedRef.current = platformMobile;
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [recState, setRecState] = useState<RecState>("recording");
@@ -186,7 +194,7 @@ export function VoiceRecorder({ onInsert }: Props) {
       setCurrentTime(dur); // kayıt sürerken imleç canlı uçta
       setPeaks(computeBars(barCountRef.current));
       // Süre sınırı (bkz MAX_RECORD_MIN): sınıra gelince kaydı duraklat ve kullanıcıya söyle.
-      if (recordingRef.current && dur >= MAX_RECORD_MIN * 60) {
+      if (limitedRef.current && recordingRef.current && dur >= MAX_RECORD_MIN * 60) {
         pauseRecording();
         setError(t("audio.limitReached", { minutes: MAX_RECORD_MIN }));
       }
@@ -496,8 +504,11 @@ export function VoiceRecorder({ onInsert }: Props) {
           </div>
 
           {/* Kayıt sürerken an==toplam — tek değer yeter (dar ekranda yer kazandırır).
-              title: süre sınırı görünür bir yerde dursun (bkz MAX_RECORD_MIN). */}
-          <span className="lo-voicerec__time" title={t("audio.limitHint", { minutes: MAX_RECORD_MIN })}>
+              title: süre sınırı görünür bir yerde dursun — sınır yoksa (masaüstü) ipucu da yok. */}
+          <span
+            className="lo-voicerec__time"
+            title={platformMobile ? t("audio.limitHint", { minutes: MAX_RECORD_MIN }) : undefined}
+          >
             {recording ? formatDuration(duration) : `${formatDuration(currentTime)} / ${formatDuration(duration)}`}
           </span>
 

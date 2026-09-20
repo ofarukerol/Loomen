@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Github, RefreshCw, LogOut, Copy, Check, X, AlertTriangle, Plus, ChevronDown } from "lucide-react";
-import { useAppStore } from "../../store/useAppStore";
+import { useAppStore, useModalLayer } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { GITHUB_CLIENT_ID, type GhRepo } from "../../core/github";
@@ -24,6 +24,9 @@ export function GitHubDeviceModal() {
   const copyAndOpen = useAppStore((s) => s.ghCopyCodeAndOpen);
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Açıkken Android geri tuşu bu pencereyi kapatsın (uygulamadan çıkmasın).
+  useModalLayer(!!device);
 
   useEffect(() => {
     if (!device) return;

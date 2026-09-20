@@ -42,15 +42,27 @@ export function isUnderRoot(root: string, p: string): boolean {
 }
 
 /**
- * Mobil kasa kaydının klasör adı. Yol güncel kökün altındaysa kökten sonraki kalan
- * (iç içe klasör olabilir), değilse yalnız son parça kullanılır — eski konteyner
- * yolundan yalnızca kasa adı anlamlıdır.
+ * Mobil kasa kaydının köke göre göreli yolu. Yol güncel kökün altındaysa kökten sonraki
+ * kalan (iç içe klasör olabilir) aynen kullanılır.
+ *
+ * Yol BAŞKA bir konteynerden geliyorsa derinliği eski yoldan çıkarmak gerekir: iOS'ta
+ * güncellemeyle yalnız konteyner kimliği değişir, kökün son parçası (paket kimliği) eski
+ * yolda da geçer. O parçadan SONRASI kasanın göreli yoludur. Yalnız son parçayı almak
+ * iç içe bir kasayı ("a/b") yanlış yere ("<kök>/b") taşırdı: klasör bulunamaz, açılışta
+ * boş bir kasa kurulur ve notlar kaybolmuş GİBİ görünürdü (dosyalar duruyor).
+ * İşaret bulunamazsa elde yalnız kasa adı kalır — en yakın tahmin odur.
  */
 export function mobileVaultFolderName(root: string, stored: string): string {
   const r = normalizePath(root).replace(/\/+$/, "");
   const s = normalizePath(stored);
   if (s === r) return ""; // kökün kendisi — ad yok, kök olduğu gibi kalır
   if (isUnderRoot(r, s)) return s.slice(r.length + 1);
+  const marker = lastSegment(r);
+  if (marker) {
+    const parts = s.split("/").filter(Boolean);
+    const at = parts.lastIndexOf(marker);
+    if (at >= 0 && at < parts.length - 1) return parts.slice(at + 1).join("/");
+  }
   return lastSegment(s);
 }
 

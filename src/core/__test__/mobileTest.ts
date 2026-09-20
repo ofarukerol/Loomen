@@ -57,6 +57,24 @@ eq(
   mobileVaultFolderName(NEW_ROOT, `${NEW_ROOT}/a/b`),
   "a/b"
 );
+// Bayat konteyner yolunda da derinlik korunmalı: yalnız son parça alınırsa ("b") kasa
+// "<kök>/b" gibi YANLIŞ bir yere taşınır, klasör bulunamaz ve notlar kaybolmuş görünür.
+eq(
+  "bayat konteyner yolunda iç içe derinlik korunur",
+  mobileVaultFolderName(NEW_ROOT, `${OLD_ROOT}/a/b`),
+  "a/b"
+);
+eq(
+  "bayat iç içe yol güncel kökte aynı derinlikte kurulur",
+  rebaseMobileVaultPath(NEW_ROOT, `${OLD_ROOT}/a/b`),
+  `${NEW_ROOT}/a/b`
+);
+// Kökün son parçası (paket kimliği) yolda hiç geçmiyorsa elde yalnız kasa adı kalır.
+eq(
+  "yabancı yolda son parçaya düşülür",
+  mobileVaultFolderName(NEW_ROOT, "/tmp/yedek/İşler"),
+  "İşler"
+);
 
 // ---- yeniden tabanlama ----
 eq("bayat yol güncel köke taşınır", rebaseMobileVaultPath(NEW_ROOT, `${OLD_ROOT}/vault`), `${NEW_ROOT}/vault`);

@@ -5,8 +5,9 @@
   NEDEN: AndroidManifest'teki android:allowBackup="false" yalnizca BULUT yedegini
   kapatir; Android 12+ cihaz-cihaz aktarimi (device-to-device) ayri bir yoldur ve
   bu dosya olmadan uygulama verisini yine de kopyalar. Loomen'in uygulama verisinde
-  GitHub oturum jetonu ve AI saglayici anahtarlari duz dosyada duruyor
-  (src-tauri/src/ai/keys.rs), bu yuzden iki yol da kapatiliyor.
+  GitHub erisim jetonu ve Google Takvim jetonlari DUZ METIN duruyor (zustand persist →
+  "loomen.settings", WebView localStorage; src/store/useAppStore.ts), bu yuzden iki yol
+  da kapatiliyor.
 -->
 <data-extraction-rules>
     <cloud-backup>

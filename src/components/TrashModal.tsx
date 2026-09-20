@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Trash2, RotateCcw, X, FileText, Shapes, AlertTriangle } from "lucide-react";
-import { useAppStore } from "../store/useAppStore";
+import { useAppStore, useModalLayer } from "../store/useAppStore";
 import { daysLeft, TRASH_RETENTION_DAYS } from "../core/vault/trash";
 
 /** Çöp kutusu — silinen notları listeler; geri yükle / kalıcı sil / boşalt. */
@@ -16,6 +16,9 @@ export function TrashModal({ onClose }: { onClose: () => void }) {
 
   const [confirmPurge, setConfirmPurge] = useState<string | null>(null); // trashName
   const [confirmEmpty, setConfirmEmpty] = useState(false);
+
+  // Açıkken Android geri tuşu bu pencereyi kapatsın (uygulamadan çıkmasın).
+  useModalLayer();
 
   useEffect(() => {
     void loadTrash();

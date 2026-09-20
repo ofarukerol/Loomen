@@ -1489,11 +1489,15 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-mini__date--upcoming { color: var(--fg3); }
 .lo-mini__date--src { display: flex; align-items: center; gap: 5px; color: var(--accent-2); }
 .lo-mini__date--src > svg { flex-shrink: 0; }
-.lo-mini__row { position: relative; display: flex; align-items: center; gap: 11px; padding: 7px 8px 7px 17px; border-radius: 9px; transition: background 0.1s; }
+/* Satır başındaki geniş boşluk tutamacın gutter'ı — mantıksal olmalı, yoksa sağdan sola
+   düzende boşluk solda kalır ve sağa geçen tutamaç metnin üstüne biner. */
+.lo-mini__row { position: relative; display: flex; align-items: center; gap: 11px; padding-block: 7px; padding-inline: 17px 8px; border-radius: 9px; transition: background 0.1s; }
 .lo-mini__row:hover { background: var(--line-soft); }
-/* Sürükleme tutamacı — akış DIŞINDA (sol gutter'da), metni itmez; hover'da görünür */
+/* Sürükleme tutamacı — akış DIŞINDA (satır başındaki gutter'da), metni itmez; hover'da görünür.
+   Konum MANTIKSAL (`inset-inline-start`): Arapça gibi sağdan sola dillerde tutamaç satırın
+   başında, yani SAĞDA durur. Fiziksel `left` ile satırın ters ucunda kalıyordu. */
 .lo-mini__grip {
-  position: absolute; left: 1px; top: 50%; transform: translateY(-50%);
+  position: absolute; inset-inline-start: 1px; top: 50%; transform: translateY(-50%);
   display: flex; align-items: center; color: var(--fg3); opacity: 0; cursor: grab; transition: opacity 0.1s;
 }
 .lo-mini__row:hover .lo-mini__grip { opacity: 0.45; }
@@ -2711,7 +2715,8 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
   opacity: 0.45;
   touch-action: none;
   padding: 9px 5px;
-  left: -4px;
+  /* Mantıksal konum — sağdan sola düzende de satırın BAŞINDA kalsın (bkz .lo-mini__grip). */
+  inset-inline-start: -4px;
 }
 
 /* Uzun basma bağlam menüsü açıyor: iOS'un kendi metin seçme / paylaş baloncuğu araya girmesin. */

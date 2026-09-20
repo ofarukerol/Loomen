@@ -34,6 +34,7 @@ export default function App() {
   const setScreen = useAppStore((s) => s.setScreen);
   const selectedTask = useAppStore((s) => s.selectedTask);
   const selectTask = useAppStore((s) => s.selectTask);
+  const modalLayers = useAppStore((s) => s.modalLayers);
   const platformMobile = useAppStore((s) => s.platformMobile);
 
   // Mobil (dar ekran / iOS-Android): sol/sağ panel + üst sekme şeridi yerine alt bar + drawer.
@@ -137,6 +138,25 @@ export default function App() {
     applyDir(lang);
   }, [lang, i18n]);
 
+  // Tema ve vurgu rengini <html> üzerine de yaz.
+  //
+  // Çöp kutusu penceresi ve Explorer bağlam menüsü createPortal ile document.body'ye çiziliyor
+  // (mobilde çekmecenin `transform`'una sıkışmasınlar diye). Gövde `.lo-app`'in ALTINDA olmadığı
+  // için oradaki `data-theme` ve vurgu değişkenleri bu parçalara MİRAS KALMIYOR: koyu temada
+  // beyaz zeminli pencere/menü çıkıyordu. Kökte tanımlanınca gövdeye çizilen her şey doğru
+  // temayı ve seçili vurgu rengini alır. `.lo-app` üzerindeki tanım bilerek duruyor (aynı değer).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-theme", theme);
+    if (accent === ACCENTS[0]) {
+      root.style.removeProperty("--accent");
+      root.style.removeProperty("--accent-soft");
+    } else {
+      root.style.setProperty("--accent", accent);
+      root.style.setProperty("--accent-soft", accent + "22");
+    }
+  }, [theme, accent]);
+
   // Klavye kısayolları: ⌘N yeni not, ⌘O dosyaya git (arama).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -186,15 +206,22 @@ export default function App() {
    *
    * WebView'da geri, geçmişte kayıt yoksa uygulamayı KAPATIR — kullanıcı çekmeceyi kapatmak
    * isterken uygulamadan çıkıyordu. Yöntem: kapatılabilir her katman (açık ekran, görev
-   * penceresi, çekmece, sekme listesi) için geçmişe bir kayıt itilir; geri basılınca en
-   * üstteki katman kapatılır. Kayıt kalmayınca geri tuşu uygulamadan çıkar — Android'in
-   * beklediği davranış budur.
+   * penceresi, çekmece, sekme listesi, açık pencereler) için geçmişe bir kayıt itilir; geri
+   * basılınca en üstteki katman kapatılır. Kayıt kalmayınca geri tuşu uygulamadan çıkar —
+   * Android'in beklediği davranış budur.
+   *
+   * Pencereler (çöp kutusu, GitHub bağlan) durumlarını kendi içlerinde tuttuğu için
+   * `useModalLayer` ile store'daki sayaca kaydoluyor; en üstte oldukları için listenin
+   * SONUNA eklenirler. Kapatma yolu Escape: her pencere zaten Escape'i dinliyor.
    */
   const closers: (() => void)[] = [];
   if (screen !== "planner") closers.push(() => setScreen("planner"));
   if (selectedTask) closers.push(() => selectTask(null));
   if (drawerOpen) closers.push(() => setDrawerOpen(false));
   if (tabsOpen) closers.push(() => setTabsOpen(false));
+  for (let i = 0; i < modalLayers; i++) {
+    closers.push(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+  }
   const closersRef = useRef(closers);
   closersRef.current = closers;
   const depthRef = useRef(0);
@@ -212,16 +239,8 @@ export default function App() {
       }
       // Bu geri basışını bir geçmiş kaydı karşıladı.
       depthRef.current = Math.max(0, depthRef.current - 1);
-      // Açık bir pencere varsa önce o kapanır. Pencerelerin bir kısmı (çöp kutusu) durumunu
-      // kendi içinde tutuyor; hepsi Escape'i dinlediği için geri basışı Escape olarak iletiyoruz.
-      if (document.querySelector(".lo-modal")) {
-        window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-        // Kayıt pencereye harcandı. Altındaki katmanlar (çekmece, açık ekran) HÂLÂ açık; kendi
-        // kayıtlarını hemen geri koy, yoksa sonraki geri basışı uygulamadan çıkarır.
-        depthRef.current += 1;
-        window.history.pushState({ lo: depthRef.current }, "");
-        return;
-      }
+      // Açık pencereler listenin sonunda; ayrı bir ele alma gerekmiyor — her katmanın kendi
+      // geçmiş kaydı var, en üstteki kapanır.
       const list = closersRef.current;
       list[list.length - 1]?.();
     };

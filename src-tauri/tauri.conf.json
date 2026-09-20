@@ -29,7 +29,7 @@
     "deep-link": {
       "mobile": [
         {
-          "scheme": ["loomen"]
+          "scheme": ["loomen", "com.googleusercontent.apps.GOOGLE_IOS_CLIENT"]
         }
       ]
     }
