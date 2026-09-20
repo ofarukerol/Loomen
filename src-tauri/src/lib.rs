@@ -207,6 +207,7 @@ pub fn run() {
         ai::llm::ai_chat_stream,
         ai::llm::ai_chat_cancel,
         ai::llm::ai_provider_test,
+        ai::stt::ai_transcribe,
     ]);
 
     // Mobil: git_sync YOK (git2 derlenmez); senkron github_api ile.
@@ -241,6 +242,7 @@ pub fn run() {
         ai::llm::ai_chat_stream,
         ai::llm::ai_chat_cancel,
         ai::llm::ai_provider_test,
+        ai::stt::ai_transcribe,
     ]);
 
     // macOS: yerel menü çubuğu. KRİTİK — sistem "Start Dictation" (sesli yazma) ve

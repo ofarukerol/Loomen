@@ -34,6 +34,9 @@ pub struct ProviderCfg {
     /// Boşsa türün varsayılanı kullanılır (`compat` için zorunludur).
     pub base_url: Option<String>,
     pub model: String,
+    /// Konuşma tanıma modeli (yalnız ses için; bkz. `stt.rs`). Boşsa tür başına varsayılan.
+    #[serde(default)]
+    pub stt_model: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -99,7 +102,7 @@ fn http() -> reqwest::Client {
         .expect("reqwest client")
 }
 
-fn base_of(p: &ProviderCfg) -> Result<String, String> {
+pub(super) fn base_of(p: &ProviderCfg) -> Result<String, String> {
     let explicit = p.base_url.as_deref().map(str::trim).filter(|s| !s.is_empty());
     let url = match (p.kind.as_str(), explicit) {
         (_, Some(u)) => u.to_string(),
@@ -204,7 +207,7 @@ fn retry_delay(v: &serde_json::Value) -> Option<String> {
 }
 
 /// Hata gövdesinden kullanıcıya gösterilebilir bir mesaj çıkar (sağlayıcılar farklı şema kullanır).
-fn error_message(status: reqwest::StatusCode, body: &str) -> String {
+pub(super) fn error_message(status: reqwest::StatusCode, body: &str) -> String {
     let parsed = serde_json::from_str::<serde_json::Value>(body).ok();
 
     // Kota dolması hata değil, bekleme sebebidir — kullanıcıya sade bir dille söylenir.

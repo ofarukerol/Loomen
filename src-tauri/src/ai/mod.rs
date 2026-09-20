@@ -6,3 +6,4 @@
 
 pub mod keys;
 pub mod llm;
+pub mod stt;

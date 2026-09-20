@@ -7,6 +7,8 @@ import { chunkNote } from "../ai/chunk";
 import { tokenize, expand, buildBm25, bm25Search } from "../ai/bm25";
 import { retrieve, rrfFuse, isExcluded, resetIndex } from "../ai/retrieve";
 import { buildContext, buildSystemPrompt } from "../ai/context";
+import { safePath, parseProposal, splitProposals } from "../ai/proposal";
+import { bytesToBase64 } from "../ai/stt";
 
 let fails = 0;
 function check(name: string, cond: boolean, detail = "") {
@@ -143,6 +145,80 @@ const trimmed = buildContext(
 check("Bağlam bütçesi aşılmadı", trimmed.text.length <= 1400, String(trimmed.text.length));
 
 // ---------------------------------------------------------------- gerçek kasa
+
+
+// ---------------------------------------------------------------- not önerileri (yazma)
+//
+// Bu bölüm bir güvenlik testidir: asistanın önerdiği yol kasanın dışına çıkamaz, gizli
+// klasöre giremez, uygulamanın kendi verisine (Tekrar/) dokunamaz.
+
+console.log("\n---\n");
+
+check("Basit yol kabul", safePath("Projeler/Toplantı.md") === "Projeler/Toplantı.md");
+check("Uzantı yoksa .md eklenir", safePath("Fikirler") === "Fikirler.md");
+check("Ters bölü düzeltilir", safePath("Projeler\\Not.md") === "Projeler/Not.md");
+check("Baştaki ./ atılır", safePath("./Not.md") === "Not.md");
+check("Üst klasöre tırmanma reddedilir", safePath("../../etc/passwd.md") === null);
+check("Ortada .. reddedilir", safePath("Projeler/../../dışarı.md") === null);
+check("Mutlak yol reddedilir", safePath("/etc/passwd.md") === null);
+check("Sürücü harfi reddedilir", safePath("C:/Windows/not.md") === null);
+check("Gizli klasör reddedilir", safePath(".trash/not.md") === null);
+check("Gizli dosya reddedilir", safePath("Klasör/.gizli.md") === null);
+check("Tekrar klasörü korunur", safePath("Tekrar/durum.json") === null);
+check("tekrar (küçük harf) de korunur", safePath("tekrar/not.md") === null);
+check("Boş yol reddedilir", safePath("   ") === null);
+check("Yol string değilse reddedilir", safePath(42 as unknown) === null);
+
+check(
+  "Geçerli öneri ayrıştırıldı",
+  parseProposal('{"action":"append","path":"Not.md","text":"satır"}')?.path === "Not.md",
+);
+check("Bilinmeyen işlem reddedilir", parseProposal('{"action":"delete","path":"a.md","text":"x"}') === null);
+check("Boş metin reddedilir", parseProposal('{"action":"create","path":"a.md","text":"  "}') === null);
+check("Bozuk JSON reddedilir", parseProposal("{bu json değil}") === null);
+check("Güvensiz yollu öneri reddedilir", parseProposal('{"action":"append","path":"../a.md","text":"x"}') === null);
+
+const answer = [
+  "Tamam, şunu ekleyebilirim [1]:",
+  "",
+  "```loomen-note",
+  '{ "action": "append", "path": "Günlük/2026-09-21.md", "text": "- Süt al" }',
+  "```",
+].join("\n");
+const split = splitProposals(answer);
+check("Öneri metinden ayrıldı", split.proposals.length === 1, String(split.proposals.length));
+check("Görünür metinde ham JSON yok", !split.text.includes("action"), split.text);
+check("Görünür metin korundu", split.text.startsWith("Tamam"), split.text);
+
+const half = 'Ekliyorum:\n\n```loomen-note\n{ "action": "append", "path": "A.md"';
+check("Yarım blok gizlenir", !splitProposals(half).text.includes("loomen-note"));
+check("Yarım blok öneri üretmez", splitProposals(half).proposals.length === 0);
+
+const two = [
+  "```loomen-note",
+  '{ "action": "create", "path": "A.md", "text": "bir" }',
+  "```",
+  "ve",
+  "```loomen-note",
+  '{ "action": "append", "path": "B.md", "text": "iki" }',
+  "```",
+].join("\n");
+check("İki öneri de bulundu", splitProposals(two).proposals.length === 2);
+
+check(
+  "Yazma yönergesi istemde yalnız izin varken",
+  buildSystemPrompt({ context: buildContext([]), canWrite: true }).includes("loomen-note") &&
+    !buildSystemPrompt({ context: buildContext([]) }).includes("loomen-note"),
+);
+
+// ---------------------------------------------------------------- ses (base64 köprüsü)
+
+const big = new Uint8Array(200_000);
+for (let i = 0; i < big.length; i++) big[i] = i % 251;
+const b64 = bytesToBase64(big);
+check("Büyük ses base64'e çevrildi (yığın taşmadı)", b64.length > 0, `${b64.length} karakter`);
+const back = Buffer.from(b64, "base64");
+check("Base64 geri çözüldü, baytlar aynı", back.length === big.length && back[12345] === big[12345]);
 
 const VAULT = process.argv[2];
 if (VAULT) {

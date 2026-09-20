@@ -2775,6 +2775,66 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
   border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; word-break: break-word;
 }
 
+/* --- Asistan: not önerisi kartı (onay bekleyen yazma) --- */
+.lo-ai__prop {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--bg-sunken); border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 10px;
+}
+.lo-ai__prop.is-done { border-inline-start-color: var(--success); opacity: 0.85; }
+.lo-ai__prophead {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 600; color: var(--fg2);
+}
+.lo-ai__proptitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-ai__propbody {
+  margin: 8px 0 0; max-height: 180px; overflow: auto;
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.55; color: var(--fg2);
+  background: var(--bg-elev); border: 1px solid var(--line-soft);
+  border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; word-break: break-word;
+}
+.lo-ai__propactions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.lo-ai__propdone {
+  display: flex; align-items: center; gap: 6px; margin-top: 9px;
+  font-size: 12.5px; color: var(--success);
+}
+.lo-ai__proplink {
+  font-family: inherit; font-size: 12.5px; color: var(--accent);
+  background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline;
+}
+
+/* --- Asistan: sesle sorma --- */
+.lo-ai__mic { flex: none; }
+.lo-ai__mic.is-rec { color: var(--danger); border-color: var(--danger); }
+.lo-ai__miccancel { flex: none; }
+.lo-ai__voiceerr {
+  padding: 0 18px 6px; font-size: 12.5px; color: var(--danger); word-break: break-word;
+}
+.lo-ai__reclive {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  background: var(--bg-sunken); border: 1px solid var(--danger);
+  border-radius: 12px; padding: 12px;
+}
+.lo-ai__recdot {
+  width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--danger);
+  animation: loAiRec 1.2s ease-in-out infinite;
+}
+@keyframes loAiRec { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+.lo-ai__rectime {
+  flex: none; font-family: var(--font-mono); font-size: 12.5px; color: var(--fg2);
+  font-variant-numeric: tabular-nums;
+}
+.lo-ai__recbar { flex: 1; min-width: 0; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.lo-ai__recbar i {
+  display: block; width: 100%; height: 100%; background: var(--danger);
+  transform-origin: left center; transition: transform 0.1s linear;
+}
+.lo-ai__rechint {
+  flex: none; font-size: 12px; color: var(--fg3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* --- Ayarlar: hariç tutulan klasör rozetleri --- */
 .lo-ai__chips { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
 .lo-ai__chip {

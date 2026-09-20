@@ -5,6 +5,7 @@
 // Bu ayrım bilinçlidir: anahtar hiçbir zaman localStorage'a veya JS bundle'ına girmemelidir.
 
 import type { Citation } from "./context";
+import type { ProposalState } from "./proposal";
 export type { Citation };
 
 /** Sağlayıcı protokolü. `compat` = OpenAI-uyumlu herhangi bir endpoint (Ollama, LM Studio, OpenRouter…). */
@@ -19,6 +20,12 @@ export interface AiProvider {
   /** `compat` için zorunlu; diğerlerinde boş bırakılırsa sağlayıcının varsayılanı kullanılır. */
   baseUrl?: string;
   model: string;
+  /**
+   * Konuşma tanıma modeli — yalnız "sesle sor" için. OpenAI uyumlu uçlarda sohbet modeli
+   * bu işi yapmaz, ayrı model gerekir (varsayılan `whisper-1`). Gemini'de boş bırakılırsa
+   * sohbet modelinin kendisi sesi de anlar.
+   */
+  sttModel?: string;
 }
 
 export interface AiMessage {
@@ -35,6 +42,8 @@ export interface AiMessage {
   citations?: Citation[];
   /** "Gönderilen bağlamı göster" açıksa modele giden ham bağlam. */
   contextText?: string;
+  /** Cevaptaki not önerileri (uygulanma durumlarıyla) — onaysız hiçbiri yazılmaz. */
+  proposals?: ProposalState[];
 }
 
 export interface ChatResult {

@@ -7,6 +7,7 @@
 
 import type { Retrieved } from "./retrieve";
 import { noteTitle } from "./chunk";
+import { PROPOSAL_INSTRUCTION } from "./proposal";
 
 export interface Citation {
   /** Cevapta geçen numara ([1] → n = 1). */
@@ -52,6 +53,8 @@ export interface PromptOptions {
   activeNote?: string | null;
   /** Getirilen bağlam. */
   context: BuiltContext;
+  /** Asistan not önerebilsin mi? (Öneri yazmaz; kullanıcı onayı şarttır.) */
+  canWrite?: boolean;
 }
 
 const BASE =
@@ -79,5 +82,6 @@ export function buildSystemPrompt(opts: PromptOptions): string {
   } else {
     lines.push(NO_CONTEXT);
   }
+  if (opts.canWrite) lines.push(PROPOSAL_INSTRUCTION);
   return lines.join("\n\n");
 }

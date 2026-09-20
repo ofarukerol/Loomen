@@ -46,6 +46,8 @@ import { chatStream, cancelChat, testProvider, aiKeys } from "../core/ai/llm";
 import { newProviderId, DEFAULT_MODEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
 import { retrieve, resetIndex } from "../core/ai/retrieve";
 import { buildContext, buildSystemPrompt } from "../core/ai/context";
+import { transcribe } from "../core/ai/stt";
+import { splitProposals, type ProposalState } from "../core/ai/proposal";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, taskLineMatches, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
 import {
   DEFAULT_SETTINGS as SRS_DEFAULTS,
@@ -235,6 +237,12 @@ interface AppState {
   aiExcluded: string[];
   /** Modele gönderilen ham bağlam cevapla birlikte saklansın mı (şeffaflık). */
   aiShowContext: boolean;
+  /** Asistan not önerisi yapabilsin mi? Öneri tek başına hiçbir şey yazmaz — onay şarttır. */
+  aiCanWrite: boolean;
+  /** Ses metne çevrilince soru kendiliğinden gönderilsin mi (kapalıyken kutuda bekler). */
+  aiVoiceAutoSend: boolean;
+  /** Ses çevrilirken true — mikrofon düğmesi bekleme gösterir. */
+  aiTranscribing: boolean;
   /** Sohbet oturumluktur — kalıcı değil; kullanıcı isterse cevabı nota kaydeder. */
   aiMessages: AiMessage[];
   aiBusy: boolean;
@@ -402,6 +410,12 @@ interface AppState {
   aiSetEnabled: (v: boolean) => void;
   aiSetExcluded: (dirs: string[]) => void;
   aiSetShowContext: (v: boolean) => void;
+  aiSetCanWrite: (v: boolean) => void;
+  aiSetVoiceAutoSend: (v: boolean) => void;
+  /** WAV kaydını metne çevir (aktif sağlayıcıyla). Boş dönerse konuşma anlaşılmamıştır. */
+  aiTranscribe: (wav: Uint8Array) => Promise<string>;
+  /** Bir cevaptaki not önerisini uygula (kullanıcı onayı). */
+  aiApplyProposal: (messageId: string, index: number) => Promise<void>;
   aiAddProvider: (kind: ProviderKind) => string;
   aiUpdateProvider: (id: string, patch: Partial<AiProvider>) => void;
   aiRemoveProvider: (id: string) => Promise<void>;
@@ -742,6 +756,9 @@ export const useAppStore = create<AppState>()(
     aiActiveProviderId: null,
     aiExcluded: [],
     aiShowContext: false,
+    aiCanWrite: true,
+    aiVoiceAutoSend: false,
+    aiTranscribing: false,
     aiMessages: [],
     aiBusy: false,
     aiRequestId: null,
@@ -2113,6 +2130,10 @@ export const useAppStore = create<AppState>()(
 
     aiSetShowContext: (aiShowContext) => set({ aiShowContext }),
 
+    aiSetCanWrite: (aiCanWrite) => set({ aiCanWrite }),
+
+    aiSetVoiceAutoSend: (aiVoiceAutoSend) => set({ aiVoiceAutoSend }),
+
     aiAddProvider: (kind) => {
       const s = get();
       const id = newProviderId(kind, s.aiProviders);
@@ -2178,7 +2199,7 @@ export const useAppStore = create<AppState>()(
 
       const hits = retrieve(contents, body, { k: 6, excluded: s.aiExcluded });
       const context = buildContext(hits);
-      const system = buildSystemPrompt({ activeNote: s.activeNote, context });
+      const system = buildSystemPrompt({ activeNote: s.activeNote, context, canWrite: s.aiCanWrite });
 
       const stamp = Date.now();
       const userMsg: AiMessage = { id: `u-${stamp}`, role: "user", content: body };
@@ -2219,7 +2240,15 @@ export const useAppStore = create<AppState>()(
               })),
           }
         );
-        patchReply({ content: res.text, streaming: false, cancelled: res.cancelled || undefined });
+        // Öneri blokları cevaptan ayrılır: kullanıcı ham JSON değil, önizlemeli bir kart
+        // görür. Blok yalnız bir NİYET beyanıdır; onaylanana kadar diske hiçbir şey gitmez.
+        const parsed = splitProposals(res.text);
+        patchReply({
+          content: res.text,
+          streaming: false,
+          cancelled: res.cancelled || undefined,
+          proposals: parsed.proposals.length ? parsed.proposals.map((pr) => ({ ...pr })) : undefined,
+        });
       } catch (e) {
         patchReply({ streaming: false, error: String(e instanceof Error ? e.message : e) });
       } finally {
@@ -2230,6 +2259,78 @@ export const useAppStore = create<AppState>()(
     aiCancel: () => {
       const id = get().aiRequestId;
       if (id) cancelChat(id);
+    },
+
+    aiTranscribe: async (wav) => {
+      const s = get();
+      const provider = s.aiProviders.find((p) => p.id === s.aiActiveProviderId);
+      if (!provider) throw new Error("Önce ayarlardan bir sağlayıcı ekleyin.");
+      set({ aiTranscribing: true });
+      try {
+        return await transcribe(provider, wav, s.lang);
+      } finally {
+        set({ aiTranscribing: false });
+      }
+    },
+
+    // Asistanın not önerisini UYGULA. NOTE_SAFETY:
+    //  - yalnız EKLEME ve YENİ NOT var; üzerine yazma/silme hiç yok, veri kaybı mümkün değil,
+    //  - yazmadan önce bekleyen taslak diske geçer (autosave sonradan ateşleyip eklemeyi silmesin),
+    //  - hedef açık notsa taslak da aynı içerikle güncellenir (draft ⇔ draftPath bağı korunur),
+    //  - içerik DİSKTEN okunur; bellekteki kopya bayat olabilir (dış değişiklik/senkron).
+    aiApplyProposal: async (messageId, index) => {
+      const patch = (p: Partial<ProposalState>) =>
+        set((st) => ({
+          aiMessages: st.aiMessages.map((m) =>
+            m.id === messageId
+              ? {
+                  ...m,
+                  proposals: (m.proposals ?? []).map((pr, i) => (i === index ? { ...pr, ...p } : pr)),
+                }
+              : m,
+          ),
+        }));
+
+      const msg = get().aiMessages.find((m) => m.id === messageId);
+      const prop = msg?.proposals?.[index];
+      if (!prop || prop.appliedPath) return; // iki kez uygulanmaz
+
+      try {
+        if (!(await flushDraft())) throw new Error("Açık not kaydedilemedi");
+        const dir = prop.path.includes("/") ? prop.path.slice(0, prop.path.lastIndexOf("/")) : "";
+
+        let target = prop.path;
+        if (prop.action === "create") {
+          // Çakışan ad ÜZERİNE YAZILMAZ: sıradaki boş ada geçilir.
+          const base = target.replace(/\.md$/i, "");
+          let n = 2;
+          while (await backend.exists(target)) target = `${base} ${n++}.md`;
+          if (dir) await backend.ensureDir(dir);
+          await backend.writeNote(target, prop.text.endsWith("\n") ? prop.text : `${prop.text}\n`);
+        } else {
+          if (!(await backend.exists(target))) {
+            // Model olmayan bir nota eklemek isteyebilir; sessizce oluşturmak yerine
+            // kullanıcıya söylenir — yanlış yola yazmanın tek çaresi budur.
+            throw new Error(`Not bulunamadı: ${target}`);
+          }
+          const current = await backend.readNote(target);
+          const sep = current.length === 0 || current.endsWith("\n\n") ? "" : current.endsWith("\n") ? "\n" : "\n\n";
+          const next = `${current}${sep}${prop.text.replace(/\s+$/, "")}\n`;
+          await backend.writeNote(target, next);
+          const st = get();
+          // Hedef açık notsa ekranda görünen metin de tazelenir; yoksa bekleyen autosave
+          // eski taslağı geri yazıp eklemeyi silerdi.
+          if (st.activeNote === target && st.draftPath === target) {
+            set({ draft: next, noteContents: { ...st.noteContents, [target]: next } });
+          } else {
+            set({ noteContents: { ...st.noteContents, [target]: next } });
+          }
+        }
+        await loadFromBackend();
+        patch({ appliedPath: target, error: undefined });
+      } catch (e) {
+        patch({ error: e instanceof Error ? e.message : String(e) });
+      }
     },
 
     aiClearChat: () => set({ aiMessages: [] }),
@@ -2542,6 +2643,8 @@ export const useAppStore = create<AppState>()(
         aiActiveProviderId: s.aiActiveProviderId,
         aiExcluded: s.aiExcluded,
         aiShowContext: s.aiShowContext,
+        aiCanWrite: s.aiCanWrite,
+        aiVoiceAutoSend: s.aiVoiceAutoSend,
       }),
     }
   )

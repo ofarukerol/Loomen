@@ -145,6 +145,27 @@ function ProviderRow({ p }: { p: AiProvider }) {
           )}
         </label>
 
+        {/* Ses modeli: "sesle sor" düğmesinin kullandığı model. OpenAI uyumlu uçlarda
+            sohbet modeli bu işi YAPMAZ (gpt-5 transkripsiyon ucunda çalışmaz), ayrı model
+            gerekir. Anthropic'te ses hiç yok, o yüzden orada alan da gösterilmez. */}
+        {p.kind !== "anthropic" && (
+          <label className="lo-ai__field">
+            <span className="lo-ai__flabel">{t("ai.fSttModel")}</span>
+            <input
+              className="lo-gh__input lo-ai__inp"
+              value={p.sttModel ?? ""}
+              placeholder={p.kind === "gemini" ? p.model : "whisper-1"}
+              onChange={(e) => update(p.id, { sttModel: e.target.value.trim() || undefined })}
+            />
+          </label>
+        )}
+
+        {p.kind !== "anthropic" && (
+          <div className="lo-ai__keyhint">
+            {t(p.kind === "gemini" ? "ai.sttHintGemini" : "ai.sttHintOpenai")}
+          </div>
+        )}
+
         {/* Adres yalnızca kendi sunucusunu kullananlar için anlamlı; diğerlerinde
             varsayılanı elle değiştirmek yalnızca bağlantıyı bozar. */}
         {p.kind === "compat" && (
@@ -311,6 +332,10 @@ export function AiSettings() {
   const addProvider = useAppStore((s) => s.aiAddProvider);
   const showContext = useAppStore((s) => s.aiShowContext);
   const setShowContext = useAppStore((s) => s.aiSetShowContext);
+  const canWrite = useAppStore((s) => s.aiCanWrite);
+  const setCanWrite = useAppStore((s) => s.aiSetCanWrite);
+  const voiceAutoSend = useAppStore((s) => s.aiVoiceAutoSend);
+  const setVoiceAutoSend = useAppStore((s) => s.aiSetVoiceAutoSend);
   const [newKind, setNewKind] = useState<ProviderKind>("gemini");
 
   return (
@@ -361,6 +386,22 @@ export function AiSettings() {
             ))}
 
             <ExcludedFolders />
+
+            <div className="lo-set__row lo-set__row--border">
+              <div>
+                <div className="lo-set__rowtitle">{t("ai.canWrite")}</div>
+                <div className="lo-set__rowsub">{t("ai.canWriteSub")}</div>
+              </div>
+              <Toggle on={canWrite} onClick={() => setCanWrite(!canWrite)} />
+            </div>
+
+            <div className="lo-set__row lo-set__row--border">
+              <div>
+                <div className="lo-set__rowtitle">{t("ai.voiceAutoSend")}</div>
+                <div className="lo-set__rowsub">{t("ai.voiceAutoSendSub")}</div>
+              </div>
+              <Toggle on={voiceAutoSend} onClick={() => setVoiceAutoSend(!voiceAutoSend)} />
+            </div>
 
             <div className="lo-set__row lo-set__row--border">
               <div>
