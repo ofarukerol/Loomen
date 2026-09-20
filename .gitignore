@@ -32,6 +32,13 @@ src-tauri/gen/android/app/src/*
 !src-tauri/gen/android/app/src/main/
 src-tauri/gen/android/app/src/main/*
 !src-tauri/gen/android/app/src/main/AndroidManifest.xml
+# ...ve manifest'in atif yaptigi yedekleme kural dosyasi (res/xml altindaki
+# geri kalan uretilen kaynaklar yok sayilmaya devam eder).
+!src-tauri/gen/android/app/src/main/res/
+src-tauri/gen/android/app/src/main/res/*
+!src-tauri/gen/android/app/src/main/res/xml/
+src-tauri/gen/android/app/src/main/res/xml/*
+!src-tauri/gen/android/app/src/main/res/xml/data_extraction_rules.xml
 
 # iOS: proje sablonu, disari aktarma ayarlari ve gizlilik bildirimi.
 # Uygulama klasorunu tauri "<UygulamaAdi>_iOS" olarak uretir; buyuk/kucuk harf
