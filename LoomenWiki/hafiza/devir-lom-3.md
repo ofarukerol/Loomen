@@ -3,7 +3,7 @@ name: LOM-3 — Mobil Test
 description: Mobil sürüm (iPhone/Android) mağazaya gitmeden önce kod üzerinden denetlendi; dokunmatik kullanımda çalışmayan yerler (not silme/yeniden adlandırma, planlayıcıda kaydırma, klavye altında kalan alanlar, Android geri tuşu), çentik/ekran kenarı boşlukları ve mağaza paketindeki eksikler (TV girdileri, gizlilik bildirimi, mikrofon izni metni, yedekleme ayarı) düzeltilecek, sonra derleme ve testlerle doğrulanıp elle denenecekler raporlanacak.
 type: project
 proje: loomen
-kaynak: kart LOM-3 · dal fix/LOM-3 · Loomen@011d2d882f1fcf6a9e9c11b76c5d784d24fff036 · test koşusu c5a20b56-54ec-4c22-9cfa-bba155e1b502 (Air)
+kaynak: kart LOM-3 · dal fix/LOM-3 · Loomen@19e75e59bda69e428baf37f76940822a39e545bf · test koşusu 69ef2e45-2ea9-4754-a6ab-acc95d6d7892 (Air)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-09-20
@@ -78,13 +78,13 @@ Mobil sürüm (iPhone/Android) mağazaya gitmeden önce kod üzerinden denetlend
 
 Testler geçti.
 
-> Koşturulabilen bütün testler ve derlemeler geçti. npm test çıkış 0 (2 dosya: coreTest 102 kontrol + vaultTest); mobileTest.ts elle koşuldu, 32 kontrol geçti; npx tsc --noEmit çıkış 0, hatasız; npm run build çıkış 0 (12.59 s); cargo check çıkış 0, 0 hata/0 uyarı. cargo'yu düz koşmakla yetinmedim: hafızadaki tuzak notuna göre parmak izi önbelleği capabilities JSON'unu atlayabildiği için `cargo clean
+> Hepsi yeşil. npm test: 3 test dosyası, 151 kontrolün tümü geçti (coreTest 102, vaultTest, mobileTest 32). npx tsc --noEmit temiz. npm run build başarılı (10.77 s). src-tauri'de cargo check --all-targets 0 hata / 0 uyarı ile geçti; soğuk derleme olduğu için capabilities JSON'ları da tauri-build tarafından doğrulandı. Ek doğrulamalar: tr/en/ar çeviri dosyaları 404'er anahtarla birebir eşit ve yer tu
 
 ## Kanıt
 
 - Dal: `fix/LOM-3`
-- Commit: `Loomen@011d2d882f1fcf6a9e9c11b76c5d784d24fff036`
-- Test koşusu: `c5a20b56-54ec-4c22-9cfa-bba155e1b502` (Air)
+- Commit: `Loomen@19e75e59bda69e428baf37f76940822a39e545bf`
+- Test koşusu: `69ef2e45-2ea9-4754-a6ab-acc95d6d7892` (Air)
 
 ## Durum
 
