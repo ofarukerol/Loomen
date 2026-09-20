@@ -5,22 +5,19 @@
 // çağırır (React/i18n kurulumu istemez), bu yüzden tek dosya halinde bundle edilip
 // node ile çalıştırılırlar.
 //
-// `--define:import.meta.env={}` gerekir: google.ts Vite ortam değişkeni okur, node'da yoktur.
+// Derleme esbuild'in JS API'siyle yapılır, `node_modules/.bin/esbuild` ile DEĞİL: oradaki
+// dosya platforma göre ya Go ikilisi ya kabuk betiğidir ve Windows'ta spawn edilemiyordu
+// (testler o yüzden yalnız macOS'ta koşuyordu).
 //
 // vaultTest gerçek bir kasa klasörü ister; argüman verilmezse depodaki demo-vault kullanılır.
 import { spawnSync } from "node:child_process";
+import { build as bundle } from "esbuild";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "node_modules", ".cache", "loomen-test");
-const esbuild = join(root, "node_modules", ".bin", "esbuild");
-
-if (!existsSync(esbuild)) {
-  console.error("esbuild bulunamadı — önce `npm install` çalıştırın.");
-  process.exit(1);
-}
 mkdirSync(outDir, { recursive: true });
 
 const vault = process.argv[2] ?? join(root, "demo-vault");
@@ -45,12 +42,18 @@ for (const [src, args] of suites) {
     continue;
   }
   const out = join(outDir, `${name}.mjs`);
-  const build = spawnSync(
-    esbuild,
-    [src, "--bundle", "--platform=node", "--format=esm", "--define:import.meta.env={}", `--outfile=${out}`],
-    { cwd: root, stdio: ["ignore", "ignore", "inherit"] },
-  );
-  if (build.status !== 0) {
+  try {
+    await bundle({
+      entryPoints: [join(root, src)],
+      bundle: true,
+      platform: "node",
+      format: "esm",
+      // google.ts Vite ortam değişkeni okur; node'da `import.meta.env` yoktur.
+      define: { "import.meta.env": "{}" },
+      outfile: out,
+      logLevel: "error",
+    });
+  } catch {
     console.error(`\n✗ ${name} derlenemedi`);
     failed++;
     continue;
