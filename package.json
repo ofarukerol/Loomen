@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "node scripts/run-tests.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "win-test:build": "tauri build --no-bundle --config src-tauri/tauri.test.conf.json"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.0",
