@@ -2312,16 +2312,11 @@ export const useAppStore = create<AppState>()(
             throw new Error(`Not bulunamadı: ${target}`);
           }
           const current = await backend.readNote(target);
-          const next = appendText(current, prop.text);
-          await backend.writeNote(target, next);
-          const st = get();
-          // Hedef açık notsa ekranda görünen metin de tazelenir; yoksa bekleyen autosave
-          // eski taslağı geri yazıp eklemeyi silerdi.
-          if (st.activeNote === target && st.draftPath === target) {
-            set({ draft: next, noteContents: { ...st.noteContents, [target]: next } });
-          } else {
-            set({ noteContents: { ...st.noteContents, [target]: next } });
-          }
+          await backend.writeNote(target, appendText(current, prop.text));
+          // Bellekteki kopya BİLEREK güncellenmiyor: aşağıdaki loadFromBackend, taslak
+          // temizken (flushDraft sayesinde öyle) hem taslağı hem editörü yeni içerikle
+          // tazeliyor (draftEpoch). Burada elle set edilseydi o tazeleme atlanır,
+          // CodeMirror eski metinde kalır ve ilk tuşta autosave eklemeyi geri silerdi.
         }
         await loadFromBackend();
         patch({ appliedPath: target, error: undefined });
