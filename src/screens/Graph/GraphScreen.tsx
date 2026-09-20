@@ -13,6 +13,7 @@ import {
   type SimulationNodeDatum,
 } from "d3-force";
 import { useAppStore } from "../../store/useAppStore";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import { extractWikiLinks, extractTags } from "../../core/markdown/links";
 
 type NodeKind = "note" | "tag";
@@ -142,6 +143,7 @@ function readColors(): Colors {
 
 export function GraphScreen() {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const notes = useAppStore((s) => s.notes);
   const contents = useAppStore((s) => s.noteContents);
   const openNote = useAppStore((s) => s.openNote);
@@ -453,7 +455,8 @@ export function GraphScreen() {
         canvas.style.cursor = "grabbing";
       }
     };
-    const onUp = (e: PointerEvent) => {
+    /** Dokunuşu bitir. open=false → iptal edilen dokunuş (pointercancel): not açılmaz. */
+    const finish = (e: PointerEvent, open: boolean) => {
       try {
         canvas.releasePointerCapture(e.pointerId);
       } catch {
@@ -463,12 +466,15 @@ export function GraphScreen() {
         dragNode.fx = null;
         dragNode.fy = null;
         sim.alphaTarget(0);
-        if (!moved && dragNode.kind === "note") openNote(dragNode.id);
+        if (open && !moved && dragNode.kind === "note") openNote(dragNode.id);
       }
       mode = null;
       dragNode = null;
+      hoverRef.current = null;
       canvas.style.cursor = "grab";
     };
+    const onUp = (e: PointerEvent) => finish(e, true);
+    const onCancel = (e: PointerEvent) => finish(e, false);
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
@@ -489,6 +495,7 @@ export function GraphScreen() {
     canvas.addEventListener("pointerdown", onDown);
     canvas.addEventListener("pointermove", onMove);
     canvas.addEventListener("pointerup", onUp);
+    canvas.addEventListener("pointercancel", onCancel);
     canvas.addEventListener("pointerleave", onLeave);
     canvas.addEventListener("wheel", onWheel, { passive: false });
 
@@ -500,6 +507,7 @@ export function GraphScreen() {
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerup", onUp);
+      canvas.removeEventListener("pointercancel", onCancel);
       canvas.removeEventListener("pointerleave", onLeave);
       canvas.removeEventListener("wheel", onWheel);
     };
@@ -522,7 +530,7 @@ export function GraphScreen() {
         <div style={{ flex: 1 }} />
         <span className="lo-graph__hint">
           <Move size={14} strokeWidth={2} />
-          {t("graph.hint")}
+          {isMobile ? t("graph.hintTouch") : t("graph.hint")}
         </span>
       </div>
 

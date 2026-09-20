@@ -25,15 +25,6 @@
       "csp": null
     }
   },
-  "plugins": {
-    "deep-link": {
-      "desktop": {
-        "schemes": [
-          "loomen"
-        ]
-      }
-    }
-  },
   "bundle": {
     "active": true,
     "targets": "all",
@@ -50,7 +41,7 @@
     "shortDescription": "Yerel çalışan not, planlayıcı ve Pomodoro uygulaması",
     "longDescription": "Loomen; notlarını düz Markdown dosyaları olarak kendi klasöründe tutan, tamamen çevrimdışı çalışan bir kişisel bilgi yönetimi uygulamasıdır. Çift yönlü bağlantı, graf görünümü, günlük planlayıcı, takvim ve Pomodoro içerir.",
     "macOS": {
-      "minimumSystemVersion": "10.15"
+      "minimumSystemVersion": "11.0"
     },
     "windows": {
       "nsis": {

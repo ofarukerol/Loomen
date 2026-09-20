@@ -12,9 +12,28 @@ import {
 import type { VaultBackend, VaultNote } from "./types";
 import { TRASH_DIR, encodeTrashName, toTrashEntry, type TrashEntry } from "./trash";
 
+/**
+ * Vault içi göreli yolu doğrula.
+ *
+ * `abs()` yolu kökün sonuna yapıştırdığı için doğrulanmamış bir yol vault'un dışına
+ * çıkabilir: "../../.ssh/id_rsa" ya da "/etc/passwd" kök dışına yazar. Yol bir not
+ * adından, bir bağlantıdan ya da senkron edilmiş bir dosyadan gelebilir — hiçbiri
+ * güvenilir değil. Kural: göreli, boş olmayan, ".." parçası taşımayan yol.
+ */
+function safeRel(rel: string): string {
+  const p = rel.replace(/\\/g, "/"); // Windows ayırıcısı da aynı kuralı görsün
+  const bad =
+    !p ||
+    p.startsWith("/") || // mutlak (POSIX) ya da UNC ("\\\\sunucu" → "//sunucu")
+    /^[A-Za-z]:/.test(p) || // mutlak (Windows sürücü harfi)
+    p.split("/").includes(".."); // üst klasöre çıkış
+  if (bad) throw new Error(`Vault dışına çıkan yol reddedildi: ${rel}`);
+  return p;
+}
+
 // Gerçek dosya sistemi adapter'ı (Tauri). Vault kökü mutlak yol; içeride göreli yollar kullanılır.
 export function createTauriBackend(root: string): VaultBackend {
-  const abs = (rel: string) => `${root}/${rel}`;
+  const abs = (rel: string) => `${root}/${safeRel(rel)}`;
 
   async function walk(dirAbs: string, relDir: string, out: VaultNote[]): Promise<void> {
     const entries = await readDir(dirAbs);
@@ -37,28 +56,48 @@ export function createTauriBackend(root: string): VaultBackend {
       await walk(root, "", out);
       return out;
     },
-    readNote: (p) => readTextFile(abs(p)),
-    writeNote: (p, c) => writeTextFile(abs(p), c),
-    readBinary: (p) => readFile(abs(p)),
+    // async: safeRel reddi senkron fırlatma değil, reddedilmiş promise olarak çıksın.
+    readNote: async (p) => readTextFile(abs(p)),
+    /**
+     * Notu atomik yaz: önce yan dosyaya (`.tmp`), sonra rename ile yerine koy.
+     * Doğrudan yazmada işlem ortasında çökme/pil bitmesi notu yarım bırakır — yani
+     * kullanıcının yazdığını siler. Rename tek adımdır: ya eski ya yeni içerik görünür.
+     * `.tmp` uzantısı walk()'ın uzantı süzgecine takılmaz, ağaçta görünmez.
+     */
+    writeNote: async (p, c) => {
+      const target = abs(p);
+      const tmp = `${target}.tmp`;
+      await writeTextFile(tmp, c);
+      try {
+        await rename(tmp, target); // std::fs::rename — hedefin üzerine yazar
+      } catch (err) {
+        // Rename olmadıysa not kaybolmasın: doğrudan yazıp yan dosyayı temizle.
+        await writeTextFile(target, c);
+        await remove(tmp).catch(() => {});
+        console.warn("Atomik yazma rename'de başarısız, doğrudan yazıldı:", err);
+      }
+    },
+    readBinary: async (p) => readFile(abs(p)),
     writeBinary: async (p, data) => {
-      const dir = p.split("/").slice(0, -1).join("/");
+      const dir = safeRel(p).split("/").slice(0, -1).join("/");
       if (dir) await mkdir(abs(dir), { recursive: true });
       await writeFile(abs(p), data);
     },
-    exists: (p) => exists(abs(p)),
+    exists: async (p) => exists(abs(p)),
     ensureDir: async (d) => {
       if (d) await mkdir(abs(d), { recursive: true });
     },
     rename: async (from, to) => {
-      const dir = to.split("/").slice(0, -1).join("/");
+      const dir = safeRel(to).split("/").slice(0, -1).join("/");
       if (dir) await mkdir(abs(dir), { recursive: true });
       await rename(abs(from), abs(to));
     },
 
     trashNote: async (path) => {
+      const safePath = safeRel(path);
       await mkdir(abs(TRASH_DIR), { recursive: true });
-      const trashName = encodeTrashName(path, Date.now());
-      await rename(abs(path), abs(`${TRASH_DIR}/${trashName}`));
+      const trashName = encodeTrashName(safePath, Date.now());
+      await rename(abs(safePath), abs(`${TRASH_DIR}/${trashName}`));
     },
     listTrash: async () => {
       if (!(await exists(abs(TRASH_DIR)))) return [];
@@ -82,7 +121,7 @@ export function createTauriBackend(root: string): VaultBackend {
         const ext = dot > 0 ? target.slice(dot) : "";
         target = `${base} (geri yüklendi ${Date.now()})${ext}`;
       }
-      const dir = target.split("/").slice(0, -1).join("/");
+      const dir = safeRel(target).split("/").slice(0, -1).join("/");
       if (dir) await mkdir(abs(dir), { recursive: true });
       await rename(abs(`${TRASH_DIR}/${trashName}`), abs(target));
       return target;

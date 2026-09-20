@@ -8,8 +8,14 @@ export interface Task {
   text: string;
   done: boolean;
   overdue: boolean;
-  /** Göreli tarih etiketi — şimdilik sabit; ileride date-fns ile hesaplanacak. */
+  /** Göreli tarih etiketi — aktif dilde ("bugün", "6 gün sonra"). EKRANA yazılır. */
   rel: string;
+  /**
+   * Göreli tarihin ANAHTARI ("rel.today", "rel.inDays"…). Karşılaştırma bununla
+   * yapılır: `rel` aktif dile göre üretiliyor, metin karşılaştırması yalnız
+   * Türkçede tutuyordu (bkz. "anahtar sözleşmedir, metin veridir").
+   */
+  relKey: string;
   /** Görevin geldiği kaynak not. */
   source: string;
   /** #etiket / 🎯 */
@@ -36,9 +42,9 @@ export const sampleGroups: TaskGroup[] = [
     sub: "Bugün",
     kind: "today",
     tasks: [
-      { id: "t1", text: "Tasarımı bitir", done: false, overdue: false, rel: "bugün", source: "2026-06-13-Cumartesi", tag: "Yapılacaklar", pomos: 3 },
-      { id: "t2", text: "Toplantı notlarını yaz", done: false, overdue: false, rel: "bugün", source: "Proje X", tag: "İş", pomos: 1 },
-      { id: "t3", text: "Spor salonu üyeliğini yenile", done: false, overdue: false, rel: "bugün", source: "2026-06-10-Salı", tag: "Kişisel", pomos: 0 },
+      { id: "t1", text: "Tasarımı bitir", done: false, overdue: false, rel: "bugün", relKey: "rel.today", source: "2026-06-13-Cumartesi", tag: "Yapılacaklar", pomos: 3 },
+      { id: "t2", text: "Toplantı notlarını yaz", done: false, overdue: false, rel: "bugün", relKey: "rel.today", source: "Proje X", tag: "İş", pomos: 1 },
+      { id: "t3", text: "Spor salonu üyeliğini yenile", done: false, overdue: false, rel: "bugün", relKey: "rel.today", source: "2026-06-10-Salı", tag: "Kişisel", pomos: 0 },
     ],
   },
   {
@@ -47,8 +53,8 @@ export const sampleGroups: TaskGroup[] = [
     sub: "Geciken",
     kind: "overdue",
     tasks: [
-      { id: "t4", text: "Kredi kartı ekstresi · 2.450,00 ₺", done: false, overdue: true, rel: "bir gün önce", source: "2026-06-12-Cuma", tag: "Ödemeler", pomos: 0 },
-      { id: "t5", text: "Elektrik faturası öde · 640,00 ₺", done: true, overdue: true, rel: "bir gün önce", source: "2026-06-12-Cuma", tag: "Ödemeler", pomos: 0 },
+      { id: "t4", text: "Kredi kartı ekstresi · 2.450,00 ₺", done: false, overdue: true, rel: "bir gün önce", relKey: "rel.oneDayAgo", source: "2026-06-12-Cuma", tag: "Ödemeler", pomos: 0 },
+      { id: "t5", text: "Elektrik faturası öde · 640,00 ₺", done: true, overdue: true, rel: "bir gün önce", relKey: "rel.oneDayAgo", source: "2026-06-12-Cuma", tag: "Ödemeler", pomos: 0 },
     ],
   },
   {
@@ -57,8 +63,8 @@ export const sampleGroups: TaskGroup[] = [
     sub: "Geciken",
     kind: "overdue",
     tasks: [
-      { id: "t6", text: "Su faturası · 280,00 ₺", done: false, overdue: true, rel: "5 gün önce", source: "2026-06-08-Pazartesi", tag: "Ödemeler", pomos: 0 },
-      { id: "t7", text: "Ekibe dönüş yap", done: true, overdue: true, rel: "5 gün önce", source: "Toplantı Notları", tag: "İş", pomos: 0 },
+      { id: "t6", text: "Su faturası · 280,00 ₺", done: false, overdue: true, rel: "5 gün önce", relKey: "rel.daysAgo", source: "2026-06-08-Pazartesi", tag: "Ödemeler", pomos: 0 },
+      { id: "t7", text: "Ekibe dönüş yap", done: true, overdue: true, rel: "5 gün önce", relKey: "rel.daysAgo", source: "Toplantı Notları", tag: "İş", pomos: 0 },
     ],
   },
   {
@@ -67,7 +73,7 @@ export const sampleGroups: TaskGroup[] = [
     sub: "Yaklaşan",
     kind: "upcoming",
     tasks: [
-      { id: "t8", text: "Ders notlarını gözden geçir", done: false, overdue: false, rel: "bir gün sonra", source: "Fikirler", tag: "Okul", pomos: 0 },
+      { id: "t8", text: "Ders notlarını gözden geçir", done: false, overdue: false, rel: "bir gün sonra", relKey: "rel.inOneDay", source: "Fikirler", tag: "Okul", pomos: 0 },
     ],
   },
   {
@@ -76,7 +82,7 @@ export const sampleGroups: TaskGroup[] = [
     sub: "Yaklaşan",
     kind: "upcoming",
     tasks: [
-      { id: "t9", text: "Kira ödemesi · 12.000 ₺", done: false, overdue: false, rel: "6 gün sonra", source: "2026-06-19-Cuma", tag: "Ödemeler", pomos: 0 },
+      { id: "t9", text: "Kira ödemesi · 12.000 ₺", done: false, overdue: false, rel: "6 gün sonra", relKey: "rel.inDays", source: "2026-06-19-Cuma", tag: "Ödemeler", pomos: 0 },
     ],
   },
   {
@@ -85,7 +91,7 @@ export const sampleGroups: TaskGroup[] = [
     sub: "Yaklaşan",
     kind: "upcoming",
     tasks: [
-      { id: "t10", text: "Sunum hazırlığı", done: false, overdue: false, rel: "bir ay sonra", source: "Proje X", tag: "Yapılacaklar", pomos: 0 },
+      { id: "t10", text: "Sunum hazırlığı", done: false, overdue: false, rel: "bir ay sonra", relKey: "rel.inOneMonth", source: "Proje X", tag: "Yapılacaklar", pomos: 0 },
     ],
   },
 ];

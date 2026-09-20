@@ -21,12 +21,14 @@ import {
   TEMPLATES_DIR,
   DRAW_DIR,
   AUDIO_DIR,
+  DAILY_DIR,
   TODO_HEADING,
 } from "../core/vault";
+import { rewriteWikiLinks } from "../core/markdown/links";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
-import { createBookmark, resolveBookmark, releaseBookmark, appIsSandboxed } from "../core/bookmark";
+import { createBookmark, resolveBookmark, releaseBookmark, appIsSandboxed, allowVaultPath } from "../core/bookmark";
 import { gh, appIsMobile, appPlatform, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
 import {
   gcal,
@@ -44,7 +46,7 @@ import { chatStream, cancelChat, testProvider, aiKeys } from "../core/ai/llm";
 import { newProviderId, DEFAULT_MODEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
 import { retrieve, resetIndex } from "../core/ai/retrieve";
 import { buildContext, buildSystemPrompt } from "../core/ai/context";
-import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
+import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, taskLineMatches, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
 import {
   DEFAULT_SETTINGS as SRS_DEFAULTS,
   PRESETS as SRS_PRESETS,
@@ -173,6 +175,13 @@ interface AppState {
   /** Taslağın AİT OLDUĞU not yolu. saveNote yalnızca draftPath === activeNote ise yazar —
    *  böylece bir notun taslağı asla başka bir dosyaya yazılamaz (veri bütünlüğü güvencesi). */
   draftPath: string | null;
+  /**
+   * Taslak DIŞARIDAN tazelendiğinde artar (dış dosya değişikliği, görev işaretleme).
+   * CodeMirror dış `value` değişikliklerini almaz — yalnız `key` değişince yeniden kurulur;
+   * bu sayaç key'e katılır, yoksa tazelenen içerik editörde görünmez ve sonraki tuş vuruşu
+   * CM'in eski metnini geri yazıp dış değişikliği siler.
+   */
+  draftEpoch: number;
   backlinksCollapsed: boolean;
 
   // Görev detay paneli (seçili görev id'si "file:line")
@@ -262,6 +271,12 @@ interface AppState {
   pomoSound: boolean;
   pomoRemaining: number;
   pomoRunning: boolean;
+  /**
+   * Çalışan odak seansının BİTİŞ anı (epoch ms) — sayaç buradan hesaplanır, tick sayarak
+   * değil. setInterval arka planda/uyku sonrasında kısılır ya da hiç ateşlemez; saniye
+   * sayan bir sayaç 25 dakikayı 40 dakikada bitirirdi. Duraklatılmışken null.
+   */
+  pomoEndsAt: number | null;
   pomoPhase: PomoPhase;
   pomoCompleted: number; // mevcut turda tamamlanan odak seansı (0..rounds)
   pomoHistory: Record<string, number>; // ISO tarih → tamamlanan odak seansı (rapor için, kalıcı)
@@ -269,6 +284,7 @@ interface AppState {
   pomoBreakActive: boolean; // mola gösteriliyor mu (odak bitti, yeni odak başlamadı)
   pomoBreakRunning: boolean; // mola sayacı çalışıyor mu
   pomoBreakRemaining: number; // mola kalan saniye
+  pomoBreakEndsAt: number | null; // mola bitiş anı (epoch ms) — odakla aynı mantık
   pomoBreakLong: boolean; // uzun mola mı (tur seti bitti)
 
   // UI aksiyonları
@@ -287,6 +303,9 @@ interface AppState {
   toggleEditing: () => void;
   toggleBacklinks: () => void;
   saveNote: () => Promise<void>;
+  /** Bekleyen taslağı hemen diske yaz (editör kapanırken / not değişirken çağrılır). */
+  /** Bekleyen taslağı yazar. `false` = yazılamadı (çağıran devam etmemeli). */
+  flushDraft: () => Promise<boolean>;
   setAccent: (hex: string) => void;
   toggleEditorSetting: (key: keyof EditorSettings) => void;
   toggleArabic: () => void;
@@ -332,7 +351,9 @@ interface AppState {
   newDraw: () => Promise<void>;
   newTemplate: () => Promise<void>;
   setDailyTemplate: (name: string) => void;
-  saveDraw: (json: string) => Promise<void>;
+  /** Çizimi diske yaz. `path` verilmezse aktif çizime yazar (bkz. DrawScreen — gecikmeli
+   *  kayıt ateşlerken aktif çizim DEĞİŞMİŞ olabilir; çağıran hedefi açıkça verir). */
+  saveDraw: (json: string, path?: string) => Promise<void>;
   /** Ses notu kaydını kasaya yaz (uzantı + isteğe bağlı ad ile), vault'a göre yolunu döner. */
   saveAudioNote: (bytes: Uint8Array, ext: string, baseName?: string) => Promise<string>;
   /** Bir ses notu dosyasını oku (AudioEmbedPlayer için). */
@@ -436,6 +457,18 @@ async function notifyError(msg: string): Promise<void> {
 }
 
 const FOCUS_MIN = 25;
+
+/** Bitiş anına göre kalan saniye (duvar saati). endsAt yoksa dondurulmuş değer geçerlidir. */
+function remainingFrom(endsAt: number | null, frozen: number): number {
+  if (endsAt == null) return frozen;
+  return Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+}
+
+/** Verilen anın yerel günü (yyyy-MM-dd) — todayISO() ile aynı biçim. */
+function localDay(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 const VAULT_KEY = "loomen.vaultPath";
 const TASKS_FILE = "Yapılacaklar.md"; // görevler günlük nottan ayrı, kendi sayfasında
 
@@ -445,23 +478,84 @@ let unwatch: (() => void) | null = null;
 /** Tekrar verisi hangi kasa için yüklendi (kasa değişince baştan okunur). */
 let srsVault: string | null = null;
 
+/**
+ * Kasa açma/değiştirme işlemleri SIRAYLA çalışır. bootstrap() ile persist rehydrate'i
+ * (onRehydrateStorage) aynı anda reopenVault çağırabilir; sırasız çalışırlarsa biri
+ * diğerinin backend'ini ezer ve state yanlış kasayı gösterir.
+ */
+let vaultOp: Promise<unknown> = Promise.resolve();
+function queueVaultOp<T>(fn: () => Promise<T>): Promise<T> {
+  const next = vaultOp.then(fn, fn);
+  vaultOp = next.catch(() => {});
+  return next;
+}
+
+/**
+ * Görev dosyası işlemleri (oku → değiştir → yaz) da SIRAYLA çalışır. İki çağrı üst üste
+ * gelirse (hızlı Enter, arka arkaya kutu işaretleme) ikisi de AYNI içeriği okur ve
+ * sonuncusu diğerini ezer — bir görev/işaret sessizce kaybolur.
+ */
+let fileOp: Promise<unknown> = Promise.resolve();
+function queueFileOp<T>(fn: () => Promise<T>): Promise<T> {
+  const next = fileOp.then(fn, fn);
+  fileOp = next.catch(() => {});
+  return next;
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => {
-  /** Backend'den yükle, gruplandır, state'e yaz. */
+  /**
+   * Backend'den yükle, gruplandır, state'e yaz.
+   *
+   * ESKİ-KASA KORUMASI: okuma sürerken kasa değişmiş olabilir (kullanıcı kasa değiştirdi,
+   * watcher tetikledi). O durumda okunan veri artık BAŞKA bir kasaya ait — state'e yazılırsa
+   * yeni kasanın notları eski kasanınkilerle karışır (ve autosave yanlış dosyaya yazar).
+   * Bu yüzden okumaya başladığımız backend hâlâ aktif değilse sonuç atılır.
+   *
+   * TEMİZ TASLAK TAZELEME: görev işaretleme / dış değişiklik aktif notun içeriğini değiştirdiyse
+   * ve kullanıcının yazılmamış değişikliği YOKSA (draft === eski içerik) taslak yeni içerikle
+   * güncellenir. Yoksa bekleyen autosave bayat taslağı geri yazıp değişikliği geri alırdı.
+   */
+  /**
+   * Okuma sırası sayacı: hangi okumanın EN GÜNCEL okuma olduğunu söyler.
+   *
+   * loadFromBackend'i izleyici (400 ms), git senkronu, görev işaretleme ve
+   * dakikalık tarih kontrolü aynı anda çağırabiliyor. "Backend değişti mi"
+   * kontrolü aynı kasa içindeki yarışı yakalamıyordu: erken başlayan bir okuma
+   * geç bitip yeni içeriğin üstüne düşerse, taslak "temiz" göründüğü için
+   * editöre ESKİ metin konuyor ve sonraki autosave onu diske geri yazıyordu.
+   */
+  let loadSeq = 0;
+
   async function loadFromBackend() {
-    const { tasks, notes, contents } = await loadVaultData(backend);
+    const src = backend;
+    const bu = ++loadSeq;
+    const { tasks, notes, contents } = await loadVaultData(src);
+    if (backend !== src) return; // arada kasa değişti → eski kasanın verisini yazma
+    if (bu !== loadSeq) return; // daha yeni bir okuma başladı → bu sonuç bayat
     const today = todayISO();
-    const { groups, unplannedTasks } = groupTasks(tasks, today, get().taskOrder);
+    const s = get();
+    const { groups, unplannedTasks } = groupTasks(tasks, today, s.taskOrder);
     const c = focusCounts(tasks, today);
-    set({
+    const patch: Partial<AppState> = {
       parsedTasks: tasks,
       notes,
       noteContents: contents,
       groups,
       unplannedTasks,
       counts: { yapilacak: c.yapilacak, geciken: c.geciken, planlanmamis: c.planlanmamis },
-    });
+    };
+    if (s.draftPath) {
+      const prev = s.noteContents[s.draftPath];
+      const next = contents[s.draftPath];
+      // Yalnız taslak "temiz"ken (kullanıcı yazmamışken) tazele — yazılmamış değişiklik ezilmez.
+      if (next !== undefined && next !== prev && s.draft === prev) {
+        patch.draft = next;
+        patch.draftEpoch = s.draftEpoch + 1; // CodeMirror yeniden kurulsun (bkz. draftEpoch)
+      }
+    }
+    set(patch);
     void refreshTrash();
     void refreshSrs();
   }
@@ -485,6 +579,33 @@ export const useAppStore = create<AppState>()(
       if (cfg.enabled && m.changed && cards.length > 0) await saveStates(backend, m.states, get().srsDaily);
     } catch (err) {
       console.error("[srs] kartlar tazelenemedi:", err);
+    }
+  }
+
+  /**
+   * Bekleyen taslağı (debounce'lu autosave henüz yazmadıysa) MEVCUT backend'e yaz.
+   * Kasa değişmeden ve dosya taşınmadan önce çağrılır: aksi halde bekleyen autosave
+   * ya yeni kasaya ya da artık var olmayan eski yola yazardı (veri kaybı).
+   */
+  async function flushDraft(): Promise<boolean> {
+    // Değerler ŞİMDİ yakalanır: çağıran hemen ardından aktif notu değiştirebilir
+    // (openNote/closeTab) — yazma o zaman bile DOĞRU dosyaya, doğru metinle gider.
+    const s = get();
+    const p = s.draftPath;
+    const text = s.draft;
+    if (!p || p !== s.activeNote) return true; // sahipsiz taslak asla yazılmaz (NOTE_SAFETY)
+    if (text === s.noteContents[p]) return true;
+    if (!s.notes.some((n) => n.path === p && n.kind === "note")) return true;
+    try {
+      await backend.writeNote(p, text);
+      set((st) => ({ noteContents: { ...st.noteContents, [p]: text } }));
+      return true;
+    } catch (e) {
+      await notifyError(`Not kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+      // Sonuç DÖNDÜRÜLÜR: çağıran bunu bilmeden devam edip taslağı temizlerse
+      // kullanıcı önce "kaydedilemedi" uyarısını görüyor, hemen ardından
+      // yazdığı metni de kaybediyordu.
+      return false;
     }
   }
 
@@ -584,6 +705,7 @@ export const useAppStore = create<AppState>()(
     editing: false,
     draft: "",
     draftPath: null,
+    draftEpoch: 0,
     backlinksCollapsed: false,
     selectedTask: null,
     activeDraw: null,
@@ -641,21 +763,32 @@ export const useAppStore = create<AppState>()(
     pomoSound: true,
     pomoRemaining: FOCUS_MIN * 60,
     pomoRunning: false,
+    pomoEndsAt: null,
     pomoPhase: "work",
     pomoCompleted: 0,
     pomoHistory: {},
     pomoBreakActive: false,
     pomoBreakRunning: false,
     pomoBreakRemaining: 0,
+    pomoBreakEndsAt: null,
     pomoBreakLong: false,
 
     toggleTheme: () => set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
     setTheme: (theme) => set({ theme }),
     setScreen: (screen) => set({ screen }),
     setLayout: (layout) => set({ layout }),
-    setLang: (lang) => set({ lang }),
+    // Grup başlıkları ve göreli tarihler VERİ ÜRETİM ANINDA çevriliyor; yalnız
+    // `lang`'i değiştirmek ekranı eski dilde bırakıyordu (kasa yeniden
+    // yüklenene kadar). Dil değişince gruplar yeniden türetilir.
+    setLang: (lang) => {
+      set({ lang });
+      void loadFromBackend();
+    },
     setEditorTab: (editorTab) => set({ editorTab }),
     openNote: async (nameOrPath, edit = true) => {
+      // Ayrılan notun bekleyen taslağını yaz: autosave 700 ms gecikmeli, o pencerede not
+      // değiştirilirse son yazılanlar hiç diske gitmeden kaybolurdu.
+      await flushDraft();
       const s = get();
       // Yol mu yoksa ad mı? Önce yol, sonra ada göre çöz.
       const byPath = s.notes.find((n) => n.path === nameOrPath);
@@ -669,8 +802,12 @@ export const useAppStore = create<AppState>()(
         return;
       }
       // Günlük not ise: eski H1/verbose metadata'yı bir kez temizle (banner üstte gösterir).
-      if (/^\d{4}-\d{2}-\d{2}/.test(note.name)) {
-        const cur = s.noteContents[note.path] ?? (await backend.readNote(note.path));
+      // YALNIZ "Günlük/" altındakiler: kullanıcının kendi "2025-01-01 Toplantı.md" notu da
+      // tarihle başlar; onun başlığını silmek kullanıcı içeriğini yok etmek olurdu.
+      // İçerik DİSKTEN okunur — bellekteki kopya bayatsa migrasyon dış değişikliği ezerdi.
+      // (günlük notlar "Günlük/<yıl>/<ay>/..." altında yaşar — önek kontrolü.)
+      if (note.path.startsWith(`${DAILY_DIR}/`) && /^\d{4}-\d{2}-\d{2}/.test(note.name)) {
+        const cur = await backend.readNote(note.path);
         const migrated = migrateDailyContent(cur);
         if (migrated != null) {
           await backend.writeNote(note.path, migrated);
@@ -689,6 +826,7 @@ export const useAppStore = create<AppState>()(
       });
     },
     setActiveTab: (path) => {
+      void flushDraft(); // ayrılan notun bekleyen taslağı (değerler şimdi yakalanır)
       const s = get();
       const note = s.notes.find((n) => n.path === path);
       if (note?.kind === "draw") {
@@ -705,7 +843,8 @@ export const useAppStore = create<AppState>()(
       })),
     // Boş "Yeni sekme" — dosya oluştur / dosyaya git seçenekleri.
     newTab: () => set({ screen: "newtab" }),
-    closeTab: (path) =>
+    closeTab: (path) => {
+      void flushDraft(); // kapanan/ayrılan notun bekleyen taslağı kaybolmasın
       set((s) => {
         const openTabs = s.openTabs.filter((p) => p !== path);
         const pinnedTabs = s.pinnedTabs.filter((p) => p !== path);
@@ -730,8 +869,10 @@ export const useAppStore = create<AppState>()(
           draft: s.noteContents[next] ?? "",
           draftPath: next,
         };
-      }),
+      });
+    },
     setDraft: (draft) => set({ draft }),
+    flushDraft,
     toggleEditing: () => set((s) => ({ editing: !s.editing })),
     toggleBacklinks: () => set((s) => ({ backlinksCollapsed: !s.backlinksCollapsed })),
     saveNote: async () => {
@@ -742,14 +883,25 @@ export const useAppStore = create<AppState>()(
       if (s.draftPath !== s.activeNote) return;
       // Gereksiz yazma yok: içerik değişmediyse dosyaya dokunma (NOTE_SAFETY_RULES kural 5).
       if (s.draft === s.noteContents[s.activeNote]) return;
-      await backend.writeNote(s.activeNote, s.draft);
+      try {
+        await backend.writeNote(s.activeNote, s.draft);
+      } catch (e) {
+        // Sessiz kalma: kullanıcı yazmaya devam edip kaydedildiğini sanmamalı (disk dolu,
+        // izin düştü, kasa taşındı...). Bellek güncellenmez → sonraki denemede tekrar yazılır.
+        await notifyError(`Not kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+        return;
+      }
       // Hafif kayıt: tüm dosyaları yeniden okumadan bellekte güncelle + görevleri yeniden hesapla.
-      const noteContents = { ...s.noteContents, [s.activeNote]: s.draft };
-      const tasks = s.notes.flatMap((n) =>
+      // Yazma sırasında state değişmiş olabilir (kasa değişimi, watcher yüklemesi) — GÜNCEL
+      // state üstüne uygula, yoksa bayat kopya araya giren yüklemeyi ezer.
+      const now = get();
+      if (now.draftPath !== s.draftPath) return; // taslak başka nota geçti → bu kayıt geçersiz
+      const noteContents = { ...now.noteContents, [s.activeNote]: s.draft };
+      const tasks = now.notes.flatMap((n) =>
         n.kind === "draw" ? [] : parseTasks(n.path, noteContents[n.path] ?? "")
       );
       const today = todayISO();
-      const { groups, unplannedTasks } = groupTasks(tasks, today, s.taskOrder);
+      const { groups, unplannedTasks } = groupTasks(tasks, today, now.taskOrder);
       const c = focusCounts(tasks, today);
       set({
         noteContents,
@@ -795,12 +947,16 @@ export const useAppStore = create<AppState>()(
       set((s) => {
         const running = !s.pomoRunning;
         if (running && s.pomoSound) playChime("start"); // başlatırken zil
-        const patch: Partial<AppState> = { pomoRunning: running };
+        // Başlarken bitiş anını sabitle; duraklatırken o ana kadarki kalanı dondur.
+        const patch: Partial<AppState> = running
+          ? { pomoRunning: true, pomoEndsAt: Date.now() + s.pomoRemaining * 1000 }
+          : { pomoRunning: false, pomoEndsAt: null, pomoRemaining: remainingFrom(s.pomoEndsAt, s.pomoRemaining) };
         if (running) {
           // Yeni 25 dk başladı → varsa mola kaybolur.
           if (s.pomoBreakActive) {
             patch.pomoBreakActive = false;
             patch.pomoBreakRunning = false;
+            patch.pomoBreakEndsAt = null;
             // Uzun mola turunu tamamlamıştık → seri sıfırlanır.
             if (s.pomoBreakLong) patch.pomoCompleted = 0;
           } else if (s.pomoCompleted >= s.pomo.rounds) {
@@ -814,41 +970,50 @@ export const useAppStore = create<AppState>()(
     resetPomo: () =>
       set((s) => ({
         pomoRunning: false,
+        pomoEndsAt: null,
         pomoPhase: "work",
         pomoRemaining: s.pomo.focusMin * 60,
         pomoBreakActive: false,
         pomoBreakRunning: false,
         pomoBreakRemaining: 0,
+        pomoBreakEndsAt: null,
       })),
+    // Kalan süre duvar saatinden okunur: sekme arka plandayken/uykudan sonra kaçan tick'ler
+    // sayacı geciktirmez, seans tam 25 dakikada biter.
     tickPomo: () => {
       const s = get();
-      if (s.pomoRemaining > 1) {
-        set({ pomoRemaining: s.pomoRemaining - 1 });
+      const left = remainingFrom(s.pomoEndsAt, s.pomoRemaining);
+      if (left > 0) {
+        if (left !== s.pomoRemaining) set({ pomoRemaining: left });
         return;
       }
       // Odak seansı bitti → seriyi işaretle ve molayı TEKLİF et (otomatik başlamaz).
       if (s.pomoSound) playChime("end");
       const completed = s.pomoCompleted + 1;
       const isLong = completed % s.pomo.rounds === 0;
-      // Tamamlanan odak seansını rapor geçmişine işle (bugünün ISO tarihi).
-      const day = todayISO();
+      // Tamamlanan odak seansını rapor geçmişine işle — seansın BİTTİĞİ günün ISO tarihine
+      // (gece yarısını aşan seans, başladığı değil bittiği güne yazılır).
+      const day = s.pomoEndsAt != null ? localDay(new Date(s.pomoEndsAt)) : todayISO();
       const pomoHistory = { ...s.pomoHistory, [day]: (s.pomoHistory[day] ?? 0) + 1 };
       set({
         pomoCompleted: completed,
         pomoRunning: false,
+        pomoEndsAt: null,
         pomoRemaining: s.pomo.focusMin * 60, // ana sayaç sıradaki odak için hazır
         pomoHistory,
         pomoBreakActive: true,
         pomoBreakRunning: false,
         pomoBreakLong: isLong,
         pomoBreakRemaining: (isLong ? s.pomo.longBreak : s.pomo.shortBreak) * 60,
+        pomoBreakEndsAt: null,
       });
     },
     tickBreak: () => {
       const s = get();
       if (!s.pomoBreakActive) return;
-      if (s.pomoBreakRemaining > 1) {
-        set({ pomoBreakRemaining: s.pomoBreakRemaining - 1 });
+      const left = remainingFrom(s.pomoBreakEndsAt, s.pomoBreakRemaining);
+      if (left > 0) {
+        if (left !== s.pomoBreakRemaining) set({ pomoBreakRemaining: left });
         return;
       }
       // Mola bitti → kaybolur. Uzun moladan sonra tur sayacını sıfırla.
@@ -856,6 +1021,7 @@ export const useAppStore = create<AppState>()(
       set({
         pomoBreakActive: false,
         pomoBreakRunning: false,
+        pomoBreakEndsAt: null,
         pomoCompleted: s.pomoBreakLong ? 0 : s.pomoCompleted,
       });
     },
@@ -864,12 +1030,19 @@ export const useAppStore = create<AppState>()(
         if (!s.pomoBreakActive) return {};
         const running = !s.pomoBreakRunning;
         if (running && s.pomoSound) playChime("break-start");
-        return { pomoBreakRunning: running };
+        return running
+          ? { pomoBreakRunning: true, pomoBreakEndsAt: Date.now() + s.pomoBreakRemaining * 1000 }
+          : {
+              pomoBreakRunning: false,
+              pomoBreakEndsAt: null,
+              pomoBreakRemaining: remainingFrom(s.pomoBreakEndsAt, s.pomoBreakRemaining),
+            };
       }),
     skipBreak: () =>
       set((s) => ({
         pomoBreakActive: false,
         pomoBreakRunning: false,
+        pomoBreakEndsAt: null,
         pomoCompleted: s.pomoBreakLong ? 0 : s.pomoCompleted,
       })),
     setPomo: (patch) =>
@@ -877,7 +1050,7 @@ export const useAppStore = create<AppState>()(
         const pomo = { ...s.pomo, ...patch };
         // Çalışmıyorken odak süresi değişirse kalan süreyi senkronla.
         const sync = !s.pomoRunning && s.pomoPhase === "work" && patch.focusMin != null;
-        return { pomo, ...(sync ? { pomoRemaining: pomo.focusMin * 60 } : {}) };
+        return { pomo, ...(sync ? { pomoRemaining: pomo.focusMin * 60, pomoEndsAt: null } : {}) };
       }),
 
     // İlk yükleme: önce sample, sonra (Tauri'de) kayıtlı kasa varsa onu yükle.
@@ -1001,7 +1174,16 @@ export const useAppStore = create<AppState>()(
       if (!newPath || newPath === oldPath) return;
       const s = get();
       if (s.vaults.some((v) => v.path === newPath)) return; // bu klasör zaten bir kasa
-      set({ vaults: s.vaults.map((v) => (v.path === oldPath ? { ...v, path: newPath } : v)) });
+      // Sandbox'ta erişim yalnız seçim anında verilir: YENİ klasör için bookmark'ı HEMEN üret.
+      // Eski yolun bookmark'ı yeni klasörü açmaz; taşınmazsa kasa bir sonraki açılışta ölür.
+      const bookmark = await createBookmark(newPath);
+      set({
+        vaults: s.vaults.map((v) =>
+          v.path === oldPath ? { ...v, path: newPath, bookmark: bookmark ?? undefined } : v,
+        ),
+      });
+      // Eski klasörün security-scoped erişimini bırak (artık bu kasaya ait değil).
+      void releaseBookmark(oldPath);
       if (s.vaultPath === oldPath) await get().reopenVault(newPath);
     },
 
@@ -1015,111 +1197,144 @@ export const useAppStore = create<AppState>()(
     // Kayıtlı/seçili kasayı backend olarak (yeniden) aç. HMR/yeniden yük sonrası da çağrılır.
     // Kasayı listeye ekler (yoksa), entry'sindeki repoyu ghRepo'ya yansıtır. Şablon seed
     // hatası kasayı düşürmez; açılamazsa mevcut durum korunur (sessizce).
-    reopenVault: async (path) => {
-      if (!isTauri()) return;
-      try {
-        const prev = get();
-        const prevPath = prev.vaultPath;
-        const isSwitch = prevPath !== path;
-        // Mevcut kasanın açık sekmelerini sakla (geri dönülünce geri yüklenir).
-        const tabsByVault: Record<string, VaultTabs> = prevPath
-          ? {
-              ...prev.tabsByVault,
-              [prevPath]: {
-                openTabs: prev.openTabs,
-                pinnedTabs: prev.pinnedTabs,
-                activeNote: prev.activeNote,
-                activeDraw: prev.activeDraw,
-              },
-            }
-          : prev.tabsByVault;
+    // Çağrılar SIRAYA alınır: bootstrap() ile persist rehydrate aynı anda tetikleyebilir.
+    reopenVault: (path) =>
+      queueVaultOp(async () => {
+        if (!isTauri()) return;
+        try {
+          const prev = get();
+          const prevPath = prev.vaultPath;
+          const isSwitch = prevPath !== path;
 
-        // Sandbox (Mac App Store): klasöre erişimi bookmark ile geri al. Sandbox dışında
-        // bu çağrı zararsızdır (erişim zaten açıktır).
-        const saved = prev.vaults.find((v) => v.path === path)?.bookmark;
-        if (saved) {
-          const r = await resolveBookmark(saved);
-          // Bookmark eskimişse (klasör taşındı/yeniden adlandırıldı) yenisini üret ve sakla.
-          if (r?.stale) {
-            const fresh = await createBookmark(r.path);
-            if (fresh) {
-              set((st) => ({
-                vaults: st.vaults.map((v) => (v.path === path ? { ...v, bookmark: fresh } : v)),
-              }));
+          // Kasa değişmeden ÖNCE bekleyen taslağı eski kasaya yaz; aksi halde debounce'lu
+          // autosave backend değiştikten sonra ateşler ve notu YENİ kasaya yazardı.
+          // Yazma BAŞARISIZSA kasa değişimi iptal edilir: aşağıda taslak zaten
+          // temizleniyor ve kullanıcı "kaydedilemedi" uyarısının hemen ardından
+          // yazdığı metni de kaybediyordu.
+          if (isSwitch && !(await flushDraft())) {
+            await notifyError("Not kaydedilemediği için kasa değiştirilmedi; metniniz duruyor.");
+            return;
+          }
+
+          // Mevcut kasanın açık sekmelerini sakla (geri dönülünce geri yüklenir).
+          const curTabs = get();
+          const tabsByVault: Record<string, VaultTabs> = prevPath
+            ? {
+                ...curTabs.tabsByVault,
+                [prevPath]: {
+                  openTabs: curTabs.openTabs,
+                  pinnedTabs: curTabs.pinnedTabs,
+                  activeNote: curTabs.activeNote,
+                  activeDraw: curTabs.activeDraw,
+                },
+              }
+            : curTabs.tabsByVault;
+
+          // Taslağı/aktif notu HEMEN bırak: bundan sonraki her yazma denemesi (autosave dahil)
+          // sahipsiz taslak kuralına takılıp sessizce düşer, yanlış kasaya içerik sızmaz.
+          if (isSwitch) set({ draft: "", draftPath: null, activeNote: null, activeDraw: null });
+
+          // Sandbox (Mac App Store): klasöre erişimi bookmark ile geri al. Sandbox dışında
+          // bu çağrı zararsızdır (erişim zaten açıktır).
+          let target = path;
+          const saved = prev.vaults.find((v) => v.path === path)?.bookmark;
+          if (saved) {
+            const r = await resolveBookmark(saved);
+            // Klasör taşınmış olabilir: bookmark'ın çözdüğü GÜNCEL yolu kullan, yoksa
+            // artık var olmayan eski yola backend kurar ve kasa "açılamadı"ya düşerdi.
+            if (r?.path) target = r.path;
+            // Bookmark eskimişse (klasör taşındı/yeniden adlandırıldı) yenisini üret ve sakla.
+            if (r?.stale) {
+              const fresh = await createBookmark(r.path);
+              if (fresh) {
+                set((st) => ({
+                  vaults: st.vaults.map((v) => (v.path === path ? { ...v, bookmark: fresh } : v)),
+                }));
+              }
             }
           }
-        }
 
-        const next = createTauriBackend(path);
-        // Erişimi doğrula (kapsam/taşınma) — başarısızsa catch.
-        await next.listNotes();
+          // Kasa klasörünü fs kapsamına al. macOS'ta bookmark çözümü zaten erişim veriyor;
+          // Windows/Linux'ta bookmark yok, bu çağrı olmadan ev klasörü dışındaki kasa her
+          // açılışta "forbidden path" ile reddedilirdi.
+          await allowVaultPath(target);
 
-        // Kasa değiştiyse öncekinin security-scoped erişimini bırak (kaynak sızıntısı önlemi).
-        if (isSwitch && prevPath) void releaseBookmark(prevPath);
-        // AI arama önbelleği kasaya özeldir — başka kasanın parçaları taşınmasın.
-        if (isSwitch) resetIndex();
-        backend = next;
-        localStorage.setItem(VAULT_KEY, path);
-        // Şablon klasörünü loadFromBackend'den ÖNCE oluştur ki Şablonlar hemen görünsün.
-        try {
-          await ensureTemplates(backend);
-        } catch {
-          /* şablon seed ölümcül değil */
-        }
-        await loadFromBackend();
+          const next = createTauriBackend(target);
+          // Erişimi doğrula (kapsam/taşınma) — başarısızsa catch.
+          await next.listNotes();
 
-        // Kasayı listeye ekle (yoksa); ilk (migrasyon) kasa eski ghRepo'yu devralır.
-        const cur = get();
-        const exists = cur.vaults.some((v) => v.path === path);
-        const firstEver = cur.vaults.length === 0;
-        const vaults = exists
-          ? cur.vaults
-          : [...cur.vaults, { path, repo: firstEver ? cur.ghRepo ?? null : null }];
-        const entry = vaults.find((v) => v.path === path)!;
+          // Kasa değiştiyse öncekinin security-scoped erişimini bırak (kaynak sızıntısı önlemi).
+          if (isSwitch && prevPath) void releaseBookmark(prevPath);
+          // AI arama önbelleği kasaya özeldir — başka kasanın parçaları taşınmasın.
+          if (isSwitch) resetIndex();
+          backend = next;
+          localStorage.setItem(VAULT_KEY, target);
+          // Şablon klasörünü loadFromBackend'den ÖNCE oluştur ki Şablonlar hemen görünsün.
+          try {
+            await ensureTemplates(backend);
+          } catch {
+            /* şablon seed ölümcül değil */
+          }
+          await loadFromBackend();
+          if (backend !== next) return; // araya başka bir kasa açma girdi → bu sonucu yazma
 
-        const patch: Partial<AppState> = { vaultPath: path, vaults, ghRepo: entry.repo, tabsByVault };
-        // Kasa değiştiyse (ya da global sekmeler boşsa) hedef kasanın sekmelerini geri yükle.
-        if (isSwitch || prev.openTabs.length === 0) {
-          const saved = tabsByVault[path] ?? { openTabs: [], pinnedTabs: [], activeNote: null, activeDraw: null };
-          const has = (p: string) => cur.notes.some((n) => n.path === p);
-          const openTabs = saved.openTabs.filter(has);
-          const pinnedTabs = saved.pinnedTabs.filter(has);
-          const activeNote = saved.activeNote && has(saved.activeNote) ? saved.activeNote : null;
-          const activeDraw = saved.activeDraw && has(saved.activeDraw) ? saved.activeDraw : null;
-          patch.openTabs = openTabs;
-          patch.pinnedTabs = pinnedTabs;
-          patch.activeNote = activeNote;
-          patch.activeDraw = activeDraw;
-          patch.draft = activeNote ? cur.noteContents[activeNote] ?? "" : "";
-          patch.draftPath = activeNote;
-          patch.editing = true;
-          // Geçerli ekranı koru ama içerik yoksa anlamlı bir yere düş.
-          if (prev.screen === "editor" && !activeNote) patch.screen = "planner";
-          if (prev.screen === "draw" && !activeDraw) patch.screen = "planner";
-        }
-        set(patch);
+          // Kasayı listeye ekle (yoksa); ilk (migrasyon) kasa eski ghRepo'yu devralır.
+          // Taşınma çözüldüyse (target !== path) kaydın yolunu güncelle, ikinci kayıt açma.
+          const cur = get();
+          const known = cur.vaults.some((v) => v.path === target);
+          const stale = target !== path && cur.vaults.some((v) => v.path === path);
+          const firstEver = cur.vaults.length === 0;
+          const vaults = stale
+            ? cur.vaults.map((v) => (v.path === path ? { ...v, path: target } : v))
+            : known
+              ? cur.vaults
+              : [...cur.vaults, { path: target, repo: firstEver ? cur.ghRepo ?? null : null }];
+          const entry = vaults.find((v) => v.path === target)!;
 
-        // İzleyici kasanın AÇILMASININ parçası değil: burada patlarsa notlar zaten
-        // yüklenmiştir, sadece dış değişiklikler otomatik yansımaz. "Kasa açılamadı"
-        // demek yanlış olur — sessizce not düş, kullanıcıyı yanıltma.
-        try {
-          unwatch?.();
-          unwatch = await watchVaultRoot(path, () => get().reloadVault());
+          const patch: Partial<AppState> = { vaultPath: target, vaults, ghRepo: entry.repo, tabsByVault };
+          // Kasa değiştiyse (ya da global sekmeler boşsa) hedef kasanın sekmelerini geri yükle.
+          if (isSwitch || cur.openTabs.length === 0) {
+            const keep = tabsByVault[target] ??
+              tabsByVault[path] ?? { openTabs: [], pinnedTabs: [], activeNote: null, activeDraw: null };
+            const has = (p: string) => cur.notes.some((n) => n.path === p);
+            const openTabs = keep.openTabs.filter(has);
+            const pinnedTabs = keep.pinnedTabs.filter(has);
+            const activeNote = keep.activeNote && has(keep.activeNote) ? keep.activeNote : null;
+            const activeDraw = keep.activeDraw && has(keep.activeDraw) ? keep.activeDraw : null;
+            patch.openTabs = openTabs;
+            patch.pinnedTabs = pinnedTabs;
+            patch.activeNote = activeNote;
+            patch.activeDraw = activeDraw;
+            patch.draft = activeNote ? cur.noteContents[activeNote] ?? "" : "";
+            patch.draftPath = activeNote;
+            patch.editing = true;
+            // Geçerli ekranı koru ama içerik yoksa anlamlı bir yere düş.
+            if (prev.screen === "editor" && !activeNote) patch.screen = "planner";
+            if (prev.screen === "draw" && !activeDraw) patch.screen = "planner";
+          }
+          set(patch);
+
+          // İzleyici kasanın AÇILMASININ parçası değil: burada patlarsa notlar zaten
+          // yüklenmiştir, sadece dış değişiklikler otomatik yansımaz. "Kasa açılamadı"
+          // demek yanlış olur — sessizce not düş, kullanıcıyı yanıltma.
+          try {
+            unwatch?.();
+            unwatch = await watchVaultRoot(target, () => get().reloadVault());
+          } catch (e) {
+            console.error("[kasa] klasör izleyici kurulamadı (kasa açık, otomatik yenileme yok):", e);
+          }
         } catch (e) {
-          console.error("[kasa] klasör izleyici kurulamadı (kasa açık, otomatik yenileme yok):", e);
+          // Açılamadı: taşınmış/silinmiş olabilir ya da (sandbox'ta) erişim izni düşmüştür.
+          // Sessiz kalma — kullanıcı kasasını yeniden seçebilmeli. Sebebi de göster:
+          // yutulan hata teşhisi imkânsız kılıyordu.
+          console.error("[kasa] açılamadı:", path, e);
+          const reason = e instanceof Error ? e.message : String(e);
+          void notifyError(
+            "Kasa açılamadı. Klasör taşınmış veya erişim izni düşmüş olabilir; " +
+              `Ayarlar → Kasa bölümünden yeniden seçin. (Sebep: ${reason})`,
+          );
         }
-      } catch (e) {
-        // Açılamadı: taşınmış/silinmiş olabilir ya da (sandbox'ta) erişim izni düşmüştür.
-        // Sessiz kalma — kullanıcı kasasını yeniden seçebilmeli. Sebebi de göster:
-        // yutulan hata teşhisi imkânsız kılıyordu.
-        console.error("[kasa] açılamadı:", path, e);
-        const reason = e instanceof Error ? e.message : String(e);
-        void notifyError(
-          "Kasa açılamadı. Klasör taşınmış veya erişim izni düşmüş olabilir; " +
-            `Ayarlar → Kasa bölümünden yeniden seçin. (Sebep: ${reason})`,
-        );
-      }
-    },
+      }),
 
     reloadVault: async () => {
       await loadFromBackend();
@@ -1179,11 +1394,19 @@ export const useAppStore = create<AppState>()(
       })),
 
     // Aktif çizimi dosyaya yaz (vault'u yeniden yükleme — canvas resetlenmesin).
-    saveDraw: async (json) => {
-      const path = get().activeDraw;
-      if (!path) return;
-      await backend.writeNote(path, json);
-      set((s) => ({ noteContents: { ...s.noteContents, [path]: json } }));
+    saveDraw: async (json, path) => {
+      const target = path ?? get().activeDraw;
+      if (!target) return;
+      // Yalnız GERÇEK bir çizim dosyasına yaz: hedef arada silinmiş/yeniden adlandırılmışsa
+      // sahnesi eski yola yeniden yazılıp hayalet dosya doğardı.
+      if (!get().notes.some((n) => n.path === target && n.kind === "draw")) return;
+      try {
+        await backend.writeNote(target, json);
+      } catch (e) {
+        await notifyError(`Çizim kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+        return;
+      }
+      set((s) => ({ noteContents: { ...s.noteContents, [target]: json } }));
     },
     saveAudioNote: async (bytes, ext, baseName) => {
       await backend.ensureDir(AUDIO_DIR);
@@ -1251,17 +1474,85 @@ export const useAppStore = create<AppState>()(
       const clean = newName.trim().replace(/[/\\]/g, "").replace(/\.md$/i, "");
       if (!clean) return;
       const to = note.folder ? `${note.folder}/${clean}.md` : `${clean}.md`;
-      if (to === path || s.notes.some((n) => n.path === to)) return; // çakışma / değişmedi
-      await backend.rename(path, to);
-      // Tekrar kartlarının geçmişi yeni yola taşınır (kimlik yolu içerdiği için yeniden hesaplanır).
-      const srsNext = migratePath(s.srsStates, path, to);
-      set({
-        openTabs: s.openTabs.map((p) => (p === path ? to : p)),
-        activeNote: s.activeNote === path ? to : s.activeNote,
-        draftPath: s.draftPath === path ? to : s.draftPath, // taslak ↔ dosya bağı korunur
-        srsStates: srsNext,
-      });
-      if (srsNext !== s.srsStates && s.srsSettings.enabled) await saveStates(backend, srsNext, s.srsDaily);
+      if (to === path) return; // değişmedi
+      // Yalnız büyük/küçük harf değişimi (toplanti → Toplanti): macOS/Windows dosya adları
+      // harf duyarsız olduğu için hedef "zaten var" görünür — bulunan şey notun KENDİSİdir.
+      // Bu durumda çakışma kontrolü atlanır, aksi halde kullanıcı notun harfini düzeltemez.
+      const caseOnly = to.toLocaleLowerCase("tr") === path.toLocaleLowerCase("tr");
+      // Çakışma kontrolü DİSKTE de yapılır: bellekteki liste bayat olabilir (dış değişiklik,
+      // GitHub senkronu). rename üzerine yazsaydı hedef notun içeriği sessizce yok olurdu.
+      // (Harf duyarlı sistemlerde gerçekten ayrı bir not "Toplanti.md" olarak durabilir;
+      // tam yol eşleşmesi her hâlükârda çakışmadır, yalnız disk kontrolü atlanır.)
+      if (s.notes.some((n) => n.path === to) || (!caseOnly && (await backend.exists(to)))) {
+        await notifyError(`Bu adda bir not zaten var: ${clean}`);
+        return;
+      }
+      // Bekleyen taslağı önce ESKİ yola yaz; yoksa autosave rename'den sonra ateşleyip
+      // silinmiş yolu yeniden yaratır (aynı notun iki kopyası) ya da yazma hata verir.
+      await flushDraft();
+      try {
+        await backend.rename(path, to);
+      } catch (e) {
+        await notifyError(`Not yeniden adlandırılamadı: ${e instanceof Error ? e.message : String(e)}`);
+        return;
+      }
+      // [[bağlantı]]ları güncelle: eski ada işaret eden her not yeni ada çevrilir, yoksa
+      // yeniden adlandırma tüm gelen bağlantıları kırardı.
+      const cur = get();
+      // Yalnız markdown notları: noteContents .excalidraw sahnelerini de tutar, onların
+      // JSON'unu bağlantı yeniden yazımıyla ellemek çizimi bozardı.
+      const isMd = (p: string) => cur.notes.some((n) => n.path === p && n.kind === "note");
+      // Yazılamayan notlar sayılır: `.catch(() => {})` izin/disk/kilit hatasını
+      // tamamen gizliyordu — dosya yeniden adlandırılmış, bağlantıların bir
+      // kısmı güncellenmiş, kalanı kırık kalmış oluyor ve kullanıcı
+      // hangilerinin bozulduğunu asla öğrenmiyordu.
+      const bozuklar: string[] = [];
+      for (const [p, c] of Object.entries(cur.noteContents)) {
+        if (p === path || !isMd(p)) continue; // taşındı; içeriği yeni yolda okunacak
+        const nextC = rewriteWikiLinks(c, note.name, clean);
+        if (nextC === c) continue;
+        try {
+          await backend.writeNote(p, nextC);
+        } catch {
+          bozuklar.push(p);
+        }
+      }
+      // Notun kendi gövdesindeki kendine-bağlantılar da güncellenir. İçerik
+      // DİSKTEN okunur: bellekteki kopya bayatsa dış değişikliği ezerdi
+      // (openNote'ta aynı özen gösteriliyor, burada gösterilmemişti).
+      try {
+        const diskten = await backend.readNote(to);
+        const own = rewriteWikiLinks(diskten, note.name, clean);
+        if (own !== diskten) await backend.writeNote(to, own);
+      } catch {
+        bozuklar.push(to);
+      }
+      if (bozuklar.length) {
+        await notifyError(
+          `Yeniden adlandırma bitti ama ${bozuklar.length} notta bağlantılar güncellenemedi: ` +
+            `${bozuklar.slice(0, 5).join(", ")}${bozuklar.length > 5 ? "…" : ""}`,
+        );
+      }
+      // Yola göre anahtarlanan her şey taşınır — aksi halde sabitlenen sekme, favori ve
+      // manuel görev sırası yeniden adlandırmada sessizce düşerdi.
+      const moveOrderKey = (key: string) =>
+        key.startsWith(`${path}::`) ? `${to}::${key.slice(path.length + 2)}` : key;
+      set((st) => ({
+        openTabs: st.openTabs.map((p) => (p === path ? to : p)),
+        pinnedTabs: st.pinnedTabs.map((p) => (p === path ? to : p)),
+        favorites: st.favorites.map((p) => (p === path ? to : p)),
+        taskOrder: Object.fromEntries(
+          Object.entries(st.taskOrder).map(([k, v]) => [moveOrderKey(k), v]),
+        ),
+        activeNote: st.activeNote === path ? to : st.activeNote,
+        draftPath: st.draftPath === path ? to : st.draftPath, // taslak ↔ dosya bağı korunur
+        // Tekrar kartlarının geçmişi yeni yola taşınır (kimlik yolu içerdiği için yeniden hesaplanır).
+        srsStates: migratePath(st.srsStates, path, to),
+      }));
+      const srsAfter = get();
+      if (srsAfter.srsSettings.enabled && srsAfter.srsStates !== cur.srsStates) {
+        await saveStates(backend, srsAfter.srsStates, srsAfter.srsDaily);
+      }
       await loadFromBackend();
     },
 
@@ -1276,20 +1567,61 @@ export const useAppStore = create<AppState>()(
       const prefix = folderPath + "/";
       const affected = s.notes.filter((n) => n.path.startsWith(prefix));
       if (affected.length === 0) return;
+      // Yalnız büyük/küçük harf değişimi ("projeler" → "Projeler"): harf duyarsız dosya
+      // sistemlerinde hedef klasörün kendisi bulunur, çakışma sayılmamalı.
+      const caseOnly = to.toLocaleLowerCase("tr") === folderPath.toLocaleLowerCase("tr");
+      // Çakışma kontrolü: hedef klasör zaten varsa rename dosyaları TEK TEK taşır ve aynı
+      // adlı notların üzerine sessizce yazar — kullanıcının notu çöpe bile gitmeden kaybolur.
+      // Hem bellekteki ağaca hem diske bakılır (bellek bayat olabilir: dış değişiklik, senkron).
+      const taken =
+        s.notes.some((n) => n.path === to || n.path.startsWith(to + "/")) ||
+        (!caseOnly && (await backend.exists(to)));
+      if (taken) {
+        await notifyError(`Bu adda bir klasör zaten var: ${clean}`);
+        return;
+      }
+      // Bekleyen taslağı önce eski yola yaz (rename sonrası yazılamaz/yanlış yere yazılır).
+      await flushDraft();
       const map = new Map<string, string>();
       for (const n of affected) {
         const np = to + n.path.slice(folderPath.length);
+        try {
+          await backend.rename(n.path, np);
+        } catch (e) {
+          // Ortada kalan hata: klasörün bir kısmı taşınmış olur. Geri sarmak yerine durup
+          // durumu bildiriyoruz — taşınanlar yeni yolda, kalanlar eskisinde duruyor;
+          // loadFromBackend ikisini de gösterir, hiçbir not kaybolmaz.
+          await notifyError(
+            `Klasör yeniden adlandırılamadı (${n.path}): ${e instanceof Error ? e.message : String(e)}`,
+          );
+          await loadFromBackend();
+          return;
+        }
         map.set(n.path, np);
-        await backend.rename(n.path, np);
       }
-      const srsMoved = migratePath(s.srsStates, folderPath, to);
-      set({
-        openTabs: s.openTabs.map((p) => map.get(p) ?? p),
-        activeNote: s.activeNote ? map.get(s.activeNote) ?? s.activeNote : null,
-        draftPath: s.draftPath ? map.get(s.draftPath) ?? s.draftPath : null,
-        srsStates: srsMoved,
-      });
-      if (srsMoved !== s.srsStates && s.srsSettings.enabled) await saveStates(backend, srsMoved, s.srsDaily);
+      // Not adları değişmedi → [[bağlantı]]lar hâlâ çözülür; yalnız yola göre anahtarlanan
+      // durum taşınır (sabitlenen sekme, favori, manuel görev sırası).
+      const moved = (key: string) => {
+        const sep = key.indexOf("::");
+        if (sep < 0) return key;
+        const f = key.slice(0, sep);
+        const np = map.get(f);
+        return np ? `${np}${key.slice(sep)}` : key;
+      };
+      set((st) => ({
+        openTabs: st.openTabs.map((p) => map.get(p) ?? p),
+        pinnedTabs: st.pinnedTabs.map((p) => map.get(p) ?? p),
+        favorites: st.favorites.map((p) => map.get(p) ?? p),
+        taskOrder: Object.fromEntries(Object.entries(st.taskOrder).map(([k, v]) => [moved(k), v])),
+        activeNote: st.activeNote ? map.get(st.activeNote) ?? st.activeNote : null,
+        draftPath: st.draftPath ? map.get(st.draftPath) ?? st.draftPath : null,
+        // Tekrar geçmişi de klasörle birlikte taşınır (kart kimliği not yolunu içerir).
+        srsStates: migratePath(st.srsStates, folderPath, to),
+      }));
+      const srsAfter = get();
+      if (srsAfter.srsSettings.enabled && srsAfter.srsStates !== s.srsStates) {
+        await saveStates(backend, srsAfter.srsStates, srsAfter.srsDaily);
+      }
       await loadFromBackend();
     },
 
@@ -1348,129 +1680,199 @@ export const useAppStore = create<AppState>()(
     addTask: async () => {
       const text = get().quickText.trim();
       if (!text) return;
-      // Görevler günlük nottan ayrı: ayrı "Yapılacaklar.md" dosyasına eklenir.
-      if (!(await backend.exists(TASKS_FILE))) await backend.writeNote(TASKS_FILE, "# Yapılacaklar\n");
-      const content = await backend.readNote(TASKS_FILE);
-      const next = insertTaskUnderHeading(content, TODO_HEADING, buildTaskLine(text, todayISO()));
-      await backend.writeNote(TASKS_FILE, next);
+      // Kutuyu HEMEN boşalt: temizlik yazma bittikten sonra yapılsaydı, hızlı ikinci Enter
+      // aynı metni okuyup görevi iki kez eklerdi.
       set({ quickText: "" });
-      await loadFromBackend();
+      await queueFileOp(async () => {
+        try {
+          // Görevler günlük nottan ayrı: ayrı "Yapılacaklar.md" dosyasına eklenir.
+          // Dosya yoksa başlık bellekte kurulur — iki ayrı yazma (oluştur + ekle) yapılmaz.
+          const content = (await backend.exists(TASKS_FILE))
+            ? await backend.readNote(TASKS_FILE)
+            : "# Yapılacaklar\n";
+          const next = insertTaskUnderHeading(content, TODO_HEADING, buildTaskLine(text, todayISO()));
+          await backend.writeNote(TASKS_FILE, next);
+        } catch (e) {
+          // Yazılamadıysa metni geri ver — kullanıcı yazdığını kaybetmesin.
+          set((st) => ({ quickText: st.quickText || text }));
+          await notifyError(`Görev eklenemedi: ${e instanceof Error ? e.message : String(e)}`);
+          return;
+        }
+        await loadFromBackend();
+      });
     },
 
-    toggleTask: async (id) => {
-      const sep = id.lastIndexOf(":");
-      const file = id.slice(0, sep);
-      const line = Number(id.slice(sep + 1));
-      const content = await backend.readNote(file);
-      await backend.writeNote(file, toggleTaskInContent(content, line, todayISO()));
-      await loadFromBackend();
-    },
+    toggleTask: async (id) =>
+      queueFileOp(async () => {
+        const s = get(); // sırada bekleyen önceki yazmadan SONRAKİ satır numaraları
+        const sep = id.lastIndexOf(":");
+        const file = id.slice(0, sep);
+        const line = Number(id.slice(sep + 1));
+        // Beklenen satır metni: dosya arada dışarıdan değiştiyse (senkron, başka pencere)
+        // satır numarası kaymış olur ve kullanıcı A'yı işaretlerken B işaretlenirdi.
+        const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
+        try {
+          const content = await backend.readNote(file);
+          const next = toggleTaskInContent(content, line, todayISO(), task?.raw);
+          if (next === content) {
+            // Satır kaymış (ya da zaten aynı): yazma, listeyi tazele ki kullanıcı güncel
+            // hâli görsün ve tekrar deneyebilsin.
+            await loadFromBackend();
+            if (task) await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            return;
+          }
+          await backend.writeNote(file, next);
+        } catch (e) {
+          await notifyError(`Görev güncellenemedi: ${e instanceof Error ? e.message : String(e)}`);
+          return;
+        }
+        await loadFromBackend();
+      }),
 
     selectTask: (selectedTask) => set({ selectedTask }),
 
     // Görev detayını (açıklama/tarih/öncelik) dosyaya yaz.
-    updateTask: async (id, patch) => {
-      const s = get();
-      const sep = id.lastIndexOf(":");
-      const file = id.slice(0, sep);
-      const line = Number(id.slice(sep + 1));
-      const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
-      if (!task) return;
-      const content = await backend.readNote(file);
-      await backend.writeNote(file, applyTaskPatch(content, line, task, patch));
-      await loadFromBackend();
-    },
+    updateTask: async (id, patch) =>
+      queueFileOp(async () => {
+        const s = get(); // sırada bekleyen önceki yazmadan SONRAKİ satır numaraları
+        const sep = id.lastIndexOf(":");
+        const file = id.slice(0, sep);
+        const line = Number(id.slice(sep + 1));
+        const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
+        if (!task) return;
+        try {
+          const content = await backend.readNote(file);
+          // Satır kaymışsa applyTaskPatch içeriği DEĞİŞTİRMEDEN döndürür ve
+          // eskiden aynı içerik sessizce geri yazılıyordu: kullanıcı kaydettim
+          // sanıyor, değişiklik bir an görünüp kayboluyordu. toggleTask bu
+          // durumda düzgünce uyarıyor; burada da aynısı yapılır.
+          if (!taskLineMatches(content, line, task.raw)) {
+            await loadFromBackend();
+            await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            return;
+          }
+          await backend.writeNote(file, applyTaskPatch(content, line, task, patch));
+        } catch (e) {
+          await notifyError(`Görev güncellenemedi: ${e instanceof Error ? e.message : String(e)}`);
+          return;
+        }
+        await loadFromBackend();
+      }),
 
     // Görevi tek yazımda kaydet: satır yaması + (varsa) girintili çocuk bloğu (alt görevler + notlar).
-    saveTask: async (id, patch, notes, subtasks) => {
-      const s = get();
-      const sep = id.lastIndexOf(":");
-      const file = id.slice(0, sep);
-      const line = Number(id.slice(sep + 1));
-      const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
-      if (!task) return;
-      const content = await backend.readNote(file);
-      let next = applyTaskPatch(content, line, task, patch);
-      // Alt görevler ve notlar aynı çocuk bloğunu paylaşır — tek seferde birlikte yazılır.
-      if (notes !== undefined || subtasks !== undefined) {
-        const subs = subtasks ?? getSubtasks(next, line).map((x) => ({ text: x.text, done: x.done }));
-        const nts = notes ?? getTaskNotes(next, line);
-        next = setTaskChildren(next, line, subs, nts);
-      }
-      await backend.writeNote(file, next);
-      await loadFromBackend();
-    },
+    saveTask: async (id, patch, notes, subtasks) =>
+      queueFileOp(async () => {
+        const s = get();
+        const sep = id.lastIndexOf(":");
+        const file = id.slice(0, sep);
+        const line = Number(id.slice(sep + 1));
+        const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
+        if (!task) return;
+        try {
+          const content = await backend.readNote(file);
+          // KRİTİK: satır kaymışsa applyTaskPatch reddediyor ama setTaskChildren
+          // bundan habersiz çalışıyordu. O satırda artık BAŞKA bir görev
+          // duruyorsa kullanıcının alt görev/not bloğu onun altına yazılıyor ve
+          // onun mevcut alt satırları siliniyordu — geri alınamaz veri kaybı.
+          if (!taskLineMatches(content, line, task.raw)) {
+            await loadFromBackend();
+            await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            return;
+          }
+          let next = applyTaskPatch(content, line, task, patch);
+          // Alt görevler ve notlar aynı çocuk bloğunu paylaşır — tek seferde birlikte yazılır.
+          if (notes !== undefined || subtasks !== undefined) {
+            const subs = subtasks ?? getSubtasks(next, line).map((x) => ({ text: x.text, done: x.done }));
+            const nts = notes ?? getTaskNotes(next, line);
+            next = setTaskChildren(next, line, subs, nts);
+          }
+          await backend.writeNote(file, next);
+        } catch (e) {
+          await notifyError(`Görev kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+          return;
+        }
+        await loadFromBackend();
+      }),
 
     // Görev sırasını değiştir (sürükle-bırak): sürüklenen görevi hedefin ÖNÜNE/ARKASINA tam yerleştir.
     // Uygulama düzeyi manuel sıra (dosyadan bağımsız, dosyalar arası çalışır, kalıcı).
     // Farklı bir gün grubuna bırakılırsa görev o güne yeniden planlanır (tarih dosyaya yazılır).
-    reorderTask: async (fromId, toId, position) => {
-      const s = get();
-      const parse = (id: string) => {
-        const sep = id.lastIndexOf(":");
-        return { file: id.slice(0, sep), line: Number(id.slice(sep + 1)) };
-      };
-      const d = parse(fromId);
-      const tg = parse(toId);
-      const dTask = s.parsedTasks.find((p) => p.file === d.file && p.line === d.line);
-      const tTask = s.parsedTasks.find((p) => p.file === tg.file && p.line === tg.line);
-      if (!dTask || !tTask) return;
-      if (dTask.file === tTask.file && dTask.line === tTask.line) return;
+    reorderTask: async (fromId, toId, position) =>
+      queueFileOp(async () => {
+        const s = get();
+        const parse = (id: string) => {
+          const sep = id.lastIndexOf(":");
+          return { file: id.slice(0, sep), line: Number(id.slice(sep + 1)) };
+        };
+        const d = parse(fromId);
+        const tg = parse(toId);
+        const dTask = s.parsedTasks.find((p) => p.file === d.file && p.line === d.line);
+        const tTask = s.parsedTasks.find((p) => p.file === tg.file && p.line === tg.line);
+        if (!dTask || !tTask) return;
+        if (dTask.file === tTask.file && dTask.line === tTask.line) return;
 
-      const today = todayISO();
-      const tDate = tTask.due ?? tTask.scheduled;
-      const dDate = dTask.due ?? dTask.scheduled;
+        const today = todayISO();
+        const tDate = tTask.due ?? tTask.scheduled;
+        const dDate = dTask.due ?? dTask.scheduled;
 
-      // 1) Farklı güne sürüklendiyse görevi hedefin gününe taşı (kullandığı tarih alanını koru).
-      let parsedTasks = s.parsedTasks;
-      let rescheduled = false;
-      if (tDate && dDate !== tDate) {
-        const field: "scheduled" | "due" = dTask.scheduled && !dTask.due ? "scheduled" : "due";
-        const content = await backend.readNote(dTask.file);
-        await backend.writeNote(dTask.file, applyTaskPatch(content, dTask.line, dTask, { [field]: tDate }));
-        // Yerel kopyayı güncelle ki gruplama yeni günü hemen yansıtsın.
-        parsedTasks = s.parsedTasks.map((p) =>
-          p.file === dTask.file && p.line === dTask.line ? { ...p, [field]: tDate } : p
-        );
-        rescheduled = true;
-      }
+        // 1) Farklı güne sürüklendiyse görevi hedefin gününe taşı (kullandığı tarih alanını koru).
+        let parsedTasks = s.parsedTasks;
+        let rescheduled = false;
+        if (tDate && dDate !== tDate) {
+          const field: "scheduled" | "due" = dTask.scheduled && !dTask.due ? "scheduled" : "due";
+          const content = await backend.readNote(dTask.file);
+          // Satır kaymışsa yazma hiç olmuyor ama aşağıda `rescheduled` true
+          // yapılıp yerel liste güncelleniyordu: ekranda taşınmış görünen görev
+          // diskte eski gününde kalıyordu.
+          if (!taskLineMatches(content, dTask.line, dTask.raw)) {
+            await loadFromBackend();
+            await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            return;
+          }
+          await backend.writeNote(dTask.file, applyTaskPatch(content, dTask.line, dTask, { [field]: tDate }));
+          // Yerel kopyayı güncelle ki gruplama yeni günü hemen yansıtsın.
+          parsedTasks = s.parsedTasks.map((p) =>
+            p.file === dTask.file && p.line === dTask.line ? { ...p, [field]: tDate } : p
+          );
+          rescheduled = true;
+        }
 
-      // 2) Hedef grubun (aynı gün; tarihsizse aynı kaynak not) sıralı, açık kardeşleri —
-      //    sürüklenen hariç. Komşuların değerleri arasından midpoint ile kesin yerleştir.
-      const inTargetGroup = (p: (typeof parsedTasks)[number]) => {
-        const pd = p.due ?? p.scheduled;
-        return tDate ? pd === tDate : !pd && p.file === tTask.file;
-      };
-      const sibs = parsedTasks
-        .filter(
-          (p) =>
-            !p.done &&
-            inTargetGroup(p) &&
-            !(p.file === dTask.file && p.line === dTask.line)
-        )
-        .sort((x, y) => taskSortVal(x, s.taskOrder) - taskSortVal(y, s.taskOrder));
+        // 2) Hedef grubun (aynı gün; tarihsizse aynı kaynak not) sıralı, açık kardeşleri —
+        //    sürüklenen hariç. Komşuların değerleri arasından midpoint ile kesin yerleştir.
+        const inTargetGroup = (p: (typeof parsedTasks)[number]) => {
+          const pd = p.due ?? p.scheduled;
+          return tDate ? pd === tDate : !pd && p.file === tTask.file;
+        };
+        const sibs = parsedTasks
+          .filter(
+            (p) =>
+              !p.done &&
+              inTargetGroup(p) &&
+              !(p.file === dTask.file && p.line === dTask.line)
+          )
+          .sort((x, y) => taskSortVal(x, s.taskOrder) - taskSortVal(y, s.taskOrder));
 
-      const tIdx = sibs.findIndex((p) => p.file === tTask.file && p.line === tTask.line);
-      const insertIdx = position === "after" ? tIdx + 1 : tIdx;
-      const prev = sibs[insertIdx - 1];
-      const next = sibs[insertIdx];
-      const prevVal = prev ? taskSortVal(prev, s.taskOrder) : undefined;
-      const nextVal = next ? taskSortVal(next, s.taskOrder) : undefined;
-      let newVal: number;
-      if (prevVal != null && nextVal != null) newVal = (prevVal + nextVal) / 2;
-      else if (nextVal != null) newVal = nextVal - 1;
-      else if (prevVal != null) newVal = prevVal + 1;
-      else newVal = 0;
+        const tIdx = sibs.findIndex((p) => p.file === tTask.file && p.line === tTask.line);
+        const insertIdx = position === "after" ? tIdx + 1 : tIdx;
+        const prev = sibs[insertIdx - 1];
+        const next = sibs[insertIdx];
+        const prevVal = prev ? taskSortVal(prev, s.taskOrder) : undefined;
+        const nextVal = next ? taskSortVal(next, s.taskOrder) : undefined;
+        let newVal: number;
+        if (prevVal != null && nextVal != null) newVal = (prevVal + nextVal) / 2;
+        else if (nextVal != null) newVal = nextVal - 1;
+        else if (prevVal != null) newVal = prevVal + 1;
+        else newVal = 0;
 
-      const taskOrder = { ...s.taskOrder, [taskOrderKey(dTask.file, dTask.description)]: newVal };
-      if (rescheduled) {
-        set({ taskOrder });
-        await loadFromBackend();
-      } else {
-        const { groups, unplannedTasks } = groupTasks(parsedTasks, today, taskOrder);
-        set({ taskOrder, parsedTasks, groups, unplannedTasks });
-      }
-    },
+        const taskOrder = { ...s.taskOrder, [taskOrderKey(dTask.file, dTask.description)]: newVal };
+        if (rescheduled) {
+          set({ taskOrder });
+          await loadFromBackend();
+        } else {
+          const { groups, unplannedTasks } = groupTasks(parsedTasks, today, taskOrder);
+          set({ taskOrder, parsedTasks, groups, unplannedTasks });
+        }
+      }),
 
     // — GitHub —
     ghBeginAuth: async () => {
@@ -2019,12 +2421,75 @@ export const useAppStore = create<AppState>()(
     },
     {
       name: "loomen.settings",
-      // Rehydrate sonrası: kayıtlı kasayı backend olarak yeniden aç (HMR/yeniden başlatmada
-      // vaultPath kaybolup "Kasa seç"e düşmesin).
+      /**
+       * Kayıtlı ayarları varsayılanların ÜSTÜNE güvenle bindir.
+       * Varsayılan (sığ) birleştirme iç içe nesneleri bütün olarak değiştirir: eski sürümden
+       * ya da yarım yazılmış bir kayıttan gelen `pomo: { focusMin: 25 }` diğer alanları
+       * undefined bırakır → `rounds` undefined → sayaç NaN'a düşer ve uygulama açılmaz.
+       * Bu yüzden nesneler alan alan, diziler tür kontrolüyle birleştirilir.
+       */
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<AppState>;
+        const min = (v: unknown, fb: number) =>
+          typeof v === "number" && Number.isFinite(v) && v > 0 ? v : fb;
+        const strArr = (v: unknown, fb: string[]) =>
+          Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : fb;
+        // Yalnız VERİ alanları geri yüklenir. Bozuk/elle düzenlenmiş bir kayıt bir aksiyonun
+        // üstüne yazarsa (ör. saveNote: "x") uygulama ilk kullanımda çökerdi.
+        const data = Object.fromEntries(
+          Object.entries(p).filter(
+            ([k]) => typeof (current as unknown as Record<string, unknown>)[k] !== "function",
+          ),
+        ) as Partial<AppState>;
+        return {
+          ...current,
+          ...data,
+          pomo: {
+            focusMin: min(p.pomo?.focusMin, current.pomo.focusMin),
+            shortBreak: min(p.pomo?.shortBreak, current.pomo.shortBreak),
+            longBreak: min(p.pomo?.longBreak, current.pomo.longBreak),
+            rounds: min(p.pomo?.rounds, current.pomo.rounds),
+          },
+          editorSettings: { ...current.editorSettings, ...(p.editorSettings ?? {}) },
+          favorites: strArr(p.favorites, current.favorites),
+          vaults: Array.isArray(p.vaults)
+            ? p.vaults.filter((v): v is VaultEntry => !!v && typeof v.path === "string")
+            : current.vaults,
+          tabsByVault: p.tabsByVault ?? current.tabsByVault,
+          taskOrder: p.taskOrder ?? current.taskOrder,
+          pomoHistory: p.pomoHistory ?? current.pomoHistory,
+          gcalMap: p.gcalMap ?? current.gcalMap,
+        };
+      },
       onRehydrateStorage: () => (state) => {
-        if (state?.vaultPath && isTauri()) {
-          queueMicrotask(() => void useAppStore.getState().reopenVault(state.vaultPath!));
-        }
+        if (!state) return;
+        // TÜM iş mikrogörevde: localStorage senkron olduğu için bu geri çağrı
+        // doğrudan create() çağrısının içinde çalışıyor ve o anda `useAppStore`
+        // sabiti HENÜZ TANIMLI DEĞİL. Buradan doğrudan `useAppStore.setState`
+        // çağırmak ReferenceError atıyordu; zustand hatayı yutup geri çağrıyı
+        // state=undefined ile tekrar çalıştırıyor, o da ilk satırda çıkıyordu.
+        // Sonuç: süresi dolmuş sayaç temizlenmiyor VE altındaki kasa geri
+        // yükleme adımına hiç sıra gelmiyordu — kullanıcı "Kasa seç" ekranına
+        // düşüyordu. Kasa satırı zaten mikrogörevdeydi, sayaç satırları değildi.
+        queueMicrotask(() => {
+          // Uygulama kapalıyken süresi dolmuş sayaç: kullanıcı masa başında mıydı
+          // bilinmiyor, hayalet bir "tamamlandı" kaydı yazma — temiz başlangıca dön.
+          if (state.pomoRunning && (state.pomoEndsAt ?? 0) <= Date.now()) {
+            useAppStore.setState({
+              pomoRunning: false,
+              pomoEndsAt: null,
+              pomoRemaining: state.pomo.focusMin * 60,
+            });
+          }
+          if (state.pomoBreakRunning && (state.pomoBreakEndsAt ?? 0) <= Date.now()) {
+            useAppStore.setState({ pomoBreakRunning: false, pomoBreakEndsAt: null, pomoBreakActive: false });
+          }
+          // Kayıtlı kasayı backend olarak yeniden aç (HMR/yeniden başlatmada
+          // vaultPath kaybolup "Kasa seç"e düşmesin).
+          if (state.vaultPath && isTauri()) {
+            void useAppStore.getState().reopenVault(state.vaultPath);
+          }
+        });
       },
       // Yalnızca kullanıcı tercihlerini + seçili kasa yolunu kalıcı yap (vault verisi türetilir).
       partialize: (s) => ({
@@ -2042,6 +2507,18 @@ export const useAppStore = create<AppState>()(
         pomo: s.pomo,
         pomoSound: s.pomoSound,
         pomoHistory: s.pomoHistory,
+        // Sayaç durumu da kalıcı: uygulama kapanıp açılınca süren seans kaldığı yerden
+        // devam eder (bitiş anı saklandığı için kapalı geçen süre de sayılır).
+        pomoRunning: s.pomoRunning,
+        pomoRemaining: s.pomoRemaining,
+        pomoEndsAt: s.pomoEndsAt,
+        pomoPhase: s.pomoPhase,
+        pomoCompleted: s.pomoCompleted,
+        pomoBreakActive: s.pomoBreakActive,
+        pomoBreakRunning: s.pomoBreakRunning,
+        pomoBreakRemaining: s.pomoBreakRemaining,
+        pomoBreakEndsAt: s.pomoBreakEndsAt,
+        pomoBreakLong: s.pomoBreakLong,
         taskOrder: s.taskOrder,
         favorites: s.favorites,
         ghToken: s.ghToken,

@@ -151,11 +151,17 @@ export function localTimeZone(): string {
   }
 }
 
-/** "yyyy-mm-dd" + gün ekle (all-day end exclusive için). */
+/**
+ * "yyyy-mm-dd" + gün ekle (all-day end exclusive için).
+ * Takvim günü yereldir: `toISOString()` UTC'ye çevirdiğinden UTC'nin doğusunda
+ * (ör. Europe/Istanbul) yerel gece yarısı bir önceki güne düşer ve tüm-gün
+ * etkinliğin bitişi başlangıcına eşit çıkar. Bu yüzden gün yerel alanlardan yazılır.
+ */
 export function addDaysISO(dateISO: string, days: number): string {
   const d = new Date(dateISO + "T00:00:00");
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 /** "yyyy-mm-dd" + "HH:MM" → RFC3339 yerel naif ("2026-06-25T09:00:00"); +dakika kaydırabilir. */

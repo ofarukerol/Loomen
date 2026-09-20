@@ -10,6 +10,11 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# Taslak sürüme dosya eklemek yazma izni ister; varsayılan GITHUB_TOKEN salt okunur
+# olduğunda "Taslak sürüme ekle" adımı 403 ile düşer.
+permissions:
+  contents: write
+
 jobs:
   windows:
     name: Windows kurulum dosyası
@@ -34,7 +39,17 @@ jobs:
       # NSIS (.exe) ve MSI birlikte üretilir. İmzalama yapılmaz — imzalama
       # sertifikası eklendiğinde tauri.conf.json > bundle.windows alanları doldurulur
       # (bkz docs/yayinlama.md §3).
+      #
+      # VITE_* değerleri derleme anında pakete gömülür; depo sırlarından okunur.
+      # Sır tanımlı değilse boş gelir ve ilgili entegrasyon (GitHub/Google) kapalı kalır —
+      # derleme yine de tamamlanır.
       - name: Derle
+        env:
+          VITE_GITHUB_CLIENT_ID: ${{ secrets.VITE_GITHUB_CLIENT_ID }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_GOOGLE_CLIENT_SECRET: ${{ secrets.VITE_GOOGLE_CLIENT_SECRET }}
+          VITE_GOOGLE_IOS_CLIENT_ID: ${{ secrets.VITE_GOOGLE_IOS_CLIENT_ID }}
+          VITE_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.VITE_GOOGLE_ANDROID_CLIENT_ID }}
         run: npm run tauri build -- --bundles nsis,msi
 
       - name: Çıktıları yükle

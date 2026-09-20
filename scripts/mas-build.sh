@@ -21,8 +21,18 @@ if [ ! -f src-tauri/Loomen_MAS.provisionprofile ]; then
   echo "HATA: src-tauri/Loomen_MAS.provisionprofile yok. Apple portalından indirin." >&2
   exit 1
 fi
-if ! security find-identity -v -p codesigning | grep -q "3rd Party Mac Developer Installer"; then
-  echo "HATA: 'Mac Installer Distribution' sertifikası kurulu değil (.pkg imzalanamaz)." >&2
+# Sertifika kontrolü. DİKKAT: Installer sertifikası bir *kod imzalama* kimliği değildir,
+# bu yüzden `-p codesigning` ile ARANMAZ (orada hiç görünmez ve kontrol hep başarısız olur).
+# Tüm kimlikler için filtresiz `security find-identity -v` kullanılır.
+IDENTITIES="$(security find-identity -v)"
+if ! grep -qF "$APP_CERT" <<<"$IDENTITIES"; then
+  echo "HATA: 'Apple Distribution / 3rd Party Mac Developer Application' sertifikası kurulu değil:" >&2
+  echo "      $APP_CERT" >&2
+  exit 1
+fi
+if ! grep -qF "$PKG_CERT" <<<"$IDENTITIES"; then
+  echo "HATA: 'Mac Installer Distribution (3rd Party Mac Developer Installer)' sertifikası kurulu değil" >&2
+  echo "      (.pkg imzalanamaz): $PKG_CERT" >&2
   exit 1
 fi
 
@@ -34,16 +44,44 @@ APPLE_SIGNING_IDENTITY="$APP_CERT" \
 
 APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/Loomen.app"
 echo "==> Entitlements doğrulanıyor…"
-codesign -d --entitlements :- "$APP" | plutil -p - | grep -E "sandbox|application-identifier"
+# pipefail açık: grep eşleşme bulamazsa (sandbox/app-id gömülmemişse) betik burada durur —
+# imzasız/eksik entitlement'lı bir paketi yüklemeye çalışmaktansa erken hata vermek daha iyi.
+if ! codesign -d --entitlements :- "$APP" 2>/dev/null | plutil -p - | grep -E "sandbox|application-identifier"; then
+  echo "HATA: app-sandbox / application-identifier entitlement'ı pakette yok — imzalama başarısız." >&2
+  exit 1
+fi
 
 echo "==> .pkg üretiliyor…"
 xcrun productbuild --sign "$PKG_CERT" --component "$APP" /Applications Loomen.pkg
 
+# App Store'a yükleme notarizasyon DEĞİLDİR: notarytool paketi Developer ID dağıtımı için
+# damgalar, App Store Connect'e hiçbir şey göndermez. Mağaza yüklemesi altool ile yapılır.
+# altool, .p8 anahtarını --apiKey'e verilen kimlikten türeterek şu klasörlerde arar; bu yüzden
+# APPLE_API_KEY_PATH'i oraya kopyalamak yerine varlığını doğrulayıp kullanıcıyı yönlendiriyoruz.
+: "${APPLE_API_KEY_ID:?APPLE_API_KEY_ID gerekli (App Store Connect API anahtar kimliği)}"
+: "${APPLE_API_ISSUER:?APPLE_API_ISSUER gerekli (App Store Connect issuer id)}"
+
+KEY_FILE="AuthKey_${APPLE_API_KEY_ID}.p8"
+# `ls A B C D` operandlardan HERHANGİ biri yoksa sıfırdan farklı döner, hepsi
+# yoksa değil. Anahtar gerçek hayattaki gibi dört klasörden yalnız BİRİNDE
+# durduğunda betik "bulunamadı" deyip çıkıyordu; mağazaya gönderme yolu fiilen
+# kapalıydı. Doğru soru "herhangi birinde var mı".
+if [ ! -f "./private_keys/$KEY_FILE" ] \
+   && [ ! -f "$HOME/private_keys/$KEY_FILE" ] \
+   && [ ! -f "$HOME/.private_keys/$KEY_FILE" ] \
+   && [ ! -f "$HOME/.appstoreconnect/private_keys/$KEY_FILE" ]; then
+  echo "HATA: $KEY_FILE bulunamadı. altool anahtarı yalnız şu klasörlerde arar:" >&2
+  echo "      ./private_keys, ~/private_keys, ~/.private_keys, ~/.appstoreconnect/private_keys" >&2
+  echo "      Çözüm: mkdir -p ~/.appstoreconnect/private_keys && cp \"\$APPLE_API_KEY_PATH\" ~/.appstoreconnect/private_keys/$KEY_FILE" >&2
+  exit 1
+fi
+
+echo "==> Paket doğrulanıyor…"
+xcrun altool --validate-app --type macos --file Loomen.pkg \
+  --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER"
+
 echo "==> App Store Connect'e yükleniyor…"
-xcrun notarytool submit Loomen.pkg \
-  --key "${APPLE_API_KEY_PATH:?APPLE_API_KEY_PATH gerekli}" \
-  --key-id "${APPLE_API_KEY_ID:?}" --issuer "${APPLE_API_ISSUER:?}" --wait || \
-  xcrun altool --upload-app --type macos --file Loomen.pkg \
-    --apiKey "${APPLE_API_KEY_ID}" --apiIssuer "${APPLE_API_ISSUER}"
+xcrun altool --upload-app --type macos --file Loomen.pkg \
+  --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER"
 
 echo "==> Bitti. App Store Connect → Loomen → sürümü doldurup incelemeye gönderin."

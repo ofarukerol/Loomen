@@ -6,7 +6,6 @@
     "graph": "Graph",
     "reports": "Reports",
     "mobile": "Mobile",
-    "rtl": "عربي / RTL",
     "settings": "Settings",
     "theme": "Theme",
     "draw": "Draw",
@@ -22,7 +21,9 @@
     "total": "Total Sessions",
     "focusTime": "Focus Time",
     "last7": "Last 7 Days",
-    "empty": "No completed Pomodoro sessions yet."
+    "empty": "No completed Pomodoro sessions yet.",
+    "hoursMinutes": "{{h}}h {{m}}m",
+    "minutes": "{{m}}m"
   },
   "review": {
     "title": "Review",
@@ -215,8 +216,9 @@
     "toggleLeft": "Toggle left panel",
     "toggleRight": "Toggle right panel",
     "moreTasks": "+{{count}} more tasks",
-    "today": "Saturday, 13 June",
-    "addTask": "Add"
+    "addTask": "Add",
+    "markDone": "Complete",
+    "markUndone": "Undo"
   },
   "taskDetail": {
     "title": "Task",
@@ -270,8 +272,6 @@
     "skip": "Skip",
     "start": "Start",
     "pause": "Pause",
-    "focusOn": "Focus:",
-    "currentTask": "Finish the design",
     "reset": "Reset"
   },
   "editor": {
@@ -368,7 +368,8 @@
     "gravity": "Center gravity",
     "reset": "Reset view",
     "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out"
+    "zoomOut": "Zoom out",
+    "hintTouch": "Drag · pan · pinch to zoom"
   },
   "help": {
     "title": "Help & Guide",
@@ -532,7 +533,6 @@
     "upcoming": "Upcoming"
   },
   "calendar": {
-    "month": "June 2026",
     "weekdays": [
       "Mon",
       "Tue",
@@ -604,5 +604,24 @@
     "keyBadge": "saved",
     "keyHint": "Press Save to store the key.",
     "keyMissing": "No API key saved. Paste the key into the box and press Save."
+  },
+  "rel": {
+    "today": "today",
+    "inOneDay": "in a day",
+    "inDays": "in {{n}} days",
+    "inOneWeek": "in a week",
+    "inWeeks": "in {{n}} weeks",
+    "inOneMonth": "in a month",
+    "inMonths": "in {{n}} months",
+    "inOneYear": "in a year",
+    "inYears": "in {{n}} years",
+    "oneDayAgo": "a day ago",
+    "daysAgo": "{{n}} days ago",
+    "oneWeekAgo": "a week ago",
+    "weeksAgo": "{{n}} weeks ago",
+    "oneMonthAgo": "a month ago",
+    "monthsAgo": "{{n}} months ago",
+    "oneYearAgo": "a year ago",
+    "yearsAgo": "{{n}} years ago"
   }
 }

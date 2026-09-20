@@ -54,6 +54,7 @@ export default function App() {
   const tickPomo = useAppStore((s) => s.tickPomo);
   const pomoBreakRunning = useAppStore((s) => s.pomoBreakRunning);
   const tickBreak = useAppStore((s) => s.tickBreak);
+  const reloadVault = useAppStore((s) => s.reloadVault);
 
   // İlk açılışta kasayı yükle (sample veya kayıtlı Tauri kasası).
   useEffect(() => {
@@ -74,6 +75,43 @@ export default function App() {
     const id = setInterval(() => tickBreak(), 1000);
     return () => clearInterval(id);
   }, [pomoBreakRunning, tickBreak]);
+
+  // Pencereye dönünce sayacı hemen tazele: arka planda setInterval kısılır, uykuda hiç
+  // ateşlemez. Kalan süre bitiş anından hesaplandığı için tek tick doğru değeri yakalar.
+  useEffect(() => {
+    const catchUp = () => {
+      if (document.visibilityState !== "visible") return;
+      if (useAppStore.getState().pomoRunning) tickPomo();
+      if (useAppStore.getState().pomoBreakRunning) tickBreak();
+    };
+    document.addEventListener("visibilitychange", catchUp);
+    window.addEventListener("focus", catchUp);
+    return () => {
+      document.removeEventListener("visibilitychange", catchUp);
+      window.removeEventListener("focus", catchUp);
+    };
+  }, [tickPomo, tickBreak]);
+
+  // Gün değişimi: "bugün / geciken" kovaları ve sayaçlar yükleme anındaki tarihe göre
+  // hesaplanır. Uygulama gece yarısını açık geçirirse (ya da uykudan ertesi gün dönerse)
+  // dünün gününü göstermeye devam ederdi — tarih değişince yeniden hesapla.
+  useEffect(() => {
+    let day = new Date().toDateString();
+    const check = () => {
+      const now = new Date().toDateString();
+      if (now === day) return;
+      day = now;
+      void reloadVault();
+    };
+    const id = setInterval(check, 60 * 1000);
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, [reloadVault]);
 
   // Otomatik senkron: bağlıyken ve açıkken periyodik push/pull (3 dk).
   useEffect(() => {

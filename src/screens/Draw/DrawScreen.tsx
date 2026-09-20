@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { PencilRuler, FilePlus } from "lucide-react";
 import { Excalidraw, MainMenu, serializeAsJSON } from "@excalidraw/excalidraw";
@@ -38,6 +38,20 @@ export function DrawScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialData = useMemo(() => parseScene(content), [activeDraw]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bekleyen kayıt: hangi dosyaya, hangi içerik. Çizim değişince/ekran kapanınca HEMEN yazılır.
+  const pending = useRef<{ path: string; json: string } | null>(null);
+
+  // Başka bir çizime geçerken (veya ekrandan çıkarken) bekleyen 700 ms'lik kaydı boşalt.
+  // Boşaltılmazsa son fırça darbeleri hiç diske yazılmadan kaybolurdu.
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+      const p = pending.current;
+      pending.current = null;
+      if (p) void useAppStore.getState().saveDraw(p.json, p.path);
+    };
+  }, [activeDraw]);
 
   if (!activeDraw) {
     return (
@@ -60,9 +74,16 @@ export function DrawScreen() {
         theme={theme === "dark" ? "dark" : "light"}
         langCode={EXCALIDRAW_LANG[i18n.language] ?? "en"}
         onChange={(elements, appState, files) => {
+          // Hedef yol ŞİMDİ sabitlenir: gecikme dolduğunda aktif çizim değişmiş olabilir ve
+          // saveDraw bu sahneyi BAŞKA bir çizimin üstüne yazardı.
+          const path = activeDraw;
+          const json = serializeAsJSON(elements, appState, files, "local");
+          pending.current = { path, json };
           if (timer.current) clearTimeout(timer.current);
           timer.current = setTimeout(() => {
-            void saveDraw(serializeAsJSON(elements, appState, files, "local"));
+            timer.current = null;
+            pending.current = null;
+            void saveDraw(json, path);
           }, 700);
         }}
       >

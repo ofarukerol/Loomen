@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Loomen gizlilik bildirimi (Apple privacy manifest).
+
+  Loomen veri TOPLAMAZ: notlar kullanıcının kendi klasöründe kalır, analitik/izleme yoktur.
+  GitHub ve Google Takvim bağlantıları yalnız kullanıcı kurduğunda ve onun kendi hesabına
+  karşı çalışır; veri Datha sunucularına gitmez. Bu yüzden NSPrivacyCollectedDataTypes boştur.
+
+  NSPrivacyAccessedAPITypes: "required reason API" listesi. Beyan edilmeyen bir API kullanımı
+  App Store yüklemesinde ITMS-91053 uyarısı üretir.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<!-- Dosya zaman damgaları: kasa tarayıcısı ve senkron, notun değişip değişmediğini
+			     değiştirilme tarihinden anlar. C617.1 = yalnız uygulamanın kendi gösterdiği
+			     dosyalar için, kullanıcının başlattığı işlemde. -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- UserDefaults: WKWebView ve Tauri pencere durumu kendi ayarlarını burada tutar.
+			     CA92.1 = yalnız uygulamanın kendi verisi, gruplar arası paylaşım yok. -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- Disk alanı: kasaya yazmadan önce yer kontrolü (senkron ve ek dosya kaydı).
+			     E174.1 = kullanıcıya gösterilen/kullanıcının başlattığı yazma işlemi için. -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>E174.1</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- Sistem açılış zamanı: Pomodoro/zamanlayıcı duvar saatinden bağımsız süre ölçer
+			     (kullanıcı saati değiştirse bile sayaç kaymasın). 35F9.1 = uygulama içi ölçüm. -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

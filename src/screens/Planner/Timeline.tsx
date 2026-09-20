@@ -18,9 +18,16 @@ export function Timeline() {
 
   // Açık görevler tarih gruplarında kalır; tamamlananlar tek "Tamamlananlar" bölümünde toplanır.
   const done = groups.flatMap((g) => g.tasks.filter((tk) => tk.done));
+  const openCount = groups.reduce((n, g) => n + g.tasks.filter((tk) => !tk.done).length, 0);
 
   return (
     <div className="lo-timeline lo-scroll">
+      {openCount === 0 && done.length === 0 && (
+        <div className="lo-placeholder">
+          <p>{t("planner.allClear")}</p>
+        </div>
+      )}
+
       {groups.map((g) => {
         const open = g.tasks.filter((tk) => !tk.done);
         if (open.length === 0) return null; // tamamı bitmiş gün başlığı gösterilmez
