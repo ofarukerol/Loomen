@@ -47,7 +47,7 @@ import { newProviderId, DEFAULT_MODEL, type AiProvider, type AiMessage, type Pro
 import { retrieve, resetIndex } from "../core/ai/retrieve";
 import { buildContext, buildSystemPrompt } from "../core/ai/context";
 import { transcribe } from "../core/ai/stt";
-import { splitProposals, type ProposalState } from "../core/ai/proposal";
+import { splitProposals, appendText, uniquePath, type ProposalState } from "../core/ai/proposal";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, taskLineMatches, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
 import {
   DEFAULT_SETTINGS as SRS_DEFAULTS,
@@ -2302,11 +2302,9 @@ export const useAppStore = create<AppState>()(
         let target = prop.path;
         if (prop.action === "create") {
           // Çakışan ad ÜZERİNE YAZILMAZ: sıradaki boş ada geçilir.
-          const base = target.replace(/\.md$/i, "");
-          let n = 2;
-          while (await backend.exists(target)) target = `${base} ${n++}.md`;
+          target = await uniquePath(target, (x) => backend.exists(x));
           if (dir) await backend.ensureDir(dir);
-          await backend.writeNote(target, prop.text.endsWith("\n") ? prop.text : `${prop.text}\n`);
+          await backend.writeNote(target, appendText("", prop.text));
         } else {
           if (!(await backend.exists(target))) {
             // Model olmayan bir nota eklemek isteyebilir; sessizce oluşturmak yerine
@@ -2314,8 +2312,7 @@ export const useAppStore = create<AppState>()(
             throw new Error(`Not bulunamadı: ${target}`);
           }
           const current = await backend.readNote(target);
-          const sep = current.length === 0 || current.endsWith("\n\n") ? "" : current.endsWith("\n") ? "\n" : "\n\n";
-          const next = `${current}${sep}${prop.text.replace(/\s+$/, "")}\n`;
+          const next = appendText(current, prop.text);
           await backend.writeNote(target, next);
           const st = get();
           // Hedef açık notsa ekranda görünen metin de tazelenir; yoksa bekleyen autosave

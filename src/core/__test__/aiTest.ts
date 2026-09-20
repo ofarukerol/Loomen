@@ -7,7 +7,7 @@ import { chunkNote } from "../ai/chunk";
 import { tokenize, expand, buildBm25, bm25Search } from "../ai/bm25";
 import { retrieve, rrfFuse, isExcluded, resetIndex } from "../ai/retrieve";
 import { buildContext, buildSystemPrompt } from "../ai/context";
-import { safePath, parseProposal, splitProposals } from "../ai/proposal";
+import { safePath, parseProposal, splitProposals, appendText, uniquePath } from "../ai/proposal";
 import { bytesToBase64 } from "../ai/stt";
 
 let fails = 0;
@@ -210,6 +210,24 @@ check(
   buildSystemPrompt({ context: buildContext([]), canWrite: true }).includes("loomen-note") &&
     !buildSystemPrompt({ context: buildContext([]) }).includes("loomen-note"),
 );
+
+
+// Ekleme metni: eklenen satır bir önceki paragrafa yapışmamalı, dosya sonu tek \n olmalı.
+check("Boş nota ekleme", appendText("", "satır") === "satır\n");
+check("Satır sonu yoksa iki tane eklenir", appendText("önce", "sonra") === "önce\n\nsonra\n");
+check("Tek satır sonu varsa bir tane daha", appendText("önce\n", "sonra") === "önce\n\nsonra\n");
+check("Boş satırla bitiyorsa ayırıcı eklenmez", appendText("önce\n\n", "sonra") === "önce\n\nsonra\n");
+check("Eklenenin sonundaki boşluklar kırpılır", appendText("a\n\n", "b\n\n\n") === "a\n\nb\n");
+check(
+  "Var olan içerik hiç değişmiyor",
+  appendText("| a | b |\n|---|---|\n| 1 | 2 |\n", "- yeni").startsWith("| a | b |\n|---|---|\n| 1 | 2 |\n"),
+);
+
+// Yeni not: var olan dosyanın üzerine YAZILMAZ, sıradaki boş ad seçilir.
+const dolu = new Set(["Not.md", "Not 2.md"]);
+const varMi = async (x: string) => dolu.has(x);
+check("Boş ad olduğu gibi kullanılır", (await uniquePath("Yeni.md", varMi)) === "Yeni.md");
+check("Dolu ad atlanır", (await uniquePath("Not.md", varMi)) === "Not 3.md");
 
 // ---------------------------------------------------------------- ses (base64 köprüsü)
 

@@ -114,6 +114,34 @@ export function splitProposals(content: string): SplitResult {
   return { text: visible.trim(), proposals };
 }
 
+/**
+ * Var olan notun sonuna ekleme metnini kur.
+ *
+ * Ayırıcı içeriğe göre seçilir: dosya zaten boş satırla bitiyorsa hiçbir şey eklenmez, tek
+ * satır sonuyla bitiyorsa bir tane daha, hiç bitmiyorsa iki tane. Aksi hâlde eklenen satır
+ * bir önceki paragrafa yapışır ve markdown'da aynı paragrafın devamı sayılırdı.
+ * Sonuç her zaman tek satır sonuyla biter.
+ */
+export function appendText(current: string, addition: string): string {
+  const add = addition.replace(/\s+$/, "");
+  const sep = current.length === 0 || current.endsWith("\n\n") ? "" : current.endsWith("\n") ? "\n" : "\n\n";
+  return `${current}${sep}${add}\n`;
+}
+
+/**
+ * Yeni not için çakışmayan yol bul: "Not.md" doluysa "Not 2.md", o da doluysa "Not 3.md"…
+ * Var olan dosyanın ÜZERİNE YAZILMAZ — asistanın not kaybettirmesi bu yüzden mümkün değil.
+ */
+export async function uniquePath(path: string, exists: (p: string) => Promise<boolean>): Promise<string> {
+  if (!(await exists(path))) return path;
+  const base = path.replace(/\.md$/i, "");
+  for (let n = 2; n < 1000; n++) {
+    const candidate = `${base} ${n}.md`;
+    if (!(await exists(candidate))) return candidate;
+  }
+  throw new Error("Çakışmayan bir ad bulunamadı");
+}
+
 /** Sistem istemine eklenen yönerge — modelin bloğu ne zaman ve nasıl yazacağı. */
 export const PROPOSAL_INSTRUCTION =
   "Kullanıcı bir şeyin not edilmesini, eklenmesini ya da yeni bir not oluşturulmasını isterse " +
