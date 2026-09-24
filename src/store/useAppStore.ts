@@ -372,6 +372,10 @@ interface AppState {
   /** Çizimi diske yaz. `path` verilmezse aktif çizime yazar (bkz. DrawScreen — gecikmeli
    *  kayıt ateşlerken aktif çizim DEĞİŞMİŞ olabilir; çağıran hedefi açıkça verir). */
   saveDraw: (json: string, path?: string) => Promise<void>;
+  /** Çizim kaydını 700 ms gecikmeyle sıraya al; hedef yol ŞİMDİ sabitlenir (LOM-6). */
+  queueDrawSave: (path: string, json: string) => void;
+  /** Bekleyen çizim kaydını hemen yaz. `false` = yazılamadı. */
+  flushDraw: () => Promise<boolean>;
   /** Ses notu kaydını kasaya yaz (uzantı + isteğe bağlı ad ile), vault'a göre yolunu döner. */
   saveAudioNote: (bytes: Uint8Array, ext: string, baseName?: string) => Promise<string>;
   /** Bir ses notu dosyasını oku (AudioEmbedPlayer için). */
@@ -526,6 +530,13 @@ function queueFileOp<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
+/** Nesnenin anahtarlarını yeni yollara taşır (`to` undefined dönerse anahtar aynı kalır). */
+function moveKeys<T>(obj: Record<string, T>, to: (p: string) => string | undefined): Record<string, T> {
+  const out: Record<string, T> = {};
+  for (const [k, v] of Object.entries(obj)) out[to(k) ?? k] = v;
+  return out;
+}
+
 /**
  * Taslak diske her yazıldığında (başında ve sonunda) artar. Okuma sürerken sayaç
  * değiştiyse o okumanın açık not için getirdiği içerik yazmadan önceki hali olabilir;
@@ -634,10 +645,59 @@ export const useAppStore = create<AppState>()(
    * Kasa değişmeden ve dosya taşınmadan önce çağrılır: aksi halde bekleyen autosave
    * ya yeni kasaya ya da artık var olmayan eski yola yazardı (veri kaybı).
    */
+  /**
+   * Bekleyen çizim kaydı (LOM-6). Ekranın içinde değil store'da tutulur: ekran kapanırken,
+   * pencere kapanırken, uygulama arka plana alınırken ve çizim yeniden adlandırılmadan önce
+   * flushDraft bunu da boşaltır. Yol kayıt SIRAYA ALINIRKEN sabitlenir; gecikme dolduğunda
+   * aktif çizim değişmiş olsa bile sahne yalnız kendi dosyasına yazılır.
+   */
+  let pendingDraw: { path: string; json: string } | null = null;
+  let drawTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function writeDraw(target: string, json: string): Promise<boolean> {
+    // Yalnız GERÇEK bir çizim dosyasına yaz: hedef arada silinmiş/yeniden adlandırılmışsa
+    // sahnesi eski yola yeniden yazılıp hayalet dosya doğardı.
+    if (!get().notes.some((n) => n.path === target && n.kind === "draw")) return true;
+    // Aynı içerik yeniden yazılmaz (NOTE_SAFETY kural 5): Excalidraw açılışta da onChange verir.
+    if (get().noteContents[target] === json) return true;
+    try {
+      await backend.writeNote(target, json);
+    } catch (e) {
+      await notifyError(`Çizim kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+      return false;
+    }
+    set((s) => ({ noteContents: { ...s.noteContents, [target]: json } }));
+    return true;
+  }
+
+  async function flushDraw(): Promise<boolean> {
+    if (drawTimer) clearTimeout(drawTimer);
+    drawTimer = null;
+    const p = pendingDraw;
+    pendingDraw = null;
+    return p ? writeDraw(p.path, p.json) : true;
+  }
+
+  function queueDrawSave(path: string, json: string): void {
+    // Başka bir çizimin kaydı bekliyorsa önce o kendi dosyasına yazılır.
+    if (pendingDraw && pendingDraw.path !== path) void flushDraw();
+    pendingDraw = { path, json };
+    if (drawTimer) clearTimeout(drawTimer);
+    drawTimer = setTimeout(() => void flushDraw(), 700);
+  }
+
   async function flushDraft(): Promise<boolean> {
     // Değerler ŞİMDİ yakalanır: çağıran hemen ardından aktif notu değiştirebilir
     // (openNote/closeTab) — yazma o zaman bile DOĞRU dosyaya, doğru metinle gider.
     const s = get();
+    // Bekleyen çizim kaydı da boşaltılır (kasa değişimi, kapanış, yeniden adlandırma).
+    // flushDraw bekleyen kaydı da eşzamanlı olarak alır; sıra bozulmaz.
+    const drawDone = flushDraw();
+    const noteOk = await flushNoteDraft(s);
+    return (await drawDone) && noteOk;
+  }
+
+  async function flushNoteDraft(s: AppState): Promise<boolean> {
     const p = s.draftPath;
     const text = s.draft;
     if (!p || p !== s.activeNote) return true; // sahipsiz taslak asla yazılmaz (NOTE_SAFETY)
@@ -1530,17 +1590,10 @@ export const useAppStore = create<AppState>()(
     saveDraw: async (json, path) => {
       const target = path ?? get().activeDraw;
       if (!target) return;
-      // Yalnız GERÇEK bir çizim dosyasına yaz: hedef arada silinmiş/yeniden adlandırılmışsa
-      // sahnesi eski yola yeniden yazılıp hayalet dosya doğardı.
-      if (!get().notes.some((n) => n.path === target && n.kind === "draw")) return;
-      try {
-        await backend.writeNote(target, json);
-      } catch (e) {
-        await notifyError(`Çizim kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
-        return;
-      }
-      set((s) => ({ noteContents: { ...s.noteContents, [target]: json } }));
+      await writeDraw(target, json);
     },
+    queueDrawSave,
+    flushDraw,
     saveAudioNote: async (bytes, ext, baseName) => {
       await backend.ensureDir(AUDIO_DIR);
       const stamp = new Date()
@@ -1604,9 +1657,12 @@ export const useAppStore = create<AppState>()(
       const s = get();
       const note = s.notes.find((n) => n.path === path);
       if (!note) return;
-      const clean = newName.trim().replace(/[/\\]/g, "").replace(/\.md$/i, "");
+      // Uzantı dosya türüne göre korunur: çizim ".md" olarak yeniden adlandırılırsa
+      // sahnesi nota dönüşür, çizim ekranı onu artık açamaz (LOM-6).
+      const ext = note.kind === "draw" ? ".excalidraw" : ".md";
+      const clean = newName.trim().replace(/[/\\]/g, "").replace(/\.(md|excalidraw)$/i, "");
       if (!clean) return;
-      const to = note.folder ? `${note.folder}/${clean}.md` : `${clean}.md`;
+      const to = note.folder ? `${note.folder}/${clean}${ext}` : `${clean}${ext}`;
       if (to === path) return; // değişmedi
       // Yalnız büyük/küçük harf değişimi (toplanti → Toplanti): macOS/Windows dosya adları
       // harf duyarsız olduğu için hedef "zaten var" görünür — bulunan şey notun KENDİSİdir.
@@ -1653,12 +1709,15 @@ export const useAppStore = create<AppState>()(
       // Notun kendi gövdesindeki kendine-bağlantılar da güncellenir. İçerik
       // DİSKTEN okunur: bellekteki kopya bayatsa dış değişikliği ezerdi
       // (openNote'ta aynı özen gösteriliyor, burada gösterilmemişti).
-      try {
-        const diskten = await backend.readNote(to);
-        const own = rewriteWikiLinks(diskten, note.name, clean);
-        if (own !== diskten) await backend.writeNote(to, own);
-      } catch {
-        bozuklar.push(to);
+      // Çizimin JSON'una dokunulmaz: metin kutusundaki "[[...]]" yazısı değişip sahne bozulurdu.
+      if (note.kind === "note") {
+        try {
+          const diskten = await backend.readNote(to);
+          const own = rewriteWikiLinks(diskten, note.name, clean);
+          if (own !== diskten) await backend.writeNote(to, own);
+        } catch {
+          bozuklar.push(to);
+        }
       }
       if (bozuklar.length) {
         await notifyError(
@@ -1679,6 +1738,10 @@ export const useAppStore = create<AppState>()(
         ),
         activeNote: st.activeNote === path ? to : st.activeNote,
         draftPath: st.draftPath === path ? to : st.draftPath, // taslak ↔ dosya bağı korunur
+        // Açık çizim yeni yola geçer. İçerik de AYNI anda taşınır: çizim ekranı yeni yolda
+        // boş içerik görürse boş tuval açar ve ilk kayıt çizimi boş sahneyle ezer (LOM-6).
+        activeDraw: st.activeDraw === path ? to : st.activeDraw,
+        noteContents: moveKeys(st.noteContents, (p) => (p === path ? to : undefined)),
         // Tekrar kartlarının geçmişi yeni yola taşınır (kimlik yolu içerdiği için yeniden hesaplanır).
         srsStates: migratePath(st.srsStates, path, to),
       }));
@@ -1748,6 +1811,8 @@ export const useAppStore = create<AppState>()(
         taskOrder: Object.fromEntries(Object.entries(st.taskOrder).map(([k, v]) => [moved(k), v])),
         activeNote: st.activeNote ? map.get(st.activeNote) ?? st.activeNote : null,
         draftPath: st.draftPath ? map.get(st.draftPath) ?? st.draftPath : null,
+        activeDraw: st.activeDraw ? map.get(st.activeDraw) ?? st.activeDraw : null, // (LOM-6)
+        noteContents: moveKeys(st.noteContents, (p) => map.get(p)),
         // Tekrar geçmişi de klasörle birlikte taşınır (kart kimliği not yolunu içerir).
         srsStates: migratePath(st.srsStates, folderPath, to),
       }));

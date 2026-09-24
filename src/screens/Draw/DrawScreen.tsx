@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { PencilRuler, FilePlus } from "lucide-react";
 import { Excalidraw, MainMenu, serializeAsJSON } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { useAppStore } from "../../store/useAppStore";
+import { useIsMobile } from "../../hooks/useIsMobile";
+import { useFlushOnExit } from "../../hooks/useFlushOnExit";
 
 /** .excalidraw JSON içeriğini Excalidraw initialData'ya çevir. */
 function parseScene(content?: string) {
@@ -30,28 +32,21 @@ export function DrawScreen() {
   const theme = useAppStore((s) => s.theme);
   const activeDraw = useAppStore((s) => s.activeDraw);
   const content = useAppStore((s) => (activeDraw ? s.noteContents[activeDraw] : undefined));
-  const saveDraw = useAppStore((s) => s.saveDraw);
+  const queueDrawSave = useAppStore((s) => s.queueDrawSave);
   const newDraw = useAppStore((s) => s.newDraw);
 
   // initialData yalnızca aktif çizim değişince hesaplanır (kayıt sonrası içerik
   // güncellemeleri canvas'ı sıfırlamasın diye content'e bağlı tutulmaz).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialData = useMemo(() => parseScene(content), [activeDraw]);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Bekleyen kayıt: hangi dosyaya, hangi içerik. Çizim değişince/ekran kapanınca HEMEN yazılır.
-  const pending = useRef<{ path: string; json: string } | null>(null);
 
-  // Başka bir çizime geçerken (veya ekrandan çıkarken) bekleyen 700 ms'lik kaydı boşalt.
-  // Boşaltılmazsa son fırça darbeleri hiç diske yazılmadan kaybolurdu.
+  // Başka bir çizime geçerken bekleyen 700 ms'lik kaydı boşalt. Bekleyen kayıt store'da
+  // tutulur (LOM-6): ekran kapanışı, pencere kapanışı, uygulamanın arka plana alınması ve
+  // çizimin yeniden adlandırılması da onu boşaltır — son fırça darbeleri kaybolmaz.
   useEffect(() => {
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = null;
-      const p = pending.current;
-      pending.current = null;
-      if (p) void useAppStore.getState().saveDraw(p.json, p.path);
-    };
+    return () => void useAppStore.getState().flushDraw();
   }, [activeDraw]);
+  useFlushOnExit(useIsMobile());
 
   if (!activeDraw) {
     return (
@@ -76,15 +71,7 @@ export function DrawScreen() {
         onChange={(elements, appState, files) => {
           // Hedef yol ŞİMDİ sabitlenir: gecikme dolduğunda aktif çizim değişmiş olabilir ve
           // saveDraw bu sahneyi BAŞKA bir çizimin üstüne yazardı.
-          const path = activeDraw;
-          const json = serializeAsJSON(elements, appState, files, "local");
-          pending.current = { path, json };
-          if (timer.current) clearTimeout(timer.current);
-          timer.current = setTimeout(() => {
-            timer.current = null;
-            pending.current = null;
-            void saveDraw(json, path);
-          }, 700);
+          queueDrawSave(activeDraw, serializeAsJSON(elements, appState, files, "local"));
         }}
       >
         {/* Özel menü — varsayılan "Excalidraw links" (GitHub/X/Discord) sosyal grubu hariç. */}
