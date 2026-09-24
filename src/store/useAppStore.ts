@@ -2178,6 +2178,8 @@ export const useAppStore = create<AppState>()(
         return;
       }
       set({ ghSyncing: true, ghStatus: null });
+      // Açık notun son yazılanları önce diske: senkron diski okur, yazılmamış metin gönderilmez.
+      await flushDraft();
       try {
         if (s.platformMobile) {
           // Mobil: git2 yok → GitHub REST (Git Data API) ile senkron.
