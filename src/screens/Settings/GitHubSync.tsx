@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Github, RefreshCw, LogOut, Copy, Check, X, AlertTriangle, Plus, ChevronDown } from "lucide-react";
-import { useAppStore } from "../../store/useAppStore";
+import { useAppStore, useModalLayer } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { GITHUB_CLIENT_ID, type GhRepo } from "../../core/github";
@@ -25,6 +25,9 @@ export function GitHubDeviceModal() {
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Açıkken Android geri tuşu bu pencereyi kapatsın (uygulamadan çıkmasın).
+  useModalLayer(!!device);
+
   useEffect(() => {
     if (!device) return;
     setErr(null);
@@ -46,6 +49,17 @@ export function GitHubDeviceModal() {
       clearInterval(id);
     };
   }, [device, poll, t]);
+
+  // Esc → pencereyi kapat. Diğer pencerelerle aynı davranış; Android geri tuşu da bu yolu kullanır
+  // (App.tsx geri basışını açık pencereye Escape olarak iletir).
+  useEffect(() => {
+    if (!device) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [device, cancel]);
 
   if (!device) return null;
 
@@ -201,7 +215,11 @@ export function GitHubSync() {
   const setAutoSync = useAppStore((s) => s.ghSetAutoSync);
 
   const tauri = isTauri();
-  const isMobile = useIsMobile();
+  // Gerçek mobil platform DAİMA mobil sayılır — tablet/yatay ekranda (>768px) depo seçici
+  // hiç görünmüyor, masaüstündeki "Kasalar bölümünden seç" uyarısı çıkıyordu ama o bölüm
+  // mobilde klasör seçici içerdiği için kullanılamıyor.
+  const platformMobile = useAppStore((s) => s.platformMobile);
+  const isMobile = useIsMobile() || platformMobile;
 
   return (
     <>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore, ACCENTS } from "./store/useAppStore";
 import { applyDir } from "./i18n";
@@ -33,9 +33,15 @@ export default function App() {
   const rightCollapsed = useAppStore((s) => s.rightCollapsed);
   const activeNote = useAppStore((s) => s.activeNote);
   const activeDraw = useAppStore((s) => s.activeDraw);
+  const setScreen = useAppStore((s) => s.setScreen);
+  const selectedTask = useAppStore((s) => s.selectedTask);
+  const selectTask = useAppStore((s) => s.selectTask);
+  const modalLayers = useAppStore((s) => s.modalLayers);
+  const platformMobile = useAppStore((s) => s.platformMobile);
 
   // Mobil (dar ekran / iOS-Android): sol/sağ panel + üst sekme şeridi yerine alt bar + drawer.
-  const isMobile = useIsMobile();
+  // Gerçek mobil platform her zaman mobil sayılır (tablet/yatay ekranda genişlik eşiği tutmaz).
+  const isMobile = useIsMobile() || platformMobile;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [tabsOpen, setTabsOpen] = useState(false);
   const [focusSearch, setFocusSearch] = useState(false);
@@ -134,6 +140,25 @@ export default function App() {
     applyDir(lang);
   }, [lang, i18n]);
 
+  // Tema ve vurgu rengini <html> üzerine de yaz.
+  //
+  // Çöp kutusu penceresi ve Explorer bağlam menüsü createPortal ile document.body'ye çiziliyor
+  // (mobilde çekmecenin `transform`'una sıkışmasınlar diye). Gövde `.lo-app`'in ALTINDA olmadığı
+  // için oradaki `data-theme` ve vurgu değişkenleri bu parçalara MİRAS KALMIYOR: koyu temada
+  // beyaz zeminli pencere/menü çıkıyordu. Kökte tanımlanınca gövdeye çizilen her şey doğru
+  // temayı ve seçili vurgu rengini alır. `.lo-app` üzerindeki tanım bilerek duruyor (aynı değer).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-theme", theme);
+    if (accent === ACCENTS[0]) {
+      root.style.removeProperty("--accent");
+      root.style.removeProperty("--accent-soft");
+    } else {
+      root.style.setProperty("--accent", accent);
+      root.style.setProperty("--accent-soft", accent + "22");
+    }
+  }, [theme, accent]);
+
   // Klavye kısayolları: ⌘N yeni not, ⌘O dosyaya git (arama).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -157,6 +182,88 @@ export default function App() {
     setDrawerOpen(false);
     setTabsOpen(false);
   }, [screen, activeNote, activeDraw]);
+
+  // Sanal klavye yüksekliğini CSS'e taşı (--kb).
+  // iOS'ta klavye açılınca GÖRÜNEN alan küçülür ama düzenin viewport'u aynı kalır: alt çubuk,
+  // görev detayındaki kaydet satırı ve editörün alt kısmı klavyenin ALTINDA kalıyordu.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const apply = () => {
+      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty("--kb", `${Math.round(kb)}px`);
+    };
+    apply();
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    return () => {
+      vv.removeEventListener("resize", apply);
+      vv.removeEventListener("scroll", apply);
+      document.documentElement.style.setProperty("--kb", "0px");
+    };
+  }, []);
+
+  /**
+   * Android geri tuşu.
+   *
+   * WebView'da geri, geçmişte kayıt yoksa uygulamayı KAPATIR — kullanıcı çekmeceyi kapatmak
+   * isterken uygulamadan çıkıyordu. Yöntem: kapatılabilir her katman (açık ekran, görev
+   * penceresi, çekmece, sekme listesi, açık pencereler) için geçmişe bir kayıt itilir; geri
+   * basılınca en üstteki katman kapatılır. Kayıt kalmayınca geri tuşu uygulamadan çıkar —
+   * Android'in beklediği davranış budur.
+   *
+   * Pencereler (çöp kutusu, GitHub bağlan) durumlarını kendi içlerinde tuttuğu için
+   * `useModalLayer` ile store'daki sayaca kaydoluyor; en üstte oldukları için listenin
+   * SONUNA eklenirler. Kapatma yolu Escape: her pencere zaten Escape'i dinliyor.
+   */
+  const closers: (() => void)[] = [];
+  if (screen !== "planner") closers.push(() => setScreen("planner"));
+  if (selectedTask) closers.push(() => selectTask(null));
+  if (drawerOpen) closers.push(() => setDrawerOpen(false));
+  if (tabsOpen) closers.push(() => setTabsOpen(false));
+  for (let i = 0; i < modalLayers; i++) {
+    closers.push(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+  }
+  const closersRef = useRef(closers);
+  closersRef.current = closers;
+  const depthRef = useRef(0);
+  const ignorePops = useRef(0); // programatik history.go ile beklenen popstate sayısı
+  // Geçmiş yönetimi yalnız mobilde: masaüstünde donanım geri tuşu yok, davranış değişmesin.
+  const mobileRef = useRef(isMobile);
+  mobileRef.current = isMobile;
+
+  useEffect(() => {
+    const onPop = () => {
+      if (!mobileRef.current) return;
+      if (ignorePops.current > 0) {
+        ignorePops.current--;
+        return;
+      }
+      // Bu geri basışını bir geçmiş kaydı karşıladı.
+      depthRef.current = Math.max(0, depthRef.current - 1);
+      // Açık pencereler listenin sonunda; ayrı bir ele alma gerekmiyor — her katmanın kendi
+      // geçmiş kaydı var, en üstteki kapanır.
+      const list = closersRef.current;
+      list[list.length - 1]?.();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Geçmiş kayıtlarının sayısını açık katman sayısıyla eşitle (masaüstünde daima 0).
+  const layerCount = isMobile ? closers.length : 0;
+  useEffect(() => {
+    const have = depthRef.current;
+    if (layerCount > have) {
+      for (let i = have; i < layerCount; i++) window.history.pushState({ lo: i + 1 }, "");
+    } else if (layerCount < have) {
+      // Katman uygulama içinden kapandı (geri tuşuyla değil): fazla kayıtları sessizce geri al.
+      // Tek bir history.go() kaç kayıt geriye giderse gitsin TEK popstate üretir — sayaç 1 artar.
+      ignorePops.current += 1;
+      window.history.go(layerCount - have);
+    }
+    depthRef.current = layerCount;
+  }, [layerCount]);
 
   const explorerEligible = ["planner", "editor", "graph", "reports", "draw", "newtab", "assistant"].includes(screen);
   const showExplorer = explorerEligible && !leftCollapsed;

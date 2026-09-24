@@ -4,10 +4,18 @@
    Prototiple birebir ölçüler (design/loomen/project/Loomen.dc.html).
    ============================================================ */
 
+/* Sanal klavye yüksekliği — App.tsx visualViewport ile günceller (masaüstünde daima 0).
+   Klavye açıkken alt çubuk, görev penceresi ve editörün alt boşluğu bu kadar yukarı kalkar. */
+:root {
+  --kb: 0px;
+}
+
 /* ---- App kabuğu ---- */
 .lo-app {
   width: 100vw;
-  height: 100vh;
+  /* dvh: mobil tarayıcı/WebView çubukları gelip gittikçe 100vh gerçek yükseklikten BÜYÜK kalır
+     ve alt çubuk ekranın dışına taşar. dvh anlık görünen yüksekliği verir. */
+  height: 100dvh;
   display: flex;
   background: var(--bg);
   color: var(--fg1);
@@ -762,7 +770,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-editor__editwrap { max-width: 760px; margin: 0 auto; padding: 0 40px; height: 100%; }
 .lo-editor__textarea {
   width: 100%;
-  min-height: calc(100vh - 160px);
+  min-height: calc(100dvh - 160px);
   border: none;
   outline: none;
   resize: none;
@@ -1481,11 +1489,15 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-mini__date--upcoming { color: var(--fg3); }
 .lo-mini__date--src { display: flex; align-items: center; gap: 5px; color: var(--accent-2); }
 .lo-mini__date--src > svg { flex-shrink: 0; }
-.lo-mini__row { position: relative; display: flex; align-items: center; gap: 11px; padding: 7px 8px 7px 17px; border-radius: 9px; transition: background 0.1s; }
+/* Satır başındaki geniş boşluk tutamacın gutter'ı — mantıksal olmalı, yoksa sağdan sola
+   düzende boşluk solda kalır ve sağa geçen tutamaç metnin üstüne biner. */
+.lo-mini__row { position: relative; display: flex; align-items: center; gap: 11px; padding-block: 7px; padding-inline: 17px 8px; border-radius: 9px; transition: background 0.1s; }
 .lo-mini__row:hover { background: var(--line-soft); }
-/* Sürükleme tutamacı — akış DIŞINDA (sol gutter'da), metni itmez; hover'da görünür */
+/* Sürükleme tutamacı — akış DIŞINDA (satır başındaki gutter'da), metni itmez; hover'da görünür.
+   Konum MANTIKSAL (`inset-inline-start`): Arapça gibi sağdan sola dillerde tutamaç satırın
+   başında, yani SAĞDA durur. Fiziksel `left` ile satırın ters ucunda kalıyordu. */
 .lo-mini__grip {
-  position: absolute; left: 1px; top: 50%; transform: translateY(-50%);
+  position: absolute; inset-inline-start: 1px; top: 50%; transform: translateY(-50%);
   display: flex; align-items: center; color: var(--fg3); opacity: 0; cursor: grab; transition: opacity 0.1s;
 }
 .lo-mini__row:hover .lo-mini__grip { opacity: 0.45; }
@@ -1599,18 +1611,22 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-modal {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  /* Yüzen mobil alt çubuk (.lo-mbar, 60) ve çekmece (.lo-drawer, 71) pencerelerin ÜSTÜNDE
+     kalıyordu: çekmeceden açılan çöp kutusu penceresi çekmecenin arkasına düşüyordu. */
+  z-index: 90;
   background: rgba(30, 22, 14, 0.34);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  /* Klavye açıkken pencere yukarı sıkışsın (kaydet satırı klavyenin altında kalmasın). */
+  padding-bottom: calc(24px + var(--kb));
   animation: loFade 0.14s ease;
 }
 .lo-tdetail {
   width: 640px;
   max-width: 100%;
-  max-height: 88vh;
+  max-height: 88dvh;
   background: var(--bg-elev);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -1633,7 +1649,12 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   color: var(--fg3); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
-.lo-tdetail__close:hover { background: var(--line-soft); color: var(--fg1); }
+/* Dokunmatikte :hover "yapışıyor" (parmak kalktıktan sonra da kalıyor) ve basma anında hiç geri
+   bildirim olmuyor: hover yalnız gerçek işaretçide, dokunuşta :active devrede. */
+@media (hover: hover) {
+  .lo-tdetail__close:hover { background: var(--line-soft); color: var(--fg1); }
+}
+.lo-tdetail__close:active { background: var(--line-soft); color: var(--fg1); }
 
 .lo-tdetail__field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .lo-tdetail__label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--fg3); font-weight: 500; }
@@ -1661,9 +1682,13 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   color: var(--accent); background: var(--accent-soft);
   border: 1px solid transparent; border-radius: 10px; padding: 9px 16px;
 }
-.lo-tdetail__complete:hover { background: var(--accent); color: #fff; }
 .lo-tdetail__complete.is-done { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
-.lo-tdetail__complete.is-done:hover { background: var(--success); color: #fff; }
+@media (hover: hover) {
+  .lo-tdetail__complete:hover { background: var(--accent); color: #fff; }
+  .lo-tdetail__complete.is-done:hover { background: var(--success); color: #fff; }
+}
+.lo-tdetail__complete:active { background: var(--accent); color: #fff; }
+.lo-tdetail__complete.is-done:active { background: var(--success); color: #fff; }
 
 /* Öncelik seçili etiketi */
 .lo-tdetail__priolabel { margin-inline-start: auto; font-size: 12px; font-weight: 600; }
@@ -1781,6 +1806,9 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-checkbox-md.is-done { background: var(--success); border-color: var(--success); }
 .lo-task__check:hover .lo-checkbox-md:not(.is-done) { border-color: var(--accent); }
 .lo-mini__check:hover .lo-checkbox-sm { border-color: var(--accent); background: var(--accent-soft); }
+/* Sıralama sürüklemesi pointer olaylarıyla yapılıyor; fare/kalemde tarayıcının kendi
+   sürükleme-seçim davranışı kapatılır. Mobil için aşağıda pan-y'ye çevrilir (yoksa planlayıcı
+   görev satırından kaydırılamıyordu). */
 .lo-mini__row { touch-action: none; }
 .lo-mini__row.is-dragging { opacity: 0.4; cursor: grabbing; }
 /* Bırakma göstergesi — imlecin konumuna göre hedefin ÜSTÜNE (öncesine) ya da ALTINA (sonrasına)
@@ -1812,7 +1840,8 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
    ============================================================ */
 .lo-ctxmenu {
   position: fixed;
-  z-index: 60;
+  /* document.body'ye çizilir; mobil çekmecenin (71) ve pencerelerin (90) üstünde kalmalı. */
+  z-index: 100;
   min-width: 168px;
   background: var(--bg-elev);
   border: 1px solid var(--line);
@@ -1836,7 +1865,10 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   color: var(--fg1);
   text-align: start;
 }
-.lo-ctxmenu__item:hover { background: var(--line-soft); color: var(--accent); }
+@media (hover: hover) {
+  .lo-ctxmenu__item:hover { background: var(--line-soft); color: var(--accent); }
+}
+.lo-ctxmenu__item:active { background: var(--line-soft); color: var(--accent); }
 .lo-ctxmenu__item--danger { color: var(--danger); }
 .lo-ctxmenu__item--danger:hover { background: var(--danger-bg); color: var(--danger); }
 
@@ -1851,7 +1883,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 
 /* Çöp kutusu modalı */
 .lo-trash {
-  width: 480px; max-width: 100%; max-height: 80vh;
+  width: 480px; max-width: 100%; max-height: 80dvh;
   background: var(--bg-elev); border: 1px solid var(--line); border-radius: 16px;
   box-shadow: var(--sh3); display: flex; flex-direction: column; overflow: hidden;
 }
@@ -2370,7 +2402,10 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   color: var(--fg2); cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: color 0.1s, background 0.1s;
 }
-.lo-fmt__btn:hover { background: var(--line-soft); color: var(--accent); }
+@media (hover: hover) {
+  .lo-fmt__btn:hover { background: var(--line-soft); color: var(--accent); }
+}
+.lo-fmt__btn:active { background: var(--line-soft); color: var(--accent); }
 .lo-fmt__sep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; flex-shrink: 0; }
 
 /* Zengin editör bağlam menüsü (alt menülü) */
@@ -2380,10 +2415,36 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-ctxmenu__item:hover .lo-ctxmenu__ic { color: var(--accent); }
 .lo-ctxmenu__arrow { margin-inline-start: auto; color: var(--fg3); }
 .lo-ctxmenu__group { position: relative; }
-.lo-ctxmenu__group:hover > .lo-ctxmenu__item { background: var(--line-soft); color: var(--accent); }
+@media (hover: hover) {
+  .lo-ctxmenu__group:hover > .lo-ctxmenu__item { background: var(--line-soft); color: var(--accent); }
+}
 .lo-ctxmenu--sub {
   position: absolute; inset-inline-start: 100%; top: -5px; margin-inline-start: 2px;
   min-width: 200px; z-index: 61;
+}
+/* Mobil: alt menü yana açılan uçan panel DEĞİL, içe gömülü akordeon (yan panel 375px ekranda
+   taşıyordu ve fareyle üstüne gelmek mümkün değil). */
+.lo-ctxmenu--acc {
+  position: static;
+  min-width: 0;
+  padding: 2px 0;
+  padding-inline-start: 14px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  animation: none;
+}
+/* Dar ekranda menü ekranı aşmasın; uzun listede kaydırılabilsin, dokunma hedefleri büyüsün. */
+@media (max-width: 768px) {
+  .lo-ctxmenu {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+  }
+  .lo-ctxmenu--editor { min-width: 244px; }
+  .lo-ctxmenu__item { padding-top: 10px; padding-bottom: 10px; font-size: 14.5px; }
+  .lo-ctxmenu--acc { max-height: none; overflow: visible; }
 }
 
 /* Günlük not — modern üst başlık (tarih/gün/hafta, dosya adından) */
@@ -2409,8 +2470,8 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
    sol drawer (Ribbon+Explorer) + sekme sheet. Obsidian mobil tarzı.
    ============================================================ */
 
-/* İçerik yüzen barın arkasına gizlenmesin */
-.lo-app.is-mobile .lo-main { padding-bottom: calc(env(safe-area-inset-bottom) + 90px); }
+/* İçerik yüzen barın arkasına gizlenmesin; klavye açıkken de yazılan satır görünür kalsın */
+.lo-app.is-mobile .lo-main { padding-bottom: calc(env(safe-area-inset-bottom) + 90px + var(--kb)); }
 /* Mobilde geniş masaüstü kenar boşluklarını (40px) daralt */
 .lo-app.is-mobile .lo-set__inner,
 .lo-app.is-mobile .lo-reports__inner,
@@ -2524,7 +2585,8 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom) + 20px);
+  /* var(--kb): klavye açıkken çubuk klavyenin üstüne çıkar (yoksa arkasında kalıyordu). */
+  bottom: calc(env(safe-area-inset-bottom) + 20px + var(--kb));
   z-index: 60;
   display: flex;
   align-items: center;
@@ -2597,6 +2659,9 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   transform: translateX(-102%);
   transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
   padding-top: env(safe-area-inset-top);
+  /* Alt çizgi/ekran kenarı boşluğu: çekmecenin en altındaki senkron satırı iPhone'un alt
+     çubuğunun altında kalıyordu. */
+  padding-bottom: env(safe-area-inset-bottom);
   touch-action: pan-y;
 }
 .lo-drawer.is-open { transform: translateX(0); }
@@ -2619,7 +2684,7 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
   right: 0;
   bottom: 0;
   z-index: 71;
-  max-height: 70vh;
+  max-height: 70dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg-elev);
@@ -2629,7 +2694,7 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
   box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.16);
   transform: translateY(102%);
   transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8px + var(--kb));
 }
 .lo-sheet.is-open { transform: translateY(0); }
 .lo-sheet__grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 10px auto 6px; }
@@ -3164,3 +3229,89 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 .lo-revcard__num span { font-family: var(--font-sans); font-size: 12.5px; font-weight: 400; color: var(--fg3); margin-inline-start: 4px; }
 .lo-revcard__btn { width: 100%; justify-content: center; }
 .lo-revcard__empty { font-size: 12.5px; color: var(--fg3); margin-top: 8px; }
+   Dokunmatik kullanım: kaydırma, uzun basma, dokunma hedefleri
+   ============================================================ */
+
+/* Planlayıcı görev satırı: dikey kaydırma parmağa kalsın. `touch-action: none` iken liste bir
+   görev satırından TUTULARAK hiç kaydırılamıyordu (mobil planlayıcının en can sıkıcı kusuru).
+   Sıralama sürüklemesi bunun yerine SOLDAKİ TUTAMAÇTAN yapılır: tutamaç `touch-action: none`
+   taşır, yani tarayıcı o dokunuşu kaydırma saymaz ve sürükleme MiniAgenda'nın pointer
+   mantığına kalır. Tutamaç masaüstünde yalnız üstüne gelince görünüyordu (opacity: 0) —
+   mobilde daima görünür ve parmakla basılacak ölçüde. */
+.lo-app.is-mobile .lo-mini__row { touch-action: pan-y; }
+.lo-app.is-mobile .lo-mini__grip {
+  opacity: 0.45;
+  touch-action: none;
+  padding: 9px 5px;
+  /* Mantıksal konum — sağdan sola düzende de satırın BAŞINDA kalsın (bkz .lo-mini__grip). */
+  inset-inline-start: -4px;
+}
+
+/* Uzun basma bağlam menüsü açıyor: iOS'un kendi metin seçme / paylaş baloncuğu araya girmesin. */
+.lo-app.is-mobile .lo-tree__file,
+.lo-app.is-mobile .lo-tree__group,
+.lo-app.is-mobile .lo-fav__item,
+.lo-app.is-mobile .lo-mini__row {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Dokunma hedefleri: parmakla rahat basılacak ölçüye çıkar (40px). */
+.lo-app.is-mobile .lo-explorer__open { width: 40px; height: 40px; }
+.lo-app.is-mobile .lo-fmt__btn { width: 40px; height: 40px; }
+.lo-app.is-mobile .lo-sheet__x { width: 40px; height: 40px; }
+.lo-app.is-mobile .lo-tree__file,
+.lo-app.is-mobile .lo-tree__group,
+.lo-app.is-mobile .lo-fav__item { padding-top: 9px; padding-bottom: 9px; }
+
+/* Basma anında geri bildirim (mobilde :hover yok, dokunuş sessiz kalıyordu) */
+.lo-app.is-mobile .lo-tree__file:active,
+.lo-app.is-mobile .lo-tree__group:active,
+.lo-app.is-mobile .lo-fav__item:active,
+.lo-app.is-mobile .lo-explorer__open:active { background: var(--line-soft); }
+
+/* Editörde uzun basma bizim menümüzü açıyor: iOS'un kendi seçim/paylaş baloncuğu araya girmesin
+   (kes/kopyala/yapıştır zaten bizim menümüzde var). Metin seçme çalışmaya devam eder. */
+.lo-app.is-mobile .lo-cm .cm-content { -webkit-touch-callout: none; }
+
+/* Tablo: dokunmatikte genişletme tutamacı ve +'lar parmakla basılacak ölçüde olsun */
+.lo-app.is-mobile .cm-table__resize { width: 18px; right: -9px; }
+.lo-app.is-mobile .cm-table__add--col { width: 34px; }
+.lo-app.is-mobile .cm-table__add--row { height: 34px; }
+
+/* ---- Satır sonundaki "⋯" (mobil): uzun basmanın görünür karşılığı ----
+   İç içe <button> geçersiz HTML olduğu için düğme satırın kardeşi; satırın üstüne bindirilir. */
+.lo-tree__rowwrap { position: relative; }
+.lo-tree__rowwrap > .lo-tree__file,
+.lo-tree__rowwrap > .lo-tree__group { padding-inline-end: 42px; }
+.lo-tree__more {
+  position: absolute;
+  inset-inline-end: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: 9px;
+  color: var(--fg3);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lo-tree__more:active { background: var(--line-soft); color: var(--fg1); }
+
+/* ---- Pencereler dar ekranda ----
+   Çöp kutusu penceresi document.body'ye çizildiği için `.lo-app.is-mobile` seçicisi TUTMAZ;
+   burada genişlik sorgusu kullanılır. Klavye açıkken pencere kısalır, alt satırı görünür kalır. */
+@media (max-width: 768px) {
+  .lo-modal {
+    padding: 12px;
+    padding-bottom: calc(12px + var(--kb));
+  }
+  .lo-tdetail,
+  .lo-trash { max-height: calc(100dvh - 24px - var(--kb)); }
+}

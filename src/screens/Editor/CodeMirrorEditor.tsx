@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { useIsMobile } from "../../hooks/useIsMobile";
+import { useAppStore } from "../../store/useAppStore";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers as lineNumbersExt, drawSelection } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -111,7 +113,8 @@ const cmTheme = EditorView.theme({
     cursor: "text",
     position: "relative",
   },
-  // Sütun genişliği sürükleme tutamacı (başlık hücrelerinin sağ kenarı)
+  // Sütun genişliği sürükleme tutamacı (başlık hücrelerinin sağ kenarı).
+  // touchAction: none — parmakla sürüklerken tarayıcı bunu kaydırma sayıp gesture'ı almasın.
   ".cm-table__resize": {
     position: "absolute",
     top: "0",
@@ -119,6 +122,7 @@ const cmTheme = EditorView.theme({
     width: "7px",
     height: "100%",
     cursor: "col-resize",
+    touchAction: "none",
     zIndex: "2",
   },
   ".cm-table__resize:hover": { background: "var(--accent-soft)" },
@@ -151,9 +155,17 @@ const trailingBlankLine = EditorState.transactionFilter.of((tr) => {
   if (!needsTrailingBlankLine(doc.toString().split("\n"))) return tr;
   return [tr, { changes: { from: doc.length, insert: "\n" }, sequential: true }];
 });
+/** Dokunmatikte bağlam menüsünü açan basma süresi (ms) ve basmayı iptal eden parmak kayması (px). */
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_SLOP = 10;
 
 export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onContextMenu, initialCaret }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const platformMobile = useAppStore((s) => s.platformMobile);
+  const isMobile = useIsMobile() || platformMobile;
+  // Editör bir kez kurulur (bağımlılık dizisi boş); mobil olup olmadığını ref'ten okuyoruz.
+  const mobileRef = useRef(isMobile);
+  mobileRef.current = isMobile;
   // Stale closure olmasın diye callback'leri ref'te tut.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -166,6 +178,18 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
     if (!ref.current) return;
     // Sütun genişlikleri tablo pozisyonuna göre saklanıyor — notlar arasında çakışmasın.
     clearTableColWidths();
+
+    // Dokunmatik uzun basma → zengin bağlam menüsü. WebView'da uzun basma `contextmenu` olayı
+    // ÜRETMEZ; menü yalnız sağ tıkla açıldığı için telefonda biçimlendirme/ekle menüsüne
+    // hiç ulaşılamıyordu. Parmak kayarsa (kaydırma ya da metin seçme) basma iptal edilir.
+    let pressTimer: ReturnType<typeof setTimeout> | null = null;
+    let pressAt: { x: number; y: number } | null = null;
+    const cancelPress = () => {
+      if (pressTimer != null) clearTimeout(pressTimer);
+      pressTimer = null;
+      pressAt = null;
+    };
+
     const exts = [
       history(),
       drawSelection(),
@@ -184,6 +208,32 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
           e.preventDefault();
           onCtxRef.current(e.clientX, e.clientY);
           return true;
+        },
+        pointerdown: (e) => {
+          if (e.pointerType === "mouse" || !onCtxRef.current) return false;
+          cancelPress();
+          const { clientX: x, clientY: y } = e;
+          pressAt = { x, y };
+          pressTimer = setTimeout(() => {
+            pressTimer = null;
+            onCtxRef.current?.(x, y);
+          }, LONG_PRESS_MS);
+          return false; // CodeMirror imleci normal şekilde yerleştirsin
+        },
+        pointermove: (e) => {
+          if (!pressAt) return false;
+          if (Math.abs(e.clientX - pressAt.x) > LONG_PRESS_SLOP || Math.abs(e.clientY - pressAt.y) > LONG_PRESS_SLOP) {
+            cancelPress();
+          }
+          return false;
+        },
+        pointerup: () => {
+          cancelPress();
+          return false;
+        },
+        pointercancel: () => {
+          cancelPress();
+          return false;
         },
       }),
       EditorView.updateListener.of((u) => {
@@ -205,10 +255,14 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
       }),
       parent: ref.current,
     });
-    view.focus();
+    // Mobilde otomatik odaklanma YOK: her not açılışında klavye fırlıyor, ekranın yarısını
+    // kaplıyor ve yalnız okumak isteyen kullanıcı her notta klavyeyi kapatmak zorunda kalıyordu.
+    // Yazmak için nota dokunmak yeterli.
+    if (!mobileRef.current) view.focus();
     if (caret != null) view.dispatch({ effects: EditorView.scrollIntoView(caret, { y: "center" }) });
     onViewRef.current?.(view);
     return () => {
+      cancelPress();
       onViewRef.current?.(null);
       view.destroy();
     };

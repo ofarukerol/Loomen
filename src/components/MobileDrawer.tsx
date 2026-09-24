@@ -83,6 +83,9 @@ export function MobileDrawer({
         className={"lo-drawer" + (open ? " is-open" : "") + (dragging ? " is-dragging" : "")}
         role="dialog"
         aria-hidden={!open}
+        // Kapalıyken ekranın dışında ama DOM'da duruyor: `inert` olmadan içindeki arama kutusu
+        // ve ağaç düğmeleri sekme/ekran okuyucu ile gezilebiliyor (ve klavyeyle odak alıyor).
+        inert={!open}
         style={dragX ? { transform: `translateX(${dragX}px)` } : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -112,7 +115,7 @@ export function MobileTabsSheet({ open, onClose }: { open: boolean; onClose: () 
   return (
     <>
       <div className={"lo-scrim" + (open ? " is-open" : "")} onClick={onClose} />
-      <div className={"lo-sheet" + (open ? " is-open" : "")} role="dialog" aria-hidden={!open}>
+      <div className={"lo-sheet" + (open ? " is-open" : "")} role="dialog" aria-hidden={!open} inert={!open}>
         <div className="lo-sheet__grip" />
         <div className="lo-sheet__title">{t("mobile.openTabs")}</div>
         <div className="lo-sheet__list">

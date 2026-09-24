@@ -29,6 +29,7 @@ const suites = [
   ["src/core/__test__/srsTest.ts", []],
   ["src/core/__test__/aiTest.ts", []],
   ["src/core/__test__/editorTest.ts", []],
+  ["src/core/__test__/mobileTest.ts", []],
 ];
 
 let failed = 0;

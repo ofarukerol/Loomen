@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Loomen — iPhone/iPad (iOS) Info.plist eklentisi.
+
+  NEDEN BU DOSYA VAR: iOS projesi src-tauri/gen/apple altinda URETILIR ve
+  `tauri ios init` her calistiginda sifirlanir; oradaki Info.plist'e elle yazilan
+  her sey kaybolur. Tauri, derleme sirasinda bu klasordeki "Info.plist" ve
+  "Info.ios.plist" dosyalarini uretilen plist ile BIRLESTIRIR (tauri-utils
+  IosConfig::info_plist aciklamasi). Kalici ayarlarin yeri burasidir.
+
+  NE BURAYA YAZILMAZ: CFBundleURLTypes (ozel baglanti semalari). Onu
+  tauri-plugin-deep-link kendi derleme betiginden uretilen Info.plist'e kendisi
+  yaziyor; buraya da yazilirsa ustune biner ve eklentinin girdisini siler.
+  Semalar tauri.conf.json → plugins → deep-link → mobile listesinde tutulur.
+  Orada iki sema var:
+    - "loomen"                                  → uygulamanin kendi baglantilari
+    - "com.googleusercontent.apps.GOOGLE_IOS_CLIENT" → Google Takvim girisinin
+      geri donus adresi (src/core/google.ts, reversedRedirectUri). YER TUTUCU —
+      INSAN ISI: gercek iOS client olusunca bu sema o client'in ters id'siyle
+      degistirilmeli. Adimlar .env.example icinde (VITE_GOOGLE_IOS_CLIENT_ID).
+      Sema kayitli olmadan iPhone'da Google girisi uygulamaya GERI DONEMEZ.
+
+  Asagidaki iki anahtar paylasilan Info.plist'te de var. Bilerek tekrarlandi:
+  ikisi de App Store icin zorunlu ve eksikligi pahali (mikrofon aciklamasi yoksa
+  iOS ses kaydinda uygulamayi ANINDA KAPATIR). Birini degistiren otekini de
+  degistirsin.
+-->
+<plist version="1.0">
+<dict>
+	<!-- Ses notu kaydi (src/screens/Editor/VoiceRecorder.tsx). Metin kullaniciya
+	     izin penceresinde aynen gosterilir; Turkce ve acik olmali. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Not editörüne ses notu kaydetmek için mikrofon erişimi gerekir.</string>
+
+	<!-- Uygulama yalnizca HTTPS kullanir (muaf sifreleme). Bu anahtar olmadan her
+	     App Store yuklemesinde ihracat uyumlulugu sorusu tekrar sorulur. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

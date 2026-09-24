@@ -178,7 +178,11 @@
     "removeFavorite": "Remove from favorites",
     "switchVault": "Switch vault",
     "delete": "Move to trash",
-    "clearSearch": "Clear"
+    "clearSearch": "Clear",
+    "actions": "Actions",
+    "samplePath": "~/Loomen (sample)",
+    "addVaultInSettings": "Add a vault in Settings",
+    "pickFolderTitle": "Choose vault folder"
   },
   "trash": {
     "title": "Trash",
@@ -448,7 +452,10 @@
     "cut": "Cut",
     "copy": "Copy",
     "paste": "Paste",
-    "selectAll": "Select all"
+    "selectAll": "Select all",
+    "addColumn": "Add column",
+    "addRow": "Add row",
+    "more": "More"
   },
   "settings": {
     "templates": "Templates",
@@ -506,7 +513,8 @@
     "more": "More",
     "planner": "Planner",
     "noActions": "No actions",
-    "home": "Home"
+    "home": "Home",
+    "back": "Back"
   },
   "audio": {
     "record": "Record voice note",
@@ -522,7 +530,11 @@
     "decodeError": "Couldn't process audio, try again.",
     "namePlaceholder": "Recording name (optional)",
     "rename": "Rename",
-    "delete": "Delete"
+    "delete": "Delete",
+    "micUnavailable": "No microphone found, or another app is using it.",
+    "startFailed": "Couldn't start recording: {{detail}}",
+    "limitReached": "Recording reached the {{minutes}} minute limit and was paused. Save it and start a new one.",
+    "limitHint": "One recording is at most {{minutes}} minutes"
   },
   "app": {
     "name": "Loomen"
@@ -642,5 +654,24 @@
     "monthsAgo": "{{n}} months ago",
     "oneYearAgo": "a year ago",
     "yearsAgo": "{{n}} years ago"
+  },
+  "errors": {
+    "saveNote": "Couldn't save the note: {{detail}}",
+    "saveDraw": "Couldn't save the drawing: {{detail}}",
+    "createVault": "Couldn't create the vault: {{detail}}",
+    "vaultSwitchAborted": "The vault wasn't switched because the note couldn't be saved; your text is still here.",
+    "vaultOpenFailed": "Couldn't open the vault. The folder may have moved or lost access; pick it again in Settings → Vault.",
+    "renameAudio": "Couldn't rename the recording: {{detail}}",
+    "deleteAudio": "Couldn't delete the recording: {{detail}}",
+    "noteExists": "A note with this name already exists: {{name}}",
+    "folderExists": "A folder with this name already exists: {{name}}",
+    "renameNote": "Couldn't rename the note: {{detail}}",
+    "renameLinks": "Renaming finished, but links couldn't be updated in {{count}} notes: {{notes}}",
+    "renameFolder": "Couldn't rename the folder ({{path}}): {{detail}}",
+    "deleteNote": "Couldn't delete the note: {{detail}}",
+    "addTask": "Couldn't add the task: {{detail}}",
+    "updateTask": "Couldn't update the task: {{detail}}",
+    "saveTask": "Couldn't save the task: {{detail}}",
+    "taskStale": "The task file changed; the list was refreshed, please try again."
   }
 }

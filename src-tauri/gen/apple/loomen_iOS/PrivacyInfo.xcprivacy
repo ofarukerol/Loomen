@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Loomen — App Store gizlilik bildirimi (privacy manifest).
+
+  NEDEN ZORUNLU: 1 Mayis 2024'ten beri App Store Connect, "gerekce isteyen API"
+  (required reason API) kullanan uygulamalari bu dosya olmadan REDDEDIYOR.
+  Loomen dosya zaman damgalarini ve UserDefaults'u kullaniyor, dolayisiyla
+  bildirim sart.
+
+  NE TOPLANMIYOR: Loomen tamamen cihazda calisir; sunucuya kullanici verisi
+  gondermez, reklam/izleme SDK'si icermez. Bu yuzden NSPrivacyTracking false ve
+  NSPrivacyCollectedDataTypes bos.
+
+  Bu dosya src-tauri/gen/apple altinda URETILEN projenin icinde duruyor ama
+  .gitignore'da istisna yapildi; `tauri ios init` yeniden calisirsa Xcode projesi
+  sifirlanir, bu dosya kayitta kalir. project.yml'de acik kaynak girdisi var.
+-->
+<plist version="1.0">
+<dict>
+	<!-- Izleme (tracking) yok: baska sirketlerin verisiyle eslestirme, reklam
+	     kimligi kullanimi ve veri komisyonculuguna aktarim yok. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<!-- Sunucuya toplanan veri yok; notlar kullanicinin kendi cihazinda kalir. -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!-- Dosya zaman damgasi: notlarin "son degistirilme" bilgisi listelerde
+		     ve senkron karsilastirmasinda okunuyor (src/core/vault). Yalnizca
+		     uygulamanin kendi konteynerindeki dosyalar. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+
+		<!-- UserDefaults: WKWebView ve uygulama ayarlari icin; veri yalnizca
+		     uygulamanin kendisine acik, baska uygulamayla paylasilmiyor. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

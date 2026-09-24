@@ -10,6 +10,7 @@ import {
   tableBlockAt,
   type TableBlock,
 } from "./tableModel";
+import i18n from "../../i18n";
 
 /**
  * Canlı önizlemede (düzenleme modu) GFM tablolarını gerçek tablo olarak gösterir ve
@@ -239,8 +240,11 @@ class TableWidget extends WidgetType {
     btn.className = `cm-table__add ${cls}`;
     btn.type = "button";
     btn.title = title;
+    btn.setAttribute("aria-label", title);
     btn.textContent = "+";
-    btn.addEventListener("mousedown", (e) => {
+    // pointerdown: "mousedown" dokunmatikte ancak tarayıcı fare olaylarını taklit ederse ve
+    // GECİKMELİ gelir; iOS'ta tıklama bazen hiç ulaşmıyordu. pointerdown her girdi için aynı.
+    btn.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       e.stopPropagation();
       onClick();
@@ -269,7 +273,9 @@ class TableWidget extends WidgetType {
       // Saklı sütun genişliği (oturum) min-width olarak uygulanır — border-collapse'ta
       // width tutmaz ama min-width tutar.
       if (widths && widths[col]) el.style.minWidth = `${widths[col]}px`;
-      el.addEventListener("mousedown", (e) => {
+      // pointerdown: dokunmatikte "mousedown" taklit edilir ve gecikir; hücreye dokunmak
+      // düzenleme kutusunu açmıyordu.
+      el.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         e.stopPropagation();
         openCellEditor(view, el);
@@ -284,27 +290,36 @@ class TableWidget extends WidgetType {
       // Sağ kenara sürükleme tutamacı → sütun genişliğini ayarla (min-width ile).
       const handle = document.createElement("div");
       handle.className = "cm-table__resize";
-      handle.addEventListener("mousedown", (e) => {
+      // Pointer olayları: sütun genişletme yalnız fareyle çalışıyordu (mousedown/mousemove/
+      // mouseup). Dokunmatikte bu olaylar ya hiç gelmiyor ya da tarayıcı taklidi olarak
+      // gecikiyordu. setPointerCapture ile parmak tutamacın dışına çıksa da olaylar bize gelir.
+      handle.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         e.stopPropagation();
         const startX = e.clientX;
         const startW = th.getBoundingClientRect().width;
+        const id = e.pointerId;
         let w = startW;
-        const onMove = (ev: MouseEvent) => {
+        handle.setPointerCapture(id);
+        const onMove = (ev: PointerEvent) => {
+          if (ev.pointerId !== id) return;
           w = Math.max(60, startW + (ev.clientX - startX));
           table.querySelectorAll<HTMLElement>(`[data-col="${i}"]`).forEach((c2) => {
             c2.style.minWidth = `${w}px`;
           });
         };
-        const onUp = () => {
-          window.removeEventListener("mousemove", onMove);
-          window.removeEventListener("mouseup", onUp);
+        const onUp = (ev: PointerEvent) => {
+          if (ev.pointerId !== id) return;
+          handle.removeEventListener("pointermove", onMove);
+          handle.removeEventListener("pointerup", onUp);
+          handle.removeEventListener("pointercancel", onUp);
           const arr = colWidths.get(this.from) ?? this.header.map(() => 0);
           arr[i] = Math.round(w);
           colWidths.set(this.from, arr);
         };
-        window.addEventListener("mousemove", onMove);
-        window.addEventListener("mouseup", onUp);
+        handle.addEventListener("pointermove", onMove);
+        handle.addEventListener("pointerup", onUp);
+        handle.addEventListener("pointercancel", onUp);
       });
       th.appendChild(handle);
       htr.appendChild(th);
@@ -321,8 +336,8 @@ class TableWidget extends WidgetType {
     table.appendChild(tbody);
 
     grid.appendChild(table);
-    grid.appendChild(this.addBtn("cm-table__add--col", "Sütun ekle", () => this.addCol(view)));
-    grid.appendChild(this.addBtn("cm-table__add--row", "Satır ekle", () => this.addRow(view)));
+    grid.appendChild(this.addBtn("cm-table__add--col", i18n.t("ctx.addColumn"), () => this.addCol(view)));
+    grid.appendChild(this.addBtn("cm-table__add--row", i18n.t("ctx.addRow"), () => this.addRow(view)));
     wrap.appendChild(grid);
 
     // Tablonun kendi boşluğuna (hücre dışına) tıklayınca imleç tablonun ALTINDAKİ satıra

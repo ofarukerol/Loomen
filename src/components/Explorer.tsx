@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { formatDistanceToNow } from "date-fns";
 import { tr, enUS, ar } from "date-fns/locale";
@@ -24,7 +25,9 @@ import {
   HardDrive,
   Check,
   Trash2,
+  MoreHorizontal,
 } from "lucide-react";
+import { useIsMobile } from "../hooks/useIsMobile";
 import { useAppStore } from "../store/useAppStore";
 import type { VaultNote } from "../core/vault/types";
 import { TEMPLATES_DIR, DRAW_DIR, DAILY_DIR } from "../core/vault";
@@ -63,11 +66,94 @@ function buildTree(notes: VaultNote[]): TreeNode {
 type Renaming = { kind: "file" | "folder"; path: string } | null;
 type Menu = { x: number; y: number; kind: "file" | "folder"; path: string } | null;
 
+/** Dokunmatikte bağlam menüsünü açan basma süresi (ms) ve basmayı iptal eden parmak kayması (px). */
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_SLOP = 10;
+
 interface RowCtx {
   onContext: (e: React.MouseEvent, kind: "file" | "folder", path: string) => void;
+  /** Dokunmatik uzun basma için satıra bağlanacak işleyiciler. */
+  press: (kind: "file" | "folder", path: string) => {
+    onPointerDown: (e: React.PointerEvent) => void;
+    onPointerMove: (e: React.PointerEvent) => void;
+    onPointerUp: () => void;
+    onPointerCancel: () => void;
+  };
+  /** Uzun basma menüyü açtıysa ardından gelen tıklamayı yut (not açılmasın). */
+  consumeClick: () => boolean;
+  /** Mobil satırlardaki "⋯" düğmesi — menüyü düğmenin altında açar. */
+  openMenu: (e: React.MouseEvent, kind: "file" | "folder", path: string) => void;
+  isMobile: boolean;
+  /** "⋯" düğmesinin erişilebilirlik adı. */
+  actionsLabel: string;
+  /** Sıralama dili — sabit "tr" değil, etkin arayüz dili. */
+  locale: string;
   renaming: Renaming;
   commit: (value: string) => void;
   cancel: () => void;
+}
+
+/**
+ * Bağlam menüsünü ekranın İÇİNDE tutarak document.body'ye çizer.
+ *
+ * Portal ŞART: menü daha önce Explorer'ın içine çiziliyordu. Mobilde Explorer, `transform`
+ * uygulanan çekmecenin içinde yaşar; `position: fixed` o durumda ekrana göre değil çekmeceye
+ * göre konumlanır ve menü çekmecenin dar şeridine sıkışıp taşıyordu. Ölçüldükten sonra konum
+ * ekran sınırlarına kenetlenir — sağdan sola (Arapça) düzende de menü ekran dışına çıkmaz.
+ */
+function PortalMenu({
+  x,
+  y,
+  className,
+  children,
+}: {
+  x: number;
+  y: number;
+  className: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const pad = 8;
+    const { width, height } = el.getBoundingClientRect();
+    setPos({
+      left: Math.max(pad, Math.min(x, window.innerWidth - width - pad)),
+      top: Math.max(pad, Math.min(y, window.innerHeight - height - pad)),
+    });
+  }, [x, y]);
+
+  return createPortal(
+    <div
+      ref={ref}
+      className={className}
+      style={{ left: pos?.left ?? x, top: pos?.top ?? y }}
+      onClick={(e) => e.stopPropagation()}
+      // Menü "dışarı basma" ile kapanıyor; menünün kendi içindeki basma dışarı sayılmasın.
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
+
+/** Mobil satırlarda bağlam menüsünü açan "⋯" düğmesi (uzun basmanın görünür karşılığı). */
+function RowMore({ onOpen, label }: { onOpen: (e: React.MouseEvent) => void; label: string }) {
+  return (
+    <button
+      className="lo-tree__more"
+      aria-label={label}
+      title={label}
+      onClick={onOpen}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <MoreHorizontal size={16} strokeWidth={2} />
+    </button>
+  );
 }
 
 /** Satır-içi yeniden adlandırma kutusu. */
@@ -121,12 +207,16 @@ function FileItem({ note, depth, ctx }: { note: VaultNote; depth: number; ctx: R
       <RenameInput initial={note.name} depth={depth} kind="file" commit={ctx.commit} cancel={ctx.cancel} />
     );
   }
-  return (
+  const row = (
     <button
       className={"lo-tree__file" + (activeNote === note.path ? " is-active" : "")}
       style={{ paddingInlineStart: 10 + depth * 14 }}
-      onClick={() => openNote(note.path)}
+      onClick={() => {
+        if (ctx.consumeClick()) return;
+        openNote(note.path);
+      }}
       onContextMenu={(e) => ctx.onContext(e, "file", note.path)}
+      {...ctx.press("file", note.path)}
     >
       {note.kind === "draw" ? (
         <Shapes size={14} strokeWidth={1.7} color="var(--accent-2)" />
@@ -135,6 +225,15 @@ function FileItem({ note, depth, ctx }: { note: VaultNote; depth: number; ctx: R
       )}
       {note.name}
     </button>
+  );
+  if (!ctx.isMobile) return row;
+  // Mobilde satırın sağında "⋯": uzun basmayı bilmeyen kullanıcı da menüye ulaşsın.
+  // İç içe <button> geçersiz HTML olduğu için düğme satırın KARDEŞİ, üstüne bindirilir.
+  return (
+    <div className="lo-tree__rowwrap">
+      {row}
+      <RowMore label={ctx.actionsLabel} onOpen={(e) => ctx.openMenu(e, "file", note.path)} />
+    </div>
   );
 }
 
@@ -154,34 +253,48 @@ function FolderNode({
   variant?: "tpl" | "draw" | "daily";
 }) {
   const open = !collapsed.has(node.path);
-  const folders = [...node.folders.values()].sort((a, b) => a.name.localeCompare(b.name, "tr"));
-  const files = [...node.files].sort((a, b) => a.name.localeCompare(b.name, "tr"));
+  const folders = [...node.folders.values()].sort((a, b) => a.name.localeCompare(b.name, ctx.locale));
+  const files = [...node.files].sort((a, b) => a.name.localeCompare(b.name, ctx.locale));
   const isRenaming = ctx.renaming?.kind === "folder" && ctx.renaming.path === node.path;
+  const groupRow = (
+    <>
+      <button
+        className={
+          "lo-tree__group" + (variant ? " lo-tree__group--pin" : "") + (variant === "daily" ? " lo-tree__group--pin-daily" : "")
+        }
+        style={{ paddingInlineStart: 8 + depth * 14 }}
+        onClick={() => {
+          if (ctx.consumeClick()) return;
+          toggle(node.path);
+        }}
+        onContextMenu={(e) => ctx.onContext(e, "folder", node.path)}
+        {...ctx.press("folder", node.path)}
+      >
+        {open ? <ChevronDown size={14} strokeWidth={2} /> : <ChevronRight size={14} strokeWidth={2} />}
+        {variant === "daily" ? (
+          <CalendarDays size={15} strokeWidth={1.8} color="var(--daily)" />
+        ) : variant === "tpl" ? (
+          <LayoutTemplate size={15} strokeWidth={1.8} color="var(--accent-2)" />
+        ) : variant === "draw" ? (
+          <Shapes size={15} strokeWidth={1.8} color="var(--accent-2)" />
+        ) : (
+          <Folder size={15} strokeWidth={1.8} color="var(--accent-2)" />
+        )}
+        {node.name}
+      </button>
+      {ctx.isMobile && (
+        <RowMore label={ctx.actionsLabel} onOpen={(e) => ctx.openMenu(e, "folder", node.path)} />
+      )}
+    </>
+  );
   return (
     <div>
       {isRenaming ? (
         <RenameInput initial={node.name} depth={depth} kind="folder" commit={ctx.commit} cancel={ctx.cancel} />
+      ) : ctx.isMobile ? (
+        <div className="lo-tree__rowwrap">{groupRow}</div>
       ) : (
-        <button
-          className={
-            "lo-tree__group" + (variant ? " lo-tree__group--pin" : "") + (variant === "daily" ? " lo-tree__group--pin-daily" : "")
-          }
-          style={{ paddingInlineStart: 8 + depth * 14 }}
-          onClick={() => toggle(node.path)}
-          onContextMenu={(e) => ctx.onContext(e, "folder", node.path)}
-        >
-          {open ? <ChevronDown size={14} strokeWidth={2} /> : <ChevronRight size={14} strokeWidth={2} />}
-          {variant === "daily" ? (
-            <CalendarDays size={15} strokeWidth={1.8} color="var(--daily)" />
-          ) : variant === "tpl" ? (
-            <LayoutTemplate size={15} strokeWidth={1.8} color="var(--accent-2)" />
-          ) : variant === "draw" ? (
-            <Shapes size={15} strokeWidth={1.8} color="var(--accent-2)" />
-          ) : (
-            <Folder size={15} strokeWidth={1.8} color="var(--accent-2)" />
-          )}
-          {node.name}
-        </button>
+        groupRow
       )}
       {open && (
         <>
@@ -225,6 +338,10 @@ export function Explorer() {
   const favorites = useAppStore((s) => s.favorites);
   const toggleFavorite = useAppStore((s) => s.toggleFavorite);
   const activeNote = useAppStore((s) => s.activeNote);
+  const setScreen = useAppStore((s) => s.setScreen);
+  const platformMobile = useAppStore((s) => s.platformMobile);
+  // Tablet/yatay ekranda genişlik eşiği tutmaz; gerçek mobil platform her zaman mobil sayılır.
+  const isMobile = useIsMobile() || platformMobile;
   const [query, setQuery] = useState("");
   const [favOpen, setFavOpen] = useState(true);
   // Sabit özel klasörler (Günlük / Çizimler / Şablonlar) varsayılan KAPALI gelir.
@@ -257,14 +374,20 @@ export function Explorer() {
   };
   const collapseAll = () => setCollapsed((prev) => (prev.size > 0 ? new Set() : allFolderPaths()));
 
-  // Menü açıkken dışarı tıklamada kapat.
+  // Menü açıkken dışarı basmada kapat. "click" DEĞİL "pointerdown" dinlenir: uzun basmayla
+  // açılan menüde parmak kalkınca gelen click menüyü aynı anda kapatıyordu.
   useEffect(() => {
     if (!menu) return;
-    const close = () => setMenu(null);
-    window.addEventListener("click", close);
+    // Menü document.body'ye çizildiği için olayın React ağacında durması yetmeyebilir; hedefi
+    // doğrudan kontrol ediyoruz (menünün içine basmak menüyü kapatmaz).
+    const close = (e: Event) => {
+      if (e.target instanceof Element && e.target.closest(".lo-ctxmenu")) return;
+      setMenu(null);
+    };
+    window.addEventListener("pointerdown", close);
     window.addEventListener("scroll", close, true);
     return () => {
-      window.removeEventListener("click", close);
+      window.removeEventListener("pointerdown", close);
       window.removeEventListener("scroll", close, true);
     };
   }, [menu]);
@@ -282,8 +405,65 @@ export function Explorer() {
     e.stopPropagation();
     setMenu({ x: e.clientX, y: e.clientY, kind, path });
   };
+
+  // Dokunmatik uzun basma → bağlam menüsü. iOS/Android WebView'da uzun basma `contextmenu`
+  // olayı ÜRETMEZ; menüler yalnız sağ tıkla açıldığı için telefonda not yeniden adlandırılamıyor
+  // ve silinemiyordu. Parmak kayarsa (liste kaydırma) basma iptal edilir.
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressAt = useRef<{ x: number; y: number } | null>(null);
+  const pressFired = useRef(false);
+  const cancelPress = () => {
+    if (pressTimer.current != null) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+    pressAt.current = null;
+  };
+  useEffect(() => cancelPress, []);
+
+  const press = (kind: "file" | "folder", path: string) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.pointerType === "mouse") return; // farede sağ tık zaten çalışıyor
+      cancelPress();
+      pressFired.current = false;
+      const { clientX: x, clientY: y } = e;
+      pressAt.current = { x, y };
+      pressTimer.current = setTimeout(() => {
+        pressTimer.current = null;
+        pressFired.current = true;
+        setMenu({ x, y, kind, path });
+      }, LONG_PRESS_MS);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const s = pressAt.current;
+      if (!s) return;
+      if (Math.abs(e.clientX - s.x) > LONG_PRESS_SLOP || Math.abs(e.clientY - s.y) > LONG_PRESS_SLOP) {
+        cancelPress();
+      }
+    },
+    onPointerUp: cancelPress,
+    onPointerCancel: cancelPress,
+  });
+  const consumeClick = () => {
+    if (!pressFired.current) return false;
+    pressFired.current = false;
+    return true;
+  };
+
+  // "⋯" düğmesi: menüyü düğmenin sol-alt köşesinden açar (PortalMenu ekran içine kenetler).
+  const openMenu = (e: React.MouseEvent, kind: "file" | "folder", path: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenu({ x: r.left, y: r.bottom + 2, kind, path });
+  };
+
   const ctx: RowCtx = {
     onContext,
+    press,
+    consumeClick,
+    openMenu,
+    isMobile,
+    actionsLabel: t("explorer.actions"),
+    locale: i18n.language,
     renaming,
     commit: (value) => {
       const r = renaming;
@@ -309,10 +489,10 @@ export function Explorer() {
   const tplFolder = root.folders.get(TEMPLATES_DIR);
   const rootFolders = [...root.folders.values()]
     .filter((f) => f.name !== TEMPLATES_DIR && f.name !== DRAW_DIR && f.name !== DAILY_DIR)
-    .sort((a, b) => a.name.localeCompare(b.name, "tr"));
-  const rootFiles = [...root.files].sort((a, b) => a.name.localeCompare(b.name, "tr"));
+    .sort((a, b) => a.name.localeCompare(b.name, i18n.language));
+  const rootFiles = [...root.files].sort((a, b) => a.name.localeCompare(b.name, i18n.language));
 
-  const pathLabel = vaultPath ? "~/" + vaultPath.split("/").filter(Boolean).pop() : "~/Loomen (örnek)";
+  const pathLabel = vaultPath ? "~/" + vaultPath.split("/").filter(Boolean).pop() : t("explorer.samplePath");
 
   // Favori notları çöz (silinmiş yolları at).
   const favNotes = favorites
@@ -341,13 +521,16 @@ export function Explorer() {
             <Trash2 size={16} strokeWidth={1.8} />
             {trashCount > 0 && <span className="lo-explorer__trashbadge">{trashCount}</span>}
           </button>
-          <button
-            className="lo-explorer__open lo-explorer__collapse"
-            title={t("planner.toggleLeft")}
-            onClick={toggleLeft}
-          >
-            <PanelLeftClose size={17} strokeWidth={1.9} />
-          </button>
+          {/* "Paneli daralt" yalnız masaüstünde anlamlı — mobilde panel çekmecedir, daraltılmaz. */}
+          {!isMobile && (
+            <button
+              className="lo-explorer__open lo-explorer__collapse"
+              title={t("planner.toggleLeft")}
+              onClick={toggleLeft}
+            >
+              <PanelLeftClose size={17} strokeWidth={1.9} />
+            </button>
+          )}
         </div>
       </div>
       <div className="lo-explorer__head">
@@ -404,7 +587,8 @@ export function Explorer() {
               ✕
             </button>
           ) : (
-            <kbd className="lo-kbd">⌘K</kbd>
+            /* Klavye kısayolu ipucu mobilde anlamsız (fiziksel klavye yok). */
+            !isMobile && <kbd className="lo-kbd">⌘K</kbd>
           )}
         </div>
       </div>
@@ -425,8 +609,12 @@ export function Explorer() {
               <button
                 key={n.path}
                 className={"lo-fav__item" + (activeNote === n.path ? " is-active" : "")}
-                onClick={() => openNote(n.path)}
+                onClick={() => {
+                  if (consumeClick()) return;
+                  openNote(n.path);
+                }}
                 onContextMenu={(e) => onContext(e, "file", n.path)}
+                {...press("file", n.path)}
               >
                 {n.kind === "draw" ? (
                   <Shapes size={13} strokeWidth={1.7} color="var(--accent-2)" />
@@ -525,9 +713,17 @@ export function Explorer() {
             {ghRepo && (
               <span className="lo-foot__right">
                 {!vaultPath ? (
-                  <button className="lo-foot__hint" onClick={() => void openVault()}>
-                    {t("github.selectVault")}
-                  </button>
+                  /* Mobilde klasör seçici YOK (core/vault: pickVaultFolder masaüstü içindir);
+                     kasa Ayarlar → Kasalar'dan ad verilerek oluşturulur, oraya yönlendir. */
+                  isMobile ? (
+                    <button className="lo-foot__hint" onClick={() => setScreen("settings")}>
+                      {t("explorer.addVaultInSettings")}
+                    </button>
+                  ) : (
+                    <button className="lo-foot__hint" onClick={() => void openVault()}>
+                      {t("github.selectVault")}
+                    </button>
+                  )
                 ) : (
                   <>
                     {ghStatus && !KNOWN_SYNC.has(ghStatus) ? (
@@ -561,13 +757,9 @@ export function Explorer() {
         )}
       </div>
 
-      {/* Sağ-tık bağlam menüsü */}
+      {/* Bağlam menüsü — sağ tık (masaüstü) / uzun basma + "⋯" (mobil). document.body'ye çizilir. */}
       {menu && (
-        <div
-          className="lo-ctxmenu"
-          style={{ left: menu.x, top: menu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <PortalMenu x={menu.x} y={menu.y} className="lo-ctxmenu">
           <button
             className="lo-ctxmenu__item"
             onClick={() => {
@@ -618,7 +810,7 @@ export function Explorer() {
               {t("explorer.delete")}
             </button>
           )}
-        </div>
+        </PortalMenu>
       )}
 
       {trashOpen && <TrashModal onClose={() => setTrashOpen(false)} />}

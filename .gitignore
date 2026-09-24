@@ -13,8 +13,43 @@ out/
 src-tauri/target/
 target/
 
-# Tauri'nin urettigi mobil projeler (tauri ios/android init ile yeniden uretilir)
-src-tauri/gen/
+# Tauri'nin urettigi mobil projeler (tauri ios/android init ile yeniden uretilir).
+# Uretilen her sey yok sayilir, ASAGIDAKI ISTISNALAR HARIC: bunlar elle duzenlenen
+# magaza dosyalaridir. Kayda girmezlerse `init` her calistiginda TV girdisi silme,
+# allowBackup kapatma, gizlilik bildirimi ve imzalama ayarlari sessizce kaybolur.
+# NOT: git, ust klasoru disarida birakilmis bir dosyayi geri alamaz; bu yuzden her
+# seviye once "*" ile kapatilip sonra tek tek aciliyor.
+src-tauri/gen/*
+
+# Android: elle duzenlenenler AndroidManifest.xml ve app/build.gradle.kts.
+!src-tauri/gen/android/
+src-tauri/gen/android/*
+!src-tauri/gen/android/app/
+src-tauri/gen/android/app/*
+!src-tauri/gen/android/app/build.gradle.kts
+!src-tauri/gen/android/app/src/
+src-tauri/gen/android/app/src/*
+!src-tauri/gen/android/app/src/main/
+src-tauri/gen/android/app/src/main/*
+!src-tauri/gen/android/app/src/main/AndroidManifest.xml
+# ...ve manifest'in atif yaptigi yedekleme kural dosyasi (res/xml altindaki
+# geri kalan uretilen kaynaklar yok sayilmaya devam eder).
+!src-tauri/gen/android/app/src/main/res/
+src-tauri/gen/android/app/src/main/res/*
+!src-tauri/gen/android/app/src/main/res/xml/
+src-tauri/gen/android/app/src/main/res/xml/*
+!src-tauri/gen/android/app/src/main/res/xml/data_extraction_rules.xml
+
+# iOS: proje sablonu, disari aktarma ayarlari ve gizlilik bildirimi.
+# Uygulama klasorunu tauri "<UygulamaAdi>_iOS" olarak uretir; buyuk/kucuk harf
+# degisebildigi icin kalip "*_iOS" yazildi.
+!src-tauri/gen/apple/
+src-tauri/gen/apple/*
+!src-tauri/gen/apple/project.yml
+!src-tauri/gen/apple/ExportOptions.plist
+!src-tauri/gen/apple/*_iOS/
+src-tauri/gen/apple/*_iOS/*
+!src-tauri/gen/apple/*_iOS/PrivacyInfo.xcprivacy
 
 # i18n çeviri cache (build-time)
 .i18n-cache.json

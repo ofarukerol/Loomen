@@ -49,7 +49,7 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
 
   return (
     <div className="lo-mtop">
-      <button className="lo-mtop__btn" onClick={onMenu} title={t("mobile.menu")}>
+      <button className="lo-mtop__btn" onClick={onMenu} title={t("mobile.menu")} aria-label={t("mobile.menu")}>
         <PanelLeft size={20} strokeWidth={1.9} />
       </button>
 
@@ -60,6 +60,7 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
           className="lo-mtop__btn"
           onClick={onBook}
           title={isPlanner ? t("ribbon.dayNote") : t("mobile.planner")}
+          aria-label={isPlanner ? t("ribbon.dayNote") : t("mobile.planner")}
         >
           {isPlanner ? (
             <BookOpen size={20} strokeWidth={1.9} />
@@ -73,6 +74,9 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
             className={"lo-mtop__btn" + (menuOpen ? " is-active" : "")}
             onClick={() => setMenuOpen((o) => !o)}
             title={t("mobile.more")}
+            aria-label={t("mobile.more")}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
           >
             <MoreVertical size={20} strokeWidth={1.9} />
           </button>

@@ -181,7 +181,11 @@
     "removeFavorite": "Favorilerden çıkar",
     "switchVault": "Kasa değiştir",
     "delete": "Çöp kutusuna taşı",
-    "clearSearch": "Temizle"
+    "clearSearch": "Temizle",
+    "actions": "İşlemler",
+    "samplePath": "~/Loomen (örnek)",
+    "addVaultInSettings": "Ayarlar'dan kasa ekle",
+    "pickFolderTitle": "Kasa klasörü seç"
   },
   "trash": {
     "title": "Çöp Kutusu",
@@ -516,7 +520,10 @@
     "cut": "Kes",
     "copy": "Kopyala",
     "paste": "Yapıştır",
-    "selectAll": "Tümünü seç"
+    "selectAll": "Tümünü seç",
+    "addColumn": "Sütun ekle",
+    "addRow": "Satır ekle",
+    "more": "Daha fazla"
   },
   "mobile": {
     "search": "Ara",
@@ -528,7 +535,8 @@
     "more": "Diğer",
     "planner": "Planlayıcı",
     "noActions": "İşlem yok",
-    "home": "Ana sayfa"
+    "home": "Ana sayfa",
+    "back": "Geri"
   },
   "audio": {
     "record": "Ses notu kaydet",
@@ -544,7 +552,11 @@
     "decodeError": "Ses işlenemedi, tekrar dene.",
     "namePlaceholder": "Kayıt adı (isteğe bağlı)",
     "rename": "Yeniden adlandır",
-    "delete": "Sil"
+    "delete": "Sil",
+    "micUnavailable": "Mikrofon bulunamadı ya da başka bir uygulama kullanıyor.",
+    "startFailed": "Ses kaydı başlatılamadı: {{detail}}",
+    "limitReached": "Kayıt {{minutes}} dakika sınırına ulaştı ve duraklatıldı. Kaydedip yeni bir kayda başlayabilirsin.",
+    "limitHint": "Tek kayıt en çok {{minutes}} dakika"
   },
   "a11y": {
     "decrease": "Azalt",
@@ -642,5 +654,24 @@
     "monthsAgo": "{{n}} ay önce",
     "oneYearAgo": "bir yıl önce",
     "yearsAgo": "{{n}} yıl önce"
+  },
+  "errors": {
+    "saveNote": "Not kaydedilemedi: {{detail}}",
+    "saveDraw": "Çizim kaydedilemedi: {{detail}}",
+    "createVault": "Kasa oluşturulamadı: {{detail}}",
+    "vaultSwitchAborted": "Not kaydedilemediği için kasa değiştirilmedi; metniniz duruyor.",
+    "vaultOpenFailed": "Kasa açılamadı. Klasör taşınmış veya erişim izni düşmüş olabilir; Ayarlar → Kasa bölümünden yeniden seçin.",
+    "renameAudio": "Ses kaydı yeniden adlandırılamadı: {{detail}}",
+    "deleteAudio": "Ses kaydı silinemedi: {{detail}}",
+    "noteExists": "Bu adda bir not zaten var: {{name}}",
+    "folderExists": "Bu adda bir klasör zaten var: {{name}}",
+    "renameNote": "Not yeniden adlandırılamadı: {{detail}}",
+    "renameLinks": "Yeniden adlandırma bitti ama {{count}} notta bağlantılar güncellenemedi: {{notes}}",
+    "renameFolder": "Klasör yeniden adlandırılamadı ({{path}}): {{detail}}",
+    "deleteNote": "Not silinemedi: {{detail}}",
+    "addTask": "Görev eklenemedi: {{detail}}",
+    "updateTask": "Görev güncellenemedi: {{detail}}",
+    "saveTask": "Görev kaydedilemedi: {{detail}}",
+    "taskStale": "Görev dosyası değişmiş; liste yenilendi, tekrar deneyin."
   }
 }
