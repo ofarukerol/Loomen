@@ -31,6 +31,54 @@ function safeRel(rel: string): string {
   return p;
 }
 
+/** Aynı dosyaya yazmalar sırayla: bir yazma bitmeden sonraki başlamaz (sıra = çağrı sırası). */
+const writeChains = new Map<string, Promise<unknown>>();
+function serial<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prev = writeChains.get(key) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  const tail = next.catch(() => {});
+  writeChains.set(key, tail);
+  // Zincir bitince haritadan düş (uzun oturumda birikmesin).
+  void tail.then(() => {
+    if (writeChains.get(key) === tail) writeChains.delete(key);
+  });
+  return next;
+}
+
+let tmpSeq = 0;
+/** Her yazmaya özel yan dosya adı (aynı klasörde; rename aynı disk içinde kalsın). */
+function tmpNameFor(target: string): string {
+  return `${target}.${Date.now().toString(36)}${(tmpSeq++).toString(36)}.tmp`;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Yan dosyaya yaz, sonra yerine koy. Rename geçici olarak başarısız olabilir (Windows'ta
+ * virüs tarayıcı/dizinleyici dosyayı kısa süre tutar) → birkaç kez denenir. Yine olmazsa
+ * not kaybolmasın diye doğrudan yazılır ve yan dosya temizlenir.
+ */
+async function atomicWrite(target: string, c: string): Promise<void> {
+  const tmp = tmpNameFor(target);
+  await writeTextFile(tmp, c);
+  let lastErr: unknown;
+  for (const wait of [0, 60, 200]) {
+    if (wait) await sleep(wait);
+    try {
+      await rename(tmp, target); // std::fs::rename — hedefin üzerine yazar
+      return;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  try {
+    await writeTextFile(target, c);
+  } finally {
+    await remove(tmp).catch(() => {});
+  }
+  console.warn("Atomik yazma rename'de başarısız, doğrudan yazıldı:", lastErr);
+}
+
 // Gerçek dosya sistemi adapter'ı (Tauri). Vault kökü mutlak yol; içeride göreli yollar kullanılır.
 export function createTauriBackend(root: string): VaultBackend {
   const abs = (rel: string) => `${root}/${safeRel(rel)}`;
@@ -63,19 +111,15 @@ export function createTauriBackend(root: string): VaultBackend {
      * Doğrudan yazmada işlem ortasında çökme/pil bitmesi notu yarım bırakır — yani
      * kullanıcının yazdığını siler. Rename tek adımdır: ya eski ya yeni içerik görünür.
      * `.tmp` uzantısı walk()'ın uzantı süzgecine takılmaz, ağaçta görünmez.
+     *
+     * LOM-8: Yan dosya adı HER yazmada benzersizdir ve aynı dosyaya yazmalar SIRAYLA
+     * yapılır. Eskiden sabit "<not>.tmp" kullanılıyordu: aynı nota iki kayıt üst üste
+     * gelince (otomatik kayıt + sekme değişimi) ikincisi birincinin yan dosyasını yazarken
+     * kesiyor, yarım içerik yerine konabiliyor ya da eski metin en son yazılıyordu.
      */
     writeNote: async (p, c) => {
-      const target = abs(p);
-      const tmp = `${target}.tmp`;
-      await writeTextFile(tmp, c);
-      try {
-        await rename(tmp, target); // std::fs::rename — hedefin üzerine yazar
-      } catch (err) {
-        // Rename olmadıysa not kaybolmasın: doğrudan yazıp yan dosyayı temizle.
-        await writeTextFile(target, c);
-        await remove(tmp).catch(() => {});
-        console.warn("Atomik yazma rename'de başarısız, doğrudan yazıldı:", err);
-      }
+      const target = abs(p); // async içinde: yol reddi senkron fırlatma değil, reddedilmiş promise olsun
+      return serial(target, () => atomicWrite(target, c));
     },
     readBinary: async (p) => readFile(abs(p)),
     writeBinary: async (p, data) => {
