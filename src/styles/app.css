@@ -3138,3 +3138,18 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 .lo-revcard__num span { font-family: var(--font-sans); font-size: 12.5px; font-weight: 400; color: var(--fg3); margin-inline-start: 4px; }
 .lo-revcard__btn { width: 100%; justify-content: center; }
 .lo-revcard__empty { font-size: 12.5px; color: var(--fg3); margin-top: 8px; }
+
+/* Dış değişiklik çakışması (LOM-5): açık not dışarıda değişti, taslakta yazılmamış değişiklik var. */
+.lo-conflict {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin: 8px 18px 0; padding: 9px 12px;
+  border: 1px solid var(--danger); border-radius: var(--radius-sm);
+  background: var(--danger-bg); color: var(--fg1); font-size: 12.5px;
+}
+.lo-conflict__msg { flex: 1 1 220px; }
+.lo-conflict__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.lo-conflict__btn {
+  border: 1px solid var(--line); background: var(--bg-elev); color: var(--fg1);
+  border-radius: var(--radius-sm); padding: 4px 9px; font: inherit; cursor: pointer;
+}
+.lo-conflict__btn:hover { border-color: var(--danger); color: var(--danger); }

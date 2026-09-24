@@ -284,7 +284,11 @@
     "preview": "Preview",
     "empty": "Open a note from the explorer.",
     "reading": "Reading",
-    "emptyMobile": "Open a note from the menu."
+    "emptyMobile": "Open a note from the menu.",
+    "conflict": "This note changed elsewhere and you have unsaved edits. Which version should stay?",
+    "conflictMine": "Keep mine",
+    "conflictDisk": "Use the other one",
+    "conflictBoth": "Keep both"
   },
   "github": {
     "title": "GitHub Sync",

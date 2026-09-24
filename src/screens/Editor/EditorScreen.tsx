@@ -30,6 +30,9 @@ export function EditorScreen() {
   const draft = useAppStore((s) => s.draft);
   const lineNumbers = useAppStore((s) => s.editorSettings.lineNumbers);
   const draftEpoch = useAppStore((s) => s.draftEpoch);
+  const draftConflict = useAppStore((s) => s.draftConflict);
+  const draftPath = useAppStore((s) => s.draftPath);
+  const resolveDraftConflict = useAppStore((s) => s.resolveDraftConflict);
   const setDraft = useAppStore((s) => s.setDraft);
   const toggleEditing = useAppStore((s) => s.toggleEditing);
   const saveNote = useAppStore((s) => s.saveNote);
@@ -211,6 +214,23 @@ export function EditorScreen() {
       </div>
 
       {editing && <EditorToolbar getView={() => viewRef.current} />}
+
+      {draftConflict && draftConflict.path === draftPath && draftPath === activeNote && (
+        <div className="lo-conflict" role="alert">
+          <span className="lo-conflict__msg">{t("editor.conflict")}</span>
+          <div className="lo-conflict__actions">
+            <button className="lo-conflict__btn" onClick={() => void resolveDraftConflict("mine")}>
+              {t("editor.conflictMine")}
+            </button>
+            <button className="lo-conflict__btn" onClick={() => void resolveDraftConflict("disk")}>
+              {t("editor.conflictDisk")}
+            </button>
+            <button className="lo-conflict__btn" onClick={() => void resolveDraftConflict("both")}>
+              {t("editor.conflictBoth")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {crumbs.length > 0 && <DailyHeader noteName={crumbs[crumbs.length - 1]} />}
 

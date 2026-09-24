@@ -25,6 +25,7 @@ import {
   TODO_HEADING,
 } from "../core/vault";
 import { rewriteWikiLinks } from "../core/markdown/links";
+import { reconcileDraft, conflictCopyPath, conflictStamp } from "../core/vault/draftSync";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
@@ -184,6 +185,12 @@ interface AppState {
    * CM'in eski metnini geri yazıp dış değişikliği siler.
    */
   draftEpoch: number;
+  /**
+   * Açık not dışarıda değişti ama taslakta yazılmamış değişiklik var (LOM-5).
+   * Bu sürerken otomatik kayıt YAZMAZ; iki sürüm de korunur, kullanıcı seçer.
+   * Yalnız `path === draftPath` iken geçerlidir.
+   */
+  draftConflict: { path: string; disk: string } | null;
   backlinksCollapsed: boolean;
 
   // Görev detay paneli (seçili görev id'si "file:line")
@@ -314,6 +321,9 @@ interface AppState {
   /** Bekleyen taslağı hemen diske yaz (editör kapanırken / not değişirken çağrılır). */
   /** Bekleyen taslağı yazar. `false` = yazılamadı (çağıran devam etmemeli). */
   flushDraft: () => Promise<boolean>;
+  /** Dış değişiklik çakışmasını çöz: "mine" taslağı yazar, "disk" dıştakini açar,
+   *  "both" dıştakini açar ve taslağı ayrı bir kopya not olarak saklar. */
+  resolveDraftConflict: (choice: "mine" | "disk" | "both") => Promise<void>;
   setAccent: (hex: string) => void;
   toggleEditorSetting: (key: keyof EditorSettings) => void;
   toggleArabic: () => void;
@@ -516,6 +526,13 @@ function queueFileOp<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
+/**
+ * Taslak diske her yazıldığında (başında ve sonunda) artar. Okuma sürerken sayaç
+ * değiştiyse o okumanın açık not için getirdiği içerik yazmadan önceki hali olabilir;
+ * dış değişiklik sanılıp çakışma çıkmasın diye o tur açık nota dokunulmaz (LOM-5).
+ */
+let draftWriteGen = 0;
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => {
@@ -545,6 +562,7 @@ export const useAppStore = create<AppState>()(
   async function loadFromBackend() {
     const src = backend;
     const bu = ++loadSeq;
+    const gen = draftWriteGen;
     const { tasks, notes, contents } = await loadVaultData(src);
     if (backend !== src) return; // arada kasa değişti → eski kasanın verisini yazma
     if (bu !== loadSeq) return; // daha yeni bir okuma başladı → bu sonuç bayat
@@ -561,12 +579,27 @@ export const useAppStore = create<AppState>()(
       counts: { yapilacak: c.yapilacak, geciken: c.geciken, planlanmamis: c.planlanmamis },
     };
     if (s.draftPath) {
-      const prev = s.noteContents[s.draftPath];
-      const next = contents[s.draftPath];
-      // Yalnız taslak "temiz"ken (kullanıcı yazmamışken) tazele — yazılmamış değişiklik ezilmez.
-      if (next !== undefined && next !== prev && s.draft === prev) {
-        patch.draft = next;
-        patch.draftEpoch = s.draftEpoch + 1; // CodeMirror yeniden kurulsun (bkz. draftEpoch)
+      const p = s.draftPath;
+      // Okuma sürerken taslak diske yazıldı: bu okuma dosyanın yazmadan önceki halini
+      // getirmiş olabilir. Bellekteki güncel içerik esas alınır, dış değişiklik sayılmaz.
+      if (gen !== draftWriteGen && s.noteContents[p] !== undefined) contents[p] = s.noteContents[p];
+      const prev = s.noteContents[p];
+      const next = contents[p];
+      switch (reconcileDraft(prev, next, s.draft)) {
+        case "refresh":
+          // Taslak "temiz" (kullanıcı yazmamış) → yeni içerikle tazele.
+          patch.draft = next;
+          patch.draftEpoch = s.draftEpoch + 1; // CodeMirror yeniden kurulsun (bkz. draftEpoch)
+          patch.draftConflict = null;
+          break;
+        case "converged":
+          patch.draftConflict = null;
+          break;
+        case "conflict":
+          // Dışarıda değişti VE yazılmamış değişiklik var: otomatik kayıt dış değişikliği
+          // ezmesin; iki sürüm de korunur, kullanıcı seçer (LOM-5).
+          patch.draftConflict = { path: p, disk: next as string };
+          break;
       }
     }
     set(patch);
@@ -610,8 +643,21 @@ export const useAppStore = create<AppState>()(
     if (!p || p !== s.activeNote) return true; // sahipsiz taslak asla yazılmaz (NOTE_SAFETY)
     if (text === s.noteContents[p]) return true;
     if (!s.notes.some((n) => n.path === p && n.kind === "note")) return true;
+    if (s.draftConflict?.path === p) {
+      // Dış değişiklik çakışması sürüyor: taslak asıl dosyaya YAZILMAZ (dıştakini ezerdi).
+      // Kullanıcı notu terk ediyor (sekme, kasa, kapanış) — taslak ayrı kopya not olur.
+      try {
+        await saveDraftCopy(p, text);
+        return true;
+      } catch (e) {
+        await notifyError(`Not kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+        return false;
+      }
+    }
     try {
+      draftWriteGen++;
       await backend.writeNote(p, text);
+      draftWriteGen++;
       set((st) => ({ noteContents: { ...st.noteContents, [p]: text } }));
       return true;
     } catch (e) {
@@ -621,6 +667,31 @@ export const useAppStore = create<AppState>()(
       // yazdığı metni de kaybediyordu.
       return false;
     }
+  }
+
+  /**
+   * Çakışmadaki taslağı asıl dosyanın yanına benzersiz adlı bir kopya olarak yazar ve
+   * editörü diskteki (dış) sürüme çevirir. Var olan hiçbir dosyanın üzerine yazılmaz.
+   */
+  async function saveDraftCopy(p: string, text: string): Promise<string> {
+    const copy = await conflictCopyPath(
+      p,
+      conflictStamp(),
+      async (c) => get().notes.some((n) => n.path === c) || (await backend.exists(c))
+    );
+    await backend.writeNote(copy, text);
+    const st = get();
+    if (st.draftPath === p) {
+      const disk = st.draftConflict?.path === p ? st.draftConflict.disk : st.noteContents[p] ?? "";
+      set({
+        draft: disk,
+        draftEpoch: st.draftEpoch + 1,
+        draftConflict: null,
+        noteContents: { ...st.noteContents, [p]: disk },
+      });
+    }
+    await loadFromBackend();
+    return copy;
   }
 
   /**
@@ -720,6 +791,7 @@ export const useAppStore = create<AppState>()(
     draft: "",
     draftPath: null,
     draftEpoch: 0,
+    draftConflict: null,
     backlinksCollapsed: false,
     selectedTask: null,
     activeDraw: null,
@@ -871,7 +943,7 @@ export const useAppStore = create<AppState>()(
         const clearNote = s.activeNote === path ? null : s.activeNote;
         const clearDraw = s.activeDraw === path ? null : s.activeDraw;
         if (!next)
-          return { openTabs, pinnedTabs, activeNote: clearNote, activeDraw: clearDraw, draft: "", draftPath: null };
+          return { openTabs, pinnedTabs, activeNote: clearNote, activeDraw: clearDraw, draft: "", draftPath: null, draftConflict: null };
         const nextNote = s.notes.find((n) => n.path === next);
         if (nextNote?.kind === "draw") {
           return { openTabs, pinnedTabs, screen: "draw", activeDraw: next, activeNote: clearNote };
@@ -890,6 +962,46 @@ export const useAppStore = create<AppState>()(
     },
     setDraft: (draft) => set({ draft }),
     flushDraft,
+    resolveDraftConflict: async (choice) => {
+      const s = get();
+      const c = s.draftConflict;
+      const p = s.draftPath;
+      if (!c || !p || c.path !== p) {
+        if (c) set({ draftConflict: null });
+        return;
+      }
+      if (choice === "mine") {
+        const text = s.draft;
+        try {
+          draftWriteGen++;
+          await backend.writeNote(p, text);
+          draftWriteGen++;
+        } catch (e) {
+          await notifyError(`Not kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+          return;
+        }
+        set((st) => ({
+          draftConflict: st.draftConflict?.path === p ? null : st.draftConflict,
+          noteContents: { ...st.noteContents, [p]: text },
+        }));
+        return;
+      }
+      if (choice === "both") {
+        try {
+          await saveDraftCopy(p, s.draft);
+        } catch (e) {
+          await notifyError(`Kopya kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+        }
+        return;
+      }
+      // "disk": dıştaki sürüm açılır, taslaktaki değişiklik bırakılır.
+      set({
+        draft: c.disk,
+        draftEpoch: s.draftEpoch + 1,
+        draftConflict: null,
+        noteContents: { ...s.noteContents, [p]: c.disk },
+      });
+    },
     toggleEditing: () => set((s) => ({ editing: !s.editing })),
     toggleBacklinks: () => set((s) => ({ backlinksCollapsed: !s.backlinksCollapsed })),
     saveNote: async () => {
@@ -898,10 +1010,14 @@ export const useAppStore = create<AppState>()(
       // GÜVENLİK: taslak başka bir nota aitse ASLA yazma (yanlış içeriğin yanlış dosyaya
       // yazılıp notu bozmasını engeller — bkz NOTE_SAFETY_RULES.md).
       if (s.draftPath !== s.activeNote) return;
+      // Dışarıda değişmiş ve kullanıcı henüz seçmemiş: yazarsak dış değişiklik kaybolur (LOM-5).
+      if (s.draftConflict?.path === s.activeNote) return;
       // Gereksiz yazma yok: içerik değişmediyse dosyaya dokunma (NOTE_SAFETY_RULES kural 5).
       if (s.draft === s.noteContents[s.activeNote]) return;
       try {
+        draftWriteGen++;
         await backend.writeNote(s.activeNote, s.draft);
+        draftWriteGen++;
       } catch (e) {
         // Sessiz kalma: kullanıcı yazmaya devam edip kaydedildiğini sanmamalı (disk dolu,
         // izin düştü, kasa taşındı...). Bellek güncellenmez → sonraki denemede tekrar yazılır.
@@ -1165,7 +1281,7 @@ export const useAppStore = create<AppState>()(
           activeNote: null,
           activeDraw: null,
           draft: "",
-          draftPath: null,
+          draftPath: null, draftConflict: null,
           screen: "planner",
         });
       }
@@ -1249,7 +1365,7 @@ export const useAppStore = create<AppState>()(
 
           // Taslağı/aktif notu HEMEN bırak: bundan sonraki her yazma denemesi (autosave dahil)
           // sahipsiz taslak kuralına takılıp sessizce düşer, yanlış kasaya içerik sızmaz.
-          if (isSwitch) set({ draft: "", draftPath: null, activeNote: null, activeDraw: null });
+          if (isSwitch) set({ draft: "", draftPath: null, draftConflict: null, activeNote: null, activeDraw: null });
 
           // Sandbox (Mac App Store): klasöre erişimi bookmark ile geri al. Sandbox dışında
           // bu çağrı zararsızdır (erişim zaten açıktır).
@@ -1664,7 +1780,7 @@ export const useAppStore = create<AppState>()(
       const draftPatch = activeChanged
         ? nextNote?.kind === "note"
           ? { draft: s.noteContents[activeNote!] ?? "", draftPath: activeNote }
-          : { draft: "", draftPath: null }
+          : { draft: "", draftPath: null, draftConflict: null }
         : {};
       set({
         openTabs,
@@ -1701,6 +1817,9 @@ export const useAppStore = create<AppState>()(
       // aynı metni okuyup görevi iki kez eklerdi.
       set({ quickText: "" });
       await queueFileOp(async () => {
+        // Açık notun yazılmamış hali önce diske: yoksa görev yazması "dış değişiklik"
+        // sayılıp çakışma sorulur ya da taslak görev değişikliğini ezer (LOM-5).
+        await flushDraft();
         try {
           // Görevler günlük nottan ayrı: ayrı "Yapılacaklar.md" dosyasına eklenir.
           // Dosya yoksa başlık bellekte kurulur — iki ayrı yazma (oluştur + ekle) yapılmaz.
@@ -1721,6 +1840,9 @@ export const useAppStore = create<AppState>()(
 
     toggleTask: async (id) =>
       queueFileOp(async () => {
+        // Açık notun yazılmamış hali önce diske: yoksa görev yazması "dış değişiklik"
+        // sayılıp çakışma sorulur ya da taslak görev değişikliğini ezer (LOM-5).
+        await flushDraft();
         const s = get(); // sırada bekleyen önceki yazmadan SONRAKİ satır numaraları
         const sep = id.lastIndexOf(":");
         const file = id.slice(0, sep);
@@ -1751,6 +1873,9 @@ export const useAppStore = create<AppState>()(
     // Görev detayını (açıklama/tarih/öncelik) dosyaya yaz.
     updateTask: async (id, patch) =>
       queueFileOp(async () => {
+        // Açık notun yazılmamış hali önce diske: yoksa görev yazması "dış değişiklik"
+        // sayılıp çakışma sorulur ya da taslak görev değişikliğini ezer (LOM-5).
+        await flushDraft();
         const s = get(); // sırada bekleyen önceki yazmadan SONRAKİ satır numaraları
         const sep = id.lastIndexOf(":");
         const file = id.slice(0, sep);
@@ -1779,6 +1904,9 @@ export const useAppStore = create<AppState>()(
     // Görevi tek yazımda kaydet: satır yaması + (varsa) girintili çocuk bloğu (alt görevler + notlar).
     saveTask: async (id, patch, notes, subtasks) =>
       queueFileOp(async () => {
+        // Açık notun yazılmamış hali önce diske: yoksa görev yazması "dış değişiklik"
+        // sayılıp çakışma sorulur ya da taslak görev değişikliğini ezer (LOM-5).
+        await flushDraft();
         const s = get();
         const sep = id.lastIndexOf(":");
         const file = id.slice(0, sep);
@@ -1816,6 +1944,9 @@ export const useAppStore = create<AppState>()(
     // Farklı bir gün grubuna bırakılırsa görev o güne yeniden planlanır (tarih dosyaya yazılır).
     reorderTask: async (fromId, toId, position) =>
       queueFileOp(async () => {
+        // Açık notun yazılmamış hali önce diske: yoksa görev yazması "dış değişiklik"
+        // sayılıp çakışma sorulur ya da taslak görev değişikliğini ezer (LOM-5).
+        await flushDraft();
         const s = get();
         const parse = (id: string) => {
           const sep = id.lastIndexOf(":");

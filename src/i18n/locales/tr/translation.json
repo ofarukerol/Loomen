@@ -306,7 +306,11 @@
     "preview": "Önizleme",
     "empty": "Soldaki gezginden bir not aç.",
     "reading": "Okuma",
-    "emptyMobile": "Menüden bir not aç."
+    "emptyMobile": "Menüden bir not aç.",
+    "conflict": "Bu not başka bir yerde değişti ve senin kaydedilmemiş değişikliklerin var. Hangi sürüm kalsın?",
+    "conflictMine": "Benimkini kaydet",
+    "conflictDisk": "Dıştakini al",
+    "conflictBoth": "İkisini de sakla"
   },
   "github": {
     "title": "GitHub Senkronizasyonu",

@@ -33,6 +33,7 @@ import { foldTr, searchNotes } from "../search/search";
 import { addDaysISO, localDateTime, taskToEventPayload } from "../google";
 import { encodeTrashName, toTrashEntry, isExpired, daysLeft } from "../vault/trash";
 import type { VaultNote } from "../vault/types";
+import { reconcileDraft, conflictCopyPath, conflictStamp } from "../vault/draftSync";
 
 let fails = 0;
 let ran = 0;
@@ -304,6 +305,28 @@ section("Satır kayması koruması (LOM-10)");
   eq("Eksi satır tutmaz", taskLineMatches(dosya, -1, "- [ ] A görevi"), false);
   // Windows satır sonu ikisinde de tolere edilir (CRLF düzeltmesiyle uyumlu).
   eq("CRLF farkı kaymaya sayılmaz", taskLineMatches("- [ ] A görevi\r\n- [ ] B", 0, "- [ ] A görevi"), true);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+section("Dış değişiklik ↔ açık taslak (LOM-5)");
+
+{
+  eq("Disk değişmediyse dokunma", reconcileDraft("A", "A", "A yazılıyor"), "keep");
+  eq("Dosya dışarıda silindiyse taslak korunur", reconcileDraft("A", undefined, "A yazılıyor"), "keep");
+  eq("Taslak temizse tazele", reconcileDraft("A", "B", "A"), "refresh");
+  eq("Taslak dıştakiyle aynıysa yazılacak şey yok", reconcileDraft("A", "B", "B"), "converged");
+  // KRİTİK: eskiden taslak tutuluyor, sonraki otomatik kayıt "B"yi sessizce eziyordu.
+  eq("Taslak kirli + disk değişti = çakışma", reconcileDraft("A", "B", "A yazılıyor"), "conflict");
+
+  const var_ = new Set(["Klasör/Not (çakışma 2026-09-24 1430).md"]);
+  const yol = await conflictCopyPath("Klasör/Not.md", "2026-09-24 1430", (p) => var_.has(p));
+  eq("Kopya adı var olanla çakışmaz", yol, "Klasör/Not (çakışma 2026-09-24 1430 2).md");
+  eq(
+    "Kök klasörde kopya adı",
+    await conflictCopyPath("Not.md", "2026-09-24 1430", () => false),
+    "Not (çakışma 2026-09-24 1430).md"
+  );
+  eq("Zaman damgası biçimi", conflictStamp(new Date(2026, 8, 4, 7, 5)), "2026-09-04 0705");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
