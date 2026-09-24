@@ -1,4 +1,5 @@
 import type { EditorView } from "@codemirror/view";
+import { findFenceBlocks, findTables } from "./tableModel";
 
 /** Markdown biçimlendirme komutları — CodeMirror seçimi üzerinde çalışır, formatı bozmaz. */
 
@@ -82,18 +83,75 @@ export function externalLink(v: EditorView) {
   focus(v);
 }
 
-/** İmleç satırından sonra blok ekle. */
-function insertBlock(v: EditorView, text: string) {
-  const r = v.state.selection.main;
-  const at = v.state.doc.lineAt(r.from).to;
-  const insert = `\n${text}\n`;
-  v.dispatch({ changes: { from: at, insert }, selection: { anchor: at + insert.length } });
+export interface BlockInsert {
+  /** Eklemenin yapılacağı belge pozisyonu. */
+  from: number;
+  insert: string;
+  /** Ekleme sonrası imlecin gideceği pozisyon. */
+  caret: number;
+}
+
+/**
+ * Blok ekleme planı (saf — node testlerinden koşulabilir).
+ *
+ * İmleç bir tablonun/kod bloğunun ya da dolu bir paragrafın içindeyse blok ARAYA değil,
+ * o bloğun sonuna eklenir; öncesinde boş satır bırakılır ve arkasına boş bir satır açılır.
+ * İmleç varsayılan olarak eklenen bloğun ALTINDAKİ boş satıra gider; `caretIn` verilirse
+ * eklenen metnin içindeki o kaydırmaya (ör. kod bloğunun içi) gider.
+ */
+export function computeBlockInsert(doc: string, pos: number, text: string, caretIn?: number): BlockInsert {
+  const lines = doc.split("\n");
+  const starts: number[] = [];
+  let acc = 0;
+  for (const l of lines) {
+    starts.push(acc);
+    acc += l.length + 1;
+  }
+  const clamped = Math.max(0, Math.min(pos, doc.length));
+  let idx = 0;
+  while (idx + 1 < lines.length && starts[idx + 1] <= clamped) idx++;
+
+  const tables = findTables(lines);
+  const fences = findFenceBlocks(lines);
+  const inTable = tables.find((t) => idx >= t.headerLine && idx <= t.endLine);
+  const inFence = fences.find((f) => idx >= f.start && idx <= f.end);
+  const startsTable = (i: number) => tables.some((t) => t.headerLine === i);
+  const startsFence = (i: number) => fences.some((f) => f.start === i);
+
+  let end = idx;
+  if (inTable) end = inTable.endLine;
+  else if (inFence) end = inFence.end;
+  else if (lines[idx].trim() !== "") {
+    while (end + 1 < lines.length && lines[end + 1].trim() !== "" && !startsTable(end + 1) && !startsFence(end + 1))
+      end++;
+  }
+
+  const empty = lines[end].trim() === "";
+  const at = empty ? starts[end] : starts[end] + lines[end].length;
+  const prefix = empty ? "" : "\n\n";
+  // Alttaki satır zaten boşsa yenisini açma — imleç var olan boş satıra gider.
+  const nextBlank = end + 1 < lines.length && lines[end + 1].trim() === "";
+  const insert = `${prefix}${text}${nextBlank ? "" : "\n"}`;
+  const caret = caretIn == null ? at + prefix.length + text.length + 1 : at + prefix.length + caretIn;
+  return { from: at, insert, caret };
+}
+
+/** İmlecin bulunduğu bloğun sonuna blok ekle. */
+function insertBlock(v: EditorView, text: string, caretIn?: number) {
+  const plan = computeBlockInsert(v.state.doc.toString(), v.state.selection.main.from, text, caretIn);
+  v.dispatch({
+    changes: { from: plan.from, insert: plan.insert },
+    selection: { anchor: plan.caret },
+    scrollIntoView: true,
+  });
   focus(v);
 }
-export const hr = (v: EditorView) => insertBlock(v, "\n---");
-export const codeBlock = (v: EditorView) => insertBlock(v, "```\n\n```");
+export const hr = (v: EditorView) => insertBlock(v, "---");
+// İmleç çitlerin arasındaki boş satıra.
+export const codeBlock = (v: EditorView) => insertBlock(v, "```\n\n```", 4);
 export const table = (v: EditorView) => insertBlock(v, "| Başlık | Başlık |\n| --- | --- |\n|  |  |");
-export const callout = (v: EditorView) => insertBlock(v, "> [!note]\n> ");
+// İmleç "> " işaretinden sonraya.
+export const callout = (v: EditorView) => insertBlock(v, "> [!note]\n> ", 12);
 
 export const clearFormat = (v: EditorView) => {
   const r = v.state.selection.main;

@@ -6,7 +6,8 @@ import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as tg } from "@lezer/highlight";
 import { livePreview } from "./livePreview";
-import { tableField } from "./tableWidget";
+import { clearTableColWidths, tableField, tableKeymap } from "./tableWidget";
+import { ensureTrailingBlankLine, needsTrailingBlankLine } from "./tableModel";
 
 interface Props {
   value: string;
@@ -77,7 +78,8 @@ const cmTheme = EditorView.theme({
   ".cm-h6": { fontSize: "1em", fontWeight: "700", color: "var(--fg2)", paddingTop: "8px" },
   ".cm-wikilink": { color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px" },
   // Canlı önizleme tablo widget'ı
-  ".cm-tablewrap": { margin: "6px 0 18px", overflowX: "auto", cursor: "text" },
+  // NOT: margin YOK — CM satır yüksekliğini ölçemez, tıklama/imleç isabeti kayar (bkz yukarı).
+  ".cm-tablewrap": { padding: "6px 0 18px", overflowX: "auto", cursor: "text" },
   ".cm-tablegrid": { display: "inline-grid", gridTemplateColumns: "auto auto", gap: "4px", alignItems: "stretch" },
   ".cm-table": { gridColumn: "1", gridRow: "1", borderCollapse: "collapse", fontSize: "14.5px", lineHeight: "1.5" },
   ".cm-table__add": {
@@ -132,6 +134,24 @@ const cmTheme = EditorView.theme({
   },
 });
 
+/**
+ * Belge bir blok widget'ıyla (tablo / ses / resim embed'i) bitiyorsa sonuna boş bir satır
+ * ekler. Widget belgenin son satırıysa altında gidilecek konum kalmıyor; alt boşluğa
+ * tıklayınca imleç gizlenen kaynağın içine düşüp kayboluyordu.
+ *
+ * transactionFilter çıktısı yeniden filtrelenmediği için döngüye girmez.
+ */
+const trailingBlankLine = EditorState.transactionFilter.of((tr) => {
+  if (!tr.docChanged) return tr;
+  const doc = tr.newDoc;
+  const last = doc.line(doc.lines);
+  const t = last.text.trim();
+  // Ucuz ön eleme — yalnız tablo satırı ya da embed görünümlü son satırda tam kontrol.
+  if (t === "" || (!t.includes("|") && !t.startsWith("!["))) return tr;
+  if (!needsTrailingBlankLine(doc.toString().split("\n"))) return tr;
+  return [tr, { changes: { from: doc.length, insert: "\n" }, sequential: true }];
+});
+
 export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onContextMenu, initialCaret }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   // Stale closure olmasın diye callback'leri ref'te tut.
@@ -144,14 +164,18 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
 
   useEffect(() => {
     if (!ref.current) return;
+    // Sütun genişlikleri tablo pozisyonuna göre saklanıyor — notlar arasında çakışmasın.
+    clearTableColWidths();
     const exts = [
       history(),
       drawSelection(),
+      tableKeymap,
       keymap.of([...defaultKeymap, ...historyKeymap]),
       markdown(),
       syntaxHighlighting(mdHighlight),
       livePreview,
       tableField,
+      trailingBlankLine,
       EditorView.lineWrapping,
       cmTheme,
       EditorView.domEventHandlers({
@@ -168,12 +192,14 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
     ];
     if (lineNumbers) exts.push(lineNumbersExt());
 
+    // Açılışta da alt satır garantisi (onChange tetiklenmez — sırf açmak notu kirletmesin).
+    const doc = ensureTrailingBlankLine(value);
     // Günlük notta imleç "Ephemeral Notlar" bölümüne; verilmezse CM varsayılanı (metin başı).
-    const caret = initialCaret == null ? undefined : Math.max(0, Math.min(initialCaret, value.length));
+    const caret = initialCaret == null ? undefined : Math.max(0, Math.min(initialCaret, doc.length));
 
     const view = new EditorView({
       state: EditorState.create({
-        doc: value,
+        doc,
         extensions: exts,
         ...(caret == null ? {} : { selection: { anchor: caret } }),
       }),
