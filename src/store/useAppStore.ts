@@ -310,9 +310,9 @@ interface AppState {
   setLang: (l: Lang) => void;
   setEditorTab: (t: EditorTab) => void;
   openNote: (nameOrPath: string, edit?: boolean) => void; // edit varsayılan true (canlı düzenleme)
-  setActiveTab: (path: string) => void;
+  setActiveTab: (path: string) => Promise<void>;
   togglePin: (path: string) => void;
-  closeTab: (path: string) => void;
+  closeTab: (path: string) => Promise<void>;
   newTab: () => void;
   setDraft: (text: string) => void;
   toggleEditing: () => void;
@@ -697,6 +697,21 @@ export const useAppStore = create<AppState>()(
     return (await drawDone) && noteOk;
   }
 
+  /**
+   * Açık notu TERK ETMEDEN önce taslağı diske yazar (LOM-7). Yazma bitene kadar beklenir;
+   * bu sırada kullanıcı yazmaya devam ettiyse yeni hali de yazılır. `false` = yazılamadı:
+   * çağıran notu değiştirmemeli, yoksa taslak (kullanıcının metni) bellekte de kaybolur.
+   */
+  async function leaveDraft(): Promise<boolean> {
+    for (let i = 0; i < 5; i++) {
+      const before = get();
+      if (!(await flushDraft())) return false;
+      const after = get();
+      if (after.draftPath !== before.draftPath || after.draft === before.draft) return true;
+    }
+    return true;
+  }
+
   async function flushNoteDraft(s: AppState): Promise<boolean> {
     const p = s.draftPath;
     const text = s.draft;
@@ -936,8 +951,9 @@ export const useAppStore = create<AppState>()(
     setEditorTab: (editorTab) => set({ editorTab }),
     openNote: async (nameOrPath, edit = true) => {
       // Ayrılan notun bekleyen taslağını yaz: autosave 700 ms gecikmeli, o pencerede not
-      // değiştirilirse son yazılanlar hiç diske gitmeden kaybolurdu.
-      await flushDraft();
+      // değiştirilirse son yazılanlar hiç diske gitmeden kaybolurdu. Yazılamazsa not
+      // DEĞİŞMEZ: taslak ekranda kalır, kullanıcı metnini kaybetmez (LOM-7).
+      if (!(await leaveDraft())) return;
       const s = get();
       // Yol mu yoksa ad mı? Önce yol, sonra ada göre çöz.
       const byPath = s.notes.find((n) => n.path === nameOrPath);
@@ -974,8 +990,10 @@ export const useAppStore = create<AppState>()(
         draftPath: note.path,
       });
     },
-    setActiveTab: (path) => {
-      void flushDraft(); // ayrılan notun bekleyen taslağı (değerler şimdi yakalanır)
+    setActiveTab: async (path) => {
+      // Ayrılan notun bekleyen taslağı ÖNCE yazılır; yazılamazsa sekme değişmez (LOM-7).
+      // Eskiden yazma beklenmeden sekme değişiyor, yazma hata verirse taslak kayboluyordu.
+      if (!(await leaveDraft())) return;
       const s = get();
       const note = s.notes.find((n) => n.path === path);
       if (note?.kind === "draw") {
@@ -992,8 +1010,11 @@ export const useAppStore = create<AppState>()(
       })),
     // Boş "Yeni sekme" — dosya oluştur / dosyaya git seçenekleri.
     newTab: () => set({ screen: "newtab" }),
-    closeTab: (path) => {
-      void flushDraft(); // kapanan/ayrılan notun bekleyen taslağı kaybolmasın
+    closeTab: async (path) => {
+      // Kapanan/ayrılan notun bekleyen taslağı önce yazılır; yazılamazsa sekme kapanmaz (LOM-7).
+      // (Kapanan sekme aktif not değilse taslak zaten yerinde kalır, beklemeye gerek yok.)
+      const st0 = get();
+      if ((st0.activeNote === path || st0.activeDraw === path) && !(await leaveDraft())) return;
       set((s) => {
         const openTabs = s.openTabs.filter((p) => p !== path);
         const pinnedTabs = s.pinnedTabs.filter((p) => p !== path);
@@ -1678,7 +1699,8 @@ export const useAppStore = create<AppState>()(
       }
       // Bekleyen taslağı önce ESKİ yola yaz; yoksa autosave rename'den sonra ateşleyip
       // silinmiş yolu yeniden yaratır (aynı notun iki kopyası) ya da yazma hata verir.
-      await flushDraft();
+      // Yazılamazsa yeniden adlandırma yapılmaz (taslak eski yolda kalır, kaybolmaz).
+      if (!(await leaveDraft())) return;
       try {
         await backend.rename(path, to);
       } catch (e) {
@@ -1777,7 +1799,8 @@ export const useAppStore = create<AppState>()(
         return;
       }
       // Bekleyen taslağı önce eski yola yaz (rename sonrası yazılamaz/yanlış yere yazılır).
-      await flushDraft();
+      // Yazılamazsa klasör taşınmaz (LOM-7).
+      if (!(await leaveDraft())) return;
       const map = new Map<string, string>();
       for (const n of affected) {
         const np = to + n.path.slice(folderPath.length);
@@ -1825,8 +1848,9 @@ export const useAppStore = create<AppState>()(
 
     // Bir notu çöp kutusuna taşı (kalıcı silmez; 30 gün saklanır). Açık sekme/aktif not kapatılır.
     deleteNote: async (path) => {
-      const s = get();
-      if (!s.notes.some((n) => n.path === path)) return;
+      if (!get().notes.some((n) => n.path === path)) return;
+      // Silinen not açıksa son yazılanlar önce diske: çöpten geri yüklenince eksik çıkmasın.
+      if (get().activeNote === path) await leaveDraft();
       try {
         await backend.trashNote(path);
       } catch (err) {
@@ -1834,6 +1858,8 @@ export const useAppStore = create<AppState>()(
         await notifyError(`Not silinemedi: ${err instanceof Error ? err.message : String(err)}`);
         return;
       }
+      // Durum silmeden SONRA okunur: beklerken açılan sekme/yazılan taslak ezilmesin.
+      const s = get();
       const openTabs = s.openTabs.filter((p) => p !== path);
       const pinnedTabs = s.pinnedTabs.filter((p) => p !== path);
       const activeChanged = s.activeNote === path;
