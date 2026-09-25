@@ -16,7 +16,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
-tauri-plugin-fs = "2"
+tauri-plugin-fs = { version = "2", features = ["watch"] }
 tauri-plugin-dialog = "2"
 # Mobil OAuth redirect'i özel şema (loomen://) ile yakalamak için (loopback mobilde yok)
 tauri-plugin-deep-link = "2"
