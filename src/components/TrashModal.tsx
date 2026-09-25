@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Trash2, RotateCcw, X, FileText, Shapes, AlertTriangle } from "lucide-react";
-import { useAppStore } from "../store/useAppStore";
+import { useAppStore, useModalLayer } from "../store/useAppStore";
 import { daysLeft, TRASH_RETENTION_DAYS } from "../core/vault/trash";
 
 /** Çöp kutusu — silinen notları listeler; geri yükle / kalıcı sil / boşalt. */
@@ -15,6 +16,9 @@ export function TrashModal({ onClose }: { onClose: () => void }) {
 
   const [confirmPurge, setConfirmPurge] = useState<string | null>(null); // trashName
   const [confirmEmpty, setConfirmEmpty] = useState(false);
+
+  // Açıkken Android geri tuşu bu pencereyi kapatsın (uygulamadan çıkmasın).
+  useModalLayer();
 
   useEffect(() => {
     void loadTrash();
@@ -30,7 +34,10 @@ export function TrashModal({ onClose }: { onClose: () => void }) {
 
   const now = Date.now();
 
-  return (
+  // Pencere document.body'ye çizilir. Çöp kutusu Explorer'ın içinden açılıyor; mobilde Explorer
+  // `transform` uygulanmış çekmecenin içinde olduğu için `position: fixed` ekrana göre değil
+  // çekmeceye göre konumlanıyor ve pencere çekmecenin dar şeridine sıkışıyordu.
+  return createPortal(
     <div className="lo-modal" onClick={onClose}>
       <div className="lo-trash" onClick={(e) => e.stopPropagation()}>
         <div className="lo-tdetail__head">
@@ -136,6 +143,7 @@ export function TrashModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

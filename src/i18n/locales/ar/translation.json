@@ -178,7 +178,11 @@
     "removeFavorite": "أزل من المفضلة",
     "switchVault": "تبديل الخزينة",
     "delete": "نقل إلى سلة المهملات",
-    "clearSearch": "مسح"
+    "clearSearch": "مسح",
+    "actions": "إجراءات",
+    "samplePath": "~/Loomen (نموذج)",
+    "addVaultInSettings": "أضف خزنة من الإعدادات",
+    "pickFolderTitle": "اختر مجلد الخزنة"
   },
   "trash": {
     "title": "سلة المهملات",
@@ -517,7 +521,10 @@
     "cut": "قص",
     "copy": "نسخ",
     "paste": "لصق",
-    "selectAll": "تحديد الكل"
+    "selectAll": "تحديد الكل",
+    "addColumn": "أضف عمودًا",
+    "addRow": "أضف صفًا",
+    "more": "المزيد"
   },
   "mobile": {
     "search": "بحث",
@@ -529,7 +536,8 @@
     "more": "المزيد",
     "planner": "المُخطِّط",
     "noActions": "لا إجراءات",
-    "home": "الرئيسية"
+    "home": "الرئيسية",
+    "back": "رجوع"
   },
   "audio": {
     "record": "تسجيل ملاحظة صوتية",
@@ -545,7 +553,11 @@
     "decodeError": "تعذّرت معالجة الصوت، حاول مرة أخرى.",
     "namePlaceholder": "اسم التسجيل (اختياري)",
     "rename": "إعادة تسمية",
-    "delete": "حذف"
+    "delete": "حذف",
+    "micUnavailable": "لم يُعثر على ميكروفون، أو يستخدمه تطبيق آخر.",
+    "startFailed": "تعذّر بدء التسجيل: {{detail}}",
+    "limitReached": "وصل التسجيل إلى حدّ {{minutes}} دقيقة وتم إيقافه مؤقتًا. احفظه وابدأ تسجيلًا جديدًا.",
+    "limitHint": "التسجيل الواحد {{minutes}} دقيقة كحد أقصى"
   },
   "app": {
     "name": "Loomen"
@@ -646,5 +658,25 @@
     "monthsAgo": "قبل {{n}} أشهر",
     "oneYearAgo": "قبل سنة",
     "yearsAgo": "قبل {{n}} سنوات"
+  },
+  "errors": {
+    "saveNote": "تعذّر حفظ الملاحظة: {{detail}}",
+    "saveDraw": "تعذّر حفظ الرسم: {{detail}}",
+    "saveCopy": "تعذّر حفظ النسخة: {{detail}}",
+    "createVault": "تعذّر إنشاء الخزنة: {{detail}}",
+    "vaultSwitchAborted": "لم يتم تبديل الخزنة لأن الملاحظة لم تُحفظ؛ نصك لا يزال موجودًا.",
+    "vaultOpenFailed": "تعذّر فتح الخزنة. قد يكون المجلد قد نُقل أو فُقد الوصول إليه؛ اخترها مرة أخرى من الإعدادات ← الخزنة.",
+    "renameAudio": "تعذّرت إعادة تسمية التسجيل: {{detail}}",
+    "deleteAudio": "تعذّر حذف التسجيل: {{detail}}",
+    "noteExists": "توجد ملاحظة بهذا الاسم بالفعل: {{name}}",
+    "folderExists": "يوجد مجلد بهذا الاسم بالفعل: {{name}}",
+    "renameNote": "تعذّرت إعادة تسمية الملاحظة: {{detail}}",
+    "renameLinks": "انتهت إعادة التسمية، لكن تعذّر تحديث الروابط في {{count}} ملاحظة: {{notes}}",
+    "renameFolder": "تعذّرت إعادة تسمية المجلد ({{path}}): {{detail}}",
+    "deleteNote": "تعذّر حذف الملاحظة: {{detail}}",
+    "addTask": "تعذّرت إضافة المهمة: {{detail}}",
+    "updateTask": "تعذّر تحديث المهمة: {{detail}}",
+    "saveTask": "تعذّر حفظ المهمة: {{detail}}",
+    "taskStale": "تغيّر ملف المهام؛ تم تحديث القائمة، حاول مرة أخرى."
   }
 }

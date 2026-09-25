@@ -104,15 +104,19 @@ fn plan_merge(
         }
 
         if !in_b {
-            if in_r && !in_l {
-                plan.writes.push((p.clone(), r_sha.unwrap().clone()));
-                plan.pulled += 1;
-            } else if !in_r && in_l {
-                plan.pushed += 1; // yerel yeni → tree'de kalır
-            } else if in_r && in_l {
-                // ikisi de farklı yeni → çakışma: yerel kalsın, uzak kopya yaz
-                conflict_copy(p, r_sha.unwrap(), &mut plan);
-                plan.conflicts.push(p.clone());
+            // unwrap() yok: koşullar ileride değişse bile senkron ortasında çökme olmasın.
+            match (r_sha, l_sha) {
+                (Some(sha), None) => {
+                    plan.writes.push((p.clone(), sha.clone()));
+                    plan.pulled += 1;
+                }
+                (None, Some(_)) => plan.pushed += 1, // yerel yeni → tree'de kalır
+                (Some(sha), Some(_)) => {
+                    // ikisi de farklı yeni → çakışma: yerel kalsın, uzak kopya yaz
+                    conflict_copy(p, sha, &mut plan);
+                    plan.conflicts.push(p.clone());
+                }
+                (None, None) => {}
             }
         } else {
             let changed_r = r_sha != b_sha; // uzakta yoksa da "değişti" (silindi)

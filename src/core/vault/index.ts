@@ -2,6 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { watch } from "@tauri-apps/plugin-fs";
 import { format, getISOWeek } from "date-fns";
 import { tr } from "date-fns/locale";
+import i18n from "../../i18n";
 import { parseTasks } from "../markdown/taskParser";
 import { dailyNoteTemplate, dailyNoteTitle } from "./dailyTemplate";
 import type { VaultBackend, VaultData } from "./types";
@@ -69,9 +70,9 @@ export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-/** Klasör seçtir; iptal edilirse null. */
+/** Klasör seçtir; iptal edilirse null. Pencere başlığı etkin dilden gelir. */
 export async function pickVaultFolder(): Promise<string | null> {
-  const sel = await open({ directory: true, multiple: false, title: "Kasa klasörü seç" });
+  const sel = await open({ directory: true, multiple: false, title: i18n.t("explorer.pickFolderTitle") });
   return typeof sel === "string" ? sel : null;
 }
 

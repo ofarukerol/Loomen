@@ -26,6 +26,18 @@ const PEAK_BLOCK = 2048;
 const SAVE_SAMPLE_RATE = 24000;
 /** Dalga formu/süre güncelleme aralığı (ms) — kayıt sürerken. */
 const UI_TICK_MS = 150;
+/**
+ * Tek kayıt için üst sınır (dakika) — YALNIZ telefon/tablette.
+ *
+ * Ham PCM tamamen BELLEKTE tutulur (Float32, donanım hızında): ≈11 MB/dakika. Ek olarak her
+ * duraklatmada önizleme WAV'ı için tüm örnekler bir kez daha kopyalanır. Sınır olmadan uzun bir
+ * kayıt telefonda belleği tüketip uygulamayı düşürüyordu. Sınıra gelince kayıt DURAKLATILIR —
+ * veri kaybı yok: kullanıcı kaydeder ve istiyorsa yeni bir kayda başlar.
+ *
+ * Masaüstünde sınır UYGULANMAZ: bellek darboğazı orada yok ve uzun ders/toplantı kaydı
+ * uygulamanın eski davranışı — sınır koymak gerileme olurdu.
+ */
+const MAX_RECORD_MIN = 10;
 
 /**
  * Not editörüne ses notu kaydı — TEK, birleşik bar:
@@ -42,6 +54,11 @@ const UI_TICK_MS = 150;
  */
 export function VoiceRecorder({ onInsert }: Props) {
   const { t } = useTranslation();
+  // Süre sınırı gerçek mobil platforma bağlı (bkz MAX_RECORD_MIN) — dar pencereye göre DEĞİL:
+  // masaüstünde pencereyi daraltmak kaydı sınırlamamalı. Tick içinden okunacağı için ref'te.
+  const platformMobile = useAppStore((s) => s.platformMobile);
+  const limitedRef = useRef(platformMobile);
+  limitedRef.current = platformMobile;
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [recState, setRecState] = useState<RecState>("recording");
@@ -176,6 +193,11 @@ export function VoiceRecorder({ onInsert }: Props) {
       setDuration(dur);
       setCurrentTime(dur); // kayıt sürerken imleç canlı uçta
       setPeaks(computeBars(barCountRef.current));
+      // Süre sınırı (bkz MAX_RECORD_MIN): sınıra gelince kaydı duraklat ve kullanıcıya söyle.
+      if (limitedRef.current && recordingRef.current && dur >= MAX_RECORD_MIN * 60) {
+        pauseRecording();
+        setError(t("audio.limitReached", { minutes: MAX_RECORD_MIN }));
+      }
     }, UI_TICK_MS);
   };
 
@@ -226,8 +248,21 @@ export function VoiceRecorder({ onInsert }: Props) {
       setPreviewUrl(null);
       setIsPlaying(false);
       startUiTick();
-    } catch {
-      setError(t("audio.permissionDenied"));
+    } catch (e) {
+      // Her hatayı "izin verilmedi" saymak yanıltıcıydı: mikrofon başka bir uygulamada açıkken,
+      // cihazda mikrofon yokken ya da ses altyapısı kurulamadığında da aynı mesaj çıkıyor,
+      // kullanıcı ayarlarda olmayan bir izni arıyordu. Hatanın türüne göre ayır.
+      const name = e instanceof Error ? e.name : "";
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        setError(t("audio.permissionDenied"));
+      } else if (name === "NotFoundError" || name === "NotReadableError" || name === "OverconstrainedError") {
+        setError(t("audio.micUnavailable"));
+      } else {
+        setError(t("audio.startFailed", { detail: e instanceof Error ? e.message : String(e) }));
+      }
+      // Yarım kalan grafiği/mikrofonu bırak — yoksa kayıt açılamadığı hâlde mikrofon açık kalıyor.
+      stopGraph();
+      setPhase("idle");
     }
   };
 
@@ -468,8 +503,12 @@ export function VoiceRecorder({ onInsert }: Props) {
             <div className="lo-voicerec__playhead" style={{ left: `${playedPct * 100}%` }} />
           </div>
 
-          {/* Kayıt sürerken an==toplam — tek değer yeter (dar ekranda yer kazandırır). */}
-          <span className="lo-voicerec__time">
+          {/* Kayıt sürerken an==toplam — tek değer yeter (dar ekranda yer kazandırır).
+              title: süre sınırı görünür bir yerde dursun — sınır yoksa (masaüstü) ipucu da yok. */}
+          <span
+            className="lo-voicerec__time"
+            title={platformMobile ? t("audio.limitHint", { minutes: MAX_RECORD_MIN }) : undefined}
+          >
             {recording ? formatDuration(duration) : `${formatDuration(currentTime)} / ${formatDuration(duration)}`}
           </span>
 

@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import i18n from "../i18n";
 import type { TaskGroup, Task } from "../data/sampleVault";
 import type { ParsedTask, VaultBackend, VaultNote } from "../core/vault/types";
 import { isExpired, type TrashEntry } from "../core/vault/trash";
@@ -24,6 +26,7 @@ import {
   DAILY_DIR,
   TODO_HEADING,
 } from "../core/vault";
+import { migrateMobileVaults, rebaseMobileVaultPath, joinPath } from "../core/vault/mobileVaultPath";
 import { rewriteWikiLinks } from "../core/markdown/links";
 import { reconcileDraft, conflictCopyPath, conflictStamp } from "../core/vault/draftSync";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
@@ -195,6 +198,16 @@ interface AppState {
 
   // Görev detay paneli (seçili görev id'si "file:line")
   selectedTask: string | null;
+
+  /**
+   * Açık pencere (modal) sayısı — Android geri tuşunun katman sayımı için (bkz App.tsx).
+   *
+   * Pencerelerin bir kısmı açık olup olmadığını KENDİ İÇİNDE tutuyor (çöp kutusu) ya da
+   * document.body'ye çiziliyor; dışarıdan görülmüyorlar. Geri tuşu yalnız saydığı katmanlar
+   * için geçmişe kayıt ittiğinden, sayılmayan bir pencere açıkken geri basmak pencereyi
+   * kapatmak yerine UYGULAMADAN ÇIKARIR. Pencereler `useModalLayer` ile buraya kaydolur.
+   */
+  modalLayers: number;
 
   // Aktif Excalidraw çizimi (yol)
   activeDraw: string | null;
@@ -396,6 +409,8 @@ interface AppState {
   addTask: () => Promise<void>;
   toggleTask: (id: string) => Promise<void>;
   selectTask: (id: string | null) => void;
+  /** Açık pencere sayacını bir artır/azalt (bkz `modalLayers`, `useModalLayer`). */
+  addModalLayer: (delta: 1 | -1) => void;
   updateTask: (id: string, patch: TaskPatch) => Promise<void>;
   saveTask: (id: string, patch: TaskPatch, notes?: string, subtasks?: { text: string; done: boolean }[]) => Promise<void>;
   reorderTask: (fromId: string, toId: string, position: "before" | "after") => Promise<void>;
@@ -469,6 +484,24 @@ const EMPTY_EXCALIDRAW = JSON.stringify({
   files: {},
 });
 
+/** Yakalanan bir hatanın kullanıcıya gösterilecek metni. */
+function errText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+/**
+ * Mobil kasa yolunu güncel uygulama veri klasörüne göre tazele (bkz core/vault/mobileVaultPath).
+ * Klasör okunamazsa yol olduğu gibi döner — hiçbir koşulda kasayı düşürmez.
+ */
+async function rebaseToAppDataDir(path: string): Promise<string> {
+  try {
+    const { appDataDir } = await import("@tauri-apps/api/path");
+    return rebaseMobileVaultPath(await appDataDir(), path);
+  } catch {
+    return path;
+  }
+}
+
 // Kullanıcıya hata bildir (Tauri'de native dialog, web fallback'te alert/console).
 async function notifyError(msg: string): Promise<void> {
   try {
@@ -499,6 +532,8 @@ function localDay(d: Date): string {
 }
 const VAULT_KEY = "loomen.vaultPath";
 const TASKS_FILE = "Yapılacaklar.md"; // görevler günlük nottan ayrı, kendi sayfasında
+/** Mobilde ilk açılışta oluşturulan kasa klasörünün adı (uygulama veri klasörünün altında). */
+const DEFAULT_MOBILE_VAULT = "vault";
 
 // Modül seviyesi: serileştirilemeyen backend + watcher (store dışında tutulur).
 let backend: VaultBackend = createSampleBackend();
@@ -663,7 +698,7 @@ export const useAppStore = create<AppState>()(
     try {
       await backend.writeNote(target, json);
     } catch (e) {
-      await notifyError(`Çizim kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+      await notifyError(i18n.t("errors.saveDraw", { detail: errText(e) }));
       return false;
     }
     set((s) => ({ noteContents: { ...s.noteContents, [target]: json } }));
@@ -725,7 +760,7 @@ export const useAppStore = create<AppState>()(
         await saveDraftCopy(p, text);
         return true;
       } catch (e) {
-        await notifyError(`Not kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+        await notifyError(i18n.t("errors.saveNote", { detail: errText(e) }));
         return false;
       }
     }
@@ -736,7 +771,7 @@ export const useAppStore = create<AppState>()(
       set((st) => ({ noteContents: { ...st.noteContents, [p]: text } }));
       return true;
     } catch (e) {
-      await notifyError(`Not kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+      await notifyError(i18n.t("errors.saveNote", { detail: errText(e) }));
       // Sonuç DÖNDÜRÜLÜR: çağıran bunu bilmeden devam edip taslağı temizlerse
       // kullanıcı önce "kaydedilemedi" uyarısını görüyor, hemen ardından
       // yazdığı metni de kaybediyordu.
@@ -869,6 +904,7 @@ export const useAppStore = create<AppState>()(
     draftConflict: null,
     backlinksCollapsed: false,
     selectedTask: null,
+    modalLayers: 0,
     activeDraw: null,
     favorites: [],
 
@@ -1058,7 +1094,7 @@ export const useAppStore = create<AppState>()(
           await backend.writeNote(p, text);
           draftWriteGen++;
         } catch (e) {
-          await notifyError(`Not kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+          await notifyError(i18n.t("errors.saveNote", { detail: errText(e) }));
           return;
         }
         set((st) => ({
@@ -1071,7 +1107,7 @@ export const useAppStore = create<AppState>()(
         try {
           await saveDraftCopy(p, s.draft);
         } catch (e) {
-          await notifyError(`Kopya kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+          await notifyError(i18n.t("errors.saveCopy", { detail: errText(e) }));
         }
         return;
       }
@@ -1102,7 +1138,7 @@ export const useAppStore = create<AppState>()(
       } catch (e) {
         // Sessiz kalma: kullanıcı yazmaya devam edip kaydedildiğini sanmamalı (disk dolu,
         // izin düştü, kasa taşındı...). Bellek güncellenmez → sonraki denemede tekrar yazılır.
-        await notifyError(`Not kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+        await notifyError(i18n.t("errors.saveNote", { detail: errText(e) }));
         return;
       }
       // Hafif kayıt: tüm dosyaları yeniden okumadan bellekte güncelle + görevleri yeniden hesapla.
@@ -1278,11 +1314,26 @@ export const useAppStore = create<AppState>()(
         if (mobile) {
           // Mobil: kasa app-data altında (klasör seçici yok). İçerik GitHub API ile senkronlanır.
           try {
-            const { appDataDir, join } = await import("@tauri-apps/api/path");
+            const { appDataDir } = await import("@tauri-apps/api/path");
             const { exists, mkdir } = await import("@tauri-apps/plugin-fs");
-            const vault = await join(await appDataDir(), "vault");
-            if (!(await exists(vault))) await mkdir(vault, { recursive: true });
-            await get().reopenVault(vault);
+            const root = await appDataDir();
+            // 1) Kayıtlı MUTLAK yolları güncel köke taşı. iOS güncellemesi/yedekten dönüş
+            //    uygulamanın veri klasörünün yolunu değiştirir; eski kayıt var olmayan bir
+            //    klasörü gösterir ve kasa "açılamadı"ya düşerdi. Klasör adı sabit kalır.
+            const cur = get();
+            const moved = migrateMobileVaults(root, {
+              vaultPath: cur.vaultPath,
+              vaults: cur.vaults,
+              tabsByVault: cur.tabsByVault,
+            });
+            if (moved.changed) {
+              set({ vaultPath: moved.vaultPath, vaults: moved.vaults, tabsByVault: moved.tabsByVault });
+            }
+            // 2) SON ETKİN kasayı aç. Önceden her açılışta "vault" klasörüne dönülüyordu:
+            //    ikinci kasa aktifken uygulama kapatılıp açılınca kullanıcı birincide buluyordu.
+            const target = moved.vaultPath ?? moved.vaults[0]?.path ?? joinPath(root, DEFAULT_MOBILE_VAULT);
+            if (!(await exists(target))) await mkdir(target, { recursive: true });
+            await get().reopenVault(target);
           } catch (e) {
             console.error("Mobil kasa açılamadı:", e);
           }
@@ -1328,7 +1379,7 @@ export const useAppStore = create<AppState>()(
         await mkdir(dir, { recursive: true });
         await get().reopenVault(dir); // listeye ekler + geçer + şablonları seed'ler
       } catch (e) {
-        void notifyError(`Kasa oluşturulamadı: ${e}`);
+        void notifyError(i18n.t("errors.createVault", { detail: errText(e) }));
       }
     },
 
@@ -1412,9 +1463,13 @@ export const useAppStore = create<AppState>()(
     // Kasayı listeye ekler (yoksa), entry'sindeki repoyu ghRepo'ya yansıtır. Şablon seed
     // hatası kasayı düşürmez; açılamazsa mevcut durum korunur (sessizce).
     // Çağrılar SIRAYA alınır: bootstrap() ile persist rehydrate aynı anda tetikleyebilir.
-    reopenVault: (path) =>
+    reopenVault: (rawPath) =>
       queueVaultOp(async () => {
         if (!isTauri()) return;
+        // Mobilde kayıtlı MUTLAK yol bayat olabilir (iOS güncellemesi veri klasörünü taşır):
+        // klasör adını koruyup kökü tazele. Masaüstünde kasa app-data altında DEĞİLDİR,
+        // yol olduğu gibi kullanılır.
+        const path = get().platformMobile ? await rebaseToAppDataDir(rawPath) : rawPath;
         try {
           const prev = get();
           const prevPath = prev.vaultPath;
@@ -1426,7 +1481,7 @@ export const useAppStore = create<AppState>()(
           // temizleniyor ve kullanıcı "kaydedilemedi" uyarısının hemen ardından
           // yazdığı metni de kaybediyordu.
           if (isSwitch && !(await flushDraft())) {
-            await notifyError("Not kaydedilemediği için kasa değiştirilmedi; metniniz duruyor.");
+            await notifyError(i18n.t("errors.vaultSwitchAborted"));
             return;
           }
 
@@ -1531,9 +1586,12 @@ export const useAppStore = create<AppState>()(
           // İzleyici kasanın AÇILMASININ parçası değil: burada patlarsa notlar zaten
           // yüklenmiştir, sadece dış değişiklikler otomatik yansımaz. "Kasa açılamadı"
           // demek yanlış olur — sessizce not düş, kullanıcıyı yanıltma.
+          // Mobilde klasör izleyici kurulmaz: kasa uygulamanın kendi veri klasöründedir, dışarıdan
+          // kimse dokunmaz (değişiklikler uygulama içinden ya da GitHub senkronundan gelir) ve
+          // arka plandaki fs watch iOS/Android'de hem güvenilmez hem pil yakar.
           try {
             unwatch?.();
-            unwatch = await watchVaultRoot(target, () => get().reloadVault());
+            unwatch = get().platformMobile ? null : await watchVaultRoot(target, () => get().reloadVault());
           } catch (e) {
             console.error("[kasa] klasör izleyici kurulamadı (kasa açık, otomatik yenileme yok):", e);
           }
@@ -1543,10 +1601,7 @@ export const useAppStore = create<AppState>()(
           // yutulan hata teşhisi imkânsız kılıyordu.
           console.error("[kasa] açılamadı:", path, e);
           const reason = e instanceof Error ? e.message : String(e);
-          void notifyError(
-            "Kasa açılamadı. Klasör taşınmış veya erişim izni düşmüş olabilir; " +
-              `Ayarlar → Kasa bölümünden yeniden seçin. (Sebep: ${reason})`,
-          );
+          void notifyError(`${i18n.t("errors.vaultOpenFailed")} (${reason})`);
         }
       }),
 
@@ -1641,7 +1696,7 @@ export const useAppStore = create<AppState>()(
         await rewriteAudioRefs((c) => c.split(`![[${path}]]`).join(`![[${target}]]`));
         return target;
       } catch (e) {
-        void notifyError(`Ses kaydı yeniden adlandırılamadı: ${e}`);
+        void notifyError(i18n.t("errors.renameAudio", { detail: errText(e) }));
         return null;
       }
     },
@@ -1655,7 +1710,7 @@ export const useAppStore = create<AppState>()(
             .join("\n")
         );
       } catch (e) {
-        void notifyError(`Ses kaydı silinemedi: ${e}`);
+        void notifyError(i18n.t("errors.deleteAudio", { detail: errText(e) }));
       }
     },
 
@@ -1694,7 +1749,7 @@ export const useAppStore = create<AppState>()(
       // (Harf duyarlı sistemlerde gerçekten ayrı bir not "Toplanti.md" olarak durabilir;
       // tam yol eşleşmesi her hâlükârda çakışmadır, yalnız disk kontrolü atlanır.)
       if (s.notes.some((n) => n.path === to) || (!caseOnly && (await backend.exists(to)))) {
-        await notifyError(`Bu adda bir not zaten var: ${clean}`);
+        await notifyError(i18n.t("errors.noteExists", { name: clean }));
         return;
       }
       // Bekleyen taslağı önce ESKİ yola yaz; yoksa autosave rename'den sonra ateşleyip
@@ -1704,7 +1759,7 @@ export const useAppStore = create<AppState>()(
       try {
         await backend.rename(path, to);
       } catch (e) {
-        await notifyError(`Not yeniden adlandırılamadı: ${e instanceof Error ? e.message : String(e)}`);
+        await notifyError(i18n.t("errors.renameNote", { detail: errText(e) }));
         return;
       }
       // [[bağlantı]]ları güncelle: eski ada işaret eden her not yeni ada çevrilir, yoksa
@@ -1743,8 +1798,10 @@ export const useAppStore = create<AppState>()(
       }
       if (bozuklar.length) {
         await notifyError(
-          `Yeniden adlandırma bitti ama ${bozuklar.length} notta bağlantılar güncellenemedi: ` +
-            `${bozuklar.slice(0, 5).join(", ")}${bozuklar.length > 5 ? "…" : ""}`,
+          i18n.t("errors.renameLinks", {
+            count: bozuklar.length,
+            notes: `${bozuklar.slice(0, 5).join(", ")}${bozuklar.length > 5 ? "…" : ""}`,
+          }),
         );
       }
       // Yola göre anahtarlanan her şey taşınır — aksi halde sabitlenen sekme, favori ve
@@ -1795,7 +1852,7 @@ export const useAppStore = create<AppState>()(
         s.notes.some((n) => n.path === to || n.path.startsWith(to + "/")) ||
         (!caseOnly && (await backend.exists(to)));
       if (taken) {
-        await notifyError(`Bu adda bir klasör zaten var: ${clean}`);
+        await notifyError(i18n.t("errors.folderExists", { name: clean }));
         return;
       }
       // Bekleyen taslağı önce eski yola yaz (rename sonrası yazılamaz/yanlış yere yazılır).
@@ -1810,9 +1867,7 @@ export const useAppStore = create<AppState>()(
           // Ortada kalan hata: klasörün bir kısmı taşınmış olur. Geri sarmak yerine durup
           // durumu bildiriyoruz — taşınanlar yeni yolda, kalanlar eskisinde duruyor;
           // loadFromBackend ikisini de gösterir, hiçbir not kaybolmaz.
-          await notifyError(
-            `Klasör yeniden adlandırılamadı (${n.path}): ${e instanceof Error ? e.message : String(e)}`,
-          );
+          await notifyError(i18n.t("errors.renameFolder", { path: n.path, detail: errText(e) }));
           await loadFromBackend();
           return;
         }
@@ -1855,7 +1910,7 @@ export const useAppStore = create<AppState>()(
         await backend.trashNote(path);
       } catch (err) {
         console.error("[deleteNote] trashNote başarısız:", err);
-        await notifyError(`Not silinemedi: ${err instanceof Error ? err.message : String(err)}`);
+        await notifyError(i18n.t("errors.deleteNote", { detail: errText(err) }));
         return;
       }
       // Durum silmeden SONRA okunur: beklerken açılan sekme/yazılan taslak ezilmesin.
@@ -1922,7 +1977,7 @@ export const useAppStore = create<AppState>()(
         } catch (e) {
           // Yazılamadıysa metni geri ver — kullanıcı yazdığını kaybetmesin.
           set((st) => ({ quickText: st.quickText || text }));
-          await notifyError(`Görev eklenemedi: ${e instanceof Error ? e.message : String(e)}`);
+          await notifyError(i18n.t("errors.addTask", { detail: errText(e) }));
           return;
         }
         await loadFromBackend();
@@ -1948,18 +2003,19 @@ export const useAppStore = create<AppState>()(
             // Satır kaymış (ya da zaten aynı): yazma, listeyi tazele ki kullanıcı güncel
             // hâli görsün ve tekrar deneyebilsin.
             await loadFromBackend();
-            if (task) await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            if (task) await notifyError(i18n.t("errors.taskStale"));
             return;
           }
           await backend.writeNote(file, next);
         } catch (e) {
-          await notifyError(`Görev güncellenemedi: ${e instanceof Error ? e.message : String(e)}`);
+          await notifyError(i18n.t("errors.updateTask", { detail: errText(e) }));
           return;
         }
         await loadFromBackend();
       }),
 
     selectTask: (selectedTask) => set({ selectedTask }),
+    addModalLayer: (delta) => set((s) => ({ modalLayers: Math.max(0, s.modalLayers + delta) })),
 
     // Görev detayını (açıklama/tarih/öncelik) dosyaya yaz.
     updateTask: async (id, patch) =>
@@ -1981,12 +2037,12 @@ export const useAppStore = create<AppState>()(
           // durumda düzgünce uyarıyor; burada da aynısı yapılır.
           if (!taskLineMatches(content, line, task.raw)) {
             await loadFromBackend();
-            await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            await notifyError(i18n.t("errors.taskStale"));
             return;
           }
           await backend.writeNote(file, applyTaskPatch(content, line, task, patch));
         } catch (e) {
-          await notifyError(`Görev güncellenemedi: ${e instanceof Error ? e.message : String(e)}`);
+          await notifyError(i18n.t("errors.updateTask", { detail: errText(e) }));
           return;
         }
         await loadFromBackend();
@@ -2012,7 +2068,7 @@ export const useAppStore = create<AppState>()(
           // onun mevcut alt satırları siliniyordu — geri alınamaz veri kaybı.
           if (!taskLineMatches(content, line, task.raw)) {
             await loadFromBackend();
-            await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            await notifyError(i18n.t("errors.taskStale"));
             return;
           }
           let next = applyTaskPatch(content, line, task, patch);
@@ -2024,7 +2080,7 @@ export const useAppStore = create<AppState>()(
           }
           await backend.writeNote(file, next);
         } catch (e) {
-          await notifyError(`Görev kaydedilemedi: ${e instanceof Error ? e.message : String(e)}`);
+          await notifyError(i18n.t("errors.saveTask", { detail: errText(e) }));
           return;
         }
         await loadFromBackend();
@@ -2065,7 +2121,7 @@ export const useAppStore = create<AppState>()(
           // diskte eski gününde kalıyordu.
           if (!taskLineMatches(content, dTask.line, dTask.raw)) {
             await loadFromBackend();
-            await notifyError("Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.");
+            await notifyError(i18n.t("errors.taskStale"));
             return;
           }
           await backend.writeNote(dTask.file, applyTaskPatch(content, dTask.line, dTask, { [field]: tDate }));
@@ -2822,6 +2878,10 @@ export const useAppStore = create<AppState>()(
         vaultPath: s.vaultPath,
         vaults: s.vaults,
         tabsByVault: s.tabsByVault,
+        // Platform bayrağı da kalıcı: rehydrate sırasında (bootstrap'tan ÖNCE) kayıtlı kasa
+        // yeniden açılıyor ve mobilde yolun tazelenmesi gerekiyor. Bu bilgi bir kurulum için
+        // hiç değişmez; bootstrap yine gerçek değeri yazar.
+        platformMobile: s.platformMobile,
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
         backlinksCollapsed: s.backlinksCollapsed,
@@ -2873,4 +2933,20 @@ export const useAppStore = create<AppState>()(
 /** "Bugüne Odaklan" sayaçları — gerçek vault verisinden. */
 export function useFocusCounts(): FocusCounts {
   return useAppStore((s) => s.counts);
+}
+
+/**
+ * Açık bir pencereyi (modal) Android geri tuşunun katman sayımına kaydeder; kapanınca
+ * kaydı düşer. Kaydolmayan pencere açıkken geri tuşu uygulamadan çıkar (bkz `modalLayers`).
+ *
+ * Durumunu üstündeki ekranda tutan pencereler (görev detayı) buna gerek duymaz — onları
+ * App.tsx zaten kendi durumundan sayıyor; iki kez sayılmasınlar.
+ */
+export function useModalLayer(open = true): void {
+  useEffect(() => {
+    if (!open) return;
+    const add = useAppStore.getState().addModalLayer;
+    add(1);
+    return () => add(-1);
+  }, [open]);
 }

@@ -1,5 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { useIsMobile } from "../../hooks/useIsMobile";
+import { useAppStore } from "../../store/useAppStore";
 import {
   Link2,
   ExternalLink,
@@ -59,19 +61,43 @@ export function EditorContextMenu({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const platformMobile = useAppStore((s) => s.platformMobile);
+  const isMobile = useIsMobile() || platformMobile;
   const [openSub, setOpenSub] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
 
+  // Dışarı basmada kapat. "click" DEĞİL "pointerdown": menü dokunmatikte uzun basmayla açılıyor
+  // ve parmak kalkınca gelen click menüyü aynı anda kapatıyordu.
   useEffect(() => {
-    const close = () => onClose();
-    window.addEventListener("click", close);
+    const close = (e: Event) => {
+      // Menünün içine basmak kapatmaz (akordeon başlığına dokunmak menüyü kapatmasın).
+      if (e.type === "pointerdown" && e.target instanceof Element && e.target.closest(".lo-ctxmenu")) return;
+      onClose();
+    };
+    window.addEventListener("pointerdown", close);
     window.addEventListener("resize", close);
     window.addEventListener("blur", close);
     return () => {
-      window.removeEventListener("click", close);
+      window.removeEventListener("pointerdown", close);
       window.removeEventListener("resize", close);
       window.removeEventListener("blur", close);
     };
   }, [onClose]);
+
+  // Menüyü ÖLÇTÜKTEN sonra ekranın içine kenetle. Önceden sabit tahminler (250×360) kullanılıyordu;
+  // dar ekranda ve sağdan sola (Arapça) düzende menü ekranın dışına taşıyordu. Akordeon açılıp
+  // kapandıkça yükseklik değiştiği için openSub de bağımlılıkta.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const pad = 8;
+    const { width, height } = el.getBoundingClientRect();
+    setPos({
+      left: Math.max(pad, Math.min(x, window.innerWidth - width - pad)),
+      top: Math.max(pad, Math.min(y, window.innerHeight - height - pad)),
+    });
+  }, [x, y, openSub]);
 
   const act = (fn?: (v: EditorView) => void) => {
     const v = getView();
@@ -141,9 +167,12 @@ export function EditorContextMenu({
 
   return (
     <div
+      ref={ref}
       className="lo-ctxmenu lo-ctxmenu--editor"
-      style={{ left: Math.min(x, window.innerWidth - 250), top: Math.min(y, window.innerHeight - 360) }}
+      style={{ left: pos?.left ?? x, top: pos?.top ?? y }}
       onClick={(e) => e.stopPropagation()}
+      // Menü "dışarı basma" ile kapanıyor; menünün içindeki basma dışarı sayılmasın.
+      onPointerDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -156,16 +185,28 @@ export function EditorContextMenu({
           <div
             key={it.id}
             className="lo-ctxmenu__group"
-            onMouseEnter={() => setOpenSub(it.id)}
-            onMouseLeave={() => setOpenSub(null)}
+            // Masaüstünde alt menü fareyle üstüne gelince yana açılır. Mobilde fare YOKTUR ve
+            // yandaki panel 375px ekranda dışarı taşıyordu → dokunmayla açılan, içe gömülü
+            // akordeon kullanılır.
+            onMouseEnter={isMobile ? undefined : () => setOpenSub(it.id)}
+            onMouseLeave={isMobile ? undefined : () => setOpenSub(null)}
           >
-            <button className="lo-ctxmenu__item">
+            <button
+              className="lo-ctxmenu__item"
+              aria-expanded={openSub === it.id}
+              onClick={isMobile ? () => setOpenSub((s) => (s === it.id ? null : it.id)) : undefined}
+            >
               <span className="lo-ctxmenu__ic">{it.icon}</span>
               {it.label}
-              <ChevronRight size={13} strokeWidth={2} className="lo-ctxmenu__arrow" />
+              <ChevronRight
+                size={13}
+                strokeWidth={2}
+                className="lo-ctxmenu__arrow"
+                style={isMobile && openSub === it.id ? { transform: "rotate(90deg)" } : undefined}
+              />
             </button>
             {openSub === it.id && (
-              <div className="lo-ctxmenu lo-ctxmenu--sub">
+              <div className={"lo-ctxmenu " + (isMobile ? "lo-ctxmenu--acc" : "lo-ctxmenu--sub")}>
                 {it.sub.map((s) =>
                   s.sep ? (
                     <div key={s.id} className="lo-ctxmenu__sep" />

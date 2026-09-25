@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { AudioEmbedPlayer } from "./AudioEmbedPlayer";
+import { ImageEmbed, parseImageLine } from "./ImageEmbed";
 
 interface Props {
   content: string;
@@ -125,6 +126,14 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
       continue;
     }
 
+    // Resim embed: ![[Ekler/x.png]] ya da ![alt](yol) — düzenleme moduyla aynı yorum.
+    const img = parseImageLine(trimmed);
+    if (img) {
+      blocks.push(<ImageEmbed key={k()} {...img} raw={trimmed} />);
+      i++;
+      continue;
+    }
+
     // GFM tablo: "| ... |" satırı + hemen ardından ayraç "| --- | --- |"
     if (trimmed.includes("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
       const header = splitTableRow(line);
@@ -236,7 +245,8 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
       i < lines.length &&
       lines[i].trim() !== "" &&
       !/^(#{1,6}\s|>|```)/.test(lines[i]) &&
-      !BULLET_RE.test(lines[i])
+      !BULLET_RE.test(lines[i]) &&
+      !parseImageLine(lines[i]) // resim satırı paragrafa yapışmasın (kendi bloğu)
     ) {
       buf.push(lines[i++]);
     }

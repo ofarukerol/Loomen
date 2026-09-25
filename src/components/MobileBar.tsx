@@ -34,6 +34,7 @@ export function MobileBar({ onSearch, onTabs, onMenu }: Props) {
         className={"lo-mbar__btn" + (isHome ? " is-active" : "")}
         onClick={() => setScreen("planner")}
         title={t("mobile.home")}
+        aria-label={t("mobile.home")}
       >
         <Home size={ICON} strokeWidth={SW} />
       </button>
@@ -41,19 +42,20 @@ export function MobileBar({ onSearch, onTabs, onMenu }: Props) {
         className={"lo-mbar__btn" + (isDayNote ? " is-active" : "")}
         onClick={() => void goToDayNote()}
         title={t("ribbon.dayNote")}
+        aria-label={t("ribbon.dayNote")}
       >
         <NotebookPen size={ICON} strokeWidth={SW} />
       </button>
-      <button className="lo-mbar__btn" onClick={onSearch} title={t("mobile.search")}>
+      <button className="lo-mbar__btn" onClick={onSearch} title={t("mobile.search")} aria-label={t("mobile.search")}>
         <Search size={ICON - 1} strokeWidth={SW} />
       </button>
-      <button className="lo-mbar__btn" onClick={() => void newNote()} title={t("mobile.newNote")}>
+      <button className="lo-mbar__btn" onClick={() => void newNote()} title={t("mobile.newNote")} aria-label={t("mobile.newNote")}>
         <Plus size={ICON} strokeWidth={SW} />
       </button>
-      <button className="lo-mbar__btn lo-mbar__tabs" onClick={onTabs} title={t("mobile.tabs")}>
+      <button className="lo-mbar__btn lo-mbar__tabs" onClick={onTabs} title={t("mobile.tabs")} aria-label={t("mobile.tabs")}>
         <span className="lo-mbar__count">{tabCount}</span>
       </button>
-      <button className="lo-mbar__btn" onClick={onMenu} title={t("mobile.menu")}>
+      <button className="lo-mbar__btn" onClick={onMenu} title={t("mobile.menu")} aria-label={t("mobile.menu")}>
         <Menu size={ICON} strokeWidth={SW} />
       </button>
     </nav>

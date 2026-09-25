@@ -26,9 +26,20 @@ fn allow_vault(app: &tauri::AppHandle, path: &str) -> Result<(), String> {
         return Ok(());
     }
     let yol = dogrula_kasa_yolu(path)?;
-    app.fs_scope()
+    let kapsam = app.fs_scope();
+    kapsam
         .allow_directory(&yol, true)
-        .map_err(|e| format!("kasa kapsama alınamadı: {e}"))
+        .map_err(|e| format!("kasa kapsama alınamadı: {e}"))?;
+    // Kapsam eşleşmesi metin üzerinden yapılır. canonicalize sembolik bağları çözer
+    // (macOS'ta /tmp → /private/tmp) ve Windows'ta yolun başına `\\?\` ekler; arayüz ise
+    // dosyaları ham yoldan okur ve "forbidden path" alırdı. Doğrulama çözülmüş hedefte
+    // yapıldı, `..` da reddedildi — ham yol aynı yere çıkıyor, onu da kapsama alıyoruz.
+    if std::path::Path::new(path) != yol {
+        kapsam
+            .allow_directory(path, true)
+            .map_err(|e| format!("kasa kapsama alınamadı: {e}"))?;
+    }
+    Ok(())
 }
 
 /// Kapsama alınacak yolu doğrular.
@@ -288,5 +299,54 @@ pub fn run() {
     if let Err(e) = builder.run(tauri::generate_context!()) {
         eprintln!("Loomen başlatılamadı: {e}");
         std::process::exit(1);
+    }
+}
+
+/// Kasa yolu kilidinin testleri: `vault_allow` ACL ile sınırlanmaz, kilit gevşerse
+/// dosya kapsamı sessizce tüm diske açılır.
+#[cfg(test)]
+mod tests {
+    use super::{dirs_ev, dogrula_kasa_yolu};
+
+    #[test]
+    fn goreli_yol_reddedilir() {
+        assert!(dogrula_kasa_yolu("kasa").is_err());
+        assert!(dogrula_kasa_yolu("./kasa").is_err());
+    }
+
+    #[test]
+    fn ust_klasor_reddedilir() {
+        let d = std::env::temp_dir().join("loomen_kasa_testi_ust");
+        std::fs::create_dir_all(&d).unwrap();
+        let yol = format!("{}/../..", d.display());
+        assert!(dogrula_kasa_yolu(&yol).is_err());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn kok_ve_ev_klasoru_reddedilir() {
+        let kok = if cfg!(windows) { "C:\\" } else { "/" };
+        assert!(dogrula_kasa_yolu(kok).is_err());
+        let ev = dirs_ev().expect("ev klasörü");
+        assert!(dogrula_kasa_yolu(ev.to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn olmayan_yol_ve_dosya_reddedilir() {
+        let yok = std::env::temp_dir().join("loomen_kesinlikle_olmayan_kasa");
+        assert!(dogrula_kasa_yolu(yok.to_str().unwrap()).is_err());
+        let f = std::env::temp_dir().join("loomen_kasa_testi.txt");
+        std::fs::write(&f, b"x").unwrap();
+        assert!(dogrula_kasa_yolu(f.to_str().unwrap()).is_err());
+        let _ = std::fs::remove_file(&f);
+    }
+
+    #[test]
+    fn gercek_klasor_kabul_edilir() {
+        let d = std::env::temp_dir().join("loomen_kasa_testi_klasor");
+        std::fs::create_dir_all(&d).unwrap();
+        let yol = dogrula_kasa_yolu(d.to_str().unwrap()).expect("kabul edilmeli");
+        assert_eq!(yol, std::fs::canonicalize(&d).unwrap());
+        let _ = std::fs::remove_dir_all(&d);
     }
 }
