@@ -332,8 +332,9 @@ interface AppState {
   toggleBacklinks: () => void;
   saveNote: () => Promise<void>;
   /** Bekleyen taslağı hemen diske yaz (editör kapanırken / not değişirken çağrılır). */
-  /** Bekleyen taslağı yazar. `false` = yazılamadı (çağıran devam etmemeli). */
-  flushDraft: () => Promise<boolean>;
+  /** Bekleyen taslağı yazar. `false` = yazılamadı (çağıran devam etmemeli).
+   *  `quiet`: hata penceresi gösterilmez; çağıran kendisi sorar (pencere kapanışı, LOM-18). */
+  flushDraft: (opts?: { quiet?: boolean }) => Promise<boolean>;
   /** Dış değişiklik çakışmasını çöz: "mine" taslağı yazar, "disk" dıştakini açar,
    *  "both" dıştakini açar ve taslağı ayrı bir kopya not olarak saklar. */
   resolveDraftConflict: (choice: "mine" | "disk" | "both") => Promise<void>;
@@ -689,7 +690,7 @@ export const useAppStore = create<AppState>()(
   let pendingDraw: { path: string; json: string } | null = null;
   let drawTimer: ReturnType<typeof setTimeout> | null = null;
 
-  async function writeDraw(target: string, json: string): Promise<boolean> {
+  async function writeDraw(target: string, json: string, quiet = false): Promise<boolean> {
     // Yalnız GERÇEK bir çizim dosyasına yaz: hedef arada silinmiş/yeniden adlandırılmışsa
     // sahnesi eski yola yeniden yazılıp hayalet dosya doğardı.
     if (!get().notes.some((n) => n.path === target && n.kind === "draw")) return true;
@@ -698,19 +699,19 @@ export const useAppStore = create<AppState>()(
     try {
       await backend.writeNote(target, json);
     } catch (e) {
-      await notifyError(i18n.t("errors.saveDraw", { detail: errText(e) }));
+      if (!quiet) await notifyError(i18n.t("errors.saveDraw", { detail: errText(e) }));
       return false;
     }
     set((s) => ({ noteContents: { ...s.noteContents, [target]: json } }));
     return true;
   }
 
-  async function flushDraw(): Promise<boolean> {
+  async function flushDraw(quiet = false): Promise<boolean> {
     if (drawTimer) clearTimeout(drawTimer);
     drawTimer = null;
     const p = pendingDraw;
     pendingDraw = null;
-    return p ? writeDraw(p.path, p.json) : true;
+    return p ? writeDraw(p.path, p.json, quiet) : true;
   }
 
   function queueDrawSave(path: string, json: string): void {
@@ -721,14 +722,15 @@ export const useAppStore = create<AppState>()(
     drawTimer = setTimeout(() => void flushDraw(), 700);
   }
 
-  async function flushDraft(): Promise<boolean> {
+  async function flushDraft(opts?: { quiet?: boolean }): Promise<boolean> {
+    const quiet = opts?.quiet === true;
     // Değerler ŞİMDİ yakalanır: çağıran hemen ardından aktif notu değiştirebilir
     // (openNote/closeTab) — yazma o zaman bile DOĞRU dosyaya, doğru metinle gider.
     const s = get();
     // Bekleyen çizim kaydı da boşaltılır (kasa değişimi, kapanış, yeniden adlandırma).
     // flushDraw bekleyen kaydı da eşzamanlı olarak alır; sıra bozulmaz.
-    const drawDone = flushDraw();
-    const noteOk = await flushNoteDraft(s);
+    const drawDone = flushDraw(quiet);
+    const noteOk = await flushNoteDraft(s, quiet);
     return (await drawDone) && noteOk;
   }
 
@@ -747,7 +749,7 @@ export const useAppStore = create<AppState>()(
     return true;
   }
 
-  async function flushNoteDraft(s: AppState): Promise<boolean> {
+  async function flushNoteDraft(s: AppState, quiet = false): Promise<boolean> {
     const p = s.draftPath;
     const text = s.draft;
     if (!p || p !== s.activeNote) return true; // sahipsiz taslak asla yazılmaz (NOTE_SAFETY)
@@ -760,7 +762,7 @@ export const useAppStore = create<AppState>()(
         await saveDraftCopy(p, text);
         return true;
       } catch (e) {
-        await notifyError(i18n.t("errors.saveNote", { detail: errText(e) }));
+        if (!quiet) await notifyError(i18n.t("errors.saveNote", { detail: errText(e) }));
         return false;
       }
     }
@@ -771,7 +773,7 @@ export const useAppStore = create<AppState>()(
       set((st) => ({ noteContents: { ...st.noteContents, [p]: text } }));
       return true;
     } catch (e) {
-      await notifyError(i18n.t("errors.saveNote", { detail: errText(e) }));
+      if (!quiet) await notifyError(i18n.t("errors.saveNote", { detail: errText(e) }));
       // Sonuç DÖNDÜRÜLÜR: çağıran bunu bilmeden devam edip taslağı temizlerse
       // kullanıcı önce "kaydedilemedi" uyarısını görüyor, hemen ardından
       // yazdığı metni de kaybediyordu.
@@ -1531,6 +1533,8 @@ export const useAppStore = create<AppState>()(
           const next = createTauriBackend(target);
           // Erişimi doğrula (kapsam/taşınma) — başarısızsa catch.
           await next.listNotes();
+          // Çökmeden kalan eski yan dosyaları arka planda temizle (LOM-18); açılışı bekletmez.
+          void next.cleanupStaleTmp?.().catch(() => {});
 
           // Kasa değiştiyse öncekinin security-scoped erişimini bırak (kaynak sızıntısı önlemi).
           if (isSwitch && prevPath) void releaseBookmark(prevPath);

@@ -74,4 +74,7 @@ export interface VaultBackend {
   restoreFromTrash(trashName: string): Promise<string>;
   /** Bir çöp kaydını kalıcı sil. */
   purgeTrashItem(trashName: string): Promise<void>;
+
+  /** Atomik yazmadan artakalan eski yan dosyaları sil; silinen sayısını döner (LOM-18). */
+  cleanupStaleTmp?(): Promise<number>;
 }

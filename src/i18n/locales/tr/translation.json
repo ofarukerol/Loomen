@@ -677,6 +677,9 @@
     "addTask": "Görev eklenemedi: {{detail}}",
     "updateTask": "Görev güncellenemedi: {{detail}}",
     "saveTask": "Görev kaydedilemedi: {{detail}}",
-    "taskStale": "Görev dosyası değişmiş; liste yenilendi, tekrar deneyin."
+    "taskStale": "Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.",
+    "closeUnsaved": "Son değişiklik kaydedilemedi — yine de kapatılsın mı?",
+    "closeAnyway": "Yine de kapat",
+    "keepOpen": "Açık kalsın"
   }
 }

@@ -677,6 +677,9 @@
     "addTask": "Couldn't add the task: {{detail}}",
     "updateTask": "Couldn't update the task: {{detail}}",
     "saveTask": "Couldn't save the task: {{detail}}",
-    "taskStale": "The task file changed; the list was refreshed, please try again."
+    "taskStale": "The task file changed; the list was refreshed, please try again.",
+    "closeUnsaved": "Your last change could not be saved — close anyway?",
+    "closeAnyway": "Close anyway",
+    "keepOpen": "Keep open"
   }
 }

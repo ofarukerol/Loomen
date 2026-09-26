@@ -11,6 +11,7 @@ import {
 } from "@tauri-apps/plugin-fs";
 import type { VaultBackend, VaultNote } from "./types";
 import { TRASH_DIR, encodeTrashName, toTrashEntry, type TrashEntry } from "./trash";
+import { isStaleTmpName, tmpNameFor as makeTmpName } from "./tmpFiles";
 
 /**
  * Vault içi göreli yolu doğrula.
@@ -46,9 +47,9 @@ function serial<T>(key: string, fn: () => Promise<T>): Promise<T> {
 }
 
 let tmpSeq = 0;
-/** Her yazmaya özel yan dosya adı (aynı klasörde; rename aynı disk içinde kalsın). */
+/** Her yazmaya özel yan dosya adı (aynı klasörde; rename aynı disk içinde kalsın). Kalıp: tmpFiles.ts. */
 function tmpNameFor(target: string): string {
-  return `${target}.${Date.now().toString(36)}${(tmpSeq++).toString(36)}.tmp`;
+  return makeTmpName(target, Date.now(), tmpSeq++);
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -172,6 +173,40 @@ export function createTauriBackend(root: string): VaultBackend {
     },
     purgeTrashItem: async (trashName) => {
       await remove(abs(`${TRASH_DIR}/${trashName}`));
+    },
+
+    /**
+     * LOM-18: Çökme/güç kesintisinden kalan eski yan dosyaları sil. Her yazma benzersiz
+     * `.tmp` ürettiği için artıklar birikip senkronla GitHub'a gidebiliyordu. Yalnız
+     * atomicWrite'ın kalıbına uyan ve bir saatten eski dosyalar silinir (tmpFiles.ts);
+     * `.git` gezilmez. Gizli klasörler (ör. tekrar verisi) gezilir: oraya da yazılıyor.
+     */
+    cleanupStaleTmp: async () => {
+      const now = Date.now();
+      let removed = 0;
+      const visit = async (dirAbs: string): Promise<void> => {
+        let entries;
+        try {
+          entries = await readDir(dirAbs);
+        } catch {
+          return; // okunamayan klasör temizliği durdurmaz
+        }
+        for (const e of entries) {
+          if (e.isDirectory) {
+            if (e.name === ".git" || e.name === "node_modules") continue;
+            await visit(`${dirAbs}/${e.name}`);
+          } else if (e.isFile && isStaleTmpName(e.name, now)) {
+            try {
+              await remove(`${dirAbs}/${e.name}`);
+              removed++;
+            } catch {
+              /* silinemeyen artık bir sonraki açılışta yeniden denenir */
+            }
+          }
+        }
+      };
+      await visit(root);
+      return removed;
     },
   };
 }

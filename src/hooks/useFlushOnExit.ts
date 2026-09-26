@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useAppStore } from "../store/useAppStore";
 import { isTauri } from "../core/vault";
+import { createCloseGuard } from "../core/vault/closeGuard";
+import i18n from "../i18n";
 
 /**
  * Ekrandan çıkarken (başka ekrana geçiş, uygulama kapanışı, uygulamanın arka plana
@@ -31,26 +33,32 @@ export function useFlushOnExit(isMobile: boolean): void {
   // Masaüstü: pencere kapanma isteğini bekleyen kayıt diske yazılana kadar ERTELE.
   // "beforeunload" içinden başlatılan yazma eşzamansızdır; Tauri penceresi kapanırsa
   // webview onu tamamlamadan ölür ve son yazılanlar kaybolur.
+  // LOM-18: yazılamazsa ya da yazma asılı kalırsa pencere sessizce kapanmaz; bir kez
+  // sorulur (bkz. closeGuard). Soru Tauri'nin kendi iletişim penceresiyle sorulur:
+  // window.confirm Tauri'de sessizce false döner.
   useEffect(() => {
     if (!isTauri() || isMobile) return;
     let un: (() => void) | undefined;
-    let closing = false;
     let alive = true;
     void (async () => {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
         const win = getCurrentWindow();
-        const unlisten = await win.onCloseRequested(async (e) => {
-          if (closing) return; // ikinci istek: bırak kapansın
-          closing = true;
-          e.preventDefault();
-          try {
-            await useAppStore.getState().flushDraft();
-          } catch {
-            /* yazılamadıysa da kapanışı kilitleme */
-          }
-          await win.close();
+        const guard = createCloseGuard({
+          // Sessiz: hata ayrıca "kaydedilemedi" penceresiyle gösterilmez, tek soru sorulur.
+          flush: () => useAppStore.getState().flushDraft({ quiet: true }),
+          ask: async () => {
+            const { ask } = await import("@tauri-apps/plugin-dialog");
+            return ask(i18n.t("errors.closeUnsaved"), {
+              title: "Loomen",
+              kind: "warning",
+              okLabel: i18n.t("errors.closeAnyway"),
+              cancelLabel: i18n.t("errors.keepOpen"),
+            });
+          },
+          close: () => win.close(),
         });
+        const unlisten = await win.onCloseRequested((e) => guard(() => e.preventDefault()));
         if (alive) un = unlisten;
         else unlisten();
       } catch {

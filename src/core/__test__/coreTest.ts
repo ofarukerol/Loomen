@@ -34,6 +34,8 @@ import { addDaysISO, localDateTime, taskToEventPayload } from "../google";
 import { encodeTrashName, toTrashEntry, isExpired, daysLeft } from "../vault/trash";
 import type { VaultNote } from "../vault/types";
 import { reconcileDraft, conflictCopyPath, conflictStamp } from "../vault/draftSync";
+import { createCloseGuard, flushWithTimeout } from "../vault/closeGuard";
+import { tmpNameFor, tmpCreatedAt, isStaleTmpName, STALE_TMP_AGE_MS } from "../vault/tmpFiles";
 
 let fails = 0;
 let ran = 0;
@@ -327,6 +329,88 @@ section("Dış değişiklik ↔ açık taslak (LOM-5)");
     "Not (çakışma 2026-09-24 1430).md"
   );
   eq("Zaman damgası biçimi", conflictStamp(new Date(2026, 8, 4, 7, 5)), "2026-09-04 0705");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+section("Pencere kapanışı: kayıt yazılamazsa sor (LOM-18)");
+
+{
+  /** Sahte pencere: kapanış isteklerini bekçiden geçirir, close() yeni istek doğurur. */
+  const kur = (flushSonuc: () => Promise<boolean>, cevap: () => Promise<boolean>, timeoutMs = 50) => {
+    const kayit = { flush: 0, ask: 0, kapandi: false };
+    let istek: () => Promise<void>;
+    const guard = createCloseGuard({
+      flush: () => {
+        kayit.flush++;
+        return flushSonuc();
+      },
+      ask: () => {
+        kayit.ask++;
+        return cevap();
+      },
+      close: () => istek(),
+      timeoutMs,
+    });
+    istek = async () => {
+      let durdu = false;
+      await guard(() => {
+        durdu = true;
+      });
+      if (!durdu) kayit.kapandi = true;
+    };
+    return { kayit, X: () => istek() };
+  };
+
+  const ok = kur(async () => true, async () => true);
+  await ok.X();
+  eq("Yazıldıysa sormadan kapanır", [ok.kayit.kapandi, ok.kayit.ask], [true, 0]);
+
+  const hayir = kur(async () => false, async () => false);
+  await hayir.X();
+  eq("Yazılamadı + 'Açık kalsın' → pencere açık", [hayir.kayit.kapandi, hayir.kayit.ask], [false, 1]);
+  await hayir.X();
+  eq("İkinci X sormadan kapatır (bir kez daha yazmayı dener)", [hayir.kayit.kapandi, hayir.kayit.ask, hayir.kayit.flush], [true, 1, 2]);
+
+  const evet = kur(async () => false, async () => true);
+  await evet.X();
+  eq("Yazılamadı + 'Yine de kapat' → kapanır", [evet.kayit.kapandi, evet.kayit.ask], [true, 1]);
+
+  const hata = kur(() => Promise.reject(new Error("disk dolu")), async () => false);
+  await hata.X();
+  eq("Yazma hata fırlatırsa da sorulur", [hata.kayit.kapandi, hata.kayit.ask], [false, 1]);
+
+  const asili = kur(() => new Promise<boolean>(() => {}), async () => true, 30);
+  const t0 = Date.now();
+  await asili.X();
+  eq("Asılı yazma zaman aşımında soruya düşer, kilitlenmez", [asili.kayit.kapandi, asili.kayit.ask], [true, 1]);
+  eq("Zaman aşımı süresi kadar beklenir", Date.now() - t0 < 1000, true);
+
+  const soruYok = kur(async () => false, () => Promise.reject(new Error("dialog yok")));
+  await soruYok.X();
+  eq("Soru açılamazsa pencere açık kalır", soruYok.kayit.kapandi, false);
+  await soruYok.X();
+  eq("…ve ikinci X kapatır", soruYok.kayit.kapandi, true);
+
+  eq("flushWithTimeout: zamanında biten sonuç", await flushWithTimeout(async () => true, 50), true);
+  eq("flushWithTimeout: asılı → false", await flushWithTimeout(() => new Promise<boolean>(() => {}), 10), false);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+section("Artık yan dosya temizliği (LOM-18)");
+
+{
+  const simdi = Date.UTC(2026, 8, 26, 12, 0, 0);
+  const eski = tmpNameFor("Not.md", simdi - 2 * STALE_TMP_AGE_MS, 3);
+  const yeni = tmpNameFor("Not.md", simdi - 1000, 0);
+  eq("Kalıp üretilen adı tanır", tmpCreatedAt(eski), simdi - 2 * STALE_TMP_AGE_MS);
+  eq("Büyük sıra numarası da tanınır", tmpCreatedAt(tmpNameFor("a.excalidraw", simdi, 12345)), simdi);
+  eq("Eski yan dosya silinir", isStaleTmpName(eski, simdi), true);
+  eq("Yeni (yazılıyor olabilir) yan dosyaya dokunulmaz", isStaleTmpName(yeni, simdi), false);
+  eq("Kullanıcının kendi .tmp dosyası silinmez", isStaleTmpName("rapor.tmp", simdi), false);
+  eq("Eski sabit kalıp (<not>.tmp) silinmez", isStaleTmpName("Not.md.tmp", simdi), false);
+  eq("Kısa ara parça eşleşmez", isStaleTmpName("Not.md.abc.tmp", simdi), false);
+  eq("Makul olmayan zaman eşleşmez", isStaleTmpName("Not.md.000000001.tmp", simdi), false);
+  eq("Uzantısı .tmp olmayan eşleşmez", isStaleTmpName(eski.replace(/\.tmp$/, ".md"), simdi), false);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
