@@ -689,6 +689,10 @@ export const useAppStore = create<AppState>()(
    */
   let pendingDraw: { path: string; json: string } | null = null;
   let drawTimer: ReturnType<typeof setTimeout> | null = null;
+  // Kuyruğa her girişte artar. Başarısız kayıt yalnız ARKASINDAN hiç kayıt girmediyse geri
+  // konur: "kuyruk boş" tek başına yetmez — arkadan gelen daha yeni kayıt başka bir boşaltmayla
+  // çoktan alınıp yazılmış olabilir, eskisini geri koymak onu sonra ezerdi (LOM-18 incelemesi).
+  let drawSeq = 0;
 
   async function writeDraw(target: string, json: string, quiet = false): Promise<boolean> {
     // Yalnız GERÇEK bir çizim dosyasına yaz: hedef arada silinmiş/yeniden adlandırılmışsa
@@ -710,12 +714,14 @@ export const useAppStore = create<AppState>()(
     if (drawTimer) clearTimeout(drawTimer);
     drawTimer = null;
     const p = pendingDraw;
+    const seq = drawSeq;
     pendingDraw = null;
     if (!p) return true;
     const ok = await writeDraw(p.path, p.json, quiet);
     // Yazılamadıysa kayıt kuyruğa geri konur: sonraki boşaltma (ekrandan çıkış, kapanış,
-    // yeniden deneme) yine yazmayı dener. Arada daha yeni bir çizim kuyruğa girdiyse o ezilmez.
-    if (!ok && pendingDraw === null) pendingDraw = p;
+    // yeniden deneme) yine yazmayı dener. Arkadan yeni bir kayıt girdiyse (yazılmış ya da
+    // bekliyor olsun) eskisi geri KONMAZ — daha yeni sahne eskisiyle ezilmesin.
+    if (!ok && pendingDraw === null && drawSeq === seq) pendingDraw = p;
     return ok;
   }
 
@@ -723,6 +729,7 @@ export const useAppStore = create<AppState>()(
     // Başka bir çizimin kaydı bekliyorsa önce o kendi dosyasına yazılır.
     if (pendingDraw && pendingDraw.path !== path) void flushDraw();
     pendingDraw = { path, json };
+    drawSeq++;
     if (drawTimer) clearTimeout(drawTimer);
     drawTimer = setTimeout(() => void flushDraw(), 700);
   }
