@@ -711,7 +711,12 @@ export const useAppStore = create<AppState>()(
     drawTimer = null;
     const p = pendingDraw;
     pendingDraw = null;
-    return p ? writeDraw(p.path, p.json, quiet) : true;
+    if (!p) return true;
+    const ok = await writeDraw(p.path, p.json, quiet);
+    // Yazılamadıysa kayıt kuyruğa geri konur: sonraki boşaltma (ekrandan çıkış, kapanış,
+    // yeniden deneme) yine yazmayı dener. Arada daha yeni bir çizim kuyruğa girdiyse o ezilmez.
+    if (!ok && pendingDraw === null) pendingDraw = p;
+    return ok;
   }
 
   function queueDrawSave(path: string, json: string): void {

@@ -35,7 +35,14 @@ import { encodeTrashName, toTrashEntry, isExpired, daysLeft } from "../vault/tra
 import type { VaultNote } from "../vault/types";
 import { reconcileDraft, conflictCopyPath, conflictStamp } from "../vault/draftSync";
 import { createCloseGuard, flushWithTimeout } from "../vault/closeGuard";
-import { tmpNameFor, tmpCreatedAt, isStaleTmpName, STALE_TMP_AGE_MS } from "../vault/tmpFiles";
+import {
+  tmpNameFor,
+  tmpCreatedAt,
+  isStaleTmpName,
+  removeStaleTmpFiles,
+  STALE_TMP_AGE_MS,
+  type TmpScanEntry,
+} from "../vault/tmpFiles";
 
 let fails = 0;
 let ran = 0;
@@ -338,6 +345,7 @@ section("Pencere kapanışı: kayıt yazılamazsa sor (LOM-18)");
   /** Sahte pencere: kapanış isteklerini bekçiden geçirir, close() yeni istek doğurur. */
   const kur = (flushSonuc: () => Promise<boolean>, cevap: () => Promise<boolean>, timeoutMs = 50) => {
     const kayit = { flush: 0, ask: 0, kapandi: false };
+    const saat = { t: 1_000_000 };
     let istek: () => Promise<void>;
     const guard = createCloseGuard({
       flush: () => {
@@ -350,6 +358,8 @@ section("Pencere kapanışı: kayıt yazılamazsa sor (LOM-18)");
       },
       close: () => istek(),
       timeoutMs,
+      graceMs: 60_000,
+      now: () => saat.t,
     });
     istek = async () => {
       let durdu = false;
@@ -358,7 +368,7 @@ section("Pencere kapanışı: kayıt yazılamazsa sor (LOM-18)");
       });
       if (!durdu) kayit.kapandi = true;
     };
-    return { kayit, X: () => istek() };
+    return { kayit, saat, guard, X: () => istek() };
   };
 
   const ok = kur(async () => true, async () => true);
@@ -391,6 +401,38 @@ section("Pencere kapanışı: kayıt yazılamazsa sor (LOM-18)");
   await soruYok.X();
   eq("…ve ikinci X kapatır", soruYok.kayit.kapandi, true);
 
+  // Hak kalıcı değil: "Açık kalsın"dan uzun süre sonra yazma yine başarısızsa yeniden sorulur.
+  const gec = kur(async () => false, async () => false);
+  await gec.X();
+  gec.saat.t += 3 * 60 * 60 * 1000; // üç saat pencerede çalışmaya devam etti
+  await gec.X();
+  eq("Sorudan saatler sonra X yeniden sorar, sormadan kapatmaz", [gec.kayit.kapandi, gec.kayit.ask], [false, 2]);
+  await gec.X();
+  eq("…yeni sorudan hemen sonraki X yine kapatır", [gec.kayit.kapandi, gec.kayit.ask], [true, 2]);
+
+  const arada = kur(async () => false, async () => false);
+  await arada.X();
+  arada.guard.reset(); // arada bir kayıt başarıyla yazıldı
+  await arada.X();
+  eq("Arada başarılı kayıt olduysa X yeniden sorar", [arada.kayit.kapandi, arada.kayit.ask], [false, 2]);
+  await arada.X();
+  eq("…ve hemen sonraki X kapatır (kalıcı kilit yok)", arada.kayit.kapandi, true);
+
+  let yazilabilir = false;
+  const toparlandi = kur(async () => yazilabilir, async () => false);
+  await toparlandi.X();
+  yazilabilir = true;
+  await toparlandi.X();
+  eq("Hak kullanılmadan yazma düzeldiyse normal kapanır", toparlandi.kayit.kapandi, true);
+
+  const tekHak = kur(async () => false, () => Promise.reject(new Error("dialog yok")));
+  await tekHak.X();
+  tekHak.saat.t += 2 * 60_000;
+  await tekHak.X();
+  eq("Soru açılamaz + süre geçti → yine açık (yeniden denendi)", [tekHak.kayit.kapandi, tekHak.kayit.ask], [false, 2]);
+  await tekHak.X();
+  eq("…hemen sonraki X kapatır", tekHak.kayit.kapandi, true);
+
   eq("flushWithTimeout: zamanında biten sonuç", await flushWithTimeout(async () => true, 50), true);
   eq("flushWithTimeout: asılı → false", await flushWithTimeout(() => new Promise<boolean>(() => {}), 10), false);
 }
@@ -411,6 +453,63 @@ section("Artık yan dosya temizliği (LOM-18)");
   eq("Kısa ara parça eşleşmez", isStaleTmpName("Not.md.abc.tmp", simdi), false);
   eq("Makul olmayan zaman eşleşmez", isStaleTmpName("Not.md.000000001.tmp", simdi), false);
   eq("Uzantısı .tmp olmayan eşleşmez", isStaleTmpName(eski.replace(/\.tmp$/, ".md"), simdi), false);
+
+  // Kullanıcı dosyaları: kalıba benzese de silinmez (hedef Loomen'in yazdığı tür değil
+  // ya da zaman/sıra parçası üretilen biçimde değil).
+  const eskiZaman = (simdi - 2 * STALE_TMP_AGE_MS).toString(36);
+  for (const ad of [
+    "belge.mayis2025.tmp",
+    "notes.macbook12.tmp",
+    "foto.jpg.m1a2b3c4d.tmp",
+    "rapor.tmp",
+    "Not.md.tmp",
+    `foto.jpg.${eskiZaman}0.tmp`, // biçim doğru ama hedef bir resim
+    `.md.${eskiZaman}0.tmp`, // hedefin adı yok
+    `Not.md.${eskiZaman}01.tmp`, // sıra başında sıfır: üretilmez
+    `Not.md.${eskiZaman}1234567.tmp`, // sıra 7 hane: üretilmez
+    `Not.md.${eskiZaman.toUpperCase()}0.tmp`, // büyük harf: üretilmez
+  ]) {
+    eq(`Silinmez: ${ad}`, isStaleTmpName(ad, simdi), false);
+  }
+  // Gerçek üretilen biçim: Loomen'in yazdığı her türde silinir.
+  for (const hedef of ["Not.md", "Klasör Adı.MD", "Çizim.excalidraw", "ayarlar.json", "gecmis.jsonl"]) {
+    const ad = tmpNameFor(hedef, simdi - 2 * STALE_TMP_AGE_MS, 7);
+    eq(`Silinir: ${ad}`, isStaleTmpName(ad, simdi), true);
+  }
+  eq("Silinir: sıra 0", isStaleTmpName(tmpNameFor("Not.md", simdi - 2 * STALE_TMP_AGE_MS, 0), simdi), true);
+  eq("Silinir: büyük sıra", isStaleTmpName(tmpNameFor("Not.md", simdi - 2 * STALE_TMP_AGE_MS, 36 ** 6 - 1), simdi), true);
+
+  // Tarama: yalnız artıklar silinir; .git gezilmez; derinlik ve kayıt sayısı sınırlı.
+  const d = (name: string): TmpScanEntry => ({ name, isDirectory: true, isFile: false });
+  const f = (name: string): TmpScanEntry => ({ name, isDirectory: false, isFile: true });
+  const artik = tmpNameFor("Not.md", simdi - 2 * STALE_TMP_AGE_MS, 1);
+  const agac: Record<string, TmpScanEntry[]> = {
+    "/k": [f(artik), f("rapor.tmp"), f("belge.mayis2025.tmp"), d(".git"), d("a")],
+    "/k/.git": [f(artik)],
+    "/k/a": [f(artik), d("b")],
+    "/k/a/b": [f(artik)],
+  };
+  const silinen: string[] = [];
+  const tara = (maxDepth?: number, maxEntries?: number) => {
+    silinen.length = 0;
+    return removeStaleTmpFiles("/k", simdi, {
+      readDir: async (dir) => {
+        const e = agac[dir];
+        if (!e) throw new Error("yok");
+        return e;
+      },
+      remove: async (p) => {
+        silinen.push(p);
+      },
+      maxDepth,
+      maxEntries,
+    });
+  };
+  eq("Tarama yalnız artıkları siler, .git'e girmez", await tara(), 3);
+  eq("Silinen yollar", silinen, [`/k/${artik}`, `/k/a/${artik}`, `/k/a/b/${artik}`]);
+  eq("Derinlik sınırı: 1'de alt alt klasöre inilmez", await tara(1), 2);
+  eq("Derinlik sınırı 0: yalnız kök", await tara(0), 1);
+  eq("Kayıt sınırı dolunca tarama durur", await tara(undefined, 1), 1);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

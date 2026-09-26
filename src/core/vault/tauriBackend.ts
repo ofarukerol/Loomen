@@ -11,7 +11,7 @@ import {
 } from "@tauri-apps/plugin-fs";
 import type { VaultBackend, VaultNote } from "./types";
 import { TRASH_DIR, encodeTrashName, toTrashEntry, type TrashEntry } from "./trash";
-import { isStaleTmpName, tmpNameFor as makeTmpName } from "./tmpFiles";
+import { removeStaleTmpFiles, tmpNameFor as makeTmpName } from "./tmpFiles";
 
 /**
  * Vault içi göreli yolu doğrula.
@@ -178,35 +178,9 @@ export function createTauriBackend(root: string): VaultBackend {
     /**
      * LOM-18: Çökme/güç kesintisinden kalan eski yan dosyaları sil. Her yazma benzersiz
      * `.tmp` ürettiği için artıklar birikip senkronla GitHub'a gidebiliyordu. Yalnız
-     * atomicWrite'ın kalıbına uyan ve bir saatten eski dosyalar silinir (tmpFiles.ts);
-     * `.git` gezilmez. Gizli klasörler (ör. tekrar verisi) gezilir: oraya da yazılıyor.
+     * atomicWrite'ın kalıbına birebir uyan ve bir saatten eski dosyalar silinir; tarama
+     * derinlik ve kayıt sayısıyla sınırlı (tmpFiles.ts › removeStaleTmpFiles).
      */
-    cleanupStaleTmp: async () => {
-      const now = Date.now();
-      let removed = 0;
-      const visit = async (dirAbs: string): Promise<void> => {
-        let entries;
-        try {
-          entries = await readDir(dirAbs);
-        } catch {
-          return; // okunamayan klasör temizliği durdurmaz
-        }
-        for (const e of entries) {
-          if (e.isDirectory) {
-            if (e.name === ".git" || e.name === "node_modules") continue;
-            await visit(`${dirAbs}/${e.name}`);
-          } else if (e.isFile && isStaleTmpName(e.name, now)) {
-            try {
-              await remove(`${dirAbs}/${e.name}`);
-              removed++;
-            } catch {
-              /* silinemeyen artık bir sonraki açılışta yeniden denenir */
-            }
-          }
-        }
-      };
-      await visit(root);
-      return removed;
-    },
+    cleanupStaleTmp: async () => removeStaleTmpFiles(root, Date.now(), { readDir, remove }),
   };
 }

@@ -58,7 +58,16 @@ export function useFlushOnExit(isMobile: boolean): void {
           },
           close: () => win.close(),
         });
-        const unlisten = await win.onCloseRequested((e) => guard(() => e.preventDefault()));
+        // Arada bir kayıt başarıyla yazıldıysa (bellekteki dosya içerikleri yenilenir)
+        // "sormadan kapat" hakkı düşer: sonraki başarısız yazmada yeniden sorulur.
+        const unsub = useAppStore.subscribe((s, prev) => {
+          if (s.noteContents !== prev.noteContents) guard.reset();
+        });
+        const unlistenClose = await win.onCloseRequested((e) => guard(() => e.preventDefault()));
+        const unlisten = () => {
+          unsub();
+          unlistenClose();
+        };
         if (alive) un = unlisten;
         else unlisten();
       } catch {
