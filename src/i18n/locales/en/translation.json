@@ -660,8 +660,11 @@
     "yearsAgo": "{{n}} years ago"
   },
   "errors": {
+    "writeVault": "Can't write to the vault folder — check its permissions or the disk.",
+    "writePermission": "No permission to write to the vault folder — check the folder's permissions.",
+    "writeDiskFull": "The disk is full; notes can't be saved. Free up some space and try again.",
+    "writeMissing": "The vault folder can't be found; it may have been moved or deleted. Pick it again in Settings → Vault.",
     "saveNote": "Couldn't save the note: {{detail}}",
-    "saveDraw": "Couldn't save the drawing: {{detail}}",
     "saveCopy": "Couldn't save the copy: {{detail}}",
     "createVault": "Couldn't create the vault: {{detail}}",
     "vaultSwitchAborted": "The vault wasn't switched because the note couldn't be saved; your text is still here.",
@@ -681,5 +684,11 @@
     "closeUnsaved": "Your last change could not be saved — close anyway?",
     "closeAnyway": "Close anyway",
     "keepOpen": "Keep open"
+  },
+  "writeBar": {
+    "notSaved": "Latest changes not saved · {{n}} attempts",
+    "retry": "Try again",
+    "details": "Details",
+    "dismiss": "Close"
   }
 }

@@ -9,6 +9,7 @@ import { Explorer } from "./components/Explorer";
 import { RightPanel } from "./components/RightPanel";
 import { MobileBar } from "./components/MobileBar";
 import { MobileTopBar } from "./components/MobileTopBar";
+import { WriteErrorBar } from "./components/WriteErrorBar";
 import { MobileDrawer, MobileTabsSheet } from "./components/MobileDrawer";
 import { PlannerScreen } from "./screens/Planner/PlannerScreen";
 import { EditorScreen } from "./screens/Editor/EditorScreen";
@@ -292,6 +293,8 @@ export default function App() {
             }}
           />
         )}
+        {/* Kasaya yazılamıyor uyarısı: her ekranda, tek şerit (LOM-20). */}
+        <WriteErrorBar />
         <div className="lo-main">
           {screen === "planner" && <PlannerScreen />}
           {screen === "editor" && <EditorScreen />}

@@ -660,8 +660,11 @@
     "yearsAgo": "{{n}} yıl önce"
   },
   "errors": {
+    "writeVault": "Kasa klasörüne yazılamıyor — izinleri ya da diski kontrol edin.",
+    "writePermission": "Kasa klasörüne yazma izni yok — klasörün izinlerini kontrol edin.",
+    "writeDiskFull": "Diskte yer kalmadı; notlar kaydedilemiyor. Yer açıp yeniden deneyin.",
+    "writeMissing": "Kasa klasörü bulunamıyor; taşınmış ya da silinmiş olabilir. Ayarlar → Kasa bölümünden yeniden seçin.",
     "saveNote": "Not kaydedilemedi: {{detail}}",
-    "saveDraw": "Çizim kaydedilemedi: {{detail}}",
     "saveCopy": "Kopya kaydedilemedi: {{detail}}",
     "createVault": "Kasa oluşturulamadı: {{detail}}",
     "vaultSwitchAborted": "Not kaydedilemediği için kasa değiştirilmedi; metniniz duruyor.",
@@ -681,5 +684,11 @@
     "closeUnsaved": "Son değişiklik kaydedilemedi — yine de kapatılsın mı?",
     "closeAnyway": "Yine de kapat",
     "keepOpen": "Açık kalsın"
+  },
+  "writeBar": {
+    "notSaved": "Son değişiklikler kaydedilmedi · {{n}} deneme",
+    "retry": "Yeniden dene",
+    "details": "Ayrıntılar",
+    "dismiss": "Kapat"
   }
 }

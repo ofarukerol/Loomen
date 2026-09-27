@@ -29,6 +29,14 @@ import {
 import { migrateMobileVaults, rebaseMobileVaultPath, joinPath } from "../core/vault/mobileVaultPath";
 import { rewriteWikiLinks } from "../core/markdown/links";
 import { reconcileDraft, conflictCopyPath, conflictStamp } from "../core/vault/draftSync";
+import {
+  classifyWriteError,
+  errorDetail,
+  messageKeyFor,
+  recordWriteError,
+  type WriteErrorKind,
+  type WriteErrorState,
+} from "../core/vault/writeError";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
@@ -194,6 +202,9 @@ interface AppState {
    * Yalnız `path === draftPath` iken geçerlidir.
    */
   draftConflict: { path: string; disk: string } | null;
+  /** Otomatik kayıt kasaya yazamıyor (LOM-20): pencere yerine tek sabit şerit gösterilir.
+   *  İlk başarılı yazmada temizlenir; kalıcı değildir. */
+  writeError: WriteErrorState | null;
   backlinksCollapsed: boolean;
 
   // Görev detay paneli (seçili görev id'si "file:line")
@@ -390,6 +401,10 @@ interface AppState {
   queueDrawSave: (path: string, json: string) => void;
   /** Bekleyen çizim kaydını hemen yaz. `false` = yazılamadı. */
   flushDraw: () => Promise<boolean>;
+  /** Kayıt hatası şeridini kapat; aynı hata sürerken yeniden açılmaz. */
+  dismissWriteError: () => void;
+  /** Son başarısız otomatik kaydı yeniden dene. */
+  retryWrite: () => Promise<void>;
   /** Ses notu kaydını kasaya yaz (uzantı + isteğe bağlı ad ile), vault'a göre yolunu döner. */
   saveAudioNote: (bytes: Uint8Array, ext: string, baseName?: string) => Promise<string>;
   /** Bir ses notu dosyasını oku (AudioEmbedPlayer için). */
@@ -485,9 +500,15 @@ const EMPTY_EXCALIDRAW = JSON.stringify({
   files: {},
 });
 
-/** Yakalanan bir hatanın kullanıcıya gösterilecek metni. */
+/** Yakalanan bir hatanın kullanıcıya gösterilecek metni: tanınan yazma hatalarında önce sade
+ *  cümle, teknik ayrıntı parantez içinde (LOM-20). */
 function errText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  const detail = errorDetail(e);
+  const code = classifyWriteError(detail);
+  // "missing" burada tek bir dosyanın yokluğu da olabilir (dışarıdan silinmiş not); "kasa klasörü
+  // bulunamıyor" cümlesi o durumda yanıltır — ham ayrıntı olduğu gibi kalır.
+  const key = code === "missing" ? null : messageKeyFor(code);
+  return key ? `${i18n.t(key)} (${detail})` : detail;
 }
 
 /**
@@ -694,30 +715,59 @@ export const useAppStore = create<AppState>()(
   // çoktan alınıp yazılmış olabilir, eskisini geri koymak onu sonra ezerdi (LOM-18 incelemesi).
   let drawSeq = 0;
 
-  async function writeDraw(target: string, json: string, quiet = false): Promise<boolean> {
+  /** Son başarısız otomatik kayıt: şeritteki "Yeniden dene" bunu tekrarlar (LOM-20).
+   *  `seq`: çizimde yazmanın BAŞLADIĞI andaki kuyruk sayacı (daha yeni sahneyi ezmemek için). */
+  let lastFailedWrite: { kind: WriteErrorKind; path: string; content: string; seq: number } | null = null;
+  /** Her çizim yolu için kuyruğa en son girilen sayaç (bkz retryWrite). */
+  const drawSeqByPath = new Map<string, number>();
+
+  /** Otomatik kayıt hatasını şeride işler. Pencere açmaz; aynı hata sürerken yalnız sayaç artar. */
+  function reportWriteError(kind: WriteErrorKind, path: string, content: string, e: unknown, seq = 0): void {
+    console.error(`[kayıt] ${path} yazılamadı:`, e);
+    lastFailedWrite = { kind, path, content, seq };
+    const detail = errorDetail(e);
+    set({
+      writeError: recordWriteError(get().writeError, { code: classifyWriteError(detail), detail, kind, path }, Date.now()),
+    });
+  }
+
+  /** Hatalı dosyanın başarılı yazması şeridi kaldırır. Başka bir dosyanın yazılabilmesi
+   *  yetmez: o dosya hâlâ kaydedilmemiş olabilir (tek dosyada izin sorunu). */
+  function clearWriteError(path: string): void {
+    const w = get().writeError;
+    if (!w || w.path !== path) return;
+    lastFailedWrite = null;
+    set({ writeError: null });
+  }
+
+  async function writeDraw(target: string, json: string): Promise<boolean> {
     // Yalnız GERÇEK bir çizim dosyasına yaz: hedef arada silinmiş/yeniden adlandırılmışsa
     // sahnesi eski yola yeniden yazılıp hayalet dosya doğardı.
     if (!get().notes.some((n) => n.path === target && n.kind === "draw")) return true;
     // Aynı içerik yeniden yazılmaz (NOTE_SAFETY kural 5): Excalidraw açılışta da onChange verir.
     if (get().noteContents[target] === json) return true;
+    const seq = drawSeq;
     try {
       await backend.writeNote(target, json);
     } catch (e) {
-      if (!quiet) await notifyError(i18n.t("errors.saveDraw", { detail: errText(e) }));
+      // Pencere AÇILMAZ (LOM-20): açılan pencere odağı alıp verince Excalidraw yeniden
+      // onChange veriyor, kayıt yine düşüyor ve pencereler üst üste birikiyordu.
+      reportWriteError("draw", target, json, e, seq);
       return false;
     }
+    clearWriteError(target);
     set((s) => ({ noteContents: { ...s.noteContents, [target]: json } }));
     return true;
   }
 
-  async function flushDraw(quiet = false): Promise<boolean> {
+  async function flushDraw(): Promise<boolean> {
     if (drawTimer) clearTimeout(drawTimer);
     drawTimer = null;
     const p = pendingDraw;
     const seq = drawSeq;
     pendingDraw = null;
     if (!p) return true;
-    const ok = await writeDraw(p.path, p.json, quiet);
+    const ok = await writeDraw(p.path, p.json);
     // Yazılamadıysa kayıt kuyruğa geri konur: sonraki boşaltma (ekrandan çıkış, kapanış,
     // yeniden deneme) yine yazmayı dener. Arkadan yeni bir kayıt girdiyse (yazılmış ya da
     // bekliyor olsun) eskisi geri KONMAZ — daha yeni sahne eskisiyle ezilmesin.
@@ -730,6 +780,7 @@ export const useAppStore = create<AppState>()(
     if (pendingDraw && pendingDraw.path !== path) void flushDraw();
     pendingDraw = { path, json };
     drawSeq++;
+    drawSeqByPath.set(path, drawSeq);
     if (drawTimer) clearTimeout(drawTimer);
     drawTimer = setTimeout(() => void flushDraw(), 700);
   }
@@ -741,7 +792,7 @@ export const useAppStore = create<AppState>()(
     const s = get();
     // Bekleyen çizim kaydı da boşaltılır (kasa değişimi, kapanış, yeniden adlandırma).
     // flushDraw bekleyen kaydı da eşzamanlı olarak alır; sıra bozulmaz.
-    const drawDone = flushDraw(quiet);
+    const drawDone = flushDraw();
     const noteOk = await flushNoteDraft(s, quiet);
     return (await drawDone) && noteOk;
   }
@@ -754,7 +805,13 @@ export const useAppStore = create<AppState>()(
   async function leaveDraft(): Promise<boolean> {
     for (let i = 0; i < 5; i++) {
       const before = get();
-      if (!(await flushDraft())) return false;
+      if (!(await flushDraft())) {
+        // Kullanıcının eylemi (not/sekme değiştirme, taşıma) kayıt yüzünden durdu: şeridi
+        // kapatmış olsa bile nedenini görsün.
+        const w = get().writeError;
+        if (w?.dismissed) set({ writeError: { ...w, dismissed: false } });
+        return false;
+      }
       const after = get();
       if (after.draftPath !== before.draftPath || after.draft === before.draft) return true;
     }
@@ -782,10 +839,13 @@ export const useAppStore = create<AppState>()(
       draftWriteGen++;
       await backend.writeNote(p, text);
       draftWriteGen++;
+      clearWriteError(p);
       set((st) => ({ noteContents: { ...st.noteContents, [p]: text } }));
       return true;
     } catch (e) {
-      if (!quiet) await notifyError(i18n.t("errors.saveNote", { detail: errText(e) }));
+      // Pencere yerine şerit (LOM-20); kasa değişimi gibi kullanıcı eylemleri `false`
+      // sonucuna bakıp kendi penceresini açar.
+      reportWriteError("note", p, text, e);
       // Sonuç DÖNDÜRÜLÜR: çağıran bunu bilmeden devam edip taslağı temizlerse
       // kullanıcı önce "kaydedilemedi" uyarısını görüyor, hemen ardından
       // yazdığı metni de kaybediyordu.
@@ -916,6 +976,7 @@ export const useAppStore = create<AppState>()(
     draftPath: null,
     draftEpoch: 0,
     draftConflict: null,
+    writeError: null,
     backlinksCollapsed: false,
     selectedTask: null,
     modalLayers: 0,
@@ -1152,9 +1213,11 @@ export const useAppStore = create<AppState>()(
       } catch (e) {
         // Sessiz kalma: kullanıcı yazmaya devam edip kaydedildiğini sanmamalı (disk dolu,
         // izin düştü, kasa taşındı...). Bellek güncellenmez → sonraki denemede tekrar yazılır.
-        await notifyError(i18n.t("errors.saveNote", { detail: errText(e) }));
+        // Pencere yerine sabit şerit: her otomatik kayıtta yeni pencere birikmesin (LOM-20).
+        reportWriteError("note", s.activeNote, s.draft, e);
         return;
       }
+      clearWriteError(s.activeNote);
       // Hafif kayıt: tüm dosyaları yeniden okumadan bellekte güncelle + görevleri yeniden hesapla.
       // Yazma sırasında state değişmiş olabilir (kasa değişimi, watcher yüklemesi) — GÜNCEL
       // state üstüne uygula, yoksa bayat kopya araya giren yüklemeyi ezer.
@@ -1515,7 +1578,11 @@ export const useAppStore = create<AppState>()(
 
           // Taslağı/aktif notu HEMEN bırak: bundan sonraki her yazma denemesi (autosave dahil)
           // sahipsiz taslak kuralına takılıp sessizce düşer, yanlış kasaya içerik sızmaz.
-          if (isSwitch) set({ draft: "", draftPath: null, draftConflict: null, activeNote: null, activeDraw: null });
+          if (isSwitch) {
+            // Eski kasanın kayıt hatası yeni kasada görünmesin.
+            lastFailedWrite = null;
+            set({ draft: "", draftPath: null, draftConflict: null, activeNote: null, activeDraw: null, writeError: null });
+          }
 
           // Sandbox (Mac App Store): klasöre erişimi bookmark ile geri al. Sandbox dışında
           // bu çağrı zararsızdır (erişim zaten açıktır).
@@ -1686,6 +1753,28 @@ export const useAppStore = create<AppState>()(
     },
     queueDrawSave,
     flushDraw,
+    dismissWriteError: () => {
+      const w = get().writeError;
+      if (w && !w.dismissed) set({ writeError: { ...w, dismissed: true } });
+    },
+    retryWrite: async () => {
+      const f = lastFailedWrite;
+      if (!f) return;
+      if (f.kind === "note") {
+        // saveNote taslak hâlâ o nota aitse yazar; değilse sahipsiz taslak kuralı gereği yazmaz.
+        await get().saveNote();
+        return;
+      }
+      // Aynı çizimin kuyrukta bekleyen (daha yeni ya da geri konmuş) sahnesi varsa o yazılır.
+      if (pendingDraw?.path === f.path) {
+        await flushDraw();
+        return;
+      }
+      // Hata sonrasında bu çizim için yeni sahne kuyruğa girdiyse (yazılmış ya da yazılıyor
+      // olabilir) eski içerik YAZILMAZ — daha yenisini ezerdi.
+      if ((drawSeqByPath.get(f.path) ?? 0) > f.seq) return;
+      await writeDraw(f.path, f.content);
+    },
     saveAudioNote: async (bytes, ext, baseName) => {
       await backend.ensureDir(AUDIO_DIR);
       const stamp = new Date()
