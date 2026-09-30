@@ -79,3 +79,12 @@ export function recordWriteError(
   }
   return { ...prev, ...next, count: prev.count + 1, lastAt: now, dismissed: prev.dismissed };
 }
+
+/**
+ * Şeridin "yeni hata" kimliği (LOM-21). Aynı tür sürerken firstAt korunduğu için değişmez;
+ * farklı tür ya da temizlendikten sonra gelen hata yeni firstAt alır, anahtar değişir.
+ * Şerit gövdesi bu anahtarla yeniden kurulur, böylece Ayrıntılar her yeni hatada kapalı açılır.
+ */
+export function writeErrorKey(s: WriteErrorState): string {
+  return `${s.code}:${s.firstAt}`;
+}

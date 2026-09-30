@@ -31,6 +31,7 @@ const suites = [
   ["src/core/__test__/editorTest.ts", []],
   ["src/core/__test__/mobileTest.ts", []],
   ["src/core/__test__/writeErrorTest.ts", []],
+  ["src/core/__test__/writeErrorBarTest.ts", []],
 ];
 
 let failed = 0;
@@ -52,6 +53,9 @@ for (const [src, args] of suites) {
       format: "esm",
       // google.ts Vite ortam değişkeni okur; node'da `import.meta.env` yoktur.
       define: { "import.meta.env": "{}" },
+      // CJS paketler (react-dom/server) node yerleşiklerini `require` ile ister; ESM çıktıda
+      // `require` yok, burada sağlanır.
+      banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
       outfile: out,
       logLevel: "error",
     });

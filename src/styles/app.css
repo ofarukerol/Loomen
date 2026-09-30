@@ -2125,31 +2125,36 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 }
 .lo-topbar__new:hover { background: var(--line-soft); color: var(--accent); }
 
-/* Kasaya yazılamıyor şeridi (LOM-20): pencere yerine ana sütunun üstünde tek sabit uyarı */
+/* Kasaya yazılamıyor şeridi (LOM-20): pencere yerine ana sütunun üstünde tek sabit uyarı.
+   İki satır (LOM-21): üstte ikon + metin + X, altta sarılan düğmeler; dar sütunda X taşmaz. */
 .lo-writebar {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+  max-width: 100%; box-sizing: border-box; overflow: hidden;
   padding: 8px 12px; font-size: 13px; color: var(--fg1);
   background: var(--danger-bg);
   border-bottom: 1px solid var(--line);
   border-inline-start: 3px solid var(--danger);
 }
-.lo-writebar__icon { color: var(--danger); flex-shrink: 0; }
-.lo-writebar__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lo-writebar__head { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.lo-writebar__icon { color: var(--danger); flex-shrink: 0; margin-top: 2px; }
+.lo-writebar__text {
+  flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere;
+  display: flex; flex-direction: column; gap: 2px;
+}
 .lo-writebar__sub { font-size: 12px; color: var(--fg2); }
 .lo-writebar__detail {
-  display: block; margin-top: 4px; font-family: var(--font-mono); font-size: 12px;
-  word-break: break-all; color: var(--fg3); user-select: text;
+  display: block; font-family: var(--font-mono); font-size: 12px;
+  word-break: break-all; max-height: 120px; overflow: auto; color: var(--fg3); user-select: text;
 }
-.lo-writebar__actions { display: flex; align-items: center; gap: 4px; margin-inline-start: auto; }
+.lo-writebar__actions { display: flex; flex-wrap: wrap; gap: 6px; padding-inline-start: 24px; }
 .lo-writebar__btn {
   height: 28px; padding: 0 10px; flex-shrink: 0;
   border: none; background: transparent; border-radius: 7px; color: var(--fg2); cursor: pointer;
   font: inherit; font-size: 12px;
 }
-.lo-writebar__btn:hover, .lo-writebar__close:hover { background: var(--line-soft); color: var(--accent); }
+.lo-writebar__btn:hover { background: var(--line-soft); color: var(--accent); }
 .lo-writebar__close {
-  width: 28px; height: 28px; flex-shrink: 0;
-  border: none; background: transparent; border-radius: 7px; color: var(--fg2); cursor: pointer;
+  width: 28px; padding: 0; margin-top: -4px; margin-inline-start: auto;
   display: flex; align-items: center; justify-content: center;
 }
 

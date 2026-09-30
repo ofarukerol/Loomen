@@ -1,7 +1,7 @@
 // Kasaya yazma hatası sınıflandırma ve şerit durumunun node testi (LOM-20).
 // `npm test` bu dosyayı scripts/run-tests.mjs listesinden alır.
 
-import { classifyWriteError, errorDetail, messageKeyFor, recordWriteError } from "../vault/writeError";
+import { classifyWriteError, errorDetail, messageKeyFor, recordWriteError, writeErrorKey } from "../vault/writeError";
 
 let fails = 0;
 let ran = 0;
@@ -73,6 +73,19 @@ eq("unknown → null", messageKeyFor("unknown"), null);
   eq("farklı tür sayaç 1", c.count, 1);
   eq("farklı tür şeridi yeniden açar", c.dismissed, false);
   eq("farklı tür yeni zaman", [c.firstAt, c.lastAt], [300, 300]);
+}
+
+// ---- yeni hata anahtarı (LOM-21): Ayrıntılar her yeni hatada kapalı açılsın ----
+{
+  const a = recordWriteError(null, { code: "permission", detail: "d1", kind: "note", path: "a.md" }, 100);
+  eq("anahtar biçimi code:firstAt", writeErrorKey(a), "permission:100");
+  const b = recordWriteError(a, { code: "permission", detail: "d2", kind: "note", path: "a.md" }, 200);
+  eq("aynı tür sürerken anahtar değişmez", writeErrorKey(b), writeErrorKey(a));
+  const c = recordWriteError(b, { code: "diskFull", detail: "d3", kind: "note", path: "a.md" }, 300);
+  check("farklı tür anahtarı değiştirir", writeErrorKey(c) !== writeErrorKey(b));
+  // clearWriteError durumu null yapar; sonraki hata null'dan başlar.
+  const d = recordWriteError(null, { code: "permission", detail: "d4", kind: "note", path: "a.md" }, 400);
+  check("temizlendikten sonra aynı tür yeni anahtar alır", writeErrorKey(d) !== writeErrorKey(a));
 }
 
 console.log(fails === 0 ? `\n✅ ${ran} kontrolün tümü geçti` : `\n❌ ${fails}/${ran} kontrol başarısız`);
