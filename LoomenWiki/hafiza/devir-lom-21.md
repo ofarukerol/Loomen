@@ -40,7 +40,7 @@ Kayıt hatası şeridini (WriteErrorBar) iki satırlı yapıya geçirip kapat d�
 
 Testler KALDI; iş doğrulanmadı.
 
-> Hızlı kontrol yeşil, canlı test koşamadı. tsc --noEmit çıkış 0. npm test "8 test dosyasının tümü geçti" (writeErrorBarTest 9/9 dahil, kırmızı yok). npm run build çıkış 0 (yalnızca chunk boyutu uyarısı). Zorunlu canlı test (Excalibur'da 800x600 + sağ panel açık dar pencere denemesi) yapılamadı: `ssh excalibur` "Host key verification failed" verdi. Ayrıca Excalibur yalnız main'i derliyor, fix/LOM-21
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
