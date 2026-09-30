@@ -3,7 +3,7 @@ name: LOM-21 — Kayıt hatası şeridi: dar pencerede kapat düğmesi görünm�
 description: Testler kaldı: Kayıt hatası şeridini (WriteErrorBar) iki satırlı yapıya geçirip kapat düğmesini dar sütunda da görünür tutmak ve her yeni hatada Ayrıntılar bölümünün kapalı açılmasını sağlamak; LOM-20 henüz main'de olmadığı için fix/LOM-21 dalı fix/LOM-20 üzerine kurulacak.
 type: project
 proje: loomen
-kaynak: kart LOM-21 · dal fix/LOM-21 · commit yok · test koşusu 0c730b24-5164-4174-98f2-f1f0f0aa8856 (Excalibur)
+kaynak: kart LOM-21 · dal fix/LOM-21 · commit yok · test koşusu 79cb7867-222f-457e-aa06-3c90ce9f5ff5 (Excalibur)
 guven: iddia
 durum: gelistirildi
 ---
@@ -40,12 +40,12 @@ Kayıt hatası şeridini (WriteErrorBar) iki satırlı yapıya geçirip kapat d�
 
 Testler KALDI; iş doğrulanmadı.
 
-> İş yarıda durduruldu; testler koşmadı.
+> Hızlı kontrol yeşil, canlı test koşamadı. tsc --noEmit çıkış 0. npm test "8 test dosyasının tümü geçti" (writeErrorBarTest 9/9 dahil, kırmızı yok). npm run build çıkış 0 (yalnızca chunk boyutu uyarısı). Zorunlu canlı test (Excalibur'da 800x600 + sağ panel açık dar pencere denemesi) yapılamadı: `ssh excalibur` "Host key verification failed" verdi. Ayrıca Excalibur yalnız main'i derliyor, fix/LOM-21
 
 ## Kanıt
 
 - Dal: `fix/LOM-21`
-- Test koşusu: `0c730b24-5164-4174-98f2-f1f0f0aa8856` (Excalibur)
+- Test koşusu: `79cb7867-222f-457e-aa06-3c90ce9f5ff5` (Excalibur)
 
 ## Durum
 
