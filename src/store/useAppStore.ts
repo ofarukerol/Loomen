@@ -44,7 +44,7 @@ import {
   refineOpenErrorCode,
   type VaultOpenError,
 } from "../core/vault/openError";
-import { createOpenRecovery, isVaultSwitch, type RetryStatus } from "../core/vault/openRecovery";
+import { createOpenRecovery, isVaultSwitch, openVaultGuarded, type RetryStatus } from "../core/vault/openRecovery";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
@@ -1603,17 +1603,7 @@ export const useAppStore = create<AppState>()(
         try {
           const prev = get();
           const prevPath = prev.vaultPath;
-          const isSwitch = isVaultSwitch(prevPath, path, backendOpened, prev.vaultOpenError);
-
-          // Kasa değişmeden ÖNCE bekleyen taslağı eski kasaya yaz; aksi halde debounce'lu
-          // autosave backend değiştikten sonra ateşler ve notu YENİ kasaya yazardı.
-          // Yazma BAŞARISIZSA kasa değişimi iptal edilir: aşağıda taslak zaten
-          // temizleniyor ve kullanıcı "kaydedilemedi" uyarısının hemen ardından
-          // yazdığı metni de kaybediyordu.
-          if (isSwitch && !(await flushDraft())) {
-            await notifyError(i18n.t("errors.vaultSwitchAborted"));
-            return;
-          }
+          const isSwitch = isVaultSwitch(prevPath, path, backendOpened);
 
           // Mevcut kasanın açık sekmelerini sakla (geri dönülünce geri yüklenir).
           const curTabs = get();
@@ -1630,46 +1620,58 @@ export const useAppStore = create<AppState>()(
               }
             : curTabs.tabsByVault;
 
-          // Taslağı/aktif notu HEMEN bırak: bundan sonraki her yazma denemesi (autosave dahil)
-          // sahipsiz taslak kuralına takılıp sessizce düşer, yanlış kasaya içerik sızmaz.
-          if (isSwitch) {
-            // Eski kasanın kayıt hatası yeni kasada görünmesin.
-            lastFailedWrite = null;
-            set({ draft: "", draftPath: null, draftConflict: null, activeNote: null, activeDraw: null, writeError: null });
-          }
-
-          // Sandbox (Mac App Store): klasöre erişimi bookmark ile geri al. Sandbox dışında
-          // bu çağrı zararsızdır (erişim zaten açıktır).
-          const saved = prev.vaults.find((v) => v.path === path)?.bookmark;
-          if (saved) {
-            const r = await resolveBookmark(saved);
-            // Klasör taşınmış olabilir: bookmark'ın çözdüğü GÜNCEL yolu kullan, yoksa
-            // artık var olmayan eski yola backend kurar ve kasa "açılamadı"ya düşerdi.
-            if (r?.path) target = r.path;
-            // Bookmark eskimişse (klasör taşındı/yeniden adlandırıldı) yenisini üret ve sakla.
-            if (r?.stale) {
-              const fresh = await createBookmark(r.path);
-              if (fresh) {
-                set((st) => ({
-                  vaults: st.vaults.map((v) => (v.path === path ? { ...v, bookmark: fresh } : v)),
-                }));
+          // Koruma sırası openVaultGuarded'da (testli): kasa değişmeden ÖNCE bekleyen taslak
+          // eski kasaya yazılır (yazılamazsa değişim iptal, kullanıcı metnini kaybetmez); açık
+          // not ancak yeni kasa açıldıktan sonra bırakılır. Açılış düşerse hiçbir şeye dokunulmaz.
+          const next = await openVaultGuarded({
+            isSwitch,
+            prevPath,
+            path,
+            flushDraft,
+            onFlushFailed: () => notifyError(i18n.t("errors.vaultSwitchAborted")),
+            open: async () => {
+              // Sandbox (Mac App Store): klasöre erişimi bookmark ile geri al. Sandbox dışında
+              // bu çağrı zararsızdır (erişim zaten açıktır).
+              const saved = prev.vaults.find((v) => v.path === path)?.bookmark;
+              if (saved) {
+                const r = await resolveBookmark(saved);
+                // Klasör taşınmış olabilir: bookmark'ın çözdüğü GÜNCEL yolu kullan, yoksa
+                // artık var olmayan eski yola backend kurar ve kasa "açılamadı"ya düşerdi.
+                if (r?.path) target = r.path;
+                // Bookmark eskimişse (klasör taşındı/yeniden adlandırıldı) yenisini üret ve sakla.
+                if (r?.stale) {
+                  const fresh = await createBookmark(r.path);
+                  if (fresh) {
+                    set((st) => ({
+                      vaults: st.vaults.map((v) => (v.path === path ? { ...v, bookmark: fresh } : v)),
+                    }));
+                  }
+                }
               }
-            }
-          }
 
-          // Kasa klasörünü fs kapsamına al. macOS'ta bookmark çözümü zaten erişim veriyor;
-          // Windows/Linux'ta bookmark yok, bu çağrı olmadan ev klasörü dışındaki kasa her
-          // açılışta "forbidden path" ile reddedilirdi.
-          await allowVaultPath(target);
+              // Kasa klasörünü fs kapsamına al. macOS'ta bookmark çözümü zaten erişim veriyor;
+              // Windows/Linux'ta bookmark yok, bu çağrı olmadan ev klasörü dışındaki kasa her
+              // açılışta "forbidden path" ile reddedilirdi.
+              await allowVaultPath(target);
 
-          const next = createTauriBackend(target);
-          // Erişimi doğrula (kapsam/taşınma) — başarısızsa catch.
-          await next.listNotes();
+              const opened = createTauriBackend(target);
+              // Erişimi doğrula (kapsam/taşınma) — başarısızsa catch.
+              await opened.listNotes();
+              return opened;
+            },
+            // Taslağı/aktif notu bırak: bundan sonraki her yazma denemesi (autosave dahil)
+            // sahipsiz taslak kuralına takılıp sessizce düşer, yanlış kasaya içerik sızmaz.
+            // Eski kasanın kayıt hatası yeni kasada görünmesin.
+            clearForSwitch: () => {
+              lastFailedWrite = null;
+              set({ draft: "", draftPath: null, draftConflict: null, activeNote: null, activeDraw: null, writeError: null });
+            },
+            releaseBookmark: (p) => void releaseBookmark(p),
+          });
+          if (!next) return;
           // Çökmeden kalan eski yan dosyaları arka planda temizle (LOM-18); açılışı bekletmez.
           void next.cleanupStaleTmp?.().catch(() => {});
 
-          // Kasa değiştiyse öncekinin security-scoped erişimini bırak (kaynak sızıntısı önlemi).
-          if (isSwitch && prevPath && prevPath !== path) void releaseBookmark(prevPath);
           // AI arama önbelleği kasaya özeldir — başka kasanın parçaları taşınmasın.
           if (isSwitch) resetIndex();
           backend = next;
@@ -1703,6 +1705,7 @@ export const useAppStore = create<AppState>()(
             ghRepo: entry.repo,
             tabsByVault,
             vaultOpenError: null, // kasa açıldı: şerit kalkar
+            vaultRetryStatus: "idle",
           };
           // Kasa değiştiyse (ya da global sekmeler boşsa) hedef kasanın sekmelerini geri yükle.
           if (isSwitch || cur.openTabs.length === 0) {
@@ -1749,7 +1752,12 @@ export const useAppStore = create<AppState>()(
           // sorunu gibi görünse de klasör yoksa "bulunamadı" denir.
           let code = classifyOpenError(detail);
           if (code !== "missing") code = refineOpenErrorCode(code, await vaultPathState(target));
-          set({ vaultOpenError: recordOpenError(get().vaultOpenError, { path, code, detail }) });
+          // Hata kayıtlı (ham) yolla tutulur: mobilde tazelenmiş yol vaultPath ve kasa listesiyle
+          // eşleşmez, otomatik deneme hiç çalışmazdı. Yeniden denemede yol yine tazelenir.
+          const prevErr = get().vaultOpenError;
+          const nextErr = recordOpenError(prevErr, { path: rawPath, code, detail });
+          // Yeni bir hata (başka kasa) eski şeridin 'yine açılamadı' durumunu taşımasın.
+          set(nextErr === prevErr ? {} : { vaultOpenError: nextErr, vaultRetryStatus: "idle" });
         }
       }),
 
@@ -1822,7 +1830,7 @@ export const useAppStore = create<AppState>()(
       const w = get().writeError;
       if (w && !w.dismissed) set({ writeError: { ...w, dismissed: true } });
     },
-    dismissVaultOpenError: () => set({ vaultOpenError: null }),
+    dismissVaultOpenError: () => set({ vaultOpenError: null, vaultRetryStatus: "idle" }),
     repickFailedVault: () => vaultRecovery.repick(),
     retryVaultOpen: (auto = false) => vaultRecovery.retry(auto),
     retryWrite: async () => {

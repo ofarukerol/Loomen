@@ -10,16 +10,50 @@ import {
 export type RetryStatus = "idle" | "busy" | "failed";
 
 /** Ne zaman açılışın kasa değişimi gibi yürütüleceği (LOM-25). */
-export function isVaultSwitch(
-  prevPath: string | null,
-  path: string,
-  backendOpened: boolean,
-  openError: VaultOpenError | null,
-): boolean {
+export function isVaultSwitch(prevPath: string | null, path: string, backendOpened: boolean): boolean {
   if (prevPath !== path) return true;
-  // Kayıtlı kasa açılamayınca uygulama örnek kasayla çalışır ama vaultPath gerçek kasayı gösterir.
-  // Sonradan açılış başarılı olursa örnek kasanın taslağı gerçek kasaya yazılmasın: değişim say.
-  return !backendOpened && openError?.path === path;
+  // Gerçek kasa hiç açılmadıysa backend örnek kasadır (vaultPath gerçek kasayı gösterse de).
+  // Şerit kapatılmış ya da açılış yalnız yavaş olsa bile örnek taslağı gerçek kasaya yazılmasın.
+  return !backendOpened;
+}
+
+/** reopenVault'un koruma sırası için store'un verdiği adımlar (testte sahtesi verilir). */
+export interface GuardedOpenDeps<B> {
+  isSwitch: boolean;
+  prevPath: string | null;
+  path: string;
+  flushDraft: () => Promise<boolean>;
+  onFlushFailed: () => Promise<void>;
+  /** Klasöre erişip yeni backend'i kurar; erişilemezse fırlatır. */
+  open: () => Promise<B>;
+  /** Açık taslağı/notu bırakır (yalnız kasa değişiminde). */
+  clearForSwitch: () => void;
+  releaseBookmark: (path: string) => void;
+}
+
+/**
+ * Kasa açılışının koruma sırası (LOM-25). Kasa değişiminde taslak önce eski kasaya yazılır;
+ * açık not ancak yeni kasa gerçekten açıldıktan sonra bırakılır. Açılış düşerse (şerit açıkken
+ * pencereye her dönüşte otomatik deneme koşar) hiçbir şeye dokunulmaz, hata yukarı fırlar.
+ * Taslak yazılamazsa null döner, açılış iptal.
+ */
+export async function openVaultGuarded<B>(d: GuardedOpenDeps<B>): Promise<B | null> {
+  if (d.isSwitch && !(await d.flushDraft())) {
+    await d.onFlushFailed();
+    return null;
+  }
+  const next = await d.open();
+  if (d.isSwitch) {
+    // Açılış sürerken editör açık kaldı; o arada yazılan metni de eski kasaya yaz (backend hâlâ eski).
+    if (!(await d.flushDraft())) {
+      await d.onFlushFailed();
+      return null;
+    }
+    d.clearForSwitch();
+    // Kasa değiştiyse öncekinin security-scoped erişimini bırak (kaynak sızıntısı önlemi).
+    if (d.prevPath && d.prevPath !== d.path) d.releaseBookmark(d.prevPath);
+  }
+  return next;
 }
 
 /** Store'un açılamayan kasa onarımı için verdiği bağımlılıklar (testte sahtesi verilir). */
@@ -48,13 +82,14 @@ export function createOpenRecovery(d: RecoveryDeps) {
     if (!err || retrying) return;
     if (auto && (repicking || !shouldAutoRetry(err, d.getVaultPath()))) return;
     retrying = true;
-    if (!auto) d.setRetryStatus("busy");
+    // Otomatik deneme sürerken de düğme pasif kalsın ('deneniyor').
+    d.setRetryStatus("busy");
     try {
       await d.reopen(err.path);
     } finally {
       retrying = false;
-      // Hâlâ hata varsa görünür geri bildirim; açıldıysa şerit zaten kalktı.
-      if (!auto) d.setRetryStatus(d.getError() ? "failed" : "idle");
+      // Hâlâ hata varsa düğmeyle denemede görünür geri bildirim; otomatik denemede sessizce boşa dön.
+      d.setRetryStatus(d.getError() && !auto ? "failed" : "idle");
     }
   }
 

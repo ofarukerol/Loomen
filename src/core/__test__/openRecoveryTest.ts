@@ -2,7 +2,14 @@
 // denemenin durması, klasörü yeniden seçmenin dört dalı, durum geri bildirimi ve örnek kasadan
 // gerçek kasaya geçişte taslak koruması. Store yerine bağımlılıkları sahte verilen akış denenir.
 
-import { createOpenRecovery, isVaultSwitch, type RecoveryDeps, type RetryStatus } from "../vault/openRecovery";
+import {
+  createOpenRecovery,
+  isVaultSwitch,
+  openVaultGuarded,
+  type GuardedOpenDeps,
+  type RecoveryDeps,
+  type RetryStatus,
+} from "../vault/openRecovery";
 import type { VaultOpenError } from "../vault/openError";
 
 let fails = 0;
@@ -81,10 +88,12 @@ process.on("exit", (c) => {
     const third = a.rec.retry(false);
     await Promise.resolve();
     check("art arda tetikte ikinci/üçüncü deneme engellenir", a.st.reopenCalls === 1, `çağrı=${a.st.reopenCalls}`);
+    check("otomatik deneme sürerken düğme 'deneniyor' (pasif)", a.st.status === "busy");
     const rel = a.st.release;
     a.st.release = null;
     rel?.();
     await Promise.all([first, second, third]);
+    check("başarısız otomatik deneme bitince durum boşa döner ('yine açılamadı' değil)", a.st.status === "idle");
     await a.rec.retry(true);
     check("deneme bitince yenisi başlayabilir", a.st.reopenCalls === 2);
   }
@@ -165,13 +174,59 @@ process.on("exit", (c) => {
   }
   // Örnek kasadan gerçek kasaya geçiş (veri kaybı önlemi)
   {
-    check("kasa başka yola geçiyorsa değişimdir", isVaultSwitch("/v/A", "/v/B", true, null));
-    check("normal yeniden açılış (kasa zaten açık) değişim değil", !isVaultSwitch("/v/A", "/v/A", true, null));
-    check("açılış başlarken hata yokken (ilk açılış) değişim değil", !isVaultSwitch("/v/A", "/v/A", false, null));
-    check("kayıtlı kasa hiç açılmadı, hata var, şimdi açılıyor: değişim sayılır (örnek taslak sızmaz)",
-      isVaultSwitch("/v/A", "/v/A", false, ERR));
-    check("kasa açıkken aynı kasanın hatası sonra düzelirse değişim değil", !isVaultSwitch("/v/A", "/v/A", true, ERR));
-    check("hata başka kasaya aitse değişim değil", !isVaultSwitch("/v/A", "/v/A", false, { ...ERR, path: "/v/B" }));
+    check("kasa başka yola geçiyorsa değişimdir", isVaultSwitch("/v/A", "/v/B", true));
+    check("normal yeniden açılış (kasa zaten açık) değişim değil", !isVaultSwitch("/v/A", "/v/A", true));
+    check("gerçek kasa hiç açılmadıysa (şerit kapatılmış ya da açılış yavaş) değişim sayılır",
+      isVaultSwitch("/v/A", "/v/A", false));
+  }
+  // reopenVault koruma sırası: açılış düşerse açık not ve taslak yerinde kalır
+  {
+    function guarded(over: Partial<GuardedOpenDeps<string>> = {}) {
+      const log: string[] = [];
+      const deps: GuardedOpenDeps<string> = {
+        isSwitch: true,
+        prevPath: "/v/A",
+        path: "/v/B",
+        flushDraft: async () => { log.push("flush"); return true; },
+        onFlushFailed: async () => { log.push("warn"); },
+        open: async () => { log.push("open"); return "backend"; },
+        clearForSwitch: () => log.push("clear"),
+        releaseBookmark: (p) => log.push(`release:${p}`),
+        ...over,
+      };
+      return { log, run: () => openVaultGuarded(deps) };
+    }
+    const ok = guarded();
+    const r = await ok.run();
+    check("kasa değişimi: önce taslak yazılır, açılır, sonra not bırakılır ve eski erişim salınır",
+      r === "backend" && ok.log.join(",") === "flush,open,flush,clear,release:/v/A", ok.log.join(","));
+
+    let flushes = 0;
+    const lateFail = guarded({ flushDraft: async () => ++flushes === 1 });
+    const r3 = await lateFail.run();
+    check("açılış sırasında yazılan metin kaydedilemezse eski kasada kalınır, not bırakılmaz",
+      r3 === null && !lateFail.log.includes("clear") && lateFail.log.includes("warn"), lateFail.log.join(","));
+
+    const fail = guarded({ open: async () => { fail.log.push("open"); throw new Error("forbidden"); } });
+    let threw = false;
+    await fail.run().catch(() => { threw = true; });
+    check("açılış düşerse hata yukarı fırlar", threw);
+    check("açılış düşerse açık not/taslak temizlenmez, erişim bırakılmaz",
+      !fail.log.includes("clear") && !fail.log.some((l) => l.startsWith("release")), fail.log.join(","));
+
+    const noFlush = guarded({ flushDraft: async () => false });
+    const r2 = await noFlush.run();
+    check("taslak yazılamazsa açılış iptal, kullanıcı uyarılır, hiçbir şeye dokunulmaz",
+      r2 === null && noFlush.log.join(",") === "warn", noFlush.log.join(","));
+
+    const same = guarded({ prevPath: "/v/A", path: "/v/A" });
+    await same.run();
+    check("örnek kasadan aynı yolun gerçek açılışı: not bırakılır ama gerçek kasanın erişimi salınmaz",
+      same.log.includes("clear") && !same.log.some((l) => l.startsWith("release")), same.log.join(","));
+
+    const plain = guarded({ isSwitch: false });
+    await plain.run();
+    check("değişim değilse taslak yazılmaz, not bırakılmaz", plain.log.join(",") === "open", plain.log.join(","));
   }
 
   finished = true;
