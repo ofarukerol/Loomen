@@ -30,6 +30,7 @@ import {
 } from "../../screens/Editor/tableModel";
 import { computeBlockInsert } from "../../screens/Editor/editorCommands";
 import { firstSectionCaret } from "../../screens/Editor/noteCaret";
+import { isNarrowEditor, NARROW_EDITOR_PX } from "../../screens/Editor/editorLayout";
 
 let fails = 0;
 function check(name: string, cond: boolean, detail = "") {
@@ -457,6 +458,15 @@ console.log("\n=== 9. Uçtan uca: tablo ekle → satır ekle → alt satıra in 
   check("3) Metin tablonun altında", doc.split("\n")[t3.endLine + 1] === "tablo altı metin", JSON.stringify(doc));
   check("3) Artık alt satır gerekmiyor", !needsTrailingBlankLine(doc.split("\n")));
 }
+
+// --- Dar sütun eşiği (LOM-22) ---
+eq("Dar sütun eşiği 560px", NARROW_EDITOR_PX, 560);
+check("184px dar (800x600, paneller açık)", isNarrowEditor(184));
+check("559px dar", isNarrowEditor(559));
+check("560px dar değil", !isNarrowEditor(560));
+check("1200px dar değil", !isNarrowEditor(1200));
+check("0 (ölçülmemiş) dar sayılmaz", !isNarrowEditor(0));
+check("NaN dar sayılmaz", !isNarrowEditor(NaN));
 
 console.log(`\n${fails === 0 ? "✅ TÜM TESTLER GEÇTİ" : `❌ ${fails} test başarısız`}`);
 process.exit(fails === 0 ? 0 : 1);

@@ -4,6 +4,7 @@ import { FileText, BookOpen, SquarePen, Link2 } from "lucide-react";
 import type { EditorView } from "@codemirror/view";
 import { useAppStore } from "../../store/useAppStore";
 import { useIsMobile } from "../../hooks/useIsMobile";
+import { useIsNarrow } from "../../hooks/useIsNarrow";
 import { useFlushOnExit } from "../../hooks/useFlushOnExit";
 import { Markdown } from "./Markdown";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
@@ -23,6 +24,9 @@ function breadcrumb(path: string): string[] {
 export function EditorScreen() {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
+  // Dar orta sütun (masaüstünde paneller açık, ör. 800x600): Bağlantılar da alttan pencere.
+  const [narrowRef, narrow] = useIsNarrow();
+  const sheetMode = isMobile || narrow;
   const contents = useAppStore((s) => s.noteContents);
   const openTabs = useAppStore((s) => s.openTabs);
   const activeNote = useAppStore((s) => s.activeNote);
@@ -47,6 +51,10 @@ export function EditorScreen() {
   // için alttan sheet). Not değişince kapanır (bağlantıya dokununca doğal kapanış).
   const [blSheetOpen, setBlSheetOpen] = useState(false);
   useEffect(() => setBlSheetOpen(false), [activeNote]);
+  // Sütun genişleyince açık sheet kalmasın (yan panel geri gelir).
+  useEffect(() => {
+    if (!sheetMode) setBlSheetOpen(false);
+  }, [sheetMode]);
 
   // Otomatik kayıt — düzenlerken draft değişince debounce ile yaz (saveNote değişmediyse yazmaz).
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -127,7 +135,7 @@ export function EditorScreen() {
   };
 
   return (
-    <div className="lo-editor">
+    <div ref={narrowRef} className={"lo-editor" + (narrow ? " lo-editor--narrow" : "")}>
       <div className="lo-editortoolbar">
         <div className="lo-crumbs">
           {crumbs.map((c, i) => (
@@ -137,14 +145,13 @@ export function EditorScreen() {
             </span>
           ))}
         </div>
-        <div className="lo-tabs__spacer" />
         {editing && <VoiceRecorder onInsert={insertAtEnd} />}
         <button
           className={
             "lo-tab__action" +
-            ((isMobile ? blSheetOpen : !backlinksCollapsed) ? " lo-tab__action--accent" : "")
+            ((sheetMode ? blSheetOpen : !backlinksCollapsed) ? " lo-tab__action--accent" : "")
           }
-          onClick={() => (isMobile ? setBlSheetOpen(true) : toggleBacklinks())}
+          onClick={() => (sheetMode ? setBlSheetOpen(true) : toggleBacklinks())}
           title={t("editor.backlinks")}
         >
           <Link2 size={15} strokeWidth={1.9} />
@@ -204,12 +211,12 @@ export function EditorScreen() {
             </div>
           )}
         </div>
-        {/* Yan panel yalnız masaüstü — mobilde 288px'lik panel editörü eziyordu; sheet var. */}
-        {!isMobile && !backlinksCollapsed && <BacklinksPanel />}
+        {/* Yan panel yalnız geniş masaüstü — mobilde/dar sütunda 288px'lik panel editörü eziyordu; sheet var. */}
+        {!sheetMode && !backlinksCollapsed && <BacklinksPanel />}
       </div>
 
-      {/* Mobil: Bağlantılar alttan sheet olarak (drawer/sekme sheet'iyle aynı desen). */}
-      {isMobile && (
+      {/* Mobil ve dar sütun: Bağlantılar alttan sheet olarak (drawer/sekme sheet'iyle aynı desen). */}
+      {sheetMode && (
         <>
           <div className={"lo-scrim" + (blSheetOpen ? " is-open" : "")} onClick={() => setBlSheetOpen(false)} />
           <div className={"lo-sheet" + (blSheetOpen ? " is-open" : "")} role="dialog" aria-hidden={!blSheetOpen}>
