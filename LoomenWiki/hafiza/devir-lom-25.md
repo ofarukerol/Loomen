@@ -3,7 +3,7 @@ name: LOM-25 — Klasörü yeniden seç aynı klasörde işe yaramıyor; kasa ş
 description: Kasa açılamayınca çıkan şeritte 'Klasörü yeniden seç' aynı klasörde de işe yarasın, şerit klasör geri gelince kalksın; mobil metin, sağdan sola düzen ve erişilebilirlik düzeltmeleri de eklensin.
 type: project
 proje: loomen
-kaynak: kart LOM-25 · dal fix/LOM-25 · Loomen@90197623c29a7625de70c819c75d4ccbafda4004 · test koşusu f1b0e535-9a3c-48d5-8182-0ed7588d1a6c (Air)
+kaynak: kart LOM-25 · dal fix/LOM-25 · Loomen@6a1401e038a4e00eb8559bc9f3b03dacac0894ec · test koşusu 3064dbc7-61b9-441d-87df-7ce19e3fb740 (Air)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-10-01
@@ -40,13 +40,13 @@ Kasa açılamayınca çıkan şeritte 'Klasörü yeniden seç' aynı klasörde d
 
 Testler geçti.
 
-> Tip denetimi (`npx tsc --noEmit`) temiz, hata yok. `npm test` sonucu: 11 test dosyasının tümü geçti. Yeni `openRecoveryTest` 25 kontrolle geçti: art arda tetikte tek deneme, seçici açıkken otomatik denemenin durması, yeniden seçmenin dört dalı, başarıda şeridin kalkması. Canlı Excalibur testini koşturmadım. Plan `canli_test_gerekir: false` diyor ve bütçe dar. Kabul ölçütündeki "izin düşürülüp aynı
+> Tip denetimi temiz (TSC=0). Birim testleri geçti: "✅ 31 kontrolün tümü geçti", "✅ 11 test dosyasının tümü geçti". Excalibur'daki canlı testi koşmadım. Plandaki `canli_test_gerekir` alanı false, önceki adımda da canlı denemeye gerek olmadığı belirtilmişti. Bu yüzden canlı kontrol (izin düşürülmüş kasada aynı klasörü seçmek, Arapça düzen) yapılmadı. Store'un kendisi Tauri'ye bağlı olduğundan ayrı iş
 
 ## Kanıt
 
 - Dal: `fix/LOM-25`
-- Commit: `Loomen@90197623c29a7625de70c819c75d4ccbafda4004`
-- Test koşusu: `f1b0e535-9a3c-48d5-8182-0ed7588d1a6c` (Air)
+- Commit: `Loomen@6a1401e038a4e00eb8559bc9f3b03dacac0894ec`
+- Test koşusu: `3064dbc7-61b9-441d-87df-7ce19e3fb740` (Air)
 
 ## Durum
 
