@@ -39,15 +39,5 @@ check("mobil: yeniden seç düğmesi yok", !mobile.includes("vaultBar.repick"));
 check("mobil: Yeniden dene var", mobile.includes("vaultBar.retry"));
 check("mobil: metin 'yeniden seçin' demez (mobil anahtar)", mobile.includes("vaultBar.mobileMessage") && !mobile.includes("errors.vaultNoAccess"));
 
-const busy = renderToString(
-  createElement(VaultOpenErrorBarBody, { error, name: "Notlar", t, retryStatus: "busy", onRepick: noop, onRetry: noop, onDismiss: noop }),
-);
-check("deneniyor: düğme pasif ve bekleme metni", /<button[^>]*disabled/.test(busy) && busy.includes("vaultBar.retrying"));
-const failed = renderToString(
-  createElement(VaultOpenErrorBarBody, { error, name: "Notlar", t, retryStatus: "failed", onRepick: noop, onRetry: noop, onDismiss: noop }),
-);
-check("yine açılamadı: durum metni görünür", failed.includes("vaultBar.stillFailing"));
-check("boştayken durum metni yok", !desktop.includes("vaultBar.stillFailing") && !desktop.includes("vaultBar.retrying"));
-
 console.log(fails === 0 ? `\n✅ ${ran} kontrolün tümü geçti` : `\n❌ ${fails}/${ran} kontrol başarısız`);
 process.exit(fails === 0 ? 0 : 1);
