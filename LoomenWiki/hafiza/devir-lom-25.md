@@ -1,12 +1,11 @@
 ---
 name: LOM-25 — Klasörü yeniden seç aynı klasörde işe yaramıyor; kasa şeridi kendiliğinden kalkmıyor
-description: Kasa açılamayınca çıkan şeritte 'Klasörü yeniden seç' aynı klasörde de işe yarasın, şerit klasör geri gelince kalksın; mobil metin, sağdan sola düzen ve erişilebilirlik düzeltmeleri de eklensin.
+description: Testler kaldı: Kasa açılamayınca çıkan şeritte 'Klasörü yeniden seç' aynı klasörde de işe yarasın, şerit klasör geri gelince kalksın; mobil metin, sağdan sola düzen ve erişilebilirlik düzeltmeleri de eklensin.
 type: project
 proje: loomen
-kaynak: kart LOM-25 · dal fix/LOM-25 · Loomen@6a1401e038a4e00eb8559bc9f3b03dacac0894ec · test koşusu 3064dbc7-61b9-441d-87df-7ce19e3fb740 (Air)
-guven: dogrulandi
-durum: test_gecti
-dogrulama_tarihi: 2026-10-01
+kaynak: kart LOM-25 · dal fix/LOM-25 · commit yok · test koşusu e8d0cb30-5639-41e7-9b56-924eba6342fb (Air)
+guven: iddia
+durum: gelistirildi
 ---
 
 # LOM-25 — Klasörü yeniden seç aynı klasörde işe yaramıyor; kasa şeridi kendiliğinden kalkmıyor
@@ -38,16 +37,15 @@ Kasa açılamayınca çıkan şeritte 'Klasörü yeniden seç' aynı klasörde d
 
 ## Test
 
-Testler geçti.
+Testler KALDI; iş doğrulanmadı.
 
-> Tip denetimi temiz (TSC=0). Birim testleri geçti: "✅ 31 kontrolün tümü geçti", "✅ 11 test dosyasının tümü geçti". Excalibur'daki canlı testi koşmadım. Plandaki `canli_test_gerekir` alanı false, önceki adımda da canlı denemeye gerek olmadığı belirtilmişti. Bu yüzden canlı kontrol (izin düşürülmüş kasada aynı klasörü seçmek, Arapça düzen) yapılmadı. Store'un kendisi Tauri'ye bağlı olduğundan ayrı iş
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-25`
-- Commit: `Loomen@6a1401e038a4e00eb8559bc9f3b03dacac0894ec`
-- Test koşusu: `3064dbc7-61b9-441d-87df-7ce19e3fb740` (Air)
+- Test koşusu: `e8d0cb30-5639-41e7-9b56-924eba6342fb` (Air)
 
 ## Durum
 
-Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.
+Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
