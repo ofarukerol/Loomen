@@ -44,6 +44,7 @@ import {
   refineOpenErrorCode,
   type VaultOpenError,
 } from "../core/vault/openError";
+import { createOpenRecovery, isVaultSwitch, type RetryStatus } from "../core/vault/openRecovery";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
@@ -221,6 +222,8 @@ interface AppState {
   writeError: WriteErrorState | null;
   /** Kasa açılamadı (LOM-23): pencere yerine tek şerit. Kasa açılınca temizlenir; kalıcı değildir. */
   vaultOpenError: VaultOpenError | null;
+  /** Şeritteki Yeniden dene düğmesinin durumu (LOM-25). */
+  vaultRetryStatus: RetryStatus;
   backlinksCollapsed: boolean;
 
   // Görev detay paneli (seçili görev id'si "file:line")
@@ -397,7 +400,8 @@ interface AppState {
   removeVault: (path: string) => Promise<void>;
   setVaultRepo: (path: string, repo: GhRepo | null) => void;
   renameVault: (path: string, name: string) => void;
-  changeVaultPath: (path: string) => Promise<void>;
+  /** presetPath verilirse klasör seçici açılmaz (onarım yolu seçimi kendisi yapar). */
+  changeVaultPath: (path: string, presetPath?: string) => Promise<void>;
   createRepoForVault: (path: string, name: string, priv_: boolean) => Promise<GhRepo | null>;
 
   // Vault aksiyonları (dosyaya yazar)
@@ -423,6 +427,9 @@ interface AppState {
   dismissVaultOpenError: () => void;
   /** Açılamayan kasanın klasörünü yeniden seç (listede yoksa yeni kasa ekle). */
   repickFailedVault: () => Promise<void>;
+  /** Açılamayan kasayı yeniden dener (şeritteki Yeniden dene, pencere odağa dönünce). */
+  /** auto=true: pencere odağı tetikledi; yalnız açık kasanın kendisi açılamadıysa denenir. */
+  retryVaultOpen: (auto?: boolean) => Promise<void>;
   /** Son başarısız otomatik kaydı yeniden dene. */
   retryWrite: () => Promise<void>;
   /** Ses notu kaydını kasaya yaz (uzantı + isteğe bağlı ad ile), vault'a göre yolunu döner. */
@@ -620,6 +627,26 @@ function moveKeys<T>(obj: Record<string, T>, to: (p: string) => string | undefin
  * dış değişiklik sanılıp çakışma çıkmasın diye o tur açık nota dokunulmaz (LOM-5).
  */
 let draftWriteGen = 0;
+
+/** Gerçek (Tauri) kasa bir kez açıldı mı; açılmadıysa backend hâlâ örnek kasadır. */
+let backendOpened = false;
+
+/** Açılamayan kasanın yeniden deneme / klasörü yeniden seçme akışı (mantık openRecovery.ts'te, testli). */
+const vaultRecovery = createOpenRecovery({
+  getError: () => useAppStore.getState().vaultOpenError,
+  getVaultPath: () => useAppStore.getState().vaultPath,
+  getVaultPaths: () => useAppStore.getState().vaults,
+  pickFolder: () => pickVaultFolder(),
+  createBookmark: (p) => createBookmark(p),
+  setBookmark: (vaultPath, bookmark) =>
+    useAppStore.setState((st) => ({ vaults: st.vaults.map((v) => (v.path === vaultPath ? { ...v, bookmark } : v)) })),
+  reopen: (p) => useAppStore.getState().reopenVault(p),
+  changeVaultPath: (oldPath, newPath) => useAppStore.getState().changeVaultPath(oldPath, newPath),
+  switchVault: (p) => useAppStore.getState().switchVault(p),
+  addVault: () => useAppStore.getState().addVault(),
+  warnAlreadyVault: (name) => notifyError(i18n.t("vaultBar.alreadyVault", { name })),
+  setRetryStatus: (s) => useAppStore.setState({ vaultRetryStatus: s }),
+});
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -998,6 +1025,7 @@ export const useAppStore = create<AppState>()(
     draftConflict: null,
     writeError: null,
     vaultOpenError: null,
+    vaultRetryStatus: "idle",
     backlinksCollapsed: false,
     selectedTask: null,
     modalLayers: 0,
@@ -1533,9 +1561,9 @@ export const useAppStore = create<AppState>()(
       })),
 
     // Kasanın yerel klasörünü değiştir (yeni klasör seç). Aktifse yeniden açar.
-    changeVaultPath: async (oldPath) => {
+    changeVaultPath: async (oldPath, presetPath) => {
       if (!isTauri()) return;
-      const newPath = await pickVaultFolder();
+      const newPath = presetPath ?? (await pickVaultFolder());
       if (!newPath || newPath === oldPath) return;
       const s = get();
       if (s.vaults.some((v) => v.path === newPath)) return; // bu klasör zaten bir kasa
@@ -1575,7 +1603,7 @@ export const useAppStore = create<AppState>()(
         try {
           const prev = get();
           const prevPath = prev.vaultPath;
-          const isSwitch = prevPath !== path;
+          const isSwitch = isVaultSwitch(prevPath, path, backendOpened, prev.vaultOpenError);
 
           // Kasa değişmeden ÖNCE bekleyen taslağı eski kasaya yaz; aksi halde debounce'lu
           // autosave backend değiştikten sonra ateşler ve notu YENİ kasaya yazardı.
@@ -1589,7 +1617,8 @@ export const useAppStore = create<AppState>()(
 
           // Mevcut kasanın açık sekmelerini sakla (geri dönülünce geri yüklenir).
           const curTabs = get();
-          const tabsByVault: Record<string, VaultTabs> = prevPath
+          // Örnek kasadan ilk gerçek açılışta (prevPath === path) sekmeler gerçek kasanın değil, saklama.
+          const tabsByVault: Record<string, VaultTabs> = prevPath && !(isSwitch && prevPath === path)
             ? {
                 ...curTabs.tabsByVault,
                 [prevPath]: {
@@ -1640,10 +1669,11 @@ export const useAppStore = create<AppState>()(
           void next.cleanupStaleTmp?.().catch(() => {});
 
           // Kasa değiştiyse öncekinin security-scoped erişimini bırak (kaynak sızıntısı önlemi).
-          if (isSwitch && prevPath) void releaseBookmark(prevPath);
+          if (isSwitch && prevPath && prevPath !== path) void releaseBookmark(prevPath);
           // AI arama önbelleği kasaya özeldir — başka kasanın parçaları taşınmasın.
           if (isSwitch) resetIndex();
           backend = next;
+          backendOpened = true;
           localStorage.setItem(VAULT_KEY, target);
           // Şablon klasörünü loadFromBackend'den ÖNCE oluştur ki Şablonlar hemen görünsün.
           try {
@@ -1793,18 +1823,8 @@ export const useAppStore = create<AppState>()(
       if (w && !w.dismissed) set({ writeError: { ...w, dismissed: true } });
     },
     dismissVaultOpenError: () => set({ vaultOpenError: null }),
-    repickFailedVault: async () => {
-      const err = get().vaultOpenError;
-      if (!err) return;
-      // Listede varsa klasörünü değiştir (etkinse yeniden açılır, başarıda şerit kalkar); yoksa yeni kasa.
-      const idx = get().vaults.findIndex((v) => v.path === err.path);
-      if (idx < 0) return get().addVault();
-      await get().changeVaultPath(err.path);
-      // changeVaultPath yalnız etkin kasayı yeniden açar; açılamayan kasa etkin değilse (geçiş
-      // sırasında düştüyse) yeni klasöre burada geç. Başarıda şerit kalkar, başarısızlıkta güncellenir.
-      const now = get().vaults[idx]?.path;
-      if (now && now !== err.path && get().vaultPath !== now) await get().switchVault(now);
-    },
+    repickFailedVault: () => vaultRecovery.repick(),
+    retryVaultOpen: (auto = false) => vaultRecovery.retry(auto),
     retryWrite: async () => {
       const f = lastFailedWrite;
       if (!f) return;

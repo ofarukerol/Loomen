@@ -9,6 +9,8 @@ import {
   recordOpenError,
   openErrorKey,
   refineOpenErrorCode,
+  decideRepick,
+  shouldAutoRetry,
   type VaultOpenError,
 } from "../vault/openError";
 
@@ -52,6 +54,22 @@ eq("tanınmayan metin → unknown", classifyOpenError("tuhaf bir şey"), "unknow
   eq("tanınmayan hata + klasör var → unknown", refineOpenErrorCode("unknown", "present"), "unknown");
   eq("missing her durumda missing", refineOpenErrorCode("missing", "present"), "missing");
 }
+
+// ---- onarımda klasör seçimi (LOM-25) ----
+eq("seçim iptal → cancel", decideRepick("/a", null, ["/a"]), "cancel");
+eq("aynı klasör → same", decideRepick("/a", "/a", ["/a", "/b"]), "same");
+eq("başka kasanın klasörü → other-vault", decideRepick("/a", "/b", ["/a", "/b"]), "other-vault");
+eq("yeni klasör → new", decideRepick("/a", "/c", ["/a", "/b"]), "new");
+eq("Windows: büyük-küçük harf farkı aynı klasör", decideRepick("C:\\Notlar", "c:\\notlar", ["C:\\Notlar"]), "same");
+eq("Windows: sondaki \\ aynı klasör", decideRepick("C:\\Notlar", "C:\\Notlar\\", ["C:\\Notlar"]), "same");
+eq("Windows: başka kasa farklı harfle", decideRepick("C:\\A", "c:\\b\\", ["C:\\A", "C:\\B"]), "other-vault");
+eq("Unix: büyük-küçük harf farklı klasör", decideRepick("/a/Notlar", "/a/notlar", ["/a/Notlar"]), "new");
+// Odakla otomatik deneme yalnız açık kasanın kendisi için (LOM-25 inceleme, engel).
+const errB = { path: "/v/B", code: "missing" as const, detail: "x" };
+check("otomatik deneme: açık kasa A, hata B → denenmez", !shouldAutoRetry(errB, "/v/A"));
+check("otomatik deneme: hata açık kasanın kendisi → denenir", shouldAutoRetry(errB, "/v/B"));
+check("otomatik deneme: hata yok → denenmez", !shouldAutoRetry(null, "/v/B"));
+check("otomatik deneme: açık kasa yok → denenmez", !shouldAutoRetry(errB, null));
 
 // ---- ayrıntı metni ----
 eq("Error nesnesinden mesaj", openErrorDetail(new Error("boom")), "boom");

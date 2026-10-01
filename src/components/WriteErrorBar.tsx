@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, X } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
@@ -42,6 +42,7 @@ interface BodyProps {
  */
 export function WriteErrorBarBody({ error, t, onRetry, onDismiss }: BodyProps) {
   const [open, setOpen] = useState(false);
+  const detailId = useId();
 
   return (
     <div className="lo-writebar" role="alert">
@@ -69,12 +70,13 @@ export function WriteErrorBarBody({ error, t, onRetry, onDismiss }: BodyProps) {
           type="button"
           className="lo-writebar__btn"
           aria-expanded={open}
+          aria-controls={detailId}
           onClick={() => setOpen((v) => !v)}
         >
           {t("writeBar.details")}
         </button>
       </div>
-      {open && <code className="lo-writebar__detail">{error.detail}</code>}
+      <code id={detailId} dir="ltr" hidden={!open} className="lo-writebar__detail">{error.detail}</code>
     </div>
   );
 }

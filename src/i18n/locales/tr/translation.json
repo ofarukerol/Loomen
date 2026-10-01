@@ -696,6 +696,11 @@
   "vaultBar": {
     "repick": "Klasörü yeniden seç",
     "details": "Ayrıntılar",
-    "dismiss": "Kapat"
+    "dismiss": "Kapat",
+    "retry": "Yeniden dene",
+    "retrying": "Yeniden deneniyor…",
+    "stillFailing": "Yine açılamadı.",
+    "alreadyVault": "Bu klasör zaten “{{name}}” kasasına ait. Kasanın kendi klasörünü ya da hiçbir kasaya ait olmayan bir klasör seçin.",
+    "mobileMessage": "“{{name}}” kasası açılamadı. Yeniden deneyin ya da uygulamayı kapatıp tekrar açın."
   }
 }

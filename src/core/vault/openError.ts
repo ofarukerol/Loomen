@@ -66,3 +66,35 @@ export function recordOpenError(prev: VaultOpenError | null, next: VaultOpenErro
 export function openErrorKey(e: VaultOpenError): string {
   return `${e.code}:${e.path}`;
 }
+
+/** Onarım için seçilen klasörün ne yapılacağı: iptal, aynı klasör, başka kasanın klasörü ya da yeni klasör (LOM-25). */
+export type RepickDecision = "cancel" | "same" | "other-vault" | "new";
+
+/** Windows yolunu (sürücü harfi ya da \\sunucu) karşılaştırma için sadeleştirir: büyük-küçük harf, / ve sondaki ayraç. */
+export function normalizeVaultPath(p: string): string {
+  if (!/^([A-Za-z]:|\\\\|\/\/)/.test(p)) return p;
+  const s = p.replace(/\//g, "\\").replace(/\\+$/, "");
+  return s.toLowerCase();
+}
+
+/**
+ * "Klasörü yeniden seç" sonrası seçime karar verir. Aynı klasör sessizce çıkılmaz: izin düşünce
+ * düzeltme tam olarak aynı klasörü yeniden seçmektir. Başka bir kasanın klasörü uyarı gerektirir.
+ * Windows yolları karşılaştırmadan önce sadeleştirilir (büyük-küçük harf, sondaki \).
+ */
+export function decideRepick(failedPath: string, picked: string | null, vaultPaths: string[]): RepickDecision {
+  if (!picked) return "cancel";
+  const n = normalizeVaultPath(picked);
+  if (n === normalizeVaultPath(failedPath)) return "same";
+  if (vaultPaths.some((v) => normalizeVaultPath(v) === n)) return "other-vault";
+  return "new";
+}
+
+/**
+ * Odağa dönünce kendiliğinden yeniden denemek yalnız açık kasanın kendisi açılamadıysa güvenlidir.
+ * Açık olmayan bir kasayı denemek habersiz kasa değiştirir ve taslak yazılamazsa uyarı döngüsü açar;
+ * o yalnız düğmeyle denenir.
+ */
+export function shouldAutoRetry(err: VaultOpenError | null, activeVaultPath: string | null): boolean {
+  return err !== null && err.path === activeVaultPath;
+}
