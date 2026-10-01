@@ -40,6 +40,8 @@ import {
 import {
   classifyOpenError,
   openErrorDetail,
+  decideRepick,
+  shouldAutoRetry,
   recordOpenError,
   refineOpenErrorCode,
   type VaultOpenError,
@@ -397,7 +399,8 @@ interface AppState {
   removeVault: (path: string) => Promise<void>;
   setVaultRepo: (path: string, repo: GhRepo | null) => void;
   renameVault: (path: string, name: string) => void;
-  changeVaultPath: (path: string) => Promise<void>;
+  /** presetPath verilirse klasör seçici açılmaz (onarım yolu seçimi kendisi yapar). */
+  changeVaultPath: (path: string, presetPath?: string) => Promise<void>;
   createRepoForVault: (path: string, name: string, priv_: boolean) => Promise<GhRepo | null>;
 
   // Vault aksiyonları (dosyaya yazar)
@@ -423,6 +426,9 @@ interface AppState {
   dismissVaultOpenError: () => void;
   /** Açılamayan kasanın klasörünü yeniden seç (listede yoksa yeni kasa ekle). */
   repickFailedVault: () => Promise<void>;
+  /** Açılamayan kasayı yeniden dener (şeritteki Yeniden dene, pencere odağa dönünce). */
+  /** auto=true: pencere odağı tetikledi; yalnız açık kasanın kendisi açılamadıysa denenir. */
+  retryVaultOpen: (auto?: boolean) => Promise<void>;
   /** Son başarısız otomatik kaydı yeniden dene. */
   retryWrite: () => Promise<void>;
   /** Ses notu kaydını kasaya yaz (uzantı + isteğe bağlı ad ile), vault'a göre yolunu döner. */
@@ -542,6 +548,40 @@ async function rebaseToAppDataDir(path: string): Promise<string> {
   } catch {
     return path;
   }
+}
+
+/** Şeritten başlatılan yeniden deneme sürerken yenisi başlamaz (odak olayları art arda gelebilir). */
+let retryingVaultOpen = false;
+/** Klasör seçici açıkken odak olayı otomatik deneme başlatmaz (yeni bookmark henüz kaydedilmedi). */
+let repickingFolder = false;
+
+/** Şeritteki "Klasörü yeniden seç": seçiciyi açar; seçime göre erişimi yeniler, klasörü değiştirir ya da uyarır. */
+async function repickFolder(err: VaultOpenError): Promise<void> {
+  const get = useAppStore.getState;
+  const picked = await pickVaultFolder();
+  const decision = decideRepick(err.path, picked, get().vaults.map((v) => v.path));
+  if (decision === "cancel" || !picked) return;
+  if (decision === "other-vault") {
+    const name = get().vaults.find((v) => decideRepick(v.path, picked, [v.path]) === "same")?.name ?? picked;
+    await notifyError(i18n.t("vaultBar.alreadyVault", { name }));
+    return;
+  }
+  if (decision === "same") {
+    // İzin düştüyse çare aynı klasörü yeniden seçmektir: erişimi yeniden üret, kaydı güncelle, aç.
+    const bookmark = await createBookmark(picked);
+    if (bookmark) {
+      useAppStore.setState((st) => ({ vaults: st.vaults.map((v) => (v.path === err.path ? { ...v, bookmark } : v)) }));
+    }
+    await get().reopenVault(err.path);
+    return;
+  }
+  // Farklı yeni klasör: kasanın klasörünü değiştir (etkinse yeniden açılır, başarıda şerit kalkar).
+  const idx = get().vaults.findIndex((v) => v.path === err.path);
+  await get().changeVaultPath(err.path, picked);
+  // changeVaultPath yalnız etkin kasayı yeniden açar; açılamayan kasa etkin değilse (geçiş
+  // sırasında düştüyse) yeni klasöre burada geç. Başarıda şerit kalkar, başarısızlıkta güncellenir.
+  const now = get().vaults[idx]?.path;
+  if (now && now !== err.path && get().vaultPath !== now) await get().switchVault(now);
 }
 
 // Kullanıcıya hata bildir (Tauri'de native dialog, web fallback'te alert/console).
@@ -1533,9 +1573,9 @@ export const useAppStore = create<AppState>()(
       })),
 
     // Kasanın yerel klasörünü değiştir (yeni klasör seç). Aktifse yeniden açar.
-    changeVaultPath: async (oldPath) => {
+    changeVaultPath: async (oldPath, presetPath) => {
       if (!isTauri()) return;
-      const newPath = await pickVaultFolder();
+      const newPath = presetPath ?? (await pickVaultFolder());
       if (!newPath || newPath === oldPath) return;
       const s = get();
       if (s.vaults.some((v) => v.path === newPath)) return; // bu klasör zaten bir kasa
@@ -1796,14 +1836,26 @@ export const useAppStore = create<AppState>()(
     repickFailedVault: async () => {
       const err = get().vaultOpenError;
       if (!err) return;
-      // Listede varsa klasörünü değiştir (etkinse yeniden açılır, başarıda şerit kalkar); yoksa yeni kasa.
-      const idx = get().vaults.findIndex((v) => v.path === err.path);
-      if (idx < 0) return get().addVault();
-      await get().changeVaultPath(err.path);
-      // changeVaultPath yalnız etkin kasayı yeniden açar; açılamayan kasa etkin değilse (geçiş
-      // sırasında düştüyse) yeni klasöre burada geç. Başarıda şerit kalkar, başarısızlıkta güncellenir.
-      const now = get().vaults[idx]?.path;
-      if (now && now !== err.path && get().vaultPath !== now) await get().switchVault(now);
+      // Listede yoksa yeni kasa olarak ekle.
+      if (!get().vaults.some((v) => v.path === err.path)) return get().addVault();
+      if (!isTauri()) return;
+      repickingFolder = true;
+      try {
+        await repickFolder(err);
+      } finally {
+        repickingFolder = false;
+      }
+    },
+    retryVaultOpen: async (auto = false) => {
+      const err = get().vaultOpenError;
+      if (!err || retryingVaultOpen) return;
+      if (auto && (repickingFolder || !shouldAutoRetry(err, get().vaultPath))) return;
+      retryingVaultOpen = true;
+      try {
+        await get().reopenVault(err.path);
+      } finally {
+        retryingVaultOpen = false;
+      }
     },
     retryWrite: async () => {
       const f = lastFailedWrite;

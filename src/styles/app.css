@@ -2146,6 +2146,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   display: block; font-family: var(--font-mono); font-size: 12px;
   word-break: break-all; max-height: 120px; overflow: auto; color: var(--fg3); user-select: text;
 }
+.lo-writebar__detail[hidden], .lo-vaultbar__detail[hidden] { display: none; }
 .lo-writebar__actions { display: flex; flex-wrap: wrap; gap: 6px; padding-inline-start: 24px; }
 .lo-writebar__btn {
   height: 28px; padding: 0 10px; flex-shrink: 0;

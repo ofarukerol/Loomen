@@ -33,6 +33,7 @@ const suites = [
   ["src/core/__test__/writeErrorTest.ts", []],
   ["src/core/__test__/writeErrorBarTest.ts", []],
   ["src/core/__test__/openErrorTest.ts", []],
+  ["src/core/__test__/vaultOpenErrorBarTest.ts", []],
 ];
 
 let failed = 0;

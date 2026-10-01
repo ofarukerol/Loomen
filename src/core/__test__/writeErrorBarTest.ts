@@ -41,11 +41,19 @@ const close = html.indexOf("lo-writebar__close");
 const actions = html.indexOf("lo-writebar__actions");
 check("X üst satırda (head içinde, düğme satırından önce)", head >= 0 && close > head && actions > close);
 check("Yeniden dene ve Ayrıntılar alt satırda", html.indexOf("writeBar.retry") > actions && html.indexOf("writeBar.details") > actions);
-check("Ayrıntılar kapalı başlar", !html.includes("lo-writebar__detail"));
+check("Ayrıntılar kapalı başlar (hidden)", /<code[^>]*hidden/.test(html));
 check('Ayrıntılar düğmesi aria-expanded="false"', html.includes('aria-expanded="false"'));
-check("ham hata metni görünmez", !html.includes("Access is denied"));
+check("ham hata metni yalnız hidden ayrıntıda", !html.replace(/<code[^>]*hidden[^>]*>[\s\S]*?<\/code>/, "").includes("Access is denied"));
 check("sade metin anahtarı geçer", html.includes("errors.writePermission"));
 check("kaydedilmedi satırı geçer", html.includes("writeBar.notSaved"));
+
+{
+  const open = renderToString(createElement(WriteErrorBarBody, { error, t: (k: string) => k, onRetry: () => {}, onDismiss: () => {} }));
+  const id = /aria-controls="([^"]+)"/.exec(open)?.[1];
+  check("Ayrıntılar düğmesinde aria-controls var", !!id);
+  check("aria-controls id'si kapalıyken de DOM'da", !!id && open.includes(`id="${id}"`));
+  check("Ayrıntılarda dir=ltr", /<code[^>]*dir="ltr"/.test(open));
+}
 
 console.log(fails === 0 ? `\n✅ ${ran} kontrolün tümü geçti` : `\n❌ ${fails}/${ran} kontrol başarısız`);
 process.exit(fails === 0 ? 0 : 1);
