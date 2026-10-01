@@ -1,11 +1,12 @@
 ---
 name: LOM-25 — Klasörü yeniden seç aynı klasörde işe yaramıyor; kasa şeridi kendiliğinden kalkmıyor
-description: Testler kaldı: Kasa açılamayınca çıkan şeritte 'Klasörü yeniden seç' aynı klasörde de işe yarasın, şerit klasör geri gelince kalksın; mobil metin, sağdan sola düzen ve erişilebilirlik düzeltmeleri de eklensin.
+description: Kasa açılamayınca çıkan şeritte 'Klasörü yeniden seç' aynı klasörde de işe yarasın, şerit klasör geri gelince kalksın; mobil metin, sağdan sola düzen ve erişilebilirlik düzeltmeleri de eklensin.
 type: project
 proje: loomen
-kaynak: kart LOM-25 · dal fix/LOM-25 · commit yok · test koşusu d7732078-3456-47f7-bd59-0e2820a0616a (Air)
-guven: iddia
-durum: gelistirildi
+kaynak: kart LOM-25 · dal fix/LOM-25 · Loomen@90197623c29a7625de70c819c75d4ccbafda4004 · test koşusu f1b0e535-9a3c-48d5-8182-0ed7588d1a6c (Air)
+guven: dogrulandi
+durum: test_gecti
+dogrulama_tarihi: 2026-10-01
 ---
 
 # LOM-25 — Klasörü yeniden seç aynı klasörde işe yaramıyor; kasa şeridi kendiliğinden kalkmıyor
@@ -37,15 +38,16 @@ Kasa açılamayınca çıkan şeritte 'Klasörü yeniden seç' aynı klasörde d
 
 ## Test
 
-Testler KALDI; iş doğrulanmadı.
+Testler geçti.
 
-> Hızlı kontrol yeşil: `npx tsc --noEmit` temiz (çıkış 0), `npm test` "10 test dosyasının tümü geçti" (openError 39 kontrol, vaultOpenErrorBar 10 kontrol, writeErrorBar dahil hepsi geçti). Canlı Excalibur testini koşturamadım: Excalibur yalnız `main`'den derliyor (KokpitTestDerle depoyu main'e çeker, başka dalı ya da kirli depoyu atlar). Bu iş fix/LOM-25 dalında, commit'lenmemiş; ayrıca LOM-20/21/23
+> Tip denetimi (`npx tsc --noEmit`) temiz, hata yok. `npm test` sonucu: 11 test dosyasının tümü geçti. Yeni `openRecoveryTest` 25 kontrolle geçti: art arda tetikte tek deneme, seçici açıkken otomatik denemenin durması, yeniden seçmenin dört dalı, başarıda şeridin kalkması. Canlı Excalibur testini koşturmadım. Plan `canli_test_gerekir: false` diyor ve bütçe dar. Kabul ölçütündeki "izin düşürülüp aynı
 
 ## Kanıt
 
 - Dal: `fix/LOM-25`
-- Test koşusu: `d7732078-3456-47f7-bd59-0e2820a0616a` (Air)
+- Commit: `Loomen@90197623c29a7625de70c819c75d4ccbafda4004`
+- Test koşusu: `f1b0e535-9a3c-48d5-8182-0ed7588d1a6c` (Air)
 
 ## Durum
 
-Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
+Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.
