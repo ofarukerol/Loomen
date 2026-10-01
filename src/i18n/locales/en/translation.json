@@ -668,7 +668,9 @@
     "saveCopy": "Couldn't save the copy: {{detail}}",
     "createVault": "Couldn't create the vault: {{detail}}",
     "vaultSwitchAborted": "The vault wasn't switched because the note couldn't be saved; your text is still here.",
-    "vaultOpenFailed": "Couldn't open the vault. The folder may have moved or lost access; pick it again in Settings → Vault.",
+    "vaultOpenFailed": "Couldn't open the “{{name}}” vault. Pick the folder again or check Settings → Vault.",
+    "vaultMissing": "The folder for the “{{name}}” vault wasn't found. It may have been moved or deleted; pick the folder again.",
+    "vaultNoAccess": "Can't access the folder for the “{{name}}” vault. Permission may have been lost; pick the folder again.",
     "renameAudio": "Couldn't rename the recording: {{detail}}",
     "deleteAudio": "Couldn't delete the recording: {{detail}}",
     "noteExists": "A note with this name already exists: {{name}}",
@@ -688,6 +690,11 @@
   "writeBar": {
     "notSaved": "Latest changes not saved · {{n}} attempts",
     "retry": "Try again",
+    "details": "Details",
+    "dismiss": "Close"
+  },
+  "vaultBar": {
+    "repick": "Pick folder again",
     "details": "Details",
     "dismiss": "Close"
   }

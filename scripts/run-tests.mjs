@@ -32,6 +32,7 @@ const suites = [
   ["src/core/__test__/mobileTest.ts", []],
   ["src/core/__test__/writeErrorTest.ts", []],
   ["src/core/__test__/writeErrorBarTest.ts", []],
+  ["src/core/__test__/openErrorTest.ts", []],
 ];
 
 let failed = 0;

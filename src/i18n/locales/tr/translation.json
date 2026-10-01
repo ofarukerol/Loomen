@@ -668,7 +668,9 @@
     "saveCopy": "Kopya kaydedilemedi: {{detail}}",
     "createVault": "Kasa oluşturulamadı: {{detail}}",
     "vaultSwitchAborted": "Not kaydedilemediği için kasa değiştirilmedi; metniniz duruyor.",
-    "vaultOpenFailed": "Kasa açılamadı. Klasör taşınmış veya erişim izni düşmüş olabilir; Ayarlar → Kasa bölümünden yeniden seçin.",
+    "vaultOpenFailed": "“{{name}}” kasası açılamadı. Klasörü yeniden seçin ya da Ayarlar → Kasa bölümüne bakın.",
+    "vaultMissing": "“{{name}}” kasasının klasörü bulunamadı. Taşınmış ya da silinmiş olabilir; klasörü yeniden seçin.",
+    "vaultNoAccess": "“{{name}}” kasasının klasörüne erişilemiyor. İzin düşmüş olabilir; klasörü yeniden seçin.",
     "renameAudio": "Ses kaydı yeniden adlandırılamadı: {{detail}}",
     "deleteAudio": "Ses kaydı silinemedi: {{detail}}",
     "noteExists": "Bu adda bir not zaten var: {{name}}",
@@ -688,6 +690,11 @@
   "writeBar": {
     "notSaved": "Son değişiklikler kaydedilmedi · {{n}} deneme",
     "retry": "Yeniden dene",
+    "details": "Ayrıntılar",
+    "dismiss": "Kapat"
+  },
+  "vaultBar": {
+    "repick": "Klasörü yeniden seç",
     "details": "Ayrıntılar",
     "dismiss": "Kapat"
   }

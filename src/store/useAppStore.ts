@@ -37,6 +37,7 @@ import {
   type WriteErrorKind,
   type WriteErrorState,
 } from "../core/vault/writeError";
+import { classifyOpenError, openErrorDetail, recordOpenError, type VaultOpenError } from "../core/vault/openError";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
@@ -205,6 +206,8 @@ interface AppState {
   /** Otomatik kayıt kasaya yazamıyor (LOM-20): pencere yerine tek sabit şerit gösterilir.
    *  İlk başarılı yazmada temizlenir; kalıcı değildir. */
   writeError: WriteErrorState | null;
+  /** Kasa açılamadı (LOM-23): pencere yerine tek şerit. Kasa açılınca temizlenir; kalıcı değildir. */
+  vaultOpenError: VaultOpenError | null;
   backlinksCollapsed: boolean;
 
   // Görev detay paneli (seçili görev id'si "file:line")
@@ -403,6 +406,10 @@ interface AppState {
   flushDraw: () => Promise<boolean>;
   /** Kayıt hatası şeridini kapat; aynı hata sürerken yeniden açılmaz. */
   dismissWriteError: () => void;
+  /** Kasa açılamadı şeridini kapat. */
+  dismissVaultOpenError: () => void;
+  /** Açılamayan kasanın klasörünü yeniden seç (listede yoksa yeni kasa ekle). */
+  repickFailedVault: () => Promise<void>;
   /** Son başarısız otomatik kaydı yeniden dene. */
   retryWrite: () => Promise<void>;
   /** Ses notu kaydını kasaya yaz (uzantı + isteğe bağlı ad ile), vault'a göre yolunu döner. */
@@ -977,6 +984,7 @@ export const useAppStore = create<AppState>()(
     draftEpoch: 0,
     draftConflict: null,
     writeError: null,
+    vaultOpenError: null,
     backlinksCollapsed: false,
     selectedTask: null,
     modalLayers: 0,
@@ -1469,11 +1477,13 @@ export const useAppStore = create<AppState>()(
     removeVault: async (path) => {
       const s = get();
       const vaults = s.vaults.filter((v) => v.path !== path);
+      // Kaldırılan kasanın açılamadı şeridi de kalkar.
+      const openErr = s.vaultOpenError?.path === path ? { vaultOpenError: null } : {};
       if (s.vaultPath !== path) {
-        set({ vaults });
+        set({ vaults, ...openErr });
         return;
       }
-      set({ vaults });
+      set({ vaults, ...openErr });
       if (vaults.length > 0) {
         await get().switchVault(vaults[0].path);
       } else {
@@ -1643,7 +1653,13 @@ export const useAppStore = create<AppState>()(
               : [...cur.vaults, { path: target, repo: firstEver ? cur.ghRepo ?? null : null }];
           const entry = vaults.find((v) => v.path === target)!;
 
-          const patch: Partial<AppState> = { vaultPath: target, vaults, ghRepo: entry.repo, tabsByVault };
+          const patch: Partial<AppState> = {
+            vaultPath: target,
+            vaults,
+            ghRepo: entry.repo,
+            tabsByVault,
+            vaultOpenError: null, // kasa açıldı: şerit kalkar
+          };
           // Kasa değiştiyse (ya da global sekmeler boşsa) hedef kasanın sekmelerini geri yükle.
           if (isSwitch || cur.openTabs.length === 0) {
             const keep = tabsByVault[target] ??
@@ -1680,11 +1696,12 @@ export const useAppStore = create<AppState>()(
           }
         } catch (e) {
           // Açılamadı: taşınmış/silinmiş olabilir ya da (sandbox'ta) erişim izni düşmüştür.
-          // Sessiz kalma — kullanıcı kasasını yeniden seçebilmeli. Sebebi de göster:
-          // yutulan hata teşhisi imkânsız kılıyordu.
+          // Sessiz kalma — kullanıcı kasasını yeniden seçebilmeli. Sebep "Ayrıntılar"da görünür.
+          // Yerel pencere AÇILMAZ (LOM-23): açılışta aynı kasa birkaç kez denenir ve pencereler
+          // üst üste birikiyordu. Tek şerit durumu yazılır; aynı hata tekrar gelince değişmez.
           console.error("[kasa] açılamadı:", path, e);
-          const reason = e instanceof Error ? e.message : String(e);
-          void notifyError(`${i18n.t("errors.vaultOpenFailed")} (${reason})`);
+          const detail = openErrorDetail(e);
+          set({ vaultOpenError: recordOpenError(get().vaultOpenError, { path, code: classifyOpenError(detail), detail }) });
         }
       }),
 
@@ -1756,6 +1773,19 @@ export const useAppStore = create<AppState>()(
     dismissWriteError: () => {
       const w = get().writeError;
       if (w && !w.dismissed) set({ writeError: { ...w, dismissed: true } });
+    },
+    dismissVaultOpenError: () => set({ vaultOpenError: null }),
+    repickFailedVault: async () => {
+      const err = get().vaultOpenError;
+      if (!err) return;
+      // Listede varsa klasörünü değiştir (etkinse yeniden açılır, başarıda şerit kalkar); yoksa yeni kasa.
+      const idx = get().vaults.findIndex((v) => v.path === err.path);
+      if (idx < 0) return get().addVault();
+      await get().changeVaultPath(err.path);
+      // changeVaultPath yalnız etkin kasayı yeniden açar; açılamayan kasa etkin değilse (geçiş
+      // sırasında düştüyse) yeni klasöre burada geç. Başarıda şerit kalkar, başarısızlıkta güncellenir.
+      const now = get().vaults[idx]?.path;
+      if (now && now !== err.path && get().vaultPath !== now) await get().switchVault(now);
     },
     retryWrite: async () => {
       const f = lastFailedWrite;
