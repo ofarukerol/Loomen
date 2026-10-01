@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { VaultPathState } from "./vault/openError";
 
 /**
  * macOS security-scoped bookmark köprüsü (Mac App Store / sandbox).
@@ -74,5 +75,18 @@ export async function allowVaultPath(path: string): Promise<void> {
     await invoke("vault_allow", { path });
   } catch (e) {
     console.warn("[vault] kapsama alınamadı:", e);
+  }
+}
+
+/**
+ * Kasa klasörü yerinde mi (LOM-24)? Açılamayan kasada sebebi ayırmak için: Windows silinmiş
+ * klasöre de "forbidden path" diyor. Hata ya da tanınmayan cevap → "unknown" (ilk sebep korunur).
+ */
+export async function vaultPathState(path: string): Promise<VaultPathState> {
+  try {
+    const r = await invoke<string>("vault_path_state", { path });
+    return r === "missing" || r === "present" ? r : "unknown";
+  } catch {
+    return "unknown";
   }
 }

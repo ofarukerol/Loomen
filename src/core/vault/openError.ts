@@ -6,6 +6,9 @@
 
 export type OpenErrorCode = "missing" | "permission" | "unknown";
 
+/** Kasa klasörünün diskteki durumu (çekirdekteki vault_path_state cevabı). */
+export type VaultPathState = "missing" | "present" | "unknown";
+
 export interface VaultOpenError {
   path: string;
   code: OpenErrorCode;
@@ -25,6 +28,15 @@ export function classifyOpenError(raw: string): OpenErrorCode {
   if ((n !== null && MISSING_OS.has(n)) || MISSING.some((m) => s.includes(m))) return "missing";
   if ((n !== null && PERMISSION_OS.has(n)) || PERMISSION.some((m) => s.includes(m))) return "permission";
   return "unknown";
+}
+
+/**
+ * Klasörün gerçek durumuna göre sebebi düzeltir (LOM-24). Windows silinmiş/taşınmış klasöre de
+ * "forbidden path" diyor; metne bakınca izin sorunu sanılıyordu. Klasör yoksa sebep "missing";
+ * klasör yerindeyse ya da bakılamadıysa ilk sınıflandırma korunur.
+ */
+export function refineOpenErrorCode(code: OpenErrorCode, state: VaultPathState): OpenErrorCode {
+  return state === "missing" ? "missing" : code;
 }
 
 /** Hatanın ham metni; "Ayrıntılar" altında gösterilir, 300 karakterle sınırlı. */

@@ -8,6 +8,7 @@ import {
   vaultLabel,
   recordOpenError,
   openErrorKey,
+  refineOpenErrorCode,
   type VaultOpenError,
 } from "../vault/openError";
 
@@ -39,6 +40,18 @@ eq("Windows: erişim reddedildi → permission", classifyOpenError("Access is de
 eq("Tauri: yasak yol → permission", classifyOpenError("forbidden path: /Users/x/Notlar"), "permission");
 eq("macOS: izin yok → permission", classifyOpenError("Operation not permitted (os error 1)"), "permission");
 eq("tanınmayan metin → unknown", classifyOpenError("tuhaf bir şey"), "unknown");
+
+// ---- klasörün gerçek durumuna göre düzeltme (LOM-24) ----
+{
+  // Excalibur'da görülen: kasa klasörü silinmişken Windows "forbidden path" döndürüyor.
+  const forbidden = classifyOpenError("forbidden path: C:\\Users\\x\\Notlar");
+  eq("forbidden path + klasör yok → missing", refineOpenErrorCode(forbidden, "missing"), "missing");
+  eq("forbidden path + klasör var → permission", refineOpenErrorCode(forbidden, "present"), "permission");
+  eq("forbidden path + bakılamadı → permission", refineOpenErrorCode(forbidden, "unknown"), "permission");
+  eq("tanınmayan hata + klasör yok → missing", refineOpenErrorCode("unknown", "missing"), "missing");
+  eq("tanınmayan hata + klasör var → unknown", refineOpenErrorCode("unknown", "present"), "unknown");
+  eq("missing her durumda missing", refineOpenErrorCode("missing", "present"), "missing");
+}
 
 // ---- ayrıntı metni ----
 eq("Error nesnesinden mesaj", openErrorDetail(new Error("boom")), "boom");

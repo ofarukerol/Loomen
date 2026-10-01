@@ -37,11 +37,24 @@ import {
   type WriteErrorKind,
   type WriteErrorState,
 } from "../core/vault/writeError";
-import { classifyOpenError, openErrorDetail, recordOpenError, type VaultOpenError } from "../core/vault/openError";
+import {
+  classifyOpenError,
+  openErrorDetail,
+  recordOpenError,
+  refineOpenErrorCode,
+  type VaultOpenError,
+} from "../core/vault/openError";
 import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
 import { parseTasks } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
-import { createBookmark, resolveBookmark, releaseBookmark, appIsSandboxed, allowVaultPath } from "../core/bookmark";
+import {
+  createBookmark,
+  resolveBookmark,
+  releaseBookmark,
+  appIsSandboxed,
+  allowVaultPath,
+  vaultPathState,
+} from "../core/bookmark";
 import { gh, appIsMobile, appPlatform, type DeviceStart, type GhUser, type GhRepo } from "../core/github";
 import {
   gcal,
@@ -1557,6 +1570,8 @@ export const useAppStore = create<AppState>()(
         // klasör adını koruyup kökü tazele. Masaüstünde kasa app-data altında DEĞİLDİR,
         // yol olduğu gibi kullanılır.
         const path = get().platformMobile ? await rebaseToAppDataDir(rawPath) : rawPath;
+        // Bookmark'ın çözdüğü güncel yol; catch'te klasörün varlığına bu yoldan bakılır.
+        let target = path;
         try {
           const prev = get();
           const prevPath = prev.vaultPath;
@@ -1596,7 +1611,6 @@ export const useAppStore = create<AppState>()(
 
           // Sandbox (Mac App Store): klasöre erişimi bookmark ile geri al. Sandbox dışında
           // bu çağrı zararsızdır (erişim zaten açıktır).
-          let target = path;
           const saved = prev.vaults.find((v) => v.path === path)?.bookmark;
           if (saved) {
             const r = await resolveBookmark(saved);
@@ -1701,7 +1715,11 @@ export const useAppStore = create<AppState>()(
           // üst üste birikiyordu. Tek şerit durumu yazılır; aynı hata tekrar gelince değişmez.
           console.error("[kasa] açılamadı:", path, e);
           const detail = openErrorDetail(e);
-          set({ vaultOpenError: recordOpenError(get().vaultOpenError, { path, code: classifyOpenError(detail), detail }) });
+          // Windows silinmiş/taşınmış klasöre de "forbidden path" der (LOM-24): metin izin
+          // sorunu gibi görünse de klasör yoksa "bulunamadı" denir.
+          let code = classifyOpenError(detail);
+          if (code !== "missing") code = refineOpenErrorCode(code, await vaultPathState(target));
+          set({ vaultOpenError: recordOpenError(get().vaultOpenError, { path, code, detail }) });
         }
       }),
 

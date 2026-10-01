@@ -90,6 +90,31 @@ fn vault_allow(app: tauri::AppHandle, path: String) -> Result<(), String> {
     allow_vault(&app, &path)
 }
 
+/// Kasa açılamadığında klasörün gerçekten yerinde olup olmadığı (LOM-24).
+///
+/// Windows, silinmiş ya da adı değişmiş klasör için de "forbidden path" döndürüyor; arayüz
+/// bunu izin sorunu sanıp "izin düşmüş olabilir" diyordu. Açma hatasından bağımsız bakılır:
+/// - "missing": yol yok ya da klasör değil,
+/// - "present": klasör yerinde,
+/// - "unknown": göreli yol ya da bakılamadı (ör. izin yok) — arayüz ilk sebebi korur.
+fn kasa_yolu_durumu(path: &str) -> &'static str {
+    let yol = std::path::Path::new(path);
+    if path.is_empty() || !yol.is_absolute() {
+        return "unknown";
+    }
+    match std::fs::metadata(yol) {
+        Ok(m) if m.is_dir() => "present",
+        Ok(_) => "missing",
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => "missing",
+        Err(_) => "unknown",
+    }
+}
+
+#[tauri::command]
+fn vault_path_state(path: String) -> &'static str {
+    kasa_yolu_durumu(&path)
+}
+
 /// Frontend'in platforma göre davranması için (mobilde yerel kasa + API sync).
 #[tauri::command]
 fn app_is_mobile() -> bool {
@@ -192,6 +217,7 @@ pub fn run() {
         app_platform,
         app_is_sandboxed,
         vault_allow,
+        vault_path_state,
         bookmark_create,
         bookmark_resolve,
         bookmark_release,
@@ -228,6 +254,7 @@ pub fn run() {
         app_platform,
         app_is_sandboxed,
         vault_allow,
+        vault_path_state,
         bookmark_create,
         bookmark_resolve,
         bookmark_release,
@@ -306,7 +333,7 @@ pub fn run() {
 /// dosya kapsamı sessizce tüm diske açılır.
 #[cfg(test)]
 mod tests {
-    use super::{dirs_ev, dogrula_kasa_yolu};
+    use super::{dirs_ev, dogrula_kasa_yolu, kasa_yolu_durumu};
 
     #[test]
     fn goreli_yol_reddedilir() {
@@ -348,5 +375,29 @@ mod tests {
         let yol = dogrula_kasa_yolu(d.to_str().unwrap()).expect("kabul edilmeli");
         assert_eq!(yol, std::fs::canonicalize(&d).unwrap());
         let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn durum_olmayan_klasor_missing() {
+        let yok = std::env::temp_dir().join("loomen_kesinlikle_olmayan_kasa_durum");
+        assert_eq!(kasa_yolu_durumu(yok.to_str().unwrap()), "missing");
+        let f = std::env::temp_dir().join("loomen_kasa_durum_testi.txt");
+        std::fs::write(&f, b"x").unwrap();
+        assert_eq!(kasa_yolu_durumu(f.to_str().unwrap()), "missing");
+        let _ = std::fs::remove_file(&f);
+    }
+
+    #[test]
+    fn durum_var_olan_klasor_present() {
+        let d = std::env::temp_dir().join("loomen_kasa_durum_klasor");
+        std::fs::create_dir_all(&d).unwrap();
+        assert_eq!(kasa_yolu_durumu(d.to_str().unwrap()), "present");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn durum_goreli_ya_da_bos_yol_unknown() {
+        assert_eq!(kasa_yolu_durumu(""), "unknown");
+        assert_eq!(kasa_yolu_durumu("kasa"), "unknown");
     }
 }
