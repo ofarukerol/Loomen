@@ -45,7 +45,7 @@ Kasa klasörü açılamayınca açılan yerel hata pencereleri yerine uygulama i
 
 Testler KALDI; iş doğrulanmadı.
 
-> Hızlı kontrol yeşil: tsc hatasız, npm test "9 test dosyasının tümü geçti" (openErrorTest 21 kontrol geçti), npm run build "built in 5.95s", tr/en/ar çeviri anahtarları birebir aynı. Zorunlu canlı Excalibur testini koşturamadım. Excalibur test sürümünü yalnız main'den derliyor (KokpitTestDerle başka daldaki depoyu atlıyor), fix/LOM-23 main'de değil, push da yasak. Dal Excalibur'a ulaşamadığı için g
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
