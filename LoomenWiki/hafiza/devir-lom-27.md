@@ -3,10 +3,10 @@ name: LOM-27 — Kasa açılamadığında örnek nottaki taslak gerçek kasadaki
 description: Kayıtlı kasa açılamayıp örnek kasa gösterilirken gerçek kasa sonradan açılırsa bunu kasa değişimi sayan korumayı (origin/fix/LOM-25-koruma, 6a1401e) main'deki güncel koda elle uyarlamak; böylece örnek nottaki taslak gerçek kasaya yazılamaz, açılış düşerse açık not kapanmaz.
 type: project
 proje: loomen
-kaynak: kart LOM-27 · dal fix/LOM-27 · Loomen@24cf09ea238cd09085ea0a298fa62d35d61cf9ab · test koşusu 54fbfa60-78d2-4caf-9b2a-652ad7dbf4db (Excalibur)
+kaynak: kart LOM-27 · dal fix/LOM-27 · Loomen@24cf09ea238cd09085ea0a298fa62d35d61cf9ab · test koşusu 36de48e1-5341-4f3a-a358-ab40738b95e4 (Excalibur)
 guven: dogrulandi
 durum: test_gecti
-dogrulama_tarihi: 2026-10-01
+dogrulama_tarihi: 2026-10-02
 ---
 
 # LOM-27 — Kasa açılamadığında örnek nottaki taslak gerçek kasadaki aynı adlı notun üstüne yazılabiliyor (veri kaybı)
@@ -42,13 +42,13 @@ Kayıtlı kasa açılamayıp örnek kasa gösterilirken gerçek kasa sonradan a�
 
 Testler geçti.
 
-> TESTLER GEÇTİ. `npx tsc --noEmit` hatasız (çıkış 0). `npm test`: çıkış 0, "11 test dosyasının tümü geçti"; yeni openGuardTest'te "31 kontrolün tümü geçti". Canlı test kartta gerekmez dendiği için koşturulmadı. Not: komutun başındaki `cd Loomen` hata verdi, çünkü çalışma klasörü zaten Loomen'di. Komutlar doğru klasörde koştu.
+> Hızlı kontrol yeşil. `npx tsc --noEmit` hatasız bitti (çıkış 0). `npm test` çıkış 0 verdi: "✅ 31 kontrolün tümü geçti", "✅ 11 test dosyasının tümü geçti". Korumayı deneyen openGuardTest de geçti: taslak örnek kasaya yazılıyor, gerçek kasaya yazılmıyor, açılış düşerse hiçbir şey temizlenmiyor. Canlı test gerekmiyor, kartta da öyle yazıyor.
 
 ## Kanıt
 
 - Dal: `fix/LOM-27`
 - Commit: `Loomen@24cf09ea238cd09085ea0a298fa62d35d61cf9ab`
-- Test koşusu: `54fbfa60-78d2-4caf-9b2a-652ad7dbf4db` (Excalibur)
+- Test koşusu: `36de48e1-5341-4f3a-a358-ab40738b95e4` (Excalibur)
 
 ## Durum
 
