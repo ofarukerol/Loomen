@@ -3,6 +3,19 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>debugging</string>
+    <string>app-store-connect</string>
+    <key>teamID</key>
+    <string>X82U3597A7</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Apple Distribution</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>org.loomen.notes</key>
+        <string>Loomen AppStore</string>
+    </dict>
+    <key>uploadSymbols</key>
+    <true/>
 </dict>
 </plist>

@@ -78,3 +78,11 @@ yarn-error.log*
 pnpm-debug.log*
 src-tauri/*.provisionprofile
 Loomen.pkg
+
+# Imza anahtarları ve profiller asla repoya girmesin
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.provisionprofile
+keystore.properties

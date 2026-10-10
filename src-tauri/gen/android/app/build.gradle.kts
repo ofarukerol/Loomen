@@ -13,6 +13,15 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Yayın imzası: CI'da LOOMEN_KEYSTORE_* ortam değişkenlerinden, yerelde
+// ~/.loomen-keys/keystore.properties dosyasından okunur. İkisi de yoksa release imzasız kalır.
+val keystoreProps = Properties().apply {
+    val f = File(System.getProperty("user.home"), ".loomen-keys/keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun signingValue(env: String, key: String): String? =
+    System.getenv(env) ?: keystoreProps.getProperty(key)
+
 android {
     compileSdk = 36
     namespace = "org.loomen.notes"
@@ -23,6 +32,17 @@ android {
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    signingConfigs {
+        val storePath = signingValue("LOOMEN_KEYSTORE_FILE", "storeFile")
+        if (storePath != null) {
+            create("release") {
+                storeFile = file(storePath)
+                storePassword = signingValue("LOOMEN_KEYSTORE_PASSWORD", "storePassword")
+                keyAlias = signingValue("LOOMEN_KEY_ALIAS", "keyAlias")
+                keyPassword = signingValue("LOOMEN_KEY_PASSWORD", "keyPassword")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -37,6 +57,7 @@ android {
             }
         }
         getByName("release") {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
