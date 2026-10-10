@@ -13,7 +13,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>org.loomen.notes</key>
-        <string>Loomen AppStore</string>
+        <string>Loomen AppStore Mac2</string>
     </dict>
     <key>uploadSymbols</key>
     <true/>
