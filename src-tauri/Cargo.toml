@@ -46,5 +46,8 @@ keyring = "4"
 # açıldığında da sürdürebilmek için security-scoped bookmark gerekir. Tauri'de yerleşik
 # desteği yok (tauri-apps/tauri#3716), NSURL API'leri objc2 ile çağrılır.
 [target.'cfg(target_os = "macos")'.dependencies]
+# macOS evrensel (Intel + Apple Silicon) paketinde x86_64 hedefi için sistem OpenSSL'i yok;
+# git2'nin openssl-sys'i kaynaktan, uygulamaya gömülü derlenir (App Store sandbox'ı için de temiz).
+openssl-sys = { version = "0.9", features = ["vendored"] }
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSURL", "NSString", "NSData", "NSError", "NSDictionary", "NSArray"] }
