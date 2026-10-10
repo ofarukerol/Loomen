@@ -52,6 +52,20 @@ jobs:
           VITE_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.VITE_GOOGLE_ANDROID_CLIENT_ID }}
         run: npm run tauri build -- --bundles nsis,msi
 
+      # Microsoft Store paketi (imzasız MSIX; Store imzalar). Ayrıntı: scripts/build-msix.ps1
+      - name: MSIX paketi
+        shell: pwsh
+        run: |
+          $v = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          ./scripts/build-msix.ps1 -Version $v
+
+      - name: MSIX yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: loomen-windows-msix
+          path: Loomen_*_x64.msix
+          if-no-files-found: error
+
       - name: Çıktıları yükle
         uses: actions/upload-artifact@v4
         with:
