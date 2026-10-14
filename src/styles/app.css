@@ -1015,7 +1015,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   color: var(--fg3);
 }
 .lo-card.lo-set__card { margin-bottom: 28px; }
-.lo-set__row { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; }
+.lo-set__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; }
 .lo-card.lo-set__row { margin-bottom: 28px; }
 .lo-set__row--border { border-bottom: 1px solid var(--line-soft); }
 .lo-set__rowtitle { font-size: 14.5px; font-weight: 500; color: var(--fg1); }
@@ -1048,7 +1048,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   cursor: pointer;
   outline: none;
 }
-.lo-switch { width: 40px; height: 22px; border: none; border-radius: 20px; cursor: pointer; padding: 2px; display: flex; background: var(--line); transition: background 0.15s; }
+.lo-switch { flex: none; width: 40px; height: 22px; border: none; border-radius: 20px; cursor: pointer; padding: 2px; display: flex; background: var(--line); transition: background 0.15s; }
 .lo-switch.is-on { background: var(--accent); }
 .lo-switch__knob { width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: var(--sh1); transition: transform 0.18s; }
 .lo-switch.is-on .lo-switch__knob { transform: translateX(18px); }
@@ -2841,6 +2841,12 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 
 .lo-ai__pactions { display: flex; align-items: center; gap: 8px; flex: none; }
 .lo-ai__del:hover { color: var(--danger); border-color: var(--danger); }
+/* Dar ekranda (telefon) sağlayıcı alanları tam genişlik alsın, Test/Sil altına insin. */
+@media (max-width: 600px) {
+  .lo-ai__prow { flex-direction: column; align-items: stretch; }
+  .lo-ai__field { flex: 1 1 100%; }
+  .lo-ai__pactions { align-self: flex-start; }
+}
 
 /* --- Sohbet ekranı --- */
 .lo-ai { flex: 1; min-height: 0; display: flex; flex-direction: column; }
