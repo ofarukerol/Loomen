@@ -1,12 +1,11 @@
 ---
 name: LOM-32 — Loomen mobil: yeni sürüm geldiğinde kibar, göz yormayan güncelleme uyarısı
-description: Loomen mobilde (iOS/Android) açılışta günde en fazla bir kez loomen.org/surum.json Rust üzerinden okunup uygulama sürümüyle karşılaştırılır; yeni sürüm varsa yüzen alt çubuğun hemen üstünde "Yeni sürüm hazır · Güncelle · Sonra" şeridi çıkar, Sonra aynı sürümü 3 gün gizler, ağ hatası sessiz geçer, masaüstünde hiç görünmez.
+description: Testler kaldı: Loomen mobilde (iOS/Android) açılışta günde en fazla bir kez loomen.org/surum.json Rust üzerinden okunup uygulama sürümüyle karşılaştırılır; yeni sürüm varsa yüzen alt çubuğun hemen üstünde "Yeni sürüm hazır · Güncelle · Sonra" şeridi çıkar, Sonra aynı sürümü 3 gün gizler, ağ hatası sessiz geçer, masaüstünde hiç görünmez.
 type: project
 proje: loomen
-kaynak: kart LOM-32 · dal fix/LOM-32 · Loomen@0cd16673bb946483a040a5c3ca9e95859194c73d · test koşusu a36dfd01-74e0-4d06-8926-16154826eae7 (Excalibur)
-guven: dogrulandi
-durum: test_gecti
-dogrulama_tarihi: 2026-10-15
+kaynak: kart LOM-32 · dal fix/LOM-32 · commit yok · test koşusu 015e3bf9-0d01-4324-a729-d482e95fb151 (Excalibur)
+guven: iddia
+durum: gelistirildi
 ---
 
 # LOM-32 — Loomen mobil: yeni sürüm geldiğinde kibar, göz yormayan güncelleme uyarısı
@@ -47,16 +46,15 @@ Loomen mobilde (iOS/Android) açılışta günde en fazla bir kez loomen.org/sur
 
 ## Test
 
-Testler geçti.
+Testler KALDI; iş doğrulanmadı.
 
-> Bütün kontroller ön planda yeniden koşuldu ve geçti. npm test'te 11 dosyanın tamamı yeşil, sürüm karşılaştırma testinde 73 kontrol geçti. Tip denetimi hatasız. cargo check ve cargo test yeşil, 17 Rust testi geçti. Şeridin telefondaki görünüşüne elle bakılacak.
+> Dört komutun hepsi geçti. npm test'te 12 dosya yeşil, mobileUpdateTest'te 73 kontrol geçti. Tip denetimi temiz çıktı. cargo check derlendi, cargo test'te 17 test geçti. Telefonda elle bakış kaldı. Kokpit: `insana_kalan` yalnız insanın fiziksel olarak bakması gereken işler içindir (yazıcı fişi, para çekmecesi, terazi, kart/barkod okuyucu, POS/kasa cihazı, kiosk, dokunmatik ekran, ekranda gözle bakı
 
 ## Kanıt
 
 - Dal: `fix/LOM-32`
-- Commit: `Loomen@0cd16673bb946483a040a5c3ca9e95859194c73d`
-- Test koşusu: `a36dfd01-74e0-4d06-8926-16154826eae7` (Excalibur)
+- Test koşusu: `015e3bf9-0d01-4324-a729-d482e95fb151` (Excalibur)
 
 ## Durum
 
-Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.
+Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
