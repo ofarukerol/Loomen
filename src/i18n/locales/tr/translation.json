@@ -700,5 +700,22 @@
     "retry": "Yeniden dene",
     "alreadyVault": "Bu klasör zaten “{{name}}” kasasına ait. Kasanın kendi klasörünü ya da hiçbir kasaya ait olmayan bir klasör seçin.",
     "mobileMessage": "“{{name}}” kasası açılamadı. Yeniden deneyin ya da uygulamayı kapatıp tekrar açın."
+  },
+  "update": {
+    "title": "Güncelleme",
+    "current": "Kurulu sürüm: {{version}}",
+    "sub": "Yeni sürüm çıkınca uygulama sana haber verir.",
+    "check": "Güncellemeleri denetle",
+    "checking": "Yeni sürüm aranıyor…",
+    "upToDate": "En güncel sürümü kullanıyorsun.",
+    "available": "Loomen {{version}} hazır. Güncelleyip yeniden başlatayım mı?",
+    "availableShort": "Loomen {{version}} hazır.",
+    "install": "Güncelle",
+    "later": "Sonra",
+    "retry": "Tekrar dene",
+    "downloading": "Güncelleme indiriliyor…",
+    "downloadingPct": "Güncelleme indiriliyor… %{{pct}}",
+    "failed": "Güncelleme kurulamadı. Tekrar deneyebilirsin.",
+    "checkFailed": "Sürüm bilgisi alınamadı. İnternet bağlantını kontrol et."
   }
 }

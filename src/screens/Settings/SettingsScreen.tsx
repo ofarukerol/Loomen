@@ -57,40 +57,40 @@ function UpdateSettings() {
   const pct = status.kind === "installing" ? progressPercent(status.progress) : null;
   const sub =
     status.kind === "checking"
-      ? t("update.checking", { defaultValue: "Yeni sürüm aranıyor…" })
+      ? t("update.checking")
       : status.kind === "none"
-        ? t("update.upToDate", { defaultValue: "En güncel sürümü kullanıyorsun." })
+        ? t("update.upToDate")
         : status.kind === "available"
-          ? t("update.availableShort", { version: status.info.version, defaultValue: "Loomen {{version}} hazır." })
+          ? t("update.availableShort", { version: status.info.version })
           : status.kind === "installing"
             ? pct === null
-              ? t("update.downloading", { defaultValue: "Güncelleme indiriliyor…" })
-              : t("update.downloadingPct", { pct, defaultValue: "Güncelleme indiriliyor… %{{pct}}" })
+              ? t("update.downloading")
+              : t("update.downloadingPct", { pct })
             : status.kind === "error"
               ? status.info
-                ? t("update.failed", { defaultValue: "Güncelleme kurulamadı. Tekrar deneyebilirsin." })
-                : t("update.checkFailed", { defaultValue: "Sürüm bilgisi alınamadı. İnternet bağlantını kontrol et." })
-              : t("update.sub", { defaultValue: "Yeni sürüm çıkınca uygulama sana haber verir." });
+                ? t("update.failed")
+                : t("update.checkFailed")
+              : t("update.sub");
   const canInstall = status.kind === "available" || (status.kind === "error" && !!status.info);
 
   return (
-    <Section label={t("update.title", { defaultValue: "Güncelleme" })}>
+    <Section label={t("update.title")}>
       <div className="lo-set__row">
         <div>
           <div className="lo-set__rowtitle">
             {version
-              ? t("update.current", { version, defaultValue: "Kurulu sürüm: {{version}}" })
-              : t("update.title", { defaultValue: "Güncelleme" })}
+              ? t("update.current", { version })
+              : t("update.title")}
           </div>
           <div className="lo-set__rowsub">{sub}</div>
         </div>
         {canInstall ? (
           <button type="button" className="lo-btn lo-btn--primary" onClick={() => void runUpdateInstall()}>
-            {t("update.install", { defaultValue: "Güncelle" })}
+            {t("update.install")}
           </button>
         ) : (
           <button type="button" className="lo-btn" disabled={busy} onClick={() => void runUpdateCheck()}>
-            {t("update.check", { defaultValue: "Güncellemeleri denetle" })}
+            {t("update.check")}
           </button>
         )}
       </div>

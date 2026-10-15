@@ -39,14 +39,11 @@ export function UpdateBanner({ enabled }: { enabled: boolean }) {
   const pct = installing ? progressPercent(status.progress) : null;
   const text = installing
     ? pct === null
-      ? t("update.downloading", { defaultValue: "Güncelleme indiriliyor…" })
-      : t("update.downloadingPct", { pct, defaultValue: "Güncelleme indiriliyor… %{{pct}}" })
+      ? t("update.downloading")
+      : t("update.downloadingPct", { pct })
     : status.kind === "error"
-      ? t("update.failed", { defaultValue: "Güncelleme kurulamadı. Tekrar deneyebilirsin." })
-      : t("update.available", {
-          version: info.version,
-          defaultValue: "Loomen {{version}} hazır. Güncelleyip yeniden başlatayım mı?",
-        });
+      ? t("update.failed")
+      : t("update.available", { version: info.version });
 
   return (
     <div className="lo-vaultbar lo-updatebar" role="status">
@@ -57,8 +54,8 @@ export function UpdateBanner({ enabled }: { enabled: boolean }) {
           <button
             type="button"
             className="lo-vaultbar__btn lo-vaultbar__close"
-            aria-label={t("update.later", { defaultValue: "Sonra" })}
-            title={t("update.later", { defaultValue: "Sonra" })}
+            aria-label={t("update.later")}
+            title={t("update.later")}
             onClick={dismissUpdate}
           >
             <X size={14} strokeWidth={2} />
@@ -69,11 +66,11 @@ export function UpdateBanner({ enabled }: { enabled: boolean }) {
         <div className="lo-vaultbar__actions">
           <button type="button" className="lo-vaultbar__btn" onClick={() => void runUpdateInstall()}>
             {status.kind === "error"
-              ? t("update.retry", { defaultValue: "Tekrar dene" })
-              : t("update.install", { defaultValue: "Güncelle" })}
+              ? t("update.retry")
+              : t("update.install")}
           </button>
           <button type="button" className="lo-vaultbar__btn" onClick={dismissUpdate}>
-            {t("update.later", { defaultValue: "Sonra" })}
+            {t("update.later")}
           </button>
         </div>
       )}
