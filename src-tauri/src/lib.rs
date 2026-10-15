@@ -4,6 +4,7 @@
 //  - github_git  : git2/libgit2 senkron — YALNIZ masaüstü (openssl mobilde derlenmez)
 //  - google      : Google Takvim OAuth + API
 //  - ai          : AI asistanı (LLM sağlayıcı köprüsü + anahtar deposu) — opsiyonel modül
+//  - surum       : loomen.org sürüm dosyası (mobil güncelleme uyarısı)
 mod ai;
 mod github;
 mod github_api;
@@ -13,6 +14,7 @@ mod google;
 mod updater;
 #[cfg(target_os = "macos")]
 mod macos_bookmark;
+mod surum;
 
 use tauri_plugin_fs::FsExt;
 
@@ -253,6 +255,7 @@ pub fn run() {
         updater::app_update_supported,
         updater::update_check,
         updater::update_install,
+        surum::surum_kontrol,
     ]);
 
     // Mobil: git_sync YOK (git2 derlenmez); senkron github_api ile.
@@ -290,6 +293,7 @@ pub fn run() {
         ai::llm::ai_provider_test,
         ai::stt::ai_transcribe,
         updater::app_update_supported,
+        surum::surum_kontrol,
     ]);
 
     // macOS: yerel menü çubuğu. KRİTİK — sistem "Start Dictation" (sesli yazma) ve

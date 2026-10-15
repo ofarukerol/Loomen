@@ -12,6 +12,7 @@ import { MobileTopBar } from "./components/MobileTopBar";
 import { WriteErrorBar } from "./components/WriteErrorBar";
 import { VaultOpenErrorBar } from "./components/VaultOpenErrorBar";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { MobileUpdateBanner } from "./components/MobileUpdateBanner";
 import { MobileDrawer, MobileTabsSheet } from "./components/MobileDrawer";
 import { PlannerScreen } from "./screens/Planner/PlannerScreen";
 import { EditorScreen } from "./screens/Editor/EditorScreen";
@@ -330,6 +331,9 @@ export default function App() {
               setDrawerOpen(true);
             }}
           />
+          {/* Mağazada yeni sürüm: alt çubuğun üstünde küçük şerit (LOM-32). isMobile değil
+              platformMobile — dar masaüstü penceresinde çıkmasın. Geri tuşu katmanına girmez. */}
+          {platformMobile && <MobileUpdateBanner />}
           <MobileDrawer open={drawerOpen} focusSearch={focusSearch} onClose={() => setDrawerOpen(false)} />
           <MobileTabsSheet open={tabsOpen} onClose={() => setTabsOpen(false)} />
         </>

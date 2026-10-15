@@ -704,6 +704,8 @@
     "mobileMessage": "“{{name}}” kasası açılamadı. Yeniden deneyin ya da uygulamayı kapatıp tekrar açın."
   },
   "update": {
+    "ready": "Yeni sürüm hazır: {{version}}",
+    "now": "Güncelle",
     "title": "Güncelleme",
     "current": "Kurulu sürüm: {{version}}",
     "sub": "Yeni sürüm çıkınca uygulama sana haber verir.",

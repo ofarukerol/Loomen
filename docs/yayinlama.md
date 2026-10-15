@@ -457,3 +457,42 @@ openssl base64 -A -in sertifika.p12 -out sertifika-base64.txt
 - **CSP** şu an tanımsız (`security.csp: null`). Mağaza için zorunlu değil ama sertleştirme
   olarak eklenmesi önerilir; eklerken Excalidraw, ses oynatma (blob:) ve senkron uç noktaları
   (GitHub/Google) izin listesine alınmalıdır.
+
+---
+
+## 8. Mobil güncelleme uyarısı
+
+Mağaza güncellemesi telefona her zaman kendiliğinden gelmiyor. Bu yüzden iOS ve Android
+uygulaması, mağazada daha yeni sürüm olduğunda alt çubuğun hemen üstünde küçük bir şerit
+gösterir: "Yeni sürüm hazır: 1.0.1 · Güncelle · Sonra". Masaüstünde bu şerit yoktur.
+
+**Nasıl çalışır**
+- Uygulama açılışta (ve öne geldiğinde) günde **en fazla bir kez**
+  `https://loomen.org/surum.json` dosyasını okur. Dosya Rust tarafından çekilir
+  (`src-tauri/src/surum.rs`), bu yüzden sitenin CORS ayarı gerekmez.
+- Dosyadaki sürüm, kurulu sürümden (`tauri.conf.json` → `version`) büyükse şerit çıkar.
+- **Sonra** aynı sürümü 3 gün gizler. **Güncelle** mağaza sayfasını açar ve aynı şekilde
+  3 gün erteler (mağazadan dönünce şerit tekrar dürtmesin). Daha yeni bir sürüm yayınlanırsa
+  şerit erteleme beklenmeden yeniden görünür.
+- Ağ yoksa, dosya yoksa (404) ya da bozuksa hiçbir şey gösterilmez; özellik sessizce kapalı kalır.
+
+**Dosya biçimi** (örneği: `docs/surum.json`)
+```json
+{
+  "android": { "version": "1.0.1" },
+  "ios": { "version": "1.0.1", "url": "https://apps.apple.com/app/id6821169163" }
+}
+```
+- `version`: mağazadaki sürüm, `tauri.conf.json` ile aynı biçimde (`1.0.1`). Platform girdisi
+  yoksa kök düzeydeki ortak `"version"` kullanılır. Android `versionCode` alanı yazılırsa yok sayılır.
+- `url` (isteğe bağlı): yalnız `https://` ile başlıyorsa kullanılır; yoksa varsayılan mağaza
+  sayfası açılır (Play: `org.loomen.notes`, App Store: `id6821169163`).
+
+**Yayın sırası — önemli**
+1. Yeni sürümü mağazaya gönder.
+2. Mağaza onaylayıp **yayına girdikten sonra** `surum.json`'daki o platformun sürümünü artır.
+   Erken artırılırsa kullanıcı "Güncelle"ye basar ama mağazada hâlâ eski sürümü bulur.
+   Bir mağaza diğerinden geç onaylayabileceği için iki platformun sürümü ayrı tutulur.
+
+**Yükleme:** loomen.org sitesi bu depoda değil. `surum.json` dosyası siteye elle yüklenir;
+yüklenene kadar uyarı hiç çıkmaz.

@@ -704,6 +704,8 @@
     "mobileMessage": "Couldn't open the “{{name}}” vault. Try again or close and reopen the app."
   },
   "update": {
+    "ready": "New version ready: {{version}}",
+    "now": "Update",
     "title": "Updates",
     "current": "Installed version: {{version}}",
     "sub": "The app will let you know when a new version is out.",
