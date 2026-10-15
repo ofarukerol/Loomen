@@ -3,7 +3,7 @@ name: LOM-31 — Loomen masaüstü: uygulama içi otomatik güncelleme (Datha De
 description: LOM-31'in dalda zaten yazılmış güncelleme kodunu (updater eklentisi, Rust komutları, şerit, release.yml, anahtar) derleyip test ederek doğrulamak; eksik kalan sürüm karşılaştırma testini, MAS derleme betiğindeki updater kapatmayı, GitHub secret'ını ve Air kurulumunu tamamlamak.
 type: project
 proje: loomen
-kaynak: kart LOM-31 · dal fix/LOM-31 · Loomen@8b7e6fcea3f951602dcec7c86a31a11b4c608603 · test koşusu b20727d9-d4a2-4861-a4a5-0db8c06201d0 (Excalibur)
+kaynak: kart LOM-31 · dal fix/LOM-31 · Loomen@705f19a3c5810e5ad49c158119c530753d0b62dd · test koşusu 5ab4e251-f754-448a-ac57-8f9f21e5f08f (Excalibur)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-10-15
@@ -38,13 +38,13 @@ LOM-31'in dalda zaten yazılmış güncelleme kodunu (updater eklentisi, Rust ko
 
 Testler geçti.
 
-> Tip denetimi, npm test (11 dosya, yeni updaterTest 25 kontrol) ve iki cargo check ayarı yeşil. Özel anahtar depoda yok (yalnız bir yorum satırı yedek yolunu anıyor). Air'de elle güncelleme düğmesine basmak ve gerçek yayın Ömer'de kaldı.
+> Tip denetimi, npm test ve iki cargo check yeşil. Sürüm karşılaştırma testi npm test içinde koşuyor. Özel anahtar depoda yok. Sahte latest.json ile güncelleme denemesi ve Air kurulumu önceki adımlarda Air'de yapılmıştı. Bu Windows makinesinde yeniden koşmadım, çünkü imza anahtarı burada yok. Air'de gözle son bakış kaldı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-31`
-- Commit: `Loomen@8b7e6fcea3f951602dcec7c86a31a11b4c608603`
-- Test koşusu: `b20727d9-d4a2-4861-a4a5-0db8c06201d0` (Excalibur)
+- Commit: `Loomen@705f19a3c5810e5ad49c158119c530753d0b62dd`
+- Test koşusu: `5ab4e251-f754-448a-ac57-8f9f21e5f08f` (Excalibur)
 
 ## Durum
 
