@@ -28,23 +28,6 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Google Takvim girisi (ters-client-id ozel semasi). Mobil OAuth yonlendirmesi
-                 com.googleusercontent.apps.<ID>:/oauth2redirect adresine donuyor
-                 (src/core/google.ts:33-35); bu intent-filter olmadan Android yonlendirmeyi
-                 uygulamaya teslim edemez, giris sessizce basarisiz olur.
-                 YER TUTUCU — INSAN ISI: Google Console'da "Android" tipi OAuth client
-                 (paket: org.loomen.notes + release imzasinin SHA-1) olusturunca asagidaki
-                 scheme'i o client'in ters id'siyle GUNCELLE:
-                 com.googleusercontent.apps.<ANDROID_CLIENT_ID_SAYISAL_KISMI>
-                 Ayni id .env icindeki VITE_GOOGLE_ANDROID_CLIENT_ID ile birebir uyusmali.
-                 Bu blok elle yazildi; asagidaki "DEEP LINK PLUGIN" blogunu tauri.conf.json'dan
-                 eklenti uretir, oraya elle yazma. -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.googleusercontent.apps.GOOGLE_ANDROID_CLIENT" />
-            </intent-filter>
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
             <intent-filter >
                 <action android:name="android.intent.action.VIEW" />

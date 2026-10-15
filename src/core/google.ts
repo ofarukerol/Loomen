@@ -24,9 +24,15 @@ export const GOOGLE_ANDROID_CLIENT_ID =
 /** calendar = okuma+yazma (çift yönlü); openid/email/profile = hesap bilgisi. */
 export const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar openid email profile";
 
-/** Platform ("ios"|"android") → o platformun Google client id'si. */
-export function mobileClientId(platform: string): string {
-  return platform === "android" ? GOOGLE_ANDROID_CLIENT_ID : GOOGLE_IOS_CLIENT_ID;
+/**
+ * Platform ("ios"|"android") → mobil giriş için Google client id'si.
+ * Android'de de iOS istemcisi kullanılır: Google, "Android" tipi istemcide tarayıcıyla girişte
+ * özel şemalı dönüş adresini kabul etmiyor (Hata 400: invalid_request, "özel URI şeması" seçeneği
+ * de kaldırıldı). iOS istemcisi aynı ters-client-id şemasını kabul ediyor ve uygulama bu şemayı
+ * tauri.conf.json > deep-link altında zaten dinliyor. GOOGLE_ANDROID_CLIENT_ID yalnız yedek.
+ */
+export function mobileClientId(_platform: string): string {
+  return GOOGLE_IOS_CLIENT_ID || GOOGLE_ANDROID_CLIENT_ID;
 }
 
 /** client id → Google'ın ters-client-id özel şema redirect'i (iOS + Android aynı desen). */
