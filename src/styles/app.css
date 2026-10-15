@@ -3401,12 +3401,15 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 
 /* ---- Pencereler dar ekranda ----
    Çöp kutusu penceresi document.body'ye çizildiği için `.lo-app.is-mobile` seçicisi TUTMAZ;
-   burada genişlik sorgusu kullanılır. Klavye açıkken pencere kısalır, alt satırı görünür kalır. */
+   burada genişlik sorgusu kullanılır. Üstte çentik/durum çubuğu, altta ev çizgisi payının üstüne
+   32px bırakılır; yoksa pencere ekranın iki ucuna yapışıyordu (LOM-34). Klavye açıkken alt boşluk
+   klavyenin 12px üstüne iner: pencere fazla küçülmez, Kaydet satırı görünür kalır. */
 @media (max-width: 768px) {
   .lo-modal {
-    padding: 12px;
-    padding-bottom: calc(12px + var(--kb));
+    --lo-modal-top: calc(env(safe-area-inset-top, 0px) + 32px);
+    --lo-modal-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 32px), calc(var(--kb) + 12px));
+    padding: var(--lo-modal-top) 12px var(--lo-modal-bottom);
   }
   .lo-tdetail,
-  .lo-trash { max-height: calc(100dvh - 24px - var(--kb)); }
+  .lo-trash { max-height: calc(100dvh - var(--lo-modal-top) - var(--lo-modal-bottom)); }
 }
