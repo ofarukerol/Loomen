@@ -86,3 +86,6 @@ Loomen.pkg
 *.mobileprovision
 *.provisionprofile
 keystore.properties
+
+# Güncelleme imza anahtarları depoya girmez (yedeği ~/.loomen-keys)
+*.key

@@ -1,24 +1,85 @@
 name: Release
 
-# Sürüm etiketi atılınca (örn. v0.1.0) Windows kurulum dosyasını üretir ve taslak
-# GitHub Release'e ekler. Windows derlemesi macOS'ta yapılamaz (çapraz derleme yok),
-# bu yüzden windows-latest koşucusu kullanılır.
+# Sürüm etiketi atılınca (örn. v0.1.0) macOS (Apple Silicon + Intel) ve Windows paketlerini
+# üretir, güncelleme imzasıyla (.sig) birlikte taslak GitHub Release'e ekler ve uygulama içi
+# güncellemenin okuduğu latest.json'u yazar. Windows derlemesi macOS'ta yapılamaz (çapraz
+# derleme yok), bu yüzden her platform kendi koşucusunda derlenir.
 #
-# Elle çalıştırmak için: Actions → Release → Run workflow
+# Elle çalıştırmak için: Actions → Release → Run workflow (etiket yoksa v<sürüm> kullanılır).
+# Taslak Release yayınlanmadan latest.json "releases/latest" adresinden okunamaz; uygulamalar
+# yeni sürümü ancak Release yayınlanınca görür (bkz docs/yayinlama.md §4).
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
 
-# Taslak sürüme dosya eklemek yazma izni ister; varsayılan GITHUB_TOKEN salt okunur
-# olduğunda "Taslak sürüme ekle" adımı 403 ile düşer.
+# Release oluşturmak ve dosya eklemek yazma izni ister; varsayılan GITHUB_TOKEN salt okunur
+# olduğunda yükleme adımları 403 ile düşer.
 permissions:
   contents: write
 
 jobs:
-  windows:
-    name: Windows kurulum dosyası
-    runs-on: windows-latest
+  # Üç derleme aynı anda kendi Release'ini açmaya kalkmasın diye taslak Release önce,
+  # tek yerde açılır; derlemeler bu kimliğe yükler.
+  create-release:
+    name: Taslak Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.release.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Taslak Release aç (varsa bul)
+        id: release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { version } = require('./src-tauri/tauri.conf.json');
+            const tag = context.ref.startsWith('refs/tags/')
+              ? context.ref.replace('refs/tags/', '')
+              : `v${version}`;
+            // Taslaklar etiketle aranamaz; listeden bulunur (yeniden koşuda çift Release olmasın).
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const existing = releases.find((r) => r.tag_name === tag);
+            if (existing) return existing.id;
+            const { data } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              target_commitish: context.sha,
+              name: `Loomen ${tag}`,
+              body: 'Değişiklikleri buraya yaz. Yayınlayınca uygulamalar güncellemeyi görür.',
+              draft: true,
+              prerelease: false,
+            });
+            return data.id;
+
+  build:
+    name: ${{ matrix.name }}
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple Silicon)
+            platform: macos-latest
+            rust_targets: aarch64-apple-darwin
+            args: --target aarch64-apple-darwin --bundles app,dmg
+          - name: macOS (Intel)
+            platform: macos-latest
+            rust_targets: x86_64-apple-darwin
+            args: --target x86_64-apple-darwin --bundles app,dmg
+          - name: Windows
+            platform: windows-latest
+            rust_targets: ""
+            # NSIS (.exe) ve MSI birlikte üretilir. İmzalama yapılmaz — imzalama
+            # sertifikası eklendiğinde tauri.conf.json > bundle.windows alanları doldurulur
+            # (bkz docs/yayinlama.md §3).
+            args: --bundles nsis,msi
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
 
@@ -28,45 +89,66 @@ jobs:
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
 
       # Rust derlemesi uzun sürer; önbellek olmadan her koşu ~10 dk.
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          key: ${{ matrix.rust_targets }}
 
       - run: npm ci
 
-      # NSIS (.exe) ve MSI birlikte üretilir. İmzalama yapılmaz — imzalama
-      # sertifikası eklendiğinde tauri.conf.json > bundle.windows alanları doldurulur
-      # (bkz docs/yayinlama.md §3).
+      # tauri-action paketi derler, güncelleme paketini (.app.tar.gz / .exe) özel anahtarla
+      # imzalar (.sig), dosyaları Release'e yükler ve latest.json'a bu platformun girdisini ekler.
+      #
+      # TAURI_SIGNING_PRIVATE_KEY: güncelleme imza anahtarı (yedeği ~/.loomen-keys/loomen.key).
+      # Tanımlı değilse createUpdaterArtifacts açık olduğu için derleme düşer. Anahtar parolasız.
       #
       # VITE_* değerleri derleme anında pakete gömülür; depo sırlarından okunur.
       # Sır tanımlı değilse boş gelir ve ilgili entegrasyon (GitHub/Google) kapalı kalır —
       # derleme yine de tamamlanır.
-      - name: Derle
+      #
+      # Apple imza/noter değişkenleri (APPLE_CERTIFICATE, APPLE_SIGNING_IDENTITY, APPLE_ID…)
+      # bilinçli olarak verilmiyor: secret'lar yokken boş değer vermek Tauri'nin boş sertifikayı
+      # içe aktarmaya çalışıp düşmesine yol açar. Developer ID kurulunca buraya eklenir.
+      - name: Derle, imzala, Release'e yükle
+        uses: tauri-apps/tauri-action@v0
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
           VITE_GITHUB_CLIENT_ID: ${{ secrets.VITE_GITHUB_CLIENT_ID }}
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_GOOGLE_CLIENT_SECRET: ${{ secrets.VITE_GOOGLE_CLIENT_SECRET }}
           VITE_GOOGLE_IOS_CLIENT_ID: ${{ secrets.VITE_GOOGLE_IOS_CLIENT_ID }}
           VITE_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.VITE_GOOGLE_ANDROID_CLIENT_ID }}
-        run: npm run tauri build -- --bundles nsis,msi
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          includeUpdaterJson: true
+          # Windows'ta güncelleme NSIS kurucusuyla yapılır (installMode: passive).
+          updaterJsonPreferNsis: true
+          args: ${{ matrix.args }}
 
       # Microsoft Store paketi (imzasız MSIX; Store imzalar). Ayrıntı: scripts/build-msix.ps1
       - name: MSIX paketi
+        if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
           $v = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           ./scripts/build-msix.ps1 -Version $v
 
       - name: MSIX yükle
+        if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: loomen-windows-msix
           path: Loomen_*_x64.msix
           if-no-files-found: error
 
-      - name: Çıktıları yükle
+      - name: Windows çıktılarını yükle
+        if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: loomen-windows
@@ -75,12 +157,41 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: error
 
-      # Etiketle tetiklendiyse taslak sürüme de ekle (workflow_dispatch'te atlanır).
-      - name: Taslak sürüme ekle
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - name: macOS çıktılarını yükle
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
         with:
-          draft: true
-          files: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
+          name: loomen-${{ matrix.rust_targets }}
+          path: |
+            src-tauri/target/${{ matrix.rust_targets }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.rust_targets }}/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/${{ matrix.rust_targets }}/release/bundle/macos/*.app.tar.gz.sig
+          if-no-files-found: error
+
+  # Üç derleme latest.json'u aynı anda "indir, kendi girdini ekle, geri yükle" diye günceller;
+  # aynı anda biterlerse biri ötekinin girdisini ezebilir. Eksik platform varsa burada kırmızı
+  # yanar: o platformun derleme işini yeniden çalıştırmak girdisini geri ekler.
+  check-latest-json:
+    name: latest.json denetimi
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Üç platform girdisi var mı
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          asset=$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID/assets" \
+            --jq '.[] | select(.name == "latest.json") | .id')
+          if [ -z "$asset" ]; then echo "::error::Release'te latest.json yok"; exit 1; fi
+          gh api -H "Accept: application/octet-stream" \
+            "repos/${{ github.repository }}/releases/assets/$asset" > latest.json
+          cat latest.json
+          missing=0
+          for p in darwin-aarch64 darwin-x86_64 windows-x86_64; do
+            if ! jq -e --arg p "$p" '.platforms[$p].signature // empty' latest.json > /dev/null; then
+              echo "::error::latest.json'da $p girdisi yok; o platformun derlemesini yeniden çalıştır"
+              missing=1
+            fi
+          done
+          exit $missing

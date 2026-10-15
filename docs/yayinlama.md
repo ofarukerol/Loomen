@@ -228,8 +228,8 @@ macOS'tan Windows'a çapraz derleme **yoktur**. Bu iş için depoda hazır bir a
   git tag v0.1.0 && git push origin v0.1.0
   ```
 
-Çıktılar (`.exe` ve `.msi`) koşu sayfasındaki **Artifacts** bölümünden indirilir; etiketle
-tetiklendiyse ayrıca taslak bir GitHub Release'e eklenir.
+Çıktılar (`.exe`, `.msi`, `.msix` ve macOS `.dmg`) koşu sayfasındaki **Artifacts** bölümünden
+indirilir; ayrıca taslak bir GitHub Release'e eklenir (ayrıntı §4).
 
 ### 3.2 Yol A — Microsoft Store (sertifikasız, en ucuz)
 
@@ -285,48 +285,114 @@ Store, Win32 kurulum dosyalarını kabul eder ama şunları ister:
 
 ---
 
-## 5. CI ile otomatik derleme
+## 4. Uygulama içi güncelleme (mağaza dışı masaüstü)
 
-Her iki platformu tek akışta üretmek için GitHub Actions:
+Mağaza dışı kurulan Loomen (macOS `.app`/`.dmg`, Windows `.exe`) açılıştan birkaç saniye sonra
+yeni sürüm var mı diye bakar; varsa üstte **Güncelle** şeridi çıkar, paketi indirip uygulamayı
+yeniden başlatır. Ayarlar'da "Güncellemeleri denetle" de aynı işi elle yapar.
 
-```yaml
-name: Release
-on:
-  push:
-    tags: ["v*"]
-jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - platform: macos-latest
-            args: --target universal-apple-darwin --bundles dmg
-          - platform: windows-latest
-            args: --bundles nsis
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - uses: dtolnay/rust-toolchain@stable
-      - run: npm ci
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseDraft: true
-          args: ${{ matrix.args }}
+Uygulama yeni sürümü şu adresten öğrenir (`tauri.conf.json` → `plugins.updater.endpoints`):
+
+```
+https://github.com/ofarukerol/Loomen/releases/latest/download/latest.json
 ```
 
-Sertifikayı secret'a koymak için:
+App Store, iOS ve Android sürümlerinde bu özellik **yoktur** — mağaza kendi günceller.
+
+### 4.1 İmza anahtarı — kaybetme
+
+İndirilen her güncelleme bir özel anahtarla imzalanır, uygulama da içindeki açık anahtarla
+(`plugins.updater.pubkey`) bu imzayı doğrular. İmza tutmazsa güncelleme kurulmaz.
+
+| Ne | Nerede |
+|---|---|
+| Özel anahtar (parolasız) | `~/.loomen-keys/loomen.key` + GitHub secret `TAURI_SIGNING_PRIVATE_KEY` |
+| Açık anahtar | `~/.loomen-keys/loomen.key.pub` + `tauri.conf.json` → `plugins.updater.pubkey` |
+
+- Özel anahtar **depoya girmez**. `~/.loomen-keys` klasörünü ayrıca yedekle.
+- Anahtar kaybolursa, kurulu uygulamalar yeni anahtarla imzalanmış güncellemeyi kabul etmez;
+  herkesin yeni sürümü bir kez elle kurması gerekir.
+- Secret'ı yeniden yüklemek için:
+  ```bash
+  gh secret set TAURI_SIGNING_PRIVATE_KEY -R ofarukerol/Loomen < ~/.loomen-keys/loomen.key
+  ```
+
+### 4.2 Yeni sürüm yayınlama
+
+1. Sürümü artır: `tauri.conf.json` → `version` ve `package.json` → `version` (aynı değer).
+   Uygulama yalnız **daha yüksek** sürümü güncelleme sayar.
+2. Commit + etiket:
+   ```bash
+   git tag v1.0.1 && git push origin v1.0.1
+   ```
+3. [`release.yml`](../.github/workflows/release.yml) üç paketi derler: macOS Apple Silicon,
+   macOS Intel ve Windows. Her biri imzalanır (`.sig`), taslak Release'e yüklenir ve
+   `latest.json`'a kendi girdisini ekler (`darwin-aarch64`, `darwin-x86_64`, `windows-x86_64`).
+   Son adım (*latest.json denetimi*) üç girdinin de yerinde olduğunu kontrol eder. Kırmızıysa
+   eksik platformun derleme işini Actions'tan yeniden çalıştır; girdisi geri eklenir.
+   Elle çalıştırmada (etiketsiz) Release `v<sürüm>` adıyla açılır, etiket yayınlanınca o
+   koşunun commit'ine konur.
+4. GitHub → Releases → taslağı aç, değişiklik notunu yaz, **Publish release**.
+   **Taslak yayınlanmadan uygulamalar güncellemeyi görmez** (`releases/latest` adresi
+   taslakları göstermez).
+
+### 4.3 Yerel derleme
+
+`bundle.createUpdaterArtifacts` açık olduğu için yerel derlemede de özel anahtar gerekir;
+yoksa derleme imza adımında düşer:
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.loomen-keys/loomen.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+npm run tauri build -- --bundles app,dmg
+```
+
+### 4.4 App Store derlemesi — güncelleme kapalı
+
+App Store kuralı gereği mağaza sürümü kendini güncelleyemez. Bu derlemede güncelleme kodu hiç
+derlenmez (`updater` özelliği kapatılır) ve güncelleme dosyası üretilmez
+(`tauri.mas.conf.json` → `createUpdaterArtifacts: false`):
+
+```bash
+npm run tauri build -- --bundles app --config src-tauri/tauri.mas.conf.json \
+  -- --no-default-features
+```
+
+İkinci `--` önemli: `--no-default-features` Tauri'nin değil cargo'nun seçeneğidir, ondan sonra
+yazılan her şey doğrudan cargo'ya geçer.
+
+### 4.5 Bilinen sınırlar
+
+- macOS paketleri şu an **Developer ID ile imzalı ve noter onaylı değil** (Apple secret'ları
+  GitHub'da yok). Tarayıcıdan indirilen `.dmg`'deki uygulamayı macOS çoğu zaman "hasarlı" ya da
+  "açılamıyor" diye engeller. İlk kurulumda geçici çare: `/Applications`'a kopyaladıktan sonra
+  `xattr -cr /Applications/Loomen.app` ya da Finder'da sağ tık → Aç. Uygulama içinden gelen
+  güncellemeler bu karantina işaretini almaz, sorunsuz açılması beklenir ama ilk sürümde
+  doğrulanmalı. Kalıcı çözüm §1'deki sertifika + noter onayı, secret'lar eklenince `release.yml`'deki
+  derleme adımına `APPLE_*` değişkenleri verilir.
+- Windows kurulum dosyası imzasız; SmartScreen uyarısı sürer (§3.3).
+- Release'i yayınladıktan sonra `latest.json`'u değiştirmek gerekirse Release'teki dosyayı
+  elle düzenlemek yeterli; uygulamalar bir sonraki açılışta yeni içeriği okur.
+
+---
+
+## 5. CI ile otomatik derleme
+
+Depodaki [`release.yml`](../.github/workflows/release.yml) etiketle (`v*`) ya da elle
+(Actions → Release → Run workflow) çalışır:
+
+- Önce tek bir taslak Release açar (varsa bulur), sonra üç derleme aynı anda koşar:
+  `macos-latest` + `aarch64-apple-darwin`, `macos-latest` + `x86_64-apple-darwin`,
+  `windows-latest` (`nsis,msi`).
+- Derleme, imza ve yükleme `tauri-apps/tauri-action` ile yapılır; `latest.json` da bu adımda
+  üretilir.
+- Windows işi ayrıca Microsoft Store için MSIX üretir (Artifacts'ta).
+- Gerekli secret'lar: `TAURI_SIGNING_PRIVATE_KEY` (zorunlu), `VITE_*` (yoksa ilgili
+  entegrasyon kapalı kalır).
+
+Developer ID kurulunca derleme adımına eklenecek secret'lar:
+`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `KEYCHAIN_PASSWORD`,
+`APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`. Sertifikayı secret'a koymak için:
 ```bash
 openssl base64 -A -in sertifika.p12 -out sertifika-base64.txt
 ```
@@ -342,7 +408,8 @@ openssl base64 -A -in sertifika.p12 -out sertifika-base64.txt
 - [ ] macOS: `spctl -a -vvv` → `accepted / Notarized Developer ID`
 - [ ] Windows: kurulum dosyası imzalı, SmartScreen uyarısı yok
 - [ ] Temiz bir makinede/VM'de kurulum testi (ilk açılış, kasa seçimi, mikrofon izni)
-- [ ] Uygulama içi güncelleme istiyorsan Tauri updater'ı ayrıca kur (şu an kurulu değil)
+- [ ] Taslak Release yayınlandı; `releases/latest/download/latest.json` açılıyor ve
+      üç platform girdisi var (§4.2)
 
 ---
 

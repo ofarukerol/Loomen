@@ -10,6 +10,7 @@ mod github_api;
 #[cfg(desktop)]
 mod github_git;
 mod google;
+mod updater;
 #[cfg(target_os = "macos")]
 mod macos_bookmark;
 
@@ -210,6 +211,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init());
 
+    // Uygulama içi güncelleme: yalnız masaüstü + `updater` özelliği (App Store derlemesinde yok).
+    #[cfg(all(desktop, feature = "updater"))]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+
     // Masaüstü: git2 tabanlı git_sync dahil hepsi.
     #[cfg(desktop)]
     let builder = builder.invoke_handler(tauri::generate_handler![
@@ -245,6 +250,9 @@ pub fn run() {
         ai::llm::ai_chat_cancel,
         ai::llm::ai_provider_test,
         ai::stt::ai_transcribe,
+        updater::app_update_supported,
+        updater::update_check,
+        updater::update_install,
     ]);
 
     // Mobil: git_sync YOK (git2 derlenmez); senkron github_api ile.
@@ -281,6 +289,7 @@ pub fn run() {
         ai::llm::ai_chat_cancel,
         ai::llm::ai_provider_test,
         ai::stt::ai_transcribe,
+        updater::app_update_supported,
     ]);
 
     // macOS: yerel menü çubuğu. KRİTİK — sistem "Start Dictation" (sesli yazma) ve

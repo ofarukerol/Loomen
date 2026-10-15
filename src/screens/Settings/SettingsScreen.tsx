@@ -1,4 +1,7 @@
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
+import { getVersion } from "@tauri-apps/api/app";
+import { isChecking, progressPercent, runUpdateCheck, runUpdateInstall, updateStore, updateSupported } from "../../core/updater";
 import { useAppStore, ACCENTS, type Lang, type EditorSettings } from "../../store/useAppStore";
 import { AiSettings } from "./AiSettings";
 import { ReviewSettings } from "./ReviewSettings";
@@ -21,6 +24,77 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
     <button className={"lo-switch" + (on ? " is-on" : "")} onClick={onClick} aria-pressed={on}>
       <span className="lo-switch__knob" />
     </button>
+  );
+}
+
+/**
+ * Güncelleme bölümü (LOM-31): yalnız güncelleme destekli masaüstü derlemesinde görünür.
+ * App Store ve mobil derlemede `updateSupported` false döner, bölüm hiç çizilmez.
+ */
+function UpdateSettings() {
+  const { t } = useTranslation();
+  const mobile = useAppStore((s) => s.platformMobile);
+  const status = useSyncExternalStore(updateStore.subscribe, updateStore.get);
+  const [supported, setSupported] = useState(false);
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    if (mobile) return;
+    let alive = true;
+    void updateSupported().then((ok) => {
+      if (!alive || !ok) return;
+      setSupported(true);
+      getVersion().then((v) => alive && setVersion(v), () => {});
+    });
+    return () => {
+      alive = false;
+    };
+  }, [mobile]);
+
+  if (mobile || !supported) return null;
+
+  const busy = status.kind === "checking" || status.kind === "installing" || isChecking();
+  const pct = status.kind === "installing" ? progressPercent(status.progress) : null;
+  const sub =
+    status.kind === "checking"
+      ? t("update.checking", { defaultValue: "Yeni sürüm aranıyor…" })
+      : status.kind === "none"
+        ? t("update.upToDate", { defaultValue: "En güncel sürümü kullanıyorsun." })
+        : status.kind === "available"
+          ? t("update.availableShort", { version: status.info.version, defaultValue: "Loomen {{version}} hazır." })
+          : status.kind === "installing"
+            ? pct === null
+              ? t("update.downloading", { defaultValue: "Güncelleme indiriliyor…" })
+              : t("update.downloadingPct", { pct, defaultValue: "Güncelleme indiriliyor… %{{pct}}" })
+            : status.kind === "error"
+              ? status.info
+                ? t("update.failed", { defaultValue: "Güncelleme kurulamadı. Tekrar deneyebilirsin." })
+                : t("update.checkFailed", { defaultValue: "Sürüm bilgisi alınamadı. İnternet bağlantını kontrol et." })
+              : t("update.sub", { defaultValue: "Yeni sürüm çıkınca uygulama sana haber verir." });
+  const canInstall = status.kind === "available" || (status.kind === "error" && !!status.info);
+
+  return (
+    <Section label={t("update.title", { defaultValue: "Güncelleme" })}>
+      <div className="lo-set__row">
+        <div>
+          <div className="lo-set__rowtitle">
+            {version
+              ? t("update.current", { version, defaultValue: "Kurulu sürüm: {{version}}" })
+              : t("update.title", { defaultValue: "Güncelleme" })}
+          </div>
+          <div className="lo-set__rowsub">{sub}</div>
+        </div>
+        {canInstall ? (
+          <button type="button" className="lo-btn lo-btn--primary" onClick={() => void runUpdateInstall()}>
+            {t("update.install", { defaultValue: "Güncelle" })}
+          </button>
+        ) : (
+          <button type="button" className="lo-btn" disabled={busy} onClick={() => void runUpdateCheck()}>
+            {t("update.check", { defaultValue: "Güncellemeleri denetle" })}
+          </button>
+        )}
+      </div>
+    </Section>
   );
 }
 
@@ -173,6 +247,7 @@ export function SettingsScreen() {
         <GitHubSync />
         {/* Google Takvim: mobilde deep-link OAuth (iOS client id gerekir). */}
         <GoogleCalendarSync />
+        <UpdateSettings />
       </div>
     </div>
   );

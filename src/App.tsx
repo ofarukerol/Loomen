@@ -11,6 +11,7 @@ import { MobileBar } from "./components/MobileBar";
 import { MobileTopBar } from "./components/MobileTopBar";
 import { WriteErrorBar } from "./components/WriteErrorBar";
 import { VaultOpenErrorBar } from "./components/VaultOpenErrorBar";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { MobileDrawer, MobileTabsSheet } from "./components/MobileDrawer";
 import { PlannerScreen } from "./screens/Planner/PlannerScreen";
 import { EditorScreen } from "./screens/Editor/EditorScreen";
@@ -298,6 +299,8 @@ export default function App() {
         <WriteErrorBar />
         {/* Kasa açılamadı uyarısı: pencere yerine tek şerit (LOM-23). */}
         <VaultOpenErrorBar />
+        {/* Yeni sürüm şeridi: yalnız masaüstü; App Store/mobil derlemede güncelleme yok (LOM-31). */}
+        <UpdateBanner enabled={!platformMobile} />
         <div className="lo-main">
           {screen === "planner" && <PlannerScreen />}
           {screen === "editor" && <EditorScreen />}

@@ -29,14 +29,27 @@
     "deep-link": {
       "mobile": [
         {
-          "scheme": ["loomen", "com.googleusercontent.apps.246428543418-qli6m4v902i4de9s1mq0g4k24df46el6"]
+          "scheme": [
+            "loomen",
+            "com.googleusercontent.apps.246428543418-qli6m4v902i4de9s1mq0g4k24df46el6"
+          ]
         }
       ]
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUzQTU1NTIwOTA2QkQ5OEYKUldTUDJXdVFJRldsNDZ5Q1hrcVd5SGtDZy9YaUhHTWZBSHlhUC9paDh1c3lvUjdDUVVMcnNJUFYK",
+      "endpoints": [
+        "https://github.com/ofarukerol/Loomen/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -47,7 +60,9 @@
     "publisher": "DATHA YAZILIM VE TEKNOLOJI GELISTIRME TICARET LIMITED SIRKETI",
     "copyright": "© 2026 DATHA YAZILIM VE TEKNOLOJI GELISTIRME TICARET LIMITED SIRKETI",
     "category": "Productivity",
-    "android": { "versionCode": 1000004 },
+    "android": {
+      "versionCode": 1000004
+    },
     "shortDescription": "Yerel çalışan not, planlayıcı ve Pomodoro uygulaması",
     "longDescription": "Loomen; notlarını düz Markdown dosyaları olarak kendi klasöründe tutan, tamamen çevrimdışı çalışan bir kişisel bilgi yönetimi uygulamasıdır. Çift yönlü bağlantı, graf görünümü, günlük planlayıcı, takvim ve Pomodoro içerir.",
     "macOS": {

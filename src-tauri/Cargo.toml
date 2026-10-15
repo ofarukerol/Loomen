@@ -10,6 +10,12 @@ edition = "2021"
 name = "loomen_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Uygulama içi güncelleme (GitHub Release + latest.json). Varsayılan açık; App Store
+# derlemesi `--no-default-features` ile bu kod olmadan derlenir (mağaza kendi günceller).
+default = ["updater"]
+updater = ["dep:tauri-plugin-updater"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -41,6 +47,8 @@ git2 = { version = "0.19", default-features = false, features = ["vendored-libgi
 # Credential Manager / Secret Service) — webview'e ve localStorage'a hiç girmez.
 # Mobilde gerekmez: uygulama konteyneri zaten izole, orada ai/keys.rs dosya deposunu kullanır.
 keyring = "4"
+# Uygulama içi güncelleme; yalnız `updater` özelliği açıkken derlenir (bkz. [features]).
+tauri-plugin-updater = { version = "2", optional = true }
 
 # macOS App Store (sandbox): kullanıcının seçtiği kasa klasörüne erişimi uygulama yeniden
 # açıldığında da sürdürebilmek için security-scoped bookmark gerekir. Tauri'de yerleşik
