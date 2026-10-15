@@ -11,6 +11,7 @@ import {
   type TableBlock,
 } from "./tableModel";
 import i18n from "../../i18n";
+import { createTapTracker, isTapInput } from "./tapGesture";
 
 /**
  * Canlı önizlemede (düzenleme modu) GFM tablolarını gerçek tablo olarak gösterir ve
@@ -103,7 +104,7 @@ function caretBelowTable(view: EditorView, headerFrom: number): void {
  * Hücre elemanının data-* alanlarından konumunu okur; böylece Tab ile komşu hücreye
  * geçerken (dispatch sonrası DOM yenilenir) taze eleman üzerinden devam edilebilir.
  */
-function openCellEditor(view: EditorView, cellEl: HTMLElement): void {
+function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?: boolean } = {}): void {
   const headerFrom = Number(cellEl.dataset.tableFrom);
   const row = Number(cellEl.dataset.row);
   const col = Number(cellEl.dataset.col);
@@ -126,7 +127,9 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement): void {
   let done = false;
   // Kaydırma/yeniden boyutlandırmada yüzen input yanlış yerde kalmasın: kaydet ve kapat.
   const onScroll = () => finish(true, false);
+  let bindTimer: ReturnType<typeof setTimeout> | undefined;
   const cleanup = () => {
+    if (bindTimer !== undefined) clearTimeout(bindTimer);
     view.scrollDOM.removeEventListener("scroll", onScroll);
     window.removeEventListener("resize", onScroll);
     window.removeEventListener("scroll", onScroll, true);
@@ -189,9 +192,17 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement): void {
     }
   });
   input.addEventListener("blur", () => finish(true, false));
-  view.scrollDOM.addEventListener("scroll", onScroll, { passive: true });
-  window.addEventListener("resize", onScroll);
-  window.addEventListener("scroll", onScroll, true);
+  const bindClose = () => {
+    bindTimer = undefined;
+    if (done) return;
+    view.scrollDOM.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    window.addEventListener("scroll", onScroll, true);
+  };
+  // Dokunmatikte klavye açılırken Android'de window resize, iOS'ta kaydırma olayı gelir;
+  // dinleyiciler hemen bağlanırsa kutu açılır açılmaz kapanıyordu. Biraz sonra bağla.
+  if (opts.viaTouch) bindTimer = setTimeout(bindClose, 500);
+  else bindClose();
 }
 
 class TableWidget extends WidgetType {
@@ -274,12 +285,29 @@ class TableWidget extends WidgetType {
       // width tutmaz ama min-width tutar.
       if (widths && widths[col]) el.style.minWidth = `${widths[col]}px`;
       // pointerdown: dokunmatikte "mousedown" taklit edilir ve gecikir; hücreye dokunmak
-      // düzenleme kutusunu açmıyordu.
+      // düzenleme kutusunu açmıyordu. Fare basıldığı anda açar. Dokunmatikte ise pointerdown'da
+      // hemen açmak tablonun üstünden sayfayı kaydırmayı bozuyordu (parmak değer değmez kutu
+      // açılıyordu); orada yalnız kısa ve yerinde dokunuşta, parmak kalkınca açılır.
+      const tap = createTapTracker();
       el.addEventListener("pointerdown", (e) => {
-        e.preventDefault();
         e.stopPropagation();
-        openCellEditor(view, el);
+        if (!isTapInput(e.pointerType)) {
+          e.preventDefault();
+          openCellEditor(view, el);
+          return;
+        }
+        // preventDefault yok: kaydırmayı tarayıcı devralabilsin (touch-action: pan-x pan-y).
+        tap.down(e.pointerId, e.clientX, e.clientY, e.timeStamp);
       });
+      el.addEventListener("pointermove", (e) => {
+        if (isTapInput(e.pointerType)) tap.move(e.pointerId, e.clientX, e.clientY);
+      });
+      el.addEventListener("pointerup", (e) => {
+        if (!isTapInput(e.pointerType)) return;
+        if (tap.up(e.pointerId, e.clientX, e.clientY, e.timeStamp)) openCellEditor(view, el, { viaTouch: true });
+      });
+      // Tarayıcı kaydırmayı devraldı: bu bir dokunuş değil.
+      el.addEventListener("pointercancel", (e) => tap.cancel(e.pointerId));
       return el;
     };
 

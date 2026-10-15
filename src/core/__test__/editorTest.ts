@@ -6,7 +6,8 @@
  *     --define:import.meta.env='{}' --outfile=/tmp/editorTest.cjs && node /tmp/editorTest.cjs
  *
  * Kapsam: tablo ayrıştırma (kod bloğu içi tablolar dahil), hücre aralıkları, satır/sütun ekleme,
- * belge sonu boş satır garantisi, blok ekleme (insertBlock) planı ve not açılış imleci.
+ * belge sonu boş satır garantisi, blok ekleme (insertBlock) planı, not açılış imleci ve
+ * dokunmatikte hücre dokunuşu/kaydırma ayrımı (tapGesture).
  * DOM gerektirmez; @codemirror/state yalnız gerçek belge kaydırmalarını doğrulamak için kullanılır.
  */
 import { EditorState } from "@codemirror/state";
@@ -31,6 +32,7 @@ import {
 import { computeBlockInsert } from "../../screens/Editor/editorCommands";
 import { firstSectionCaret } from "../../screens/Editor/noteCaret";
 import { isNarrowEditor, NARROW_EDITOR_PX } from "../../screens/Editor/editorLayout";
+import { createTapTracker, isTapInput, TAP_MAX_MS, TAP_SLOP_PX } from "../../screens/Editor/tapGesture";
 
 let fails = 0;
 function check(name: string, cond: boolean, detail = "") {
@@ -467,6 +469,59 @@ check("560px dar değil", !isNarrowEditor(560));
 check("1200px dar değil", !isNarrowEditor(1200));
 check("0 (ölçülmemiş) dar sayılmaz", !isNarrowEditor(0));
 check("NaN dar sayılmaz", !isNarrowEditor(NaN));
+
+console.log("\n=== 10. Hücre dokunuşu (tapGesture) ===");
+{
+  eq("Eşik 10px", TAP_SLOP_PX, 10);
+  eq("Süre sınırı 500ms", TAP_MAX_MS, 500);
+  check("mouse dokunuş değil", !isTapInput("mouse"));
+  check("touch dokunuş", isTapInput("touch"));
+  check("pen dokunuş", isTapInput("pen"));
+  check("boş pointerType dokunuş", isTapInput(""));
+
+  let t = createTapTracker();
+  t.down(1, 100, 100, 0);
+  check("Yerinde 120ms dokunuş açar", t.up(1, 100, 100, 120));
+
+  t = createTapTracker();
+  t.down(1, 100, 100, 0);
+  t.move(1, 100, 112);
+  check("12px dikey kayma açmaz", !t.up(1, 100, 112, 150));
+
+  t = createTapTracker();
+  t.down(1, 100, 100, 0);
+  t.move(1, 104, 104);
+  check("6px oynama açar", t.up(1, 104, 104, 150));
+
+  t = createTapTracker();
+  t.down(1, 100, 100, 0);
+  check("800ms basılı tutma açmaz", !t.up(1, 100, 100, 800));
+
+  t = createTapTracker();
+  t.down(1, 100, 100, 0);
+  t.cancel(1);
+  check("pointercancel sonrası açmaz", !t.up(1, 100, 100, 100));
+
+  t = createTapTracker();
+  t.down(1, 100, 100, 0);
+  check("Farklı pointerId ile kalkış açmaz", !t.up(2, 100, 100, 100));
+
+  t = createTapTracker();
+  t.down(1, 100, 100, 0);
+  t.move(1, 100, 120);
+  t.move(1, 100, 100);
+  check("20px gidip geri gelen açmaz", !t.up(1, 100, 100, 200));
+
+  t = createTapTracker();
+  t.down(1, 100, 100, 0);
+  t.down(2, 150, 100, 20);
+  check("İkinci parmak sonrası ilk parmak açmaz", !t.up(1, 100, 100, 100));
+
+  t = createTapTracker();
+  t.down(1, 100, 100, 0);
+  check("İlk kalkış açar", t.up(1, 100, 100, 100));
+  check("İkinci kalkış açmaz (sıfırlandı)", !t.up(1, 100, 100, 150));
+}
 
 console.log(`\n${fails === 0 ? "✅ TÜM TESTLER GEÇTİ" : `❌ ${fails} test başarısız`}`);
 process.exit(fails === 0 ? 0 : 1);

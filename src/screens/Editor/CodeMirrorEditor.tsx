@@ -112,6 +112,8 @@ const cmTheme = EditorView.theme({
     color: "var(--fg1)",
     cursor: "text",
     position: "relative",
+    // Parmak hücrenin üstündeyken de sayfa (dikey) ve tablo (yatay) kaydırılabilsin.
+    touchAction: "pan-x pan-y",
   },
   // Sütun genişliği sürükleme tutamacı (başlık hücrelerinin sağ kenarı).
   // touchAction: none — parmakla sürüklerken tarayıcı bunu kaydırma sayıp gesture'ı almasın.
