@@ -1,11 +1,12 @@
 ---
 name: LOM-32 — Loomen mobil: yeni sürüm geldiğinde kibar, göz yormayan güncelleme uyarısı
-description: Testler kaldı: Loomen mobilde (iOS/Android) açılışta günde en fazla bir kez loomen.org/surum.json Rust üzerinden okunup uygulama sürümüyle karşılaştırılır; yeni sürüm varsa yüzen alt çubuğun hemen üstünde "Yeni sürüm hazır · Güncelle · Sonra" şeridi çıkar, Sonra aynı sürümü 3 gün gizler, ağ hatası sessiz geçer, masaüstünde hiç görünmez.
+description: Loomen mobilde (iOS/Android) açılışta günde en fazla bir kez loomen.org/surum.json Rust üzerinden okunup uygulama sürümüyle karşılaştırılır; yeni sürüm varsa yüzen alt çubuğun hemen üstünde "Yeni sürüm hazır · Güncelle · Sonra" şeridi çıkar, Sonra aynı sürümü 3 gün gizler, ağ hatası sessiz geçer, masaüstünde hiç görünmez.
 type: project
 proje: loomen
-kaynak: kart LOM-32 · dal fix/LOM-32 · commit yok · test koşusu 015e3bf9-0d01-4324-a729-d482e95fb151 (Excalibur)
-guven: iddia
-durum: gelistirildi
+kaynak: kart LOM-32 · dal fix/LOM-32 · Loomen@354d0a5fc446400bdaab94074402f12e524a0f58 · test koşusu 01693c4f-dd32-438c-a70f-e71bef8ed1a6 (Excalibur)
+guven: dogrulandi
+durum: test_gecti
+dogrulama_tarihi: 2026-10-15
 ---
 
 # LOM-32 — Loomen mobil: yeni sürüm geldiğinde kibar, göz yormayan güncelleme uyarısı
@@ -46,15 +47,16 @@ Loomen mobilde (iOS/Android) açılışta günde en fazla bir kez loomen.org/sur
 
 ## Test
 
-Testler KALDI; iş doğrulanmadı.
+Testler geçti.
 
-> Dört komutun hepsi geçti. npm test'te 12 dosya yeşil, mobileUpdateTest'te 73 kontrol geçti. Tip denetimi temiz çıktı. cargo check derlendi, cargo test'te 17 test geçti. Telefonda elle bakış kaldı. Kokpit: `insana_kalan` yalnız insanın fiziksel olarak bakması gereken işler içindir (yazıcı fişi, para çekmecesi, terazi, kart/barkod okuyucu, POS/kasa cihazı, kiosk, dokunmatik ekran, ekranda gözle bakı
+> Birim testleri (12 dosya, 73 kontrol), tip denetimi, cargo check ve cargo test (17 test) hepsi geçti. Telefonda şeridin görünüşü elle bakılacak. Canlı masaüstü testi planda bu kart için ayrı bir kasa gerektirmiyor; şerit yalnız mobilde çıktığı için ekran kontrolü insana kalıyor.
 
 ## Kanıt
 
 - Dal: `fix/LOM-32`
-- Test koşusu: `015e3bf9-0d01-4324-a729-d482e95fb151` (Excalibur)
+- Commit: `Loomen@354d0a5fc446400bdaab94074402f12e524a0f58`
+- Test koşusu: `01693c4f-dd32-438c-a70f-e71bef8ed1a6` (Excalibur)
 
 ## Durum
 
-Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
+Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.
