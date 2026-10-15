@@ -1,4 +1,4 @@
-// Çekirdek mantığın node testi — görev parser'ı, bağlantılar, arama, tarih ve çöp kutusu.
+// Çekirdek mantığın node testi — görev parser'ı, bağlantılar, arama, tarih, çöp kutusu ve hızlı ekleme tuş kuralı.
 // Çalıştırma (yeni bağımlılık yok; esbuild vite ile zaten kurulu):
 //
 //   node_modules/.bin/esbuild src/core/__test__/coreTest.ts --bundle --platform=node \
@@ -43,6 +43,7 @@ import {
   STALE_TMP_AGE_MS,
   type TmpScanEntry,
 } from "../vault/tmpFiles";
+import { isQuickAddSubmitKey } from "../../screens/Planner/quickAddKeys";
 
 let fails = 0;
 let ran = 0;
@@ -436,6 +437,16 @@ section("Pencere kapanışı: kayıt yazılamazsa sor (LOM-18)");
   eq("flushWithTimeout: zamanında biten sonuç", await flushWithTimeout(async () => true, 50), true);
   eq("flushWithTimeout: asılı → false", await flushWithTimeout(() => new Promise<boolean>(() => {}), 10), false);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+section("Hızlı ekleme tuş kuralı (LOM-33)");
+
+eq("Enter görev ekler", isQuickAddSubmitKey({ key: "Enter", keyCode: 13 }), true);
+eq("Enter + IME yazımı sürüyor → eklemez", isQuickAddSubmitKey({ key: "Enter", keyCode: 13, isComposing: true }), false);
+eq("keyCode 229 (mobil öneri çubuğu) → eklemez", isQuickAddSubmitKey({ key: "Enter", keyCode: 229 }), false);
+eq("Mobil onay tuşu: key Unidentified + keyCode 13 → ekler", isQuickAddSubmitKey({ key: "Unidentified", keyCode: 13 }), true);
+eq("Harf tuşu eklemez", isQuickAddSubmitKey({ key: "a", keyCode: 65 }), false);
+eq("Escape eklemez", isQuickAddSubmitKey({ key: "Escape", keyCode: 27 }), false);
 
 // ─────────────────────────────────────────────────────────────────────────────
 section("Artık yan dosya temizliği (LOM-18)");

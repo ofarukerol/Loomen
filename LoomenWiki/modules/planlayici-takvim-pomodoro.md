@@ -30,6 +30,7 @@ Karta tıklamak çizelgeyi o kümeye süzer; ikinci tıklama kaldırır. "Bugün
 
 ## Hızlı ekleme
 - Tek satır + Enter. Hedef **bugünün günlük notu**; tarih verilirse o günün notu.
+- Mobilde ekran klavyesinin onay tuşu (Gönder) da ekler; kutu boşalır, klavye açık kalır. Yazım önerisi sürerken (IME) Enter eklemez.
 - Kısa yazımlar: `📅 2026-06-20`, `@bugün` / `@yarın` / `@pzt`, `#etiket`, `🔼`, `🔁 every week`.
 - Doğal dil tarihi çözülemezse metin olduğu gibi yazılır; veri kaybolmaz.
 
