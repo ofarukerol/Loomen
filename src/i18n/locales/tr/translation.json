@@ -527,7 +527,9 @@
     "selectAll": "Tümünü seç",
     "addColumn": "Sütun ekle",
     "addRow": "Satır ekle",
-    "more": "Daha fazla"
+    "more": "Daha fazla",
+    "pasteUnavailable": "Panoya erişilemedi. Yapıştırmak için klavyenin yapıştır komutunu kullan.",
+    "copyUnavailable": "Panoya yazılamadı. Kopyalamak için klavyenin kopyala komutunu kullan."
   },
   "mobile": {
     "search": "Ara",

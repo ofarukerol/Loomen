@@ -585,11 +585,12 @@ async function repickFolder(err: VaultOpenError): Promise<void> {
 }
 
 // Kullanıcıya hata bildir (Tauri'de native dialog, web fallback'te alert/console).
-async function notifyError(msg: string): Promise<void> {
+// Dışa açık: editör menüsü panoya erişemeyince "info" türüyle buradan haber verir.
+export async function notifyError(msg: string, kind: "error" | "info" = "error"): Promise<void> {
   try {
     if (isTauri()) {
       const { message } = await import("@tauri-apps/plugin-dialog");
-      await message(msg, { title: "Loomen", kind: "error" });
+      await message(msg, { title: "Loomen", kind });
       return;
     }
   } catch {

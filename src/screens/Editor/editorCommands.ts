@@ -7,13 +7,43 @@ function focus(v: EditorView) {
   v.focus();
 }
 
+/** Metnin başındaki (fromEnd ise sonundaki) ardışık "*" sayısı. */
+function starRun(s: string, fromEnd: boolean): number {
+  let n = 0;
+  while (n < s.length && s[fromEnd ? s.length - 1 - n : n] === "*") n++;
+  return n;
+}
+
+/**
+ * Tek yıldız (italik) gerçekten italik mi? "**metin**" kalının yıldızları italik sayılmaz;
+ * iki taraftaki yıldız sayısının küçüğü tekse (1: italik, 3: kalın+italik) italik vardır.
+ */
+function italicStars(left: string, right: string): boolean {
+  const n = Math.min(starRun(left, true), starRun(right, false));
+  return n % 2 === 1;
+}
+
 /** Seçimi before/after ile sar; zaten sarılıysa kaldır (toggle). */
 export function wrap(v: EditorView, before: string, after = before) {
   const r = v.state.selection.main;
   const sel = v.state.sliceDoc(r.from, r.to);
   const outB = v.state.sliceDoc(Math.max(0, r.from - before.length), r.from);
   const outA = v.state.sliceDoc(r.to, Math.min(v.state.doc.length, r.to + after.length));
-  if (outB === before && outA === after) {
+  const star = before === "*" && after === "*";
+  const outerIsMark =
+    outB === before &&
+    outA === after &&
+    (!star ||
+      italicStars(
+        v.state.sliceDoc(Math.max(0, r.from - 6), r.from),
+        v.state.sliceDoc(r.to, Math.min(v.state.doc.length, r.to + 6))
+      ));
+  const innerIsMark =
+    sel.startsWith(before) &&
+    sel.endsWith(after) &&
+    sel.length >= before.length + after.length &&
+    (!star || italicStars(sel, sel));
+  if (outerIsMark) {
     v.dispatch({
       changes: [
         { from: r.from - before.length, to: r.from, insert: "" },
@@ -21,7 +51,7 @@ export function wrap(v: EditorView, before: string, after = before) {
       ],
       selection: { anchor: r.from - before.length, head: r.to - before.length },
     });
-  } else if (sel.startsWith(before) && sel.endsWith(after) && sel.length >= before.length + after.length) {
+  } else if (innerIsMark) {
     const inner = sel.slice(before.length, sel.length - after.length);
     v.dispatch({ changes: { from: r.from, to: r.to, insert: inner }, selection: { anchor: r.from, head: r.from + inner.length } });
   } else {
@@ -161,24 +191,105 @@ export const clearFormat = (v: EditorView) => {
 };
 
 // — Pano —
-export async function copy(v: EditorView) {
-  const r = v.state.selection.main;
-  if (!r.empty) await navigator.clipboard.writeText(v.state.sliceDoc(r.from, r.to)).catch(() => {});
-  focus(v);
+
+/** Pano komutunun sonucu: "empty" = kopyalanacak seçim ya da yapıştırılacak metin yok. */
+export type ClipResult = "ok" | "empty" | "unavailable";
+
+/**
+ * Pano erişimi — testlerde sahtesi verilir. Verilmeyen alan varsayılandan gelir.
+ * notify, panoya erişilemeyince kullanıcıya gösterilecek ctx.* çeviri anahtarıyla çağrılır.
+ */
+export interface ClipboardIO {
+  readText?: () => Promise<string>;
+  writeText?: (text: string) => Promise<void>;
+  /** Eski yol: document.execCommand("copy"). true = tarayıcı kopyaladı. */
+  execCopy?: () => boolean;
+  notify?: (key: "pasteUnavailable" | "copyUnavailable") => void;
 }
-export async function cut(v: EditorView) {
+
+const defaultIO: Required<ClipboardIO> = {
+  readText: () => navigator.clipboard.readText(),
+  writeText: (text) => navigator.clipboard.writeText(text),
+  execCopy: () => {
+    try {
+      return typeof document !== "undefined" && document.execCommand("copy");
+    } catch {
+      return false;
+    }
+  },
+  notify: () => {},
+};
+
+function clipIO(io?: ClipboardIO): Required<ClipboardIO> {
+  // undefined verilen alan varsayılanı ezmesin.
+  const given = Object.fromEntries(Object.entries(io ?? {}).filter(([, f]) => f != null));
+  return { ...defaultIO, ...given } as Required<ClipboardIO>;
+}
+
+/** Metni panoya yaz: önce Clipboard API, olmazsa execCommand (editör odaktayken seçimi kopyalar). */
+async function writeClip(v: EditorView, text: string, io: Required<ClipboardIO>): Promise<boolean> {
+  try {
+    await io.writeText(text);
+    return true;
+  } catch {
+    /* izin yok ya da API yok — eski yolu dene */
+  }
+  focus(v);
+  return io.execCopy();
+}
+
+export async function copy(v: EditorView, io?: ClipboardIO): Promise<ClipResult> {
+  const c = clipIO(io);
   const r = v.state.selection.main;
-  if (r.empty) return;
-  await navigator.clipboard.writeText(v.state.sliceDoc(r.from, r.to)).catch(() => {});
+  if (r.empty) {
+    focus(v);
+    return "empty";
+  }
+  const ok = await writeClip(v, v.state.sliceDoc(r.from, r.to), c);
+  focus(v);
+  if (!ok) {
+    c.notify("copyUnavailable");
+    return "unavailable";
+  }
+  return "ok";
+}
+export async function cut(v: EditorView, io?: ClipboardIO): Promise<ClipResult> {
+  const c = clipIO(io);
+  const r = v.state.selection.main;
+  if (r.empty) {
+    focus(v);
+    return "empty";
+  }
+  const ok = await writeClip(v, v.state.sliceDoc(r.from, r.to), c);
+  if (!ok) {
+    // Panoya geçmeyen metni silmek veri kaybı olur: belgeye dokunma, haber ver.
+    focus(v);
+    c.notify("copyUnavailable");
+    return "unavailable";
+  }
   v.dispatch({ changes: { from: r.from, to: r.to, insert: "" } });
   focus(v);
+  return "ok";
 }
-export async function paste(v: EditorView) {
-  const t = await navigator.clipboard.readText().catch(() => "");
-  if (!t) return;
+export async function paste(v: EditorView, io?: ClipboardIO): Promise<ClipResult> {
+  const c = clipIO(io);
+  let t: string;
+  try {
+    t = await c.readText();
+  } catch {
+    // İzin yok (Android WebView, Safari) ya da API yok — sessiz kalma.
+    focus(v);
+    c.notify("pasteUnavailable");
+    return "unavailable";
+  }
+  if (!t) {
+    focus(v);
+    return "empty";
+  }
   const r = v.state.selection.main;
   v.dispatch({ changes: { from: r.from, to: r.to, insert: t }, selection: { anchor: r.from + t.length } });
   focus(v);
+  return "ok";
 }
 export const selectAll = (v: EditorView) => {
   v.dispatch({ selection: { anchor: 0, head: v.state.doc.length } });

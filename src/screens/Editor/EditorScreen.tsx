@@ -46,7 +46,7 @@ export function EditorScreen() {
   const toggleBacklinks = useAppStore((s) => s.toggleBacklinks);
 
   const viewRef = useRef<EditorView | null>(null);
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; via: "mouse" | "touch" } | null>(null);
   // Mobil Bağlantılar sheet'i (masaüstünde yan panel; mobilde 288px panel editörü ezdiği
   // için alttan sheet). Not değişince kapanır (bağlantıya dokununca doğal kapanış).
   const [blSheetOpen, setBlSheetOpen] = useState(false);
@@ -197,7 +197,7 @@ export function EditorScreen() {
                 onChange={setDraft}
                 lineNumbers={lineNumbers}
                 onView={(v) => (viewRef.current = v)}
-                onContextMenu={(x, y) => setCtxMenu({ x, y })}
+                onContextMenu={(x, y, via) => setCtxMenu({ x, y, via })}
                 initialCaret={initialCaret}
               />
             </div>
@@ -232,6 +232,7 @@ export function EditorScreen() {
         <EditorContextMenu
           x={ctxMenu.x}
           y={ctxMenu.y}
+          openedBy={ctxMenu.via}
           getView={() => viewRef.current}
           onClose={() => setCtxMenu(null)}
         />

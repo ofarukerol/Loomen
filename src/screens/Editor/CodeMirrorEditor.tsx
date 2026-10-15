@@ -16,7 +16,8 @@ interface Props {
   onChange: (text: string) => void;
   lineNumbers: boolean;
   onView?: (v: EditorView | null) => void;
-  onContextMenu?: (x: number, y: number) => void;
+  /** via: menü neyle açıldı — dokunmada parmak kalkana kadar menü tıklamaları yok sayılır. */
+  onContextMenu?: (x: number, y: number, via: "mouse" | "touch") => void;
   /** Açılışta imlecin gideceği konum (günlük notta "Ephemeral Notlar" bölümü). */
   initialCaret?: number;
 }
@@ -208,7 +209,13 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
         contextmenu: (e) => {
           if (!onCtxRef.current) return false;
           e.preventDefault();
-          onCtxRef.current(e.clientX, e.clientY);
+          // Bazı WebView'lar uzun basmada contextmenu da üretir: dokunma sayılır ve zamanlayıcı
+          // iptal edilir, menü aynı basışta iki kez açılmasın. Zamanlayıcı menüyü zaten açtıysa
+          // (basış sürüyor, zamanlayıcı bitti) ikinci olay yok sayılır.
+          if (pressAt != null && pressTimer == null) return true;
+          const touch = (e as PointerEvent).pointerType === "touch" || pressAt != null;
+          cancelPress();
+          onCtxRef.current(e.clientX, e.clientY, touch ? "touch" : "mouse");
           return true;
         },
         pointerdown: (e) => {
@@ -218,7 +225,7 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
           pressAt = { x, y };
           pressTimer = setTimeout(() => {
             pressTimer = null;
-            onCtxRef.current?.(x, y);
+            onCtxRef.current?.(x, y, "touch");
           }, LONG_PRESS_MS);
           return false; // CodeMirror imleci normal şekilde yerleştirsin
         },
