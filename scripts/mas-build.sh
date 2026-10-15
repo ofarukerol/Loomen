@@ -38,9 +38,12 @@ fi
 
 echo "==> Universal (Intel + Apple Silicon) derleniyor…"
 rustup target add x86_64-apple-darwin aarch64-apple-darwin >/dev/null 2>&1 || true
+# `-- --no-default-features`: App Store kuralı gereği uygulama içi güncelleme (cargo `updater`
+# özelliği) mağaza paketine hiç derlenmez; ikinci `--` sonrası doğrudan cargo'ya geçer.
 APPLE_SIGNING_IDENTITY="$APP_CERT" \
   npm run tauri build -- --bundles app --target universal-apple-darwin \
-    --config src-tauri/tauri.mas.conf.json
+    --config src-tauri/tauri.mas.conf.json \
+    -- --no-default-features
 
 APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/Loomen.app"
 echo "==> Entitlements doğrulanıyor…"

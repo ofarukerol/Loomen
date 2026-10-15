@@ -360,8 +360,40 @@ npm run tauri build -- --bundles app --config src-tauri/tauri.mas.conf.json \
 
 İkinci `--` önemli: `--no-default-features` Tauri'nin değil cargo'nun seçeneğidir, ondan sonra
 yazılan her şey doğrudan cargo'ya geçer.
+[`scripts/mas-build.sh`](../scripts/mas-build.sh) bu bayrağı kendisi verir; mağaza paketini
+elle değil o betikle üret.
 
-### 4.5 Bilinen sınırlar
+### 4.5 Yerel deneme — sahte latest.json
+
+Gerçek Release açmadan güncelleme akışını denemek için:
+
+1. Yeni sürümü imzalı derle (`version` yalnız bu derleme için yükselir, dosyaya yazılmaz):
+   ```bash
+   export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.loomen-keys/loomen.key)"
+   export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+   npm run tauri build -- --bundles app --config '{"version":"1.0.1"}'
+   ```
+   Çıktı: `src-tauri/target/release/bundle/macos/Loomen.app.tar.gz` ve `.tar.gz.sig`.
+2. Geçici bir klasöre `.tar.gz`'yi kopyala, yanına `latest.json` yaz:
+   ```json
+   { "version": "1.0.1", "pub_date": "2026-01-01T00:00:00Z",
+     "platforms": { "darwin-aarch64": {
+       "signature": "<.sig dosyasının içeriği>",
+       "url": "http://127.0.0.1:8765/Loomen.app.tar.gz" } } }
+   ```
+   ve `python3 -m http.server 8765` ile sun.
+3. Kurulu sürümü **debug** derlemeyle aç (`http://` adresi yalnız debug derlemede kabul edilir):
+   ```bash
+   npm run tauri build -- --debug --bundles app
+   LOOMEN_UPDATE_URL=http://127.0.0.1:8765/latest.json \
+     src-tauri/target/debug/bundle/macos/Loomen.app/Contents/MacOS/Loomen
+   ```
+   Birkaç saniye sonra **Güncelle** şeridi çıkmalı; basınca indirip yeniden başlatır.
+   Uygulamayı `/tmp` altından açma: macOS'ta `/tmp` bir kısayoldur (symlink), güncelleme
+   eklentisi bunu reddeder ve kontrol "Sürüm bilgisi alınamadı" diye düşer. Geçici klasör
+   gerekiyorsa `/private/tmp/...` yolunu kullan.
+
+### 4.6 Bilinen sınırlar
 
 - macOS paketleri şu an **Developer ID ile imzalı ve noter onaylı değil** (Apple secret'ları
   GitHub'da yok). Tarayıcıdan indirilen `.dmg`'deki uygulamayı macOS çoğu zaman "hasarlı" ya da
