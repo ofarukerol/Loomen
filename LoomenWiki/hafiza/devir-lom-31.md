@@ -3,7 +3,7 @@ name: LOM-31 — Loomen masaüstü: uygulama içi otomatik güncelleme (Datha De
 description: Testler kaldı: Loomen masaüstüne özellik bayrağıyla açılıp kapanan uygulama içi güncelleme (tauri-plugin-updater, Rust tarafında komutlar + React şeridi) eklenir; imza anahtarı üretilip pubkey ayara girer, release.yml macOS arm64/x86_64 + Windows imzalı paket ve latest.json üretir, Air'e ilk .app kurulumu yapılır.
 type: project
 proje: loomen
-kaynak: kart LOM-31 · dal fix/LOM-31 · commit yok · test koşusu e3bb8820-a018-4a30-b2e4-f7c31532e7eb (Excalibur)
+kaynak: kart LOM-31 · dal fix/LOM-31 · commit yok · test koşusu e76655c0-a618-4ee2-a42b-58b0c21379d9 (Air)
 guven: iddia
 durum: gelistirildi
 ---
@@ -53,12 +53,12 @@ Loomen masaüstüne özellik bayrağıyla açılıp kapanan uygulama içi günce
 
 Testler KALDI; iş doğrulanmadı.
 
-> npm test (10 dosya), tsc ve iki cargo check (varsayılan ve --no-default-features) yeniden koşturuldu, hepsi çıkış kodu 0 ile yeşil. Gerçek Air kurulumu ve şeridin ekranda görünmesi yalnız insanın bakabileceği iş, aşağıdaki listeye yazıldı. Kokpit: Testler geçti dendi; Kokpit `insana_kalan` maddesinin biçimini kabul etmedi (her madde tek cümlecik: tek yüklem, virgül/nokta yok, 've'/'ama' yok). Madd
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-31`
-- Test koşusu: `e3bb8820-a018-4a30-b2e4-f7c31532e7eb` (Excalibur)
+- Test koşusu: `e76655c0-a618-4ee2-a42b-58b0c21379d9` (Air)
 
 ## Durum
 
