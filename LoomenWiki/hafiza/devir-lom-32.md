@@ -3,7 +3,7 @@ name: LOM-32 — Loomen mobil: yeni sürüm geldiğinde kibar, göz yormayan gü
 description: Loomen mobilde (iOS/Android) açılışta günde en fazla bir kez loomen.org/surum.json Rust üzerinden okunup uygulama sürümüyle karşılaştırılır; yeni sürüm varsa yüzen alt çubuğun hemen üstünde "Yeni sürüm hazır · Güncelle · Sonra" şeridi çıkar, Sonra aynı sürümü 3 gün gizler, ağ hatası sessiz geçer, masaüstünde hiç görünmez.
 type: project
 proje: loomen
-kaynak: kart LOM-32 · dal fix/LOM-32 · Loomen@9ff8da978283c8d75bb01ccfbd9705bea1e747dd · test koşusu 1e7df313-1d5b-418f-b8ea-dd252c6a3f5f (Excalibur)
+kaynak: kart LOM-32 · dal fix/LOM-32 · Loomen@0cd16673bb946483a040a5c3ca9e95859194c73d · test koşusu a36dfd01-74e0-4d06-8926-16154826eae7 (Excalibur)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-10-15
@@ -49,13 +49,13 @@ Loomen mobilde (iOS/Android) açılışta günde en fazla bir kez loomen.org/sur
 
 Testler geçti.
 
-> Hepsi geçti: npm test (12 dosya, mobileUpdateTest 73 kontrol), tsc, cargo check ve cargo test (17 test). tr/en/ar çevirilerinde update.ready/now/later anahtarları aynı. Telefonda gözle bakış Ömer'de kaldı.
+> Bütün kontroller ön planda yeniden koşuldu ve geçti. npm test'te 11 dosyanın tamamı yeşil, sürüm karşılaştırma testinde 73 kontrol geçti. Tip denetimi hatasız. cargo check ve cargo test yeşil, 17 Rust testi geçti. Şeridin telefondaki görünüşüne elle bakılacak.
 
 ## Kanıt
 
 - Dal: `fix/LOM-32`
-- Commit: `Loomen@9ff8da978283c8d75bb01ccfbd9705bea1e747dd`
-- Test koşusu: `1e7df313-1d5b-418f-b8ea-dd252c6a3f5f` (Excalibur)
+- Commit: `Loomen@0cd16673bb946483a040a5c3ca9e95859194c73d`
+- Test koşusu: `a36dfd01-74e0-4d06-8926-16154826eae7` (Excalibur)
 
 ## Durum
 
