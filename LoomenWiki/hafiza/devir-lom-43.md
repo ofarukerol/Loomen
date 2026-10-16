@@ -1,12 +1,11 @@
 ---
 name: LOM-43 — Graf: yalnız kullanıcının verdiği bağlantılar görünsün
-description: Graf varsayılanda yalnız notlardaki açık [[bağlantı]] ve not hedefli markdown bağlantılarını çizer; etiket ve var olmayan not düğümleri ayardan açılır, kod bloğu içindeki bağlantılar sayılmaz, kenar üretimi saf modüle taşınıp birim testlenir ve Ömer'in kasasındaki kenar kaynakları betikle raporlanır.
+description: Testler kaldı: Graf varsayılanda yalnız notlardaki açık [[bağlantı]] ve not hedefli markdown bağlantılarını çizer; etiket ve var olmayan not düğümleri ayardan açılır, kod bloğu içindeki bağlantılar sayılmaz, kenar üretimi saf modüle taşınıp birim testlenir ve Ömer'in kasasındaki kenar kaynakları betikle raporlanır.
 type: project
 proje: loomen
-kaynak: kart LOM-43 · dal fix/LOM-43 · Loomen@0a5de52d2aa4c2095f486e21a9f13dd79dac983b · test koşusu 6ac5b3c6-dace-483c-b4f7-878b0855963e (Excalibur)
-guven: dogrulandi
-durum: test_gecti
-dogrulama_tarihi: 2026-10-16
+kaynak: kart LOM-43 · dal fix/LOM-43 · commit yok · test koşusu 31fb2937-9bc1-47bf-943a-01025875de24 (Excalibur)
+guven: iddia
+durum: gelistirildi
 ---
 
 # LOM-43 — Graf: yalnız kullanıcının verdiği bağlantılar görünsün
@@ -45,16 +44,15 @@ Graf varsayılanda yalnız notlardaki açık [[bağlantı]] ve not hedefli markd
 
 ## Test
 
-Testler geçti.
+Testler KALDI; iş doğrulanmadı.
 
-> Tip denetimi hatasız geçti. npm test'te 14 test dosyasının hepsi geçti (graf testi 61/61, çekirdek 172). Demo kasada kenar analizi betiği çalıştı. Çeviri anahtarları üç dilde aynı. Canlı doğrulama insana kaldı.
+> Tip denetimi hatasız geçti. npm test'te 16 test dosyasının tümü geçti, graf testi 61/61. scripts/tsc-taban.mjs bu kopyada yok, o yüzden tip denetimi çıplak tsc ile koştu. Canlı doğrulama insana kaldı. Kokpit: `gecti=true` ama özet bir kontrolün koşmadığını söylüyor: "scripts/tsc-taban.mjs bu kopyada yok, o yüzden tip denetimi çıplak tsc ile koştu". O kontrolü koştur ve komut çıktısını alıntıla; ya
 
 ## Kanıt
 
 - Dal: `fix/LOM-43`
-- Commit: `Loomen@0a5de52d2aa4c2095f486e21a9f13dd79dac983b`
-- Test koşusu: `6ac5b3c6-dace-483c-b4f7-878b0855963e` (Excalibur)
+- Test koşusu: `31fb2937-9bc1-47bf-943a-01025875de24` (Excalibur)
 
 ## Durum
 
-Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.
+Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
