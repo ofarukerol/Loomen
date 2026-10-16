@@ -222,7 +222,15 @@
     "moreTasks": "+{{count}} مهام أخرى",
     "addTask": "إضافة",
     "markDone": "إتمام",
-    "markUndone": "تراجع"
+    "markUndone": "تراجع",
+    "planDay": "خطّط ليومك",
+    "planDayNone": "لا مهام متأخرة",
+    "planDayHint": "اختر المهام المتأخرة لنقلها إلى اليوم. يبقى الوقت وإعداد التكرار كما هما.",
+    "planDaySelectAll": "تحديد الكل",
+    "planDayClearAll": "إلغاء التحديد",
+    "planDayMove": "نقل إلى اليوم",
+    "planDayMoveCount": "نقل إلى اليوم ({{count}})",
+    "planDayCount": "{{count}} متأخرة"
   },
   "board": {
     "overdue": "متأخرة",

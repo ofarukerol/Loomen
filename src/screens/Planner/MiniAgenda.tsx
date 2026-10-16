@@ -1,11 +1,12 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Maximize2, Minimize2, FileText, GripVertical, CalendarDays } from "lucide-react";
-import { useAppStore } from "../../store/useAppStore";
+import { Maximize2, Minimize2, FileText, GripVertical, CalendarDays, CalendarCheck } from "lucide-react";
+import { useAppStore, useFocusCounts } from "../../store/useAppStore";
 import type { GroupKind, Task } from "../../data/sampleVault";
 import type { GEvent } from "../../core/google";
 import { StatCards, type TaskFilter } from "./StatCards";
 import { QuickAdd } from "./QuickAdd";
+import { PlanDayModal } from "./PlanDayModal";
 
 /** Google etkinliğinin başlangıcını yerel biçimde göster (tüm gün → tarih; saatli → tarih + saat). */
 function formatEventStart(ev: GEvent, locale: string): string {
@@ -40,7 +41,10 @@ export function MiniAgenda() {
   const screen = useAppStore((s) => s.screen);
   const setScreen = useAppStore((s) => s.setScreen);
 
+  const counts = useFocusCounts();
+
   const [filter, setFilter] = useState<TaskFilter>("yapilacak");
+  const [planOpen, setPlanOpen] = useState(false); // "Günü planla" penceresi (LOM-40)
   // Pointer tabanlı sürükle-bırak — Tauri WKWebView native HTML5 DnD'yi güvenilir desteklemez.
   const downRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const draggingRef = useRef(false);
@@ -208,13 +212,26 @@ export function MiniAgenda() {
     <div className="lo-card lo-mini">
       <div className="lo-mini__head">
         <span className="lo-mini__title">{t("planner.focusToday")}</span>
-        <button
-          className={"lo-focus__expand" + (expanded ? " is-active" : "")}
-          onClick={onExpand}
-          title={expanded ? t("planner.collapse") : t("planner.expand")}
-        >
-          {expanded ? <Minimize2 size={13} strokeWidth={2} /> : <Maximize2 size={13} strokeWidth={2} />}
-        </button>
+        <div className="lo-mini__actions">
+          <button
+            className="lo-mini__plan"
+            // `disabled` yerine aria-disabled: devre dışı düğmede WebKit ipucunu göstermiyor,
+            // "Geciken iş yok" yazısı da görünmez kalıyordu.
+            onClick={() => counts.geciken > 0 && setPlanOpen(true)}
+            aria-disabled={counts.geciken === 0}
+            title={counts.geciken === 0 ? t("planner.planDayNone") : t("planner.planDay")}
+          >
+            <CalendarCheck size={12} strokeWidth={2} />
+            <span>{t("planner.planDay")}</span>
+          </button>
+          <button
+            className={"lo-focus__expand" + (expanded ? " is-active" : "")}
+            onClick={onExpand}
+            title={expanded ? t("planner.collapse") : t("planner.expand")}
+          >
+            {expanded ? <Minimize2 size={13} strokeWidth={2} /> : <Maximize2 size={13} strokeWidth={2} />}
+          </button>
+        </div>
       </div>
 
       <StatCards compact active={filter} onSelect={setFilter} />
@@ -225,6 +242,8 @@ export function MiniAgenda() {
       ) : (
         <div className="lo-focus__empty">{t("planner.allClear")}</div>
       )}
+
+      {planOpen && <PlanDayModal onClose={() => setPlanOpen(false)} />}
     </div>
   );
 }

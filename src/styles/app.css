@@ -1386,6 +1386,73 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 }
 .lo-focus__expand:hover { background: var(--line-soft); color: var(--accent); }
 .lo-focus__expand.is-active { color: var(--accent); background: var(--accent-soft); }
+
+/* "Günü planla" düğmesi (LOM-40) — başlıkta hayalet, göze batmayan. Sağ panel dar (~260px):
+   metin taşarsa kısalır, başlık satırını itmez. */
+.lo-mini__actions { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.lo-mini__plan {
+  display: inline-flex; align-items: center; gap: 4px; min-width: 0; height: 24px;
+  padding-inline: 7px; border: none; border-radius: 6px; background: transparent;
+  color: var(--fg3); font-family: inherit; font-size: 11.5px; font-weight: 500; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lo-mini__plan > svg { flex-shrink: 0; }
+.lo-mini__plan > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-mini__plan[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.lo-mini__plan:not([aria-disabled="true"]):active { background: var(--line-soft); color: var(--accent); }
+@media (hover: hover) {
+  .lo-mini__plan:not([aria-disabled="true"]):hover { background: var(--line-soft); color: var(--accent); }
+}
+
+/* "Günü planla" penceresi — çöp kutusu penceresiyle aynı ölçüler */
+.lo-planday {
+  width: 480px; max-width: 100%; max-height: 80dvh;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: var(--sh3); display: flex; flex-direction: column; overflow: hidden;
+}
+.lo-planday__count {
+  margin-inline-start: 8px; padding: 1px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger);
+  font-size: 11px; font-weight: 600;
+}
+.lo-planday__hint { padding: 0 20px 10px; font-size: 12px; color: var(--fg3); flex-shrink: 0; }
+.lo-planday__empty { padding: 30px 20px 36px; text-align: center; color: var(--fg3); font-size: 13px; }
+.lo-planday__list { flex: 1; overflow-y: auto; padding: 2px 12px 8px; }
+.lo-planday__row {
+  display: flex; align-items: center; gap: 11px; padding: 9px 8px; cursor: pointer;
+  border-radius: 9px; border-bottom: 1px solid var(--line-soft);
+}
+.lo-planday__row:last-child { border-bottom: none; }
+.lo-planday__check { width: 16px; height: 16px; margin: 0; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+.lo-planday__info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lo-planday__text { font-size: 13.5px; color: var(--fg1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-planday__meta {
+  display: flex; align-items: center; gap: 8px; margin-top: 2px; min-width: 0;
+  font-size: 11px; color: var(--fg3);
+}
+.lo-planday__rel { color: var(--danger); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.lo-planday__time { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.lo-planday__src { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-planday__src > svg { flex-shrink: 0; }
+.lo-planday__foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 16px 14px; border-top: 1px solid var(--line); flex-shrink: 0;
+}
+.lo-planday__move {
+  border: none; background: var(--accent); color: #fff; cursor: pointer;
+  border-radius: 8px; padding: 7px 14px; font-family: inherit; font-size: 12.5px; font-weight: 600;
+}
+.lo-planday__move:disabled, .lo-planday__foot .lo-trash__ghost:disabled { opacity: 0.45; cursor: default; }
+@media (hover: hover) {
+  .lo-planday__row:hover { background: var(--line-soft); }
+}
+/* Dar ekran: parmakla rahat dokunulsun (yükseklik sınırı aşağıdaki 768px bloğunda). */
+@media (max-width: 600px) {
+  .lo-planday__row { padding-block: 12px; min-height: 48px; }
+  .lo-planday__check { width: 20px; height: 20px; }
+  .lo-planday__foot > button { min-height: 40px; }
+  .lo-mini__plan { height: 32px; }
+}
 .lo-focus__list { display: flex; flex-direction: column; gap: 1px; }
 .lo-focus__row { display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-radius: 6px; }
 .lo-focus__row:hover { background: var(--line-soft); }
@@ -3458,5 +3525,6 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
     padding: var(--lo-modal-top) 12px var(--lo-modal-bottom);
   }
   .lo-tdetail,
-  .lo-trash { max-height: calc(100dvh - var(--lo-modal-top) - var(--lo-modal-bottom)); }
+  .lo-trash,
+  .lo-planday { max-height: calc(100dvh - var(--lo-modal-top) - var(--lo-modal-bottom)); }
 }

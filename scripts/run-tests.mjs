@@ -26,6 +26,7 @@ const vault = process.argv[2] ?? join(root, "demo-vault");
 const suites = [
   ["src/core/__test__/coreTest.ts", []],
   ["src/core/__test__/recurrenceTest.ts", []],
+  ["src/core/__test__/planDayTest.ts", []],
   ["src/core/__test__/vaultTest.ts", existsSync(vault) ? [vault] : null],
   ["src/core/__test__/srsTest.ts", []],
   ["src/core/__test__/aiTest.ts", []],

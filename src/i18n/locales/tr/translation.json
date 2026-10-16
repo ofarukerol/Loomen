@@ -225,7 +225,15 @@
     "moreTasks": "+{{count}} görev daha",
     "addTask": "Ekle",
     "markDone": "Tamamla",
-    "markUndone": "Geri al"
+    "markUndone": "Geri al",
+    "planDay": "Günü planla",
+    "planDayNone": "Geciken iş yok",
+    "planDayHint": "Bugüne almak istediğin geciken görevleri seç. Saat ve tekrar ayarı aynen kalır.",
+    "planDaySelectAll": "Tümünü seç",
+    "planDayClearAll": "Seçimi kaldır",
+    "planDayMove": "Bugüne al",
+    "planDayMoveCount": "Bugüne al ({{count}})",
+    "planDayCount": "{{count}} geciken"
   },
   "board": {
     "overdue": "Geciken",

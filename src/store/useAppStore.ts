@@ -76,7 +76,8 @@ import { retrieve, resetIndex } from "../core/ai/retrieve";
 import { buildContext, buildSystemPrompt } from "../core/ai/context";
 import { transcribe } from "../core/ai/stt";
 import { splitProposals, appendText, uniquePath, type ProposalState } from "../core/ai/proposal";
-import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, taskLineMatches, setTaskChildren, getSubtasks, getTaskNotes, type TaskPatch } from "../core/markdown/taskParser";
+import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, taskLineMatches, setTaskChildren, getSubtasks, getTaskNotes, rescheduleTasksInContent, type TaskPatch } from "../core/markdown/taskParser";
+import { planRescheduleBatches } from "../core/vault/planDay";
 import {
   DEFAULT_SETTINGS as SRS_DEFAULTS,
   PRESETS as SRS_PRESETS,
@@ -454,6 +455,8 @@ interface AppState {
   /** Açık pencere sayacını bir artır/azalt (bkz `modalLayers`, `useModalLayer`). */
   addModalLayer: (delta: 1 | -1) => void;
   updateTask: (id: string, patch: TaskPatch) => Promise<void>;
+  /** Seçilen geciken görevlerin planlama tarihini bugüne çek ("Günü planla", LOM-40). */
+  rescheduleTasksToToday: (ids: string[]) => Promise<void>;
   saveTask: (id: string, patch: TaskPatch, notes?: string, subtasks?: { text: string; done: boolean }[]) => Promise<void>;
   reorderTask: (fromId: string, toId: string, position: "before" | "after") => Promise<void>;
 
@@ -2252,6 +2255,33 @@ export const useAppStore = create<AppState>()(
           return;
         }
         await loadFromBackend();
+      }),
+
+    // "Günü planla": seçilen görevlerin 📅 (yoksa ⏳) tarihini bugüne çek. Dosya başına tek
+    // okuma + tek yazma; satır sayısı değişmediği için aynı dosyadaki satırlar kaymaz.
+    rescheduleTasksToToday: async (ids) =>
+      queueFileOp(async () => {
+        // Açık notun yazılmamış hali önce diske: yoksa görev yazması "dış değişiklik"
+        // sayılıp çakışma sorulur ya da taslak görev değişikliğini ezer (LOM-5).
+        await flushDraft();
+        const batches = planRescheduleBatches(ids, get().parsedTasks);
+        if (batches.size === 0) return;
+        const today = todayISO();
+        let stale = false;
+        let failure: unknown;
+        for (const [file, items] of batches) {
+          try {
+            const content = await backend.readNote(file);
+            const r = rescheduleTasksInContent(content, items, today);
+            if (r.stale.length) stale = true; // dışarıdan değişen satıra dokunulmadı
+            if (r.changed) await backend.writeNote(file, r.content);
+          } catch (e) {
+            failure ??= e; // bir dosya yazılamazsa diğerleri yine denenir
+          }
+        }
+        await loadFromBackend();
+        if (failure !== undefined) await notifyError(i18n.t("errors.updateTask", { detail: errText(failure) }));
+        else if (stale) await notifyError(i18n.t("errors.taskStale"));
       }),
 
     // Görevi tek yazımda kaydet: satır yaması + (varsa) girintili çocuk bloğu (alt görevler + notlar).

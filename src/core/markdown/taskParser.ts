@@ -285,6 +285,53 @@ export function taskLineMatches(content: string, line: number, raw: string): boo
   return lines[line].replace(/\r$/, "") === raw.replace(/\r$/, "");
 }
 
+/**
+ * Açık görevin planlama tarihini bugüne çek ("Günü planla", LOM-40).
+ * Yalnız 📅 (yoksa ⏳) tarihinin rakamları değişir; satırın geri kalanı — saat (⏰),
+ * tekrar (🔁), bilinmeyen token'lar, girinti, sondaki `\r` — bayt bayt aynı kalır.
+ * Satır yeniden serileştirilmez ve yeni satır/örnek üretilmez: tekrar eden görevde
+ * yalnız bu örneğin tarihi kayar. Tamamlanmış ya da tarihsiz görev aynen döner.
+ */
+export function rescheduleTaskLine(raw: string, todayISO: string): string {
+  const t = parseTaskLine("", 0, raw);
+  if (!t || t.done) return raw;
+  // parseTaskLine'ın planDate'i (due > scheduled) ile aynı token seçilir; matchDate
+  // ilk eşleşmeye baktığı için burada da yalnız ilk eşleşme değişir.
+  const emoji = t.due ? EMOJI.due : t.scheduled ? EMOJI.scheduled : undefined;
+  if (!emoji) return raw;
+  return raw.replace(new RegExp(`${emoji}(\\s*)${DATE}`), (_m, ws: string) => `${emoji}${ws}${todayISO}`);
+}
+
+/**
+ * Bir dosyadaki birden çok görevi tek seferde bugüne çek. Her satır `taskLineMatches`
+ * ile aynı kilitle denetlenir: dosya arada dışarıdan değiştiyse o satır `stale`e düşer ve
+ * dokunulmaz. Satır sayısı değişmediği için satır numaraları birbirini kaydırmaz.
+ * Satır sonları (CRLF/LF, karışık olsa bile) olduğu gibi korunur.
+ */
+export function rescheduleTasksInContent(
+  content: string,
+  items: { line: number; raw: string }[],
+  todayISO: string,
+): { content: string; changed: number; stale: number[] } {
+  // Ayraçları da tut: [satır, ayraç, satır, ayraç, …] — birleştirme dosyayı aynen kurar.
+  const parts = content.split(/(\r\n|\r|\n)/);
+  const lineCount = Math.ceil(parts.length / 2);
+  let changed = 0;
+  const stale: number[] = [];
+  for (const { line, raw } of items) {
+    if (line < 0 || line >= lineCount || parts[line * 2] !== raw.replace(/\r$/, "")) {
+      stale.push(line);
+      continue;
+    }
+    const next = rescheduleTaskLine(parts[line * 2], todayISO);
+    if (next !== parts[line * 2]) {
+      parts[line * 2] = next;
+      changed++;
+    }
+  }
+  return { content: changed ? parts.join("") : content, changed, stale };
+}
+
 export function applyTaskPatch(content: string, line: number, t: ParsedTask, patch: TaskPatch): string {
   const lines = splitLines(content);
   if (!taskLineMatches(content, line, t.raw)) return content; // satır kaymış

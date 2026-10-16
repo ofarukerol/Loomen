@@ -222,7 +222,15 @@
     "moreTasks": "+{{count}} more tasks",
     "addTask": "Add",
     "markDone": "Complete",
-    "markUndone": "Undo"
+    "markUndone": "Undo",
+    "planDay": "Plan the day",
+    "planDayNone": "Nothing overdue",
+    "planDayHint": "Pick the overdue tasks to move to today. Time and repeat settings stay as they are.",
+    "planDaySelectAll": "Select all",
+    "planDayClearAll": "Clear selection",
+    "planDayMove": "Move to today",
+    "planDayMoveCount": "Move to today ({{count}})",
+    "planDayCount": "{{count}} overdue"
   },
   "taskDetail": {
     "title": "Task",
