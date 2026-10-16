@@ -3,7 +3,7 @@ name: LOM-42 — Takvim kartı açıklamasındaki [ ] maddeleri o günün Yapıl
 description: Google Takvim etkinliklerinin açıklamasındaki "- [ ] iş" / "[ ] iş" satırları eşitlemede o günün Yapılacaklar listesine sanal görev olarak alınır; listede işaretleme ve başlık düzenleme Google'daki açıklamaya yalnız o satırı değiştirerek geri yazılır, Google'daki değişiklik (işaret, metin, silme) sonraki eşitlemede listeye yansır. Varsayım: Loomen'in kendi etkinlik/kart modeli olmadığından "takvim kartı" = Google Takvim etkinliği.
 type: project
 proje: loomen
-kaynak: kart LOM-42 · dal fix/LOM-42 · Loomen@68de2832eeecd0261e6f104421e54c8de43b2b0f · test koşusu 086adbd8-70be-46bb-b34b-bfb8305eaf39 (Excalibur)
+kaynak: kart LOM-42 · dal fix/LOM-42 · Loomen@a5849a53742dde9b3909f9bc18d491991fb47679 · test koşusu 14fef031-3ce3-4cfe-bfa7-6448c567a2f4 (Excalibur)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-10-16
@@ -48,13 +48,13 @@ Google Takvim etkinliklerinin açıklamasındaki "- [ ] iş" / "[ ] iş" satırl
 
 Testler geçti.
 
-> Tip denetimi, tüm birim testleri (50 test, 15 dosya) ve Rust google testleri (2 test) geçti. Gerçek Google hesabıyla deneme bu ortamda yapılamaz, insana kaldı.
+> Tip denetimi, 50 birim test (16 dosya) ve Rust google testleri hatasız geçti. Canlı deneme gerçek Google hesabı istediği için elle yapılacak, insana kalanlara yazdım.
 
 ## Kanıt
 
 - Dal: `fix/LOM-42`
-- Commit: `Loomen@68de2832eeecd0261e6f104421e54c8de43b2b0f`
-- Test koşusu: `086adbd8-70be-46bb-b34b-bfb8305eaf39` (Excalibur)
+- Commit: `Loomen@a5849a53742dde9b3909f9bc18d491991fb47679`
+- Test koşusu: `14fef031-3ce3-4cfe-bfa7-6448c567a2f4` (Excalibur)
 
 ## Durum
 

@@ -3,7 +3,7 @@ name: LOM-43 — Graf: yalnız kullanıcının verdiği bağlantılar görünsü
 description: Testler kaldı: Graf varsayılanda yalnız notlardaki açık [[bağlantı]] ve not hedefli markdown bağlantılarını çizer; etiket ve var olmayan not düğümleri ayardan açılır, kod bloğu içindeki bağlantılar sayılmaz, kenar üretimi saf modüle taşınıp birim testlenir ve Ömer'in kasasındaki kenar kaynakları betikle raporlanır.
 type: project
 proje: loomen
-kaynak: kart LOM-43 · dal fix/LOM-43 · commit yok · test koşusu 31fb2937-9bc1-47bf-943a-01025875de24 (Excalibur)
+kaynak: kart LOM-43 · dal fix/LOM-43 · commit yok · test koşusu 13740064-5207-49f0-bce9-8f4da918a2bf (Air)
 guven: iddia
 durum: gelistirildi
 ---
@@ -46,12 +46,12 @@ Graf varsayılanda yalnız notlardaki açık [[bağlantı]] ve not hedefli markd
 
 Testler KALDI; iş doğrulanmadı.
 
-> Tip denetimi hatasız geçti. npm test'te 16 test dosyasının tümü geçti, graf testi 61/61. scripts/tsc-taban.mjs bu kopyada yok, o yüzden tip denetimi çıplak tsc ile koştu. Canlı doğrulama insana kaldı. Kokpit: `gecti=true` ama özet bir kontrolün koşmadığını söylüyor: "scripts/tsc-taban.mjs bu kopyada yok, o yüzden tip denetimi çıplak tsc ile koştu". O kontrolü koştur ve komut çıktısını alıntıla; ya
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-43`
-- Test koşusu: `31fb2937-9bc1-47bf-943a-01025875de24` (Excalibur)
+- Test koşusu: `13740064-5207-49f0-bce9-8f4da918a2bf` (Air)
 
 ## Durum
 
