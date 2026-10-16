@@ -10,23 +10,10 @@ import {
   forceX,
   forceY,
   type Simulation,
-  type SimulationNodeDatum,
 } from "d3-force";
 import { useAppStore } from "../../store/useAppStore";
 import { useIsMobile } from "../../hooks/useIsMobile";
-import { extractWikiLinks, extractTags } from "../../core/markdown/links";
-
-type NodeKind = "note" | "tag";
-interface GNode extends SimulationNodeDatum {
-  id: string; // not: path · etiket: "#"+ad
-  name: string; // ekranda görünen etiket
-  deg: number;
-  kind: NodeKind;
-}
-interface GLink {
-  source: string | GNode;
-  target: string | GNode;
-}
+import { buildGraphModel, GRAPH_OPTION_DEFAULTS, type GLink, type GNode } from "./graphModel";
 
 interface Forces {
   repel: number; // pozitif; charge.strength = -repel
@@ -39,79 +26,18 @@ const DEFAULTS: Forces = { repel: 340, linkDist: 72, gravity: 0.11 };
 interface Display {
   tags: boolean; // #etiketleri düğüm olarak göster ve paylaşan notları bağla
   orphans: boolean; // bağlantısız notları göster
+  ghosts: boolean; // var olmayan hedef notları (hayalet) göster
   arrows: boolean; // kenarlarda yön okları
   textFade: number; // etiket solma eşiği (k); bunun altında yazılar kaybolur
 }
-const DISPLAY_DEFAULTS: Display = { tags: true, orphans: true, arrows: false, textFade: 1.1 };
+// Varsayılan: yalnız kullanıcının yazdığı bağlantılar (etiket ve hayalet düğümleri kapalı).
+const DISPLAY_DEFAULTS: Display = { ...GRAPH_OPTION_DEFAULTS, arrows: false, textFade: 1.1 };
 
 const FONT = "'DM Sans', system-ui, sans-serif";
 
 /** Düğüm yarıçapı (dünya birimi) — derece arttıkça yumuşakça büyür, üstten sınırlı. */
 function nodeRadius(deg: number) {
   return Math.min(26, 5 + Math.sqrt(deg) * 2.6);
-}
-
-/** Vault notları + [[link]] + #etiketlerden graf verisi (düğüm, kenar, hub, komşuluk). */
-function buildGraph(
-  notes: { path: string; name: string }[],
-  contents: Record<string, string>,
-  opts: { tags: boolean; orphans: boolean },
-) {
-  const byName = new Map(notes.map((n) => [n.name, n.path]));
-  const noteNodes: GNode[] = notes.map((n) => ({ id: n.path, name: n.name, deg: 0, kind: "note" }));
-  const deg = new Map<string, number>(noteNodes.map((n) => [n.id, 0]));
-  const links: GLink[] = [];
-  const seen = new Set<string>();
-  const neighbors = new Map<string, Set<string>>();
-  const link = (a: string, b: string) => {
-    if (!neighbors.has(a)) neighbors.set(a, new Set());
-    neighbors.get(a)!.add(b);
-  };
-  const addEdge = (a: string, b: string) => {
-    if (a === b) return;
-    const key = [a, b].sort().join("→");
-    if (seen.has(key)) return;
-    seen.add(key);
-    links.push({ source: a, target: b });
-    deg.set(a, (deg.get(a) ?? 0) + 1);
-    deg.set(b, (deg.get(b) ?? 0) + 1);
-    link(a, b);
-    link(b, a);
-  };
-
-  // [[wiki-link]] kenarları (not → not)
-  for (const n of notes) {
-    for (const targetName of extractWikiLinks(contents[n.path] ?? "")) {
-      const tpath = byName.get(targetName);
-      if (tpath) addEdge(n.path, tpath);
-    }
-  }
-
-  // #etiket düğümleri + kenarları (not → etiket); paylaşan notlar etiket üzerinden bağlanır
-  const tagNodes = new Map<string, GNode>();
-  if (opts.tags) {
-    for (const n of notes) {
-      for (const tag of extractTags(contents[n.path] ?? "")) {
-        const id = "#" + tag;
-        if (!tagNodes.has(id)) {
-          tagNodes.set(id, { id, name: id, deg: 0, kind: "tag" });
-          deg.set(id, 0);
-        }
-        addEdge(n.path, id);
-      }
-    }
-  }
-
-  let nodes: GNode[] = [...noteNodes, ...tagNodes.values()];
-  nodes.forEach((n) => (n.deg = deg.get(n.id) ?? 0));
-
-  // Yetimler: bağlantısı olmayan notları gizle (etiket düğümleri daima en az 1 bağlantılı)
-  if (!opts.orphans) nodes = nodes.filter((n) => n.kind === "tag" || n.deg > 0);
-
-  const hubId = nodes.reduce<GNode | null>((a, b) => (!a || b.deg > a.deg ? b : a), null)?.id ?? null;
-  const noteCount = noteNodes.length;
-  const tagCount = tagNodes.size;
-  return { nodes, links, hubId, neighbors, noteCount, tagCount };
 }
 
 interface Colors {
@@ -122,6 +48,7 @@ interface Colors {
   nodeLine: string;
   linkCol: string;
   fg2: string;
+  fg3: string;
   tag: string;
   tagSoft: string;
 }
@@ -136,6 +63,7 @@ function readColors(): Colors {
     nodeLine: g("--graph-node-line", "#CDC4B2"),
     linkCol: g("--graph-link", "#D8CFBF"),
     fg2: g("--fg2", "#6E6A62"),
+    fg3: g("--fg3", "#A29D93"),
     tag: g("--graph-tag", "#5E8C6A"),
     tagSoft: g("--graph-tag-soft", "#5E8C6A3D"),
   };
@@ -154,10 +82,15 @@ export function GraphScreen() {
   const [forces, setForces] = useState<Forces>(DEFAULTS);
   const [display, setDisplay] = useState<Display>(DISPLAY_DEFAULTS);
 
-  // Yapısal seçenekler (tags/orphans) grafı yeniden kurar; arrows/textFade yalnız çizimi etkiler.
+  // Yapısal seçenekler (tags/orphans/ghosts) grafı yeniden kurar; arrows/textFade yalnız çizimi etkiler.
   const graph = useMemo(
-    () => buildGraph(notes, contents, { tags: display.tags, orphans: display.orphans }),
-    [notes, contents, display.tags, display.orphans],
+    () =>
+      buildGraphModel(notes, contents, {
+        tags: display.tags,
+        orphans: display.orphans,
+        ghosts: display.ghosts,
+      }),
+    [notes, contents, display.tags, display.orphans, display.ghosts],
   );
 
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -346,12 +279,15 @@ export function GraphScreen() {
         const isHover = n.id === hover;
         const near = !hover || isHover || !!nb?.has(n.id);
         const isTag = n.kind === "tag";
+        const isGhost = n.kind === "ghost";
         const isHub = n.id === graph.hubId && n.deg > 0 && !isTag;
         const stroke = isHover ? c.accent : isTag ? c.tag : isHub ? c.accent : c.nodeLine;
         const glow = isHover || isHub || isTag;
         const r = nodeRadius(n.deg);
+        const base = near ? 1 : 0.16;
 
-        ctx.globalAlpha = near ? 1 : 0.16;
+        // Hayalet (var olmayan not): soluk dolgu, kesikli kenarlık
+        ctx.globalAlpha = isGhost && !isHover ? base * 0.45 : base;
         ctx.beginPath();
         ctx.arc(n.x, n.y!, r, 0, Math.PI * 2);
         ctx.fillStyle = isHover
@@ -369,14 +305,17 @@ export function GraphScreen() {
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.shadowColor = "transparent";
+        ctx.globalAlpha = base;
         ctx.lineWidth = (isHover || isHub || isTag ? 2 : 1.4) / tf.k;
         ctx.strokeStyle = stroke;
+        if (isGhost) ctx.setLineDash([3 / tf.k, 3 / tf.k]);
         ctx.stroke();
+        if (isGhost) ctx.setLineDash([]);
 
         const la = labelAlpha(n, tf.k, !!hover, isHover, near, d.textFade);
         if (la > 0.04) {
           ctx.globalAlpha = (near ? 1 : 0.16) * la;
-          ctx.fillStyle = isHover ? c.accent : isTag ? c.tag : c.fg2;
+          ctx.fillStyle = isHover ? c.accent : isTag ? c.tag : isGhost ? c.fg3 : c.fg2;
           const weight = isHover || isTag ? 600 : 400;
           ctx.font = `${weight} ${(isHover ? 12.5 : 11.5) / tf.k}px ${FONT}`;
           ctx.textAlign = "center";
@@ -584,6 +523,14 @@ export function GraphScreen() {
                     onChange={(e) => setDisplay((d) => ({ ...d, orphans: e.target.checked }))}
                   />
                   <span>{t("graph.orphans")}</span>
+                </label>
+                <label className="lo-graph__check">
+                  <input
+                    type="checkbox"
+                    checked={display.ghosts}
+                    onChange={(e) => setDisplay((d) => ({ ...d, ghosts: e.target.checked }))}
+                  />
+                  <span>{t("graph.ghosts")}</span>
                 </label>
                 <label className="lo-graph__check">
                   <input
