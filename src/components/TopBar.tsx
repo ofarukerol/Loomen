@@ -48,7 +48,7 @@ export function TopBar() {
         </>
       )}
 
-      <div className="lo-topbar__tabs">
+      <div className="lo-topbar__tabs" data-tauri-drag-region>
         {ordered.map((path) => {
           const isPinned = pinned.has(path);
           const isActive = path === activePath;

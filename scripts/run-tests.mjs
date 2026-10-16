@@ -37,6 +37,7 @@ const suites = [
   ["src/core/__test__/vaultOpenErrorBarTest.ts", []],
   ["src/core/__test__/updaterTest.ts", []],
   ["src/core/__test__/mobileUpdateTest.ts", []],
+  ["src/core/__test__/windowDragTest.ts", []],
 ];
 
 let failed = 0;

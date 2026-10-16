@@ -42,6 +42,9 @@ Hedef: kodun %85'ten fazlası masaüstü ve mobilde ortak.
 Çekirdek hiçbir yere veri göndermez. Tauri izinleri yalnız seçilen kasa klasörüne açılır.
 Şifreleme ilk sürümde yok. macOS'ta kalıcı kasa erişimi için sandbox yer imi (security-scoped bookmark) kullanılır (`src/core/bookmark.ts`).
 
+## Pencere sürükleme (masaüstü)
+Üst çubuktan pencere taşımak iki şey ister: öğede `data-tauri-drag-region` işareti ve `src-tauri/capabilities/default.json` içinde `core:window:allow-start-dragging` izni. `core:default` bu izni içermez (çift tıklamayla büyütmeyi, `internal-toggle-maximize`, içerir). Tauri'nin sürükleme betiği yalnız doğrudan basılan öğedeki işarete bakar; bu yüzden düğmeler ve sekmeler işaretsiz bırakılır, tıklanabilir kalır. Testi: `src/core/__test__/windowDragTest.ts` (LOM-39).
+
 ## Plandan sapma (2026-09-13)
 - Plan SQLite + FTS5 dizini öngörüyordu; kodda SQLite eklentisi yok, arama JavaScript tarafında (`src/core/search/search.ts`).
 - Plan "ağ yok" diyordu; isteğe bağlı GitHub eşitleme ve Google Takvim bağlantısı eklendi. Çekirdek yine ağsız çalışır; bağlantılar kullanıcı açarsa devreye girer.
