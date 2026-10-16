@@ -4,6 +4,7 @@
 
 import type { ParsedTask } from "../vault/types";
 import { matchTags, stripTags } from "./links";
+import { daysBetweenISO, nextRecurrenceDate, shiftISO } from "./recurrence";
 
 const TASK_RE = /^(\s*)- \[([ xX])\]\s+(.*)$/;
 const DATE = "(\\d{4}-\\d{2}-\\d{2})";
@@ -145,8 +146,76 @@ export function toggleTaskInContent(
   if (expectedRaw !== undefined && lines[line].replace(/\r$/, "") !== expectedRaw.replace(/\r$/, "")) {
     return content; // satır kaymış — yanlış görevi işaretlemektense hiç işaretleme
   }
+  const before = parseTaskLine("", line, lines[line]);
   lines[line] = toggleDoneLine(lines[line], todayISO);
+  if (before?.recurrence) {
+    const [, end] = childBlockRange(lines, line);
+    if (!before.done) {
+      // Tamamlanıyor: açık örnek yoksa çocuk bloğunun altına tek yeni örnek aç.
+      const next = nextInstanceLine(before, todayISO);
+      if (next !== undefined && findOpenRecurringSibling(lines, before, line) === -1) {
+        lines.splice(end, 0, next);
+      }
+    } else {
+      // Geri alınıyor: hemen alttaki satır bizim ürettiğimiz örnekse kaldır, değilse dokunma.
+      // Örnek tamamlandığı gün (✅) üretildi; geri alma ertesi gün yapılsa da o günle hesapla.
+      // Dosyada başka açık örnek de varsa tamamlamada satır eklenmemiştir — hiçbirine dokunma.
+      const reopened = parseTaskLine("", line, lines[line]);
+      const next = reopened && nextInstanceLine(reopened, before.doneDate ?? todayISO);
+      if (
+        next !== undefined &&
+        end < lines.length &&
+        lines[end] === next &&
+        childBlockRange(lines, end)[1] === end + 1 &&
+        findOpenRecurringSibling(lines, before, line, end) === -1
+      ) {
+        lines.splice(end, 1);
+      }
+    }
+  }
   return joinLines(lines, eolOf(content));
+}
+
+const normText = (s: string | undefined) => (s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+
+/**
+ * Aynı dosyada, aynı girintide, aynı açıklama ve kuralla başka AÇIK görev satırı var mı?
+ * Varsa satır indeksi, yoksa -1. Tekrar eden görevin aynı anda tek açık örneği olsun diye
+ * tamamlamada yeni örnek yalnız bu -1 dönerse açılır (LOM-41: kopyalar birikiyordu).
+ */
+export function findOpenRecurringSibling(lines: string[], t: ParsedTask, skipLine: number, skipLine2 = -1): number {
+  const desc = normText(t.description);
+  const rule = normText(t.recurrence);
+  for (let i = 0; i < lines.length; i++) {
+    if (i === skipLine || i === skipLine2) continue;
+    const o = parseTaskLine("", i, lines[i]);
+    if (!o || o.done || o.indent !== t.indent) continue;
+    if (normText(o.description) === desc && normText(o.recurrence) === rule) return i;
+  }
+  return -1;
+}
+
+/**
+ * Tekrar eden görevin bir sonraki açık örneğinin satırı (tanınmayan kuralda undefined).
+ * Tarihler (📅 ⏳ 🛫) plan tarihiyle aynı gün farkı kadar ileri kayar; kaçırılan geçmiş
+ * tekrarlar atlanır. Plan tarihi yoksa baz bugündür ve yeni örnek 📅 ile o güne düşer.
+ * Pomodoro ve ✅ taşınmaz; öncelik, etiket, saat ve kural korunur.
+ */
+export function nextInstanceLine(t: ParsedTask, todayISO: string): string | undefined {
+  const base = t.due ?? t.scheduled ?? t.start;
+  const next = nextRecurrenceDate(t.recurrence, base ?? todayISO, todayISO);
+  if (!next) return undefined;
+  const shift = (d: string | undefined) => (d ? shiftISO(d, daysBetweenISO(base!, next)) : undefined);
+  const fresh: ParsedTask = {
+    ...t,
+    done: false,
+    doneDate: undefined,
+    pomos: 0,
+    due: base ? shift(t.due) : next,
+    scheduled: shift(t.scheduled),
+    start: shift(t.start),
+  };
+  return serializeTaskLine(fresh);
 }
 
 /** Bir görevde düzenlenebilir alanlar. null = ilgili token'ı kaldır. */

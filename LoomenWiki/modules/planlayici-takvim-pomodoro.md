@@ -39,6 +39,14 @@ Aylık ızgara, hafta Pazartesi başlar; görevli günlerde nokta. Güne tıklam
 açar (yoksa şablondan oluşturur: `src/core/vault/dailyTemplate.ts`) ve o günün görevlerini listeler.
 Takvim ve çizelge **aynı görev verisini** okur; ayrıca eşitleme yok.
 
+## Tekrar eden görev (🔁, LOM-41)
+- Kural ve sonraki tarih: `src/core/markdown/recurrence.ts` (`every day`, `every 2 days`, `every week on Monday`, `every month on the 15th`, `every year`, sonda `when done`). Tanınmayan kural görevi bozmaz; satır yalnız tamamlanır.
+- Tamamlanınca satır ✅ ile kalır, altına (alt görev/not bloğundan sonra) **tek** yeni açık örnek açılır. Tarihler aynı gün farkıyla kayar; kaçırılan geçmiş tekrarlar atlanır (6 gün geciken günlük görev bugün kapanırsa yeni örnek yarına düşer). 🍅 sayacı sıfırlanır.
+- Aynı dosyada aynı girinti, açıklama ve kuralla açık örnek zaten varsa yeni satır eklenmez; var olan kopyalar silinmez, kapatıldıkça erir.
+- Geri alma, hemen alttaki satır birebir üretilen örnekse onu kaldırır; kullanıcı onu değiştirdiyse dokunmaz.
+- Tarihi bugüne çekmek yalnız satırı günceller, kopya üretmez.
+- Kopyalar ayrı dosyalardaysa (çakışma kopyası, günlük not) bu koruma kapsamaz; Zaman çizelgesindeki kaynak not hangisi olduğunu gösterir.
+
 ## Pomodoro
 - Durumlar: boşta → çalışma → kısa/uzun mola → çalışma. Her 4 turda bir uzun mola.
 - Varsayılanlar 25 / 5 / 15 dk, 4 tur; otomatik mola ve otomatik sonraki tur açılıp kapanabilir.
