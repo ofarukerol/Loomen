@@ -46,7 +46,9 @@ export function stripCode(content: string): string {
   //    kapanır; kapanmazsa dosya sonuna kadar sürer. Liste öğesi (`- ```, `1. ```), alıntı (`> ````)
   //    ve girintili çit de sayılır — yoksa listedeki bloğun girintili kapanışı yeni çit açıp
   //    dosyanın kalanını yutuyordu.
-  const lines = content.split(/(?<=\n)/);
+  // Satır sonu korunarak bölünür. Geriye bakışlı regex kullanılmaz: iOS 15 / Safari 16.4 öncesi
+  // WebKit'te o regex derlenemez ve graf ile Bağlantılar paneli tümden bozulurdu.
+  const lines = content.match(/[^\n]*\n|[^\n]+$/g) ?? [];
   let fence: { ch: string; len: number } | null = null;
   for (let i = 0; i < lines.length; i++) {
     const f = fenceAt(lines[i], !fence);
@@ -64,7 +66,11 @@ export function stripCode(content: string): string {
   // 2) Satır içi kod: n ters tırnakla açılır, tam n ters tırnakla kapanır; boş satırı geçmez.
   return lines
     .join("")
-    .replace(/(?<!`)(`+)(?!`)((?:[^\n]|\n(?![ \t]*\r?\n))*?[^`])\1(?!`)/g, (whole) => blank(whole));
+    .replace(
+      // Öndeki karakter grupla yakalanır (geriye bakış yerine): ters tırnak dizisinin ortasından başlanmaz.
+      /(^|[^`])(`+)(?!`)((?:[^\n]|\n(?![ \t]*\r?\n))*?[^`])\2(?!`)/g,
+      (whole, pre: string) => pre + blank(whole.slice(pre.length)),
+    );
 }
 
 /**

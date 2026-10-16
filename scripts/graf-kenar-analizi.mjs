@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Graf kenar analizi — bir kasadaki graf çizgilerinin nereden geldiğini döker (LOM-43).
 //
-//   node scripts/graf-kenar-analizi.mjs <kasa-klasörü> [--ref HEAD] [--ornek 8]
+//   node scripts/graf-kenar-analizi.mjs <kasa-klasörü> [--ref <commit>] [--ornek 8]
 //
-// Eski kural: --ref'teki (varsayılan HEAD) links.ts + eski GraphScreen mantığı — [[ad]] yalnız
+// Eski kural: --ref'teki links.ts (varsayılan: links.ts'ye dokunan ilk "LOM-43:" commit'inin
+// ebeveyni, yani değişiklik öncesi; bulunamazsa HEAD) + eski GraphScreen mantığı — [[ad]] yalnız
 // birebir adla çözülür, kod blokları ayıklanmaz, çizim JSON'u da taranır, etiketler açık.
 // Yeni kural: çalışma kopyasındaki graphModel.ts / links.ts, varsayılan graf seçenekleriyle.
 // Dosya yazmaz; esbuild çıktısı bellekte derlenip data: adresiyle içe alınır.
@@ -17,7 +18,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 // — Argümanlar —
 const argv = process.argv.slice(2);
-let ref = "HEAD";
+let ref = null; // null → LOM-43 öncesi commit aranır
 let sampleCount = 8;
 const positional = [];
 for (let i = 0; i < argv.length; i++) {
@@ -26,8 +27,8 @@ for (let i = 0; i < argv.length; i++) {
   else if (argv[i].startsWith("--")) ref = undefined; // bilinmeyen seçenek → kullanım
   else positional.push(argv[i]);
 }
-if (positional.length !== 1 || !ref || !(sampleCount > 0)) {
-  console.error("Kullanım: node scripts/graf-kenar-analizi.mjs <kasa-klasörü> [--ref HEAD] [--ornek 8]");
+if (positional.length !== 1 || ref === undefined || ref === "" || !(sampleCount > 0)) {
+  console.error("Kullanım: node scripts/graf-kenar-analizi.mjs <kasa-klasörü> [--ref <commit>] [--ornek 8]");
   process.exit(2);
 }
 const vault = resolve(positional[0]);
@@ -57,11 +58,23 @@ const cur = await load(
   "yeni-kural.ts",
 );
 
+// Varsayılan karşılaştırma tabanı: commit sonrası HEAD yeni kodu taşır, eski kural olamaz.
+const refGiven = ref !== null;
+if (!refGiven) {
+  const log = spawnSync(
+    "git",
+    ["log", "--format=%H", "--grep=^LOM-43:", "--", "src/core/markdown/links.ts"],
+    { cwd: root, encoding: "utf8" },
+  );
+  const first = log.status === 0 ? log.stdout.trim().split("\n").filter(Boolean).pop() : undefined;
+  ref = first ? `${first}^` : "HEAD";
+}
+
 let old = null;
 const show = spawnSync("git", ["show", `${ref}:src/core/markdown/links.ts`], { cwd: root, encoding: "utf8" });
 if (show.status === 0) {
   old = await load(show.stdout, join(root, "src/core/markdown"), `links@${ref}.ts`);
-} else if (ref !== "HEAD") {
+} else if (refGiven) {
   console.error(`${ref}:src/core/markdown/links.ts okunamadı`);
   process.exit(2);
 } else {

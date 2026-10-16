@@ -231,6 +231,9 @@ eq("Bağlantılar normalize edilir, gömü ve yerel çapa hariç", extractWikiLi
 // LOM-43: kod içi bağlantı sayılmaz, tablo kaçışlı takma ad çözülür, markdown iç bağlantıları.
 eq("stripCode çitli bloğu ve satır içi kodu örter, satırları korur", stripCode("a `[[X]]` b\n```\n[[Y]]\n```\nc"), "a         b\n   \n     \n   \nc");
 eq("stripCode koddan yoksun metne dokunmaz", stripCode("[[A]] #b"), "[[A]] #b");
+eq("stripCode yan yana satır içi kodları ayrı örter", stripCode("`a`[[B]]`c`"), "   [[B]]   ");
+eq("stripCode satır başındaki ve çift ters tırnaklı kodu örter", stripCode("``x`y``\n[[Z]]"), "       \n[[Z]]");
+eq("stripCode geriye bakışlı regex kullanmaz (iOS 15 / eski WebKit)", /\(\?<[=!]/.test(stripCode.toString()), false);
 eq("Kod içindeki bağlantılar sayılmaz", extractWikiLinks("`[[X]]`\n~~~\n[[Y]]\n~~~\n[[Z]]"), ["Z"]);
 eq("Kod içindeki etiketler sayılmaz", extractTags("`#x` #y\n```\n#z\n```"), ["y"]);
 eq("Tablo kaçışlı takma ad", extractWikiLinks("| [[İstanbul\\|şehir]] |"), ["İstanbul"]);
