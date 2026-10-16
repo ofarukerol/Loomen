@@ -24,6 +24,11 @@ export interface ParsedTask {
   recurrence?: string;
   /** İsteğe bağlı saat (⏰ HH:MM). */
   time?: string;
+  /**
+   * Dosyada değil dış kaynakta yaşayan görev (ör. Google Takvim etkinliğinin açıklamasındaki
+   * `[ ]` maddesi). Bu durumda `file` = `gcal://<eventId>`, `line` = madde sırası.
+   */
+  external?: { kind: "gcal"; eventId: string; summary: string; link: string | null };
 }
 
 /** Vault içindeki bir not dosyası (dosya ağacı için). */

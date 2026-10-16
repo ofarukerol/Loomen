@@ -233,6 +233,8 @@
     "planDayCount": "{{count}} overdue"
   },
   "taskDetail": {
+    "gcalHint": "This item comes from the calendar event's description; title and checkmark are written back there.",
+    "openInGcal": "Open in Google Calendar",
     "title": "Task",
     "titleField": "Task title…",
     "date": "Date",
@@ -693,6 +695,7 @@
     "updateTask": "Couldn't update the task: {{detail}}",
     "saveTask": "Couldn't save the task: {{detail}}",
     "taskStale": "The task file changed; the list was refreshed, please try again.",
+    "gcalItem": "Couldn't update the calendar item: {{detail}}",
     "closeUnsaved": "Your last change could not be saved — close anyway?",
     "closeAnyway": "Close anyway",
     "keepOpen": "Keep open"

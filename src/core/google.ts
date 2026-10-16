@@ -67,6 +67,8 @@ export interface GEvent {
   all_day: boolean;
   html_link: string | null;
   loomen: boolean; // Loomen'in oluşturduğu görev mi
+  /** Etkinlik açıklaması (Google web'de yazıldıysa HTML olabilir). */
+  description: string | null;
 }
 
 export const gcal = {

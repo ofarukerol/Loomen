@@ -40,6 +40,7 @@ const suites = [
   ["src/core/__test__/updaterTest.ts", []],
   ["src/core/__test__/mobileUpdateTest.ts", []],
   ["src/core/__test__/windowDragTest.ts", []],
+  ["src/core/__test__/gcalItemsTest.ts", []],
 ];
 
 let failed = 0;

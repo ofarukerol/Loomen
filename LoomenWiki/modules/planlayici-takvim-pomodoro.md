@@ -39,6 +39,11 @@ Aylık ızgara, hafta Pazartesi başlar; görevli günlerde nokta. Güne tıklam
 açar (yoksa şablondan oluşturur: `src/core/vault/dailyTemplate.ts`) ve o günün görevlerini listeler.
 Takvim ve çizelge **aynı görev verisini** okur; ayrıca eşitleme yok.
 
+Google Takvim bağlıysa, etkinlik açıklamasındaki `- [ ] iş` / `[ ] iş` satırları (LOM-42) eşitlemede o
+günün listesine sanal görev olarak gelir (`src/core/gcalItems.ts`, store'da `gcalTasks`; kasaya ve
+Google'a gönderilen görevlere karışmaz). Listeden işaretleme ve başlık düzenleme açıklamanın yalnız o
+satırını değiştirip Google'a yazar; yeni madde ekleme, silme, tarih değiştirme Google'dan yapılır.
+
 ## Tekrar eden görev (🔁, LOM-41)
 - Kural ve sonraki tarih: `src/core/markdown/recurrence.ts` (`every day`, `every 2 days`, `every week on Monday`, `every month on the 15th`, `every year`, sonda `when done`). Tanınmayan kural görevi bozmaz; satır yalnız tamamlanır.
 - Tamamlanınca satır ✅ ile kalır, altına (alt görev/not bloğundan sonra) **tek** yeni açık örnek açılır. Tarihler aynı gün farkıyla kayar; kaçırılan geçmiş tekrarlar atlanır (6 gün geciken günlük görev bugün kapanırsa yeni örnek yarına düşer). 🍅 sayacı sıfırlanır.

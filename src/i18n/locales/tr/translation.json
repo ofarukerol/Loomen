@@ -241,6 +241,8 @@
     "upcoming": "Yaklaşan"
   },
   "taskDetail": {
+    "gcalHint": "Bu madde takvim etkinliğinin açıklamasından geliyor; başlık ve işaret oraya yazılır.",
+    "openInGcal": "Google Takvim'de aç",
     "title": "Görev",
     "titleField": "Görev başlığı…",
     "date": "Tarih",
@@ -693,6 +695,7 @@
     "updateTask": "Görev güncellenemedi: {{detail}}",
     "saveTask": "Görev kaydedilemedi: {{detail}}",
     "taskStale": "Görev dosyası değişmiş; liste yenilendi, tekrar deneyin.",
+    "gcalItem": "Takvim maddesi güncellenemedi: {{detail}}",
     "closeUnsaved": "Son değişiklik kaydedilemedi — yine de kapatılsın mı?",
     "closeAnyway": "Yine de kapat",
     "keepOpen": "Açık kalsın"

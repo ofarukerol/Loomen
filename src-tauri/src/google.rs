@@ -421,6 +421,34 @@ pub struct GEvent {
     html_link: Option<String>,
     /// Loomen tarafından oluşturulmuş bir görev mi (extendedProperties.private.loomen == "1").
     loomen: bool,
+    /// Etkinlik açıklaması (Google web arayüzünde yazıldıysa HTML olabilir).
+    description: Option<String>,
+}
+
+/// Calendar v3 etkinlik JSON'u → GEvent.
+fn gevent_from_json(e: &Value) -> GEvent {
+    let all_day = e["start"]["date"].is_string();
+    let start = e["start"]["dateTime"]
+        .as_str()
+        .or_else(|| e["start"]["date"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    let end = e["end"]["dateTime"]
+        .as_str()
+        .or_else(|| e["end"]["date"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    let loomen = e["extendedProperties"]["private"]["loomen"].as_str() == Some("1");
+    GEvent {
+        id: e["id"].as_str().unwrap_or_default().to_string(),
+        summary: e["summary"].as_str().unwrap_or("(başlıksız)").to_string(),
+        start,
+        end,
+        all_day,
+        html_link: e["htmlLink"].as_str().map(|s| s.to_string()),
+        loomen,
+        description: e["description"].as_str().map(|s| s.to_string()),
+    }
 }
 
 #[tauri::command]
@@ -455,29 +483,7 @@ pub async fn google_list_events(
     Ok(items
         .iter()
         .filter(|e| e["status"].as_str() != Some("cancelled"))
-        .map(|e| {
-            let all_day = e["start"]["date"].is_string();
-            let start = e["start"]["dateTime"]
-                .as_str()
-                .or_else(|| e["start"]["date"].as_str())
-                .unwrap_or_default()
-                .to_string();
-            let end = e["end"]["dateTime"]
-                .as_str()
-                .or_else(|| e["end"]["date"].as_str())
-                .unwrap_or_default()
-                .to_string();
-            let loomen = e["extendedProperties"]["private"]["loomen"].as_str() == Some("1");
-            GEvent {
-                id: e["id"].as_str().unwrap_or_default().to_string(),
-                summary: e["summary"].as_str().unwrap_or("(başlıksız)").to_string(),
-                start,
-                end,
-                all_day,
-                html_link: e["htmlLink"].as_str().map(|s| s.to_string()),
-                loomen,
-            }
-        })
+        .map(gevent_from_json)
         .collect())
 }
 
@@ -555,5 +561,47 @@ pub async fn google_delete_event(
         Ok(())
     } else {
         Err(format!("Etkinlik silinemedi: {}", res.status()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn gevent_all_day_with_description() {
+        let e = json!({
+            "id": "ev1",
+            "summary": "Toplantı",
+            "start": { "date": "2026-10-16" },
+            "end": { "date": "2026-10-17" },
+            "htmlLink": "https://calendar.google.com/x",
+            "description": "- [ ] süt al<br>[x] ekmek",
+        });
+        let g = gevent_from_json(&e);
+        assert_eq!(g.id, "ev1");
+        assert!(g.all_day);
+        assert_eq!(g.start, "2026-10-16");
+        assert_eq!(g.end, "2026-10-17");
+        assert!(!g.loomen);
+        assert_eq!(g.description.as_deref(), Some("- [ ] süt al<br>[x] ekmek"));
+    }
+
+    #[test]
+    fn gevent_timed_without_description() {
+        let e = json!({
+            "id": "ev2",
+            "start": { "dateTime": "2026-10-16T09:00:00+03:00" },
+            "end": { "dateTime": "2026-10-16T10:00:00+03:00" },
+            "extendedProperties": { "private": { "loomen": "1" } },
+        });
+        let g = gevent_from_json(&e);
+        assert!(!g.all_day);
+        assert_eq!(g.start, "2026-10-16T09:00:00+03:00");
+        assert_eq!(g.summary, "(başlıksız)");
+        assert!(g.loomen);
+        assert!(g.html_link.is_none());
+        assert!(g.description.is_none());
     }
 }

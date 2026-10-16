@@ -70,6 +70,7 @@ import {
   type GCalendar,
   type GEvent,
 } from "../core/google";
+import { gcalEventTasks, gcalEventIdOf, isGcalTaskFile, patchDescriptionItem } from "../core/gcalItems";
 import { chatStream, cancelChat, testProvider, aiKeys } from "../core/ai/llm";
 import { newProviderId, DEFAULT_MODEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
 import { retrieve, resetIndex } from "../core/ai/retrieve";
@@ -274,6 +275,11 @@ interface AppState {
   gcalStatus: string | null; // son durum/hata mesajı
   gcalAutoSync: boolean;
   gcalEvents: GEvent[]; // pull edilen etkinlikler (kalıcı değil)
+  /**
+   * Etkinlik açıklamalarındaki `[ ]` maddeleri — sanal görevler (kalıcı değil). Listede
+   * kasa görevleriyle birlikte gösterilir ama parsedTasks'a KARIŞMAZ: push listesine girmez.
+   */
+  gcalTasks: ParsedTask[];
   /** vaultPath → { taskKey → Google event id } — push eşlemesi (cihaz-yerel). */
   gcalMap: Record<string, Record<string, string>>;
 
@@ -651,6 +657,42 @@ function queueFileOp<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
+/**
+ * Liste görünümleri (gün grupları, planlanmamışlar, sayaçlar): kasa görevleri + takvim
+ * maddeleri birlikte. Hepsi tek yerden hesaplanır ki biri eklenip diğeri unutulmasın.
+ */
+function taskViews(
+  vaultTasks: ParsedTask[],
+  gcalTasks: ParsedTask[],
+  order: Record<string, number>
+): Pick<AppState, "groups" | "unplannedTasks" | "counts"> {
+  const all = gcalTasks.length > 0 ? [...vaultTasks, ...gcalTasks] : vaultTasks;
+  const today = todayISO();
+  const { groups, unplannedTasks } = groupTasks(all, today, order);
+  const c = focusCounts(all, today);
+  return { groups, unplannedTasks, counts: { yapilacak: c.yapilacak, geciken: c.geciken, planlanmamis: c.planlanmamis } };
+}
+
+/** Google Takvim çekme penceresi: bugünün başından +30 gün (yerel saat). */
+function gcalPullWindow(): { timeMin: string; timeMax: string } {
+  const now = new Date();
+  return {
+    timeMin: new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString(),
+    timeMax: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30).toISOString(),
+  };
+}
+
+/**
+ * gcalEvents her yazıldığında artar. Çekme sürerken bir takvim maddesi Google'a yazılırsa
+ * o çekmenin getirdiği (yazmadan önceki) liste uygulanmaz; yoksa madde eski haline döner.
+ */
+let gcalEventsGen = 0;
+
+/** Görev yamasından takvim maddesine düşen parça: yalnız (boş olmayan) metin. */
+function gcalTextPatch(patch: TaskPatch): { text: string } | null {
+  return patch.description?.trim() ? { text: patch.description } : null;
+}
+
 /** Nesnenin anahtarlarını yeni yollara taşır (`to` undefined dönerse anahtar aynı kalır). */
 function moveKeys<T>(obj: Record<string, T>, to: (p: string) => string | undefined): Record<string, T> {
   const out: Record<string, T> = {};
@@ -698,17 +740,12 @@ export const useAppStore = create<AppState>()(
     const { tasks, notes, contents } = await loadVaultData(src);
     if (backend !== src) return; // arada kasa değişti → eski kasanın verisini yazma
     if (bu !== loadSeq) return; // daha yeni bir okuma başladı → bu sonuç bayat
-    const today = todayISO();
     const s = get();
-    const { groups, unplannedTasks } = groupTasks(tasks, today, s.taskOrder);
-    const c = focusCounts(tasks, today);
     const patch: Partial<AppState> = {
       parsedTasks: tasks,
       notes,
       noteContents: contents,
-      groups,
-      unplannedTasks,
-      counts: { yapilacak: c.yapilacak, geciken: c.geciken, planlanmamis: c.planlanmamis },
+      ...taskViews(tasks, s.gcalTasks, s.taskOrder),
     };
     if (s.draftPath) {
       const p = s.draftPath;
@@ -1004,6 +1041,76 @@ export const useAppStore = create<AppState>()(
     }
   }
 
+  /** Çekilen etkinlikleri, onlardan çıkan takvim maddelerini ve liste görünümlerini birlikte yaz. */
+  function applyGcalEvents(events: GEvent[]) {
+    const s = get();
+    const gcalTasks = gcalEventTasks(events);
+    gcalEventsGen++;
+    set({ gcalEvents: events, gcalTasks, ...taskViews(s.parsedTasks, gcalTasks, s.taskOrder) });
+  }
+
+  /** Görevi kimliğinin parçalarıyla bul: önce kasa görevleri, sonra takvim maddeleri. */
+  function findTask(file: string, line: number): ParsedTask | undefined {
+    const s = get();
+    const hit = (p: ParsedTask) => p.file === file && p.line === line;
+    return s.parsedTasks.find(hit) ?? s.gcalTasks.find(hit);
+  }
+
+  /**
+   * Takvim maddesini Google'daki etkinlik açıklamasına geri yaz: yalnız o satırın işareti
+   * ve/veya metni değişir. Loomen'in gördüğü hal Google'daki açıklamayla uyuşmuyorsa
+   * yazılmaz, yeniden eşitlenir. Yazılamazsa yerel liste değişmez.
+   */
+  async function gcalPatchItem(
+    file: string,
+    line: number,
+    makePatch: (t: ParsedTask) => { done?: boolean; text?: string } | null
+  ) {
+    const task = get().gcalTasks.find((p) => p.file === file && p.line === line);
+    const eventId = gcalEventIdOf(file);
+    if (!task || !eventId) return;
+    const patch = makePatch(task);
+    if (!patch) return;
+    const token = await ensureGcalAccess();
+    if (!token) {
+      await notifyError(i18n.t("gcal.needAuth"));
+      return;
+    }
+    const calId = get().gcalCalendarId ?? "primary";
+    // Yazmadan önce Google'daki GÜNCEL açıklama alınır: PATCH açıklamanın tamamını gönderir;
+    // bellekteki (en çok 5 dk eski) kopyadan yazılsaydı arada telefondan yapılan değişiklik silinirdi.
+    let events: GEvent[];
+    try {
+      const { timeMin, timeMax } = gcalPullWindow();
+      events = (await gcal.listEvents(token, calId, timeMin, timeMax)).filter((e) => !e.loomen);
+    } catch (e) {
+      await notifyError(i18n.t("errors.gcalItem", { detail: errText(e) }));
+      return;
+    }
+    const ev = events.find((e) => e.id === eventId);
+    const desc = ev?.description ?? "";
+    const next = ev
+      ? patchDescriptionItem(desc, line, patch, { text: task.description, done: task.done })
+      : null;
+    if (!ev || next === null) {
+      // Madde arada Google'da değişmiş (ya da etkinlik yok): yanlış satıra yazma, güncel hali göster.
+      applyGcalEvents(events);
+      await notifyError(i18n.t("errors.taskStale"));
+      return;
+    }
+    if (next === desc) {
+      applyGcalEvents(events);
+      return;
+    }
+    try {
+      await gcal.upsertEvent(token, calId, ev.id, { description: next });
+    } catch (e) {
+      await notifyError(i18n.t("errors.gcalItem", { detail: errText(e) }));
+      return;
+    }
+    applyGcalEvents(events.map((e) => (e.id === ev.id ? { ...e, description: next } : e)));
+  }
+
   return {
     theme: "light",
     screen: "planner",
@@ -1072,6 +1179,7 @@ export const useAppStore = create<AppState>()(
     gcalStatus: null,
     gcalAutoSync: false,
     gcalEvents: [],
+    gcalTasks: [],
     gcalMap: {},
 
     aiEnabled: false,
@@ -1292,15 +1400,10 @@ export const useAppStore = create<AppState>()(
       const tasks = now.notes.flatMap((n) =>
         n.kind === "draw" ? [] : parseTasks(n.path, noteContents[n.path] ?? "")
       );
-      const today = todayISO();
-      const { groups, unplannedTasks } = groupTasks(tasks, today, now.taskOrder);
-      const c = focusCounts(tasks, today);
       set({
         noteContents,
         parsedTasks: tasks,
-        groups,
-        unplannedTasks,
-        counts: { yapilacak: c.yapilacak, geciken: c.geciken, planlanmamis: c.planlanmamis },
+        ...taskViews(tasks, now.gcalTasks, now.taskOrder),
       });
     },
     setAccent: (accent) => set({ accent }),
@@ -2195,13 +2298,15 @@ export const useAppStore = create<AppState>()(
 
     toggleTask: async (id) =>
       queueFileOp(async () => {
+        const sep = id.lastIndexOf(":");
+        const file = id.slice(0, sep);
+        const line = Number(id.slice(sep + 1));
+        // Takvim maddesi: işaret etkinlik açıklamasına yazılır, kasaya dokunulmaz.
+        if (isGcalTaskFile(file)) return gcalPatchItem(file, line, (t) => ({ done: !t.done }));
         // Açık notun yazılmamış hali önce diske: yoksa görev yazması "dış değişiklik"
         // sayılıp çakışma sorulur ya da taslak görev değişikliğini ezer (LOM-5).
         await flushDraft();
         const s = get(); // sırada bekleyen önceki yazmadan SONRAKİ satır numaraları
-        const sep = id.lastIndexOf(":");
-        const file = id.slice(0, sep);
-        const line = Number(id.slice(sep + 1));
         // Beklenen satır metni: dosya arada dışarıdan değiştiyse (senkron, başka pencere)
         // satır numarası kaymış olur ve kullanıcı A'yı işaretlerken B işaretlenirdi.
         const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
@@ -2229,13 +2334,15 @@ export const useAppStore = create<AppState>()(
     // Görev detayını (açıklama/tarih/öncelik) dosyaya yaz.
     updateTask: async (id, patch) =>
       queueFileOp(async () => {
+        const sep = id.lastIndexOf(":");
+        const file = id.slice(0, sep);
+        const line = Number(id.slice(sep + 1));
+        // Takvim maddesi: yalnız metin yazılır (tarih/öncelik/tekrar etkinliğe ait).
+        if (isGcalTaskFile(file)) return gcalPatchItem(file, line, () => gcalTextPatch(patch));
         // Açık notun yazılmamış hali önce diske: yoksa görev yazması "dış değişiklik"
         // sayılıp çakışma sorulur ya da taslak görev değişikliğini ezer (LOM-5).
         await flushDraft();
         const s = get(); // sırada bekleyen önceki yazmadan SONRAKİ satır numaraları
-        const sep = id.lastIndexOf(":");
-        const file = id.slice(0, sep);
-        const line = Number(id.slice(sep + 1));
         const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
         if (!task) return;
         try {
@@ -2287,13 +2394,15 @@ export const useAppStore = create<AppState>()(
     // Görevi tek yazımda kaydet: satır yaması + (varsa) girintili çocuk bloğu (alt görevler + notlar).
     saveTask: async (id, patch, notes, subtasks) =>
       queueFileOp(async () => {
+        const sep = id.lastIndexOf(":");
+        const file = id.slice(0, sep);
+        const line = Number(id.slice(sep + 1));
+        // Takvim maddesi: yalnız metin yazılır; notlar ve alt görevler yok sayılır.
+        if (isGcalTaskFile(file)) return gcalPatchItem(file, line, () => gcalTextPatch(patch));
         // Açık notun yazılmamış hali önce diske: yoksa görev yazması "dış değişiklik"
         // sayılıp çakışma sorulur ya da taslak görev değişikliğini ezer (LOM-5).
         await flushDraft();
         const s = get();
-        const sep = id.lastIndexOf(":");
-        const file = id.slice(0, sep);
-        const line = Number(id.slice(sep + 1));
         const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
         if (!task) return;
         try {
@@ -2337,14 +2446,15 @@ export const useAppStore = create<AppState>()(
         };
         const d = parse(fromId);
         const tg = parse(toId);
-        const dTask = s.parsedTasks.find((p) => p.file === d.file && p.line === d.line);
-        const tTask = s.parsedTasks.find((p) => p.file === tg.file && p.line === tg.line);
+        const dTask = findTask(d.file, d.line);
+        const tTask = findTask(tg.file, tg.line);
         if (!dTask || !tTask) return;
         if (dTask.file === tTask.file && dTask.line === tTask.line) return;
 
-        const today = todayISO();
         const tDate = tTask.due ?? tTask.scheduled;
         const dDate = dTask.due ?? dTask.scheduled;
+        // Takvim maddesinin günü etkinliğe ait: başka güne taşınmaz, yalnız gün içinde sıralanır.
+        if (isGcalTaskFile(dTask.file) && tDate !== dDate) return;
 
         // 1) Farklı güne sürüklendiyse görevi hedefin gününe taşı (kullandığı tarih alanını koru).
         let parsedTasks = s.parsedTasks;
@@ -2374,7 +2484,7 @@ export const useAppStore = create<AppState>()(
           const pd = p.due ?? p.scheduled;
           return tDate ? pd === tDate : !pd && p.file === tTask.file;
         };
-        const sibs = parsedTasks
+        const sibs = [...parsedTasks, ...s.gcalTasks]
           .filter(
             (p) =>
               !p.done &&
@@ -2400,8 +2510,7 @@ export const useAppStore = create<AppState>()(
           set({ taskOrder });
           await loadFromBackend();
         } else {
-          const { groups, unplannedTasks } = groupTasks(parsedTasks, today, taskOrder);
-          set({ taskOrder, parsedTasks, groups, unplannedTasks });
+          set({ taskOrder, parsedTasks, ...taskViews(parsedTasks, get().gcalTasks, taskOrder) });
         }
       }),
 
@@ -2538,16 +2647,17 @@ export const useAppStore = create<AppState>()(
         set({ gcalConnecting: false, gcalStatus: String(e) });
       }
     },
-    gcalDisconnect: () =>
+    gcalDisconnect: () => {
       set({
         gcalTokens: null,
         gcalExpiresAt: null,
         gcalUser: null,
         gcalCalendarId: null,
         gcalCalendarName: null,
-        gcalEvents: [],
         gcalStatus: null,
-      }),
+      });
+      applyGcalEvents([]);
+    },
     gcalLoadCalendars: async () => {
       const token = await ensureGcalAccess();
       if (!token) return [];
@@ -2611,22 +2721,22 @@ export const useAppStore = create<AppState>()(
           }
         }
         // PULL: bugünden +30 gün etkinlikleri çek (kendi görevlerimizi hariç tut).
-        const now = new Date();
-        const timeMin = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-        const timeMax = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30).toISOString();
-        let events: GEvent[] = [];
+        const { timeMin, timeMax } = gcalPullWindow();
+        const gen = gcalEventsGen;
+        let events: GEvent[] | null = null;
         try {
           events = (await gcal.listEvents(token, calId, timeMin, timeMax)).filter((e) => !e.loomen);
         } catch {
-          /* pull başarısız → push sonucu yine de kaydedilir */
+          /* pull başarısız → push sonucu yine de kaydedilir; eldeki etkinlikler/maddeler kalır */
         }
         set((s) => ({
           gcalSyncing: false,
           gcalLastSync: new Date().toISOString(),
           gcalStatus: "synced",
-          gcalEvents: events,
           gcalMap: { ...s.gcalMap, [vault]: nextMap },
         }));
+        // Çekme sürerken bir madde Google'a yazıldıysa bu (daha eski) liste uygulanmaz.
+        if (events && gen === gcalEventsGen) applyGcalEvents(events);
       } catch (e) {
         set({ gcalSyncing: false, gcalStatus: String(e) });
       }

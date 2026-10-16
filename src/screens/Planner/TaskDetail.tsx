@@ -27,7 +27,10 @@ import {
   ListTodo,
   Plus,
   Trash2,
+  CalendarDays,
+  ExternalLink,
 } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "../../store/useAppStore";
 import { getTaskNotes, getSubtasks } from "../../core/markdown/taskParser";
 import { DatePicker } from "./DatePicker";
@@ -106,6 +109,7 @@ export function TaskDetail() {
   const haftaAdlari = useMemo(() => haftaGunleri(LOCALES[i18n.language] ?? tr), [i18n.language]);
   const id = useAppStore((s) => s.selectedTask);
   const tasks = useAppStore((s) => s.parsedTasks);
+  const gcalTasks = useAppStore((s) => s.gcalTasks);
   const contents = useAppStore((s) => s.noteContents);
   const selectTask = useAppStore((s) => s.selectTask);
   const saveTask = useAppStore((s) => s.saveTask);
@@ -117,8 +121,9 @@ export function TaskDetail() {
     const sep = id.lastIndexOf(":");
     const file = id.slice(0, sep);
     const line = Number(id.slice(sep + 1));
-    return tasks.find((p) => p.file === file && p.line === line) ?? null;
-  }, [id, tasks]);
+    const hit = (p: (typeof tasks)[number]) => p.file === file && p.line === line;
+    return tasks.find(hit) ?? gcalTasks.find(hit) ?? null;
+  }, [id, tasks, gcalTasks]);
 
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
@@ -165,8 +170,22 @@ export function TaskDetail() {
 
   if (!id || !task) return null;
 
+  // Takvim etkinliğinin açıklamasından gelen madde: yalnız başlık ve işaret düzenlenir
+  // (tarih, saat, tekrar, öncelik etkinliğe ait; alt görev/not yazılacak dosya yok).
+  const ext = task.external;
+
   const close = () => selectTask(null);
   const save = async () => {
+    if (ext) {
+      await saveTask(id, { description: title });
+      // Google'a yazılamadıysa (hata/bayat/boş başlık) pencere açık kalır, yazılan kaybolmasın.
+      const sep = id.lastIndexOf(":");
+      const file = id.slice(0, sep);
+      const line = Number(id.slice(sep + 1));
+      const now = useAppStore.getState().gcalTasks.find((p) => p.file === file && p.line === line);
+      if (now && now.description === title.trim()) close();
+      return;
+    }
     // Yazılmamış (henüz Enter'lanmamış) alt görev metnini de dahil et.
     const allSubs = newSub.trim() ? [...subtasks, { text: newSub.trim(), done: false }] : subtasks;
     await saveTask(
@@ -281,6 +300,10 @@ export function TaskDetail() {
             {task.done ? t("taskDetail.undo") : t("taskDetail.complete")}
           </button>
 
+          {ext && <div className="lo-recur__hint">{t("taskDetail.gcalHint")}</div>}
+
+          {!ext && (
+          <>
           <div className="lo-tdetail__cols">
           <div className="lo-tdetail__col">
           {/* Tarih + saat */}
@@ -489,6 +512,8 @@ export function TaskDetail() {
               />
             </div>
           </div>
+          </>
+          )}
 
           {(task.tags.length > 0 || task.pomos > 0) && (
             <div className="lo-tdetail__chips">
@@ -503,16 +528,31 @@ export function TaskDetail() {
         </div>
 
         <div className="lo-tdetail__foot">
-          <button
-            className="lo-tdetail__source"
-            onClick={() => {
-              openNote(task.file);
-              close();
-            }}
-          >
-            <FileText size={13} strokeWidth={1.9} />
-            {noteName(task.file)}
-          </button>
+          {ext ? (
+            <button
+              className="lo-tdetail__source"
+              disabled={!ext.link}
+              title={ext.summary}
+              onClick={() => {
+                if (ext.link) void openUrl(ext.link).catch(() => {});
+              }}
+            >
+              <CalendarDays size={13} strokeWidth={1.9} />
+              {ext.link ? t("taskDetail.openInGcal") : ext.summary}
+              {ext.link && <ExternalLink size={12} strokeWidth={1.9} />}
+            </button>
+          ) : (
+            <button
+              className="lo-tdetail__source"
+              onClick={() => {
+                openNote(task.file);
+                close();
+              }}
+            >
+              <FileText size={13} strokeWidth={1.9} />
+              {noteName(task.file)}
+            </button>
+          )}
           <button className="lo-tdetail__save" onClick={() => void save()}>
             <Check size={15} strokeWidth={2.4} />
             {t("taskDetail.save")}

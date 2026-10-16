@@ -24,6 +24,8 @@ export interface Task {
   pomos: number;
   /** İsteğe bağlı saat (⏰ HH:MM) — listede gösterilir, sıralamada kullanılır. */
   time?: string;
+  /** Takvim etkinliğinden gelen madde: etkinliğin Google Takvim bağlantısı (kaynak çipi onu açar). */
+  link?: string | null;
 }
 
 export interface TaskGroup {

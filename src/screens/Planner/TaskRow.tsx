@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { Check, Pencil, FileText, Target } from "lucide-react";
+import { Check, Pencil, FileText, Target, CalendarDays } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { isGcalTaskFile } from "../../core/gcalItems";
 import { useAppStore } from "../../store/useAppStore";
 import type { Task } from "../../data/sampleVault";
 
@@ -9,6 +11,7 @@ export function TaskRow({ task }: { task: Task }) {
   const openNote = useAppStore((s) => s.openNote);
   const selectTask = useAppStore((s) => s.selectTask);
 
+  const fromGcal = isGcalTaskFile(task.id);
   const open = !task.done;
   const overdueOpen = task.overdue && open;
 
@@ -43,10 +46,13 @@ export function TaskRow({ task }: { task: Task }) {
             className="lo-chip lo-chip--source"
             onClick={(e) => {
               e.stopPropagation();
-              openNote(task.source);
+              // Takvim maddesi: kaynak not değil, Google Takvim'deki etkinlik açılır.
+              if (fromGcal) {
+                if (task.link) void openUrl(task.link).catch(() => {});
+              } else openNote(task.source);
             }}
           >
-            <FileText size={11} strokeWidth={1.9} />
+            {fromGcal ? <CalendarDays size={11} strokeWidth={1.9} /> : <FileText size={11} strokeWidth={1.9} />}
             {task.source}
           </button>
           <span className="lo-chip lo-chip--tag">
