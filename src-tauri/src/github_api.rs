@@ -43,7 +43,7 @@ fn git_blob_sha(content: &[u8]) -> String {
 /// olmadığını söyler (yerel, uzak, bu senkronda planlanan ya da diskte var olan dosya).
 /// Eskiden ad sabitti: önceki senkrondan kalan kopya ya da aynı adlı gerçek bir not
 /// sessizce eziliyordu.
-fn conflict_path(p: &str, taken: impl Fn(&str) -> bool) -> String {
+pub(crate) fn conflict_path(p: &str, taken: impl Fn(&str) -> bool) -> String {
     let slash = p.rfind('/').map_or(0, |i| i + 1);
     let (stem, ext) = match p[slash..].rfind('.') {
         Some(rel) if rel > 0 => (&p[..slash + rel], &p[slash + rel..]),
