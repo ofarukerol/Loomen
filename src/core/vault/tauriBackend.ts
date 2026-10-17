@@ -12,6 +12,7 @@ import {
 import type { VaultBackend, VaultNote } from "./types";
 import { TRASH_DIR, encodeTrashName, toTrashEntry, type TrashEntry } from "./trash";
 import { removeStaleTmpFiles, tmpNameFor as makeTmpName } from "./tmpFiles";
+import { atomicWrite as atomicWriteWith } from "./atomicWrite";
 
 /**
  * Vault içi göreli yolu doğrula.
@@ -52,32 +53,17 @@ function tmpNameFor(target: string): string {
   return makeTmpName(target, Date.now(), tmpSeq++);
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/**
- * Yan dosyaya yaz, sonra yerine koy. Rename geçici olarak başarısız olabilir (Windows'ta
- * virüs tarayıcı/dizinleyici dosyayı kısa süre tutar) → birkaç kez denenir. Yine olmazsa
- * not kaybolmasın diye doğrudan yazılır ve yan dosya temizlenir.
- */
-async function atomicWrite(target: string, c: string): Promise<void> {
-  const tmp = tmpNameFor(target);
-  await writeTextFile(tmp, c);
-  let lastErr: unknown;
-  for (const wait of [0, 60, 200]) {
-    if (wait) await sleep(wait);
-    try {
-      await rename(tmp, target); // std::fs::rename — hedefin üzerine yazar
-      return;
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-  try {
-    await writeTextFile(target, c);
-  } finally {
-    await remove(tmp).catch(() => {});
-  }
-  console.warn("Atomik yazma rename'de başarısız, doğrudan yazıldı:", lastErr);
+/** Yan dosya + rename ile yaz; ayrıntı ve hata durumunda kurtarma kopyası: atomicWrite.ts. */
+function atomicWrite(target: string, c: string): Promise<void> {
+  return atomicWriteWith(target, tmpNameFor(target), c, {
+    writeTextFile: (p, data) => writeTextFile(p, data),
+    rename: (from, to) => rename(from, to),
+    remove: (p) => remove(p),
+    sleep,
+    warn: (...args) => console.warn(...args),
+  });
 }
 
 // Gerçek dosya sistemi adapter'ı (Tauri). Vault kökü mutlak yol; içeride göreli yollar kullanılır.
