@@ -414,34 +414,382 @@
   },
   "help": {
     "title": "Yardım & Rehber",
-    "subtitle": "Loomen'i birkaç dakikada öğrenin — her şey sade ve tamamen yerelde.",
-    "filesTitle": "Notlarınız sizin dosyalarınız",
-    "filesBody": "Her not, bilgisayarınızda düz bir .md (Markdown) dosyasıdır. İnternet veya sunucu yok; her şey cihazınızda kalır. Bir notu silseniz bile önce Çöp Kutusu'na gider (30 gün saklanır), yani yanlışlıkla kaybetmezsiniz.",
-    "createTitle": "Not açma ve hızlı geçiş",
-    "createBody": "Yeni not oluşturmak için ⌘N. Var olan bir nota atlamak veya arama yapmak için ⌘O. Soldaki Gezgin'den klasörlerinize göz atabilir, notları sürükleyip düzenleyebilirsiniz.",
-    "linksTitle": "Bağlantılar",
-    "linksBody": "İki notu birbirine bağlamak için metnin içine, çift köşeli parantez arasında not adını yazın. Bu tıklanabilir bir bağlantı olur ve Graf'ta iki nokta arasında bir çizgi olarak görünür. Notlarınız arasında ağ kurmanın yolu budur.",
-    "linksExamplePre": "Örnek:",
-    "tagsTitle": "Etiketler",
-    "tagsBody": "Bir notun içine # ile başlayan bir etiket yazın (ör. #günlük). Aynı etiketi kullanan notlar birbiriyle ilişkilenir. Graf'ta etiketler yeşil düğüm olur ve onları kullanan tüm notları birbirine bağlar.",
-    "graphTitle": "Graf görünümü",
-    "graphBody": "Graf, notlarınızın haritasıdır: noktalar notları, çizgiler bağlantıları, etiketler ayardan açılınca yeşil düğüm olarak görünür. Sürükleyerek gezinin, tekerlekle yakınlaştırın, bir noktaya tıklayıp notu açın. Sağdaki + / − düğmeleriyle yakınlaştırın, hedef simgesiyle görünümü ekrana sığdırın; ayar simgesinden etiketleri, bağlantısız notları, var olmayan notları ve okları açıp kapatın.",
+    "subtitle": "Loomen'i adım adım öğren. Her şey sade ve tamamen cihazında.",
+    "search": "Yardımda ara…",
+    "searchEmpty": "Bu aramaya uyan bir bölüm yok.",
+    "clearSearch": "Aramayı temizle",
+    "tocTitle": "İçindekiler",
+    "expandAll": "Hepsini aç",
+    "collapseAll": "Hepsini kapat",
     "openGraph": "Grafı aç",
-    "plannerTitle": "Planlayıcı, Takvim & Pomodoro",
-    "plannerBody": "Planlayıcı; günlük görevlerinizi, takviminizi ve odak sayacını (Pomodoro) bir arada tutar. Üstteki 'Günün Notu' düğmesi bugünün notunu açar. Görevleri onay kutusuyla tamamlayın, tarih verin, sürükleyerek sıralayın. Pomodoro çalışırken odaklanır, mola geldiğinde dinlenirsiniz.",
-    "drawTitle": "Çizim & Raporlar",
-    "drawBody": "Çizim ekranıyla serbest el çizimleri ve şemalar (Excalidraw) yapabilirsiniz. Raporlar ekranı ise notlarınız ve görevleriniz hakkında özet istatistikler gösterir.",
-    "syncTitle": "Yedekleme & Senkron",
-    "syncBody": "Loomen'in kendi sunucusu yoktur. Notlarınız düz dosya olduğu için iCloud Drive, Syncthing veya Git ile cihazlar arasında kolayca eşitleyebilirsiniz. Vault (kasa) klasörünüzü yedeklemek tüm verinizi yedeklemek demektir.",
-    "shortcutsTitle": "Klavye kısayolları",
-    "scNew": "Yeni not",
-    "scOpen": "Dosyaya git / ara",
-    "scClose": "Kapat (detay veya pencere)",
-    "safetyTitle": "Verileriniz güvende",
-    "safetyBody": "Loomen notlarınızın içeriğine habersiz dokunmaz. Taşıma ve yeniden adlandırma dosyayı olduğu gibi korur; silme her zaman geri alınabilir. Tek gerçek kaynak diskteki dosyanızdır.",
-    "exampleNoteA": "Fikirler",
-    "exampleNoteThis": "Bu not",
-    "exampleTag": "günlük"
+    "openSettings": "Ayarları aç",
+    "openReview": "Tekrar ekranını aç",
+    "openPlanner": "Planlayıcıyı aç",
+    "ex": {
+      "noteThis": "Bu not",
+      "noteA": "Fikirler",
+      "tag": "günlük",
+      "linkPre": "Örnek:",
+      "taskSource": "- [ ] Market alışverişi #ev ⏫ 🔁 every week on Saturday 📅 2026-10-24 ⏰ 10:00",
+      "taskTitle": "Market alışverişi",
+      "taskDate": "Cmt 10:00",
+      "taskRepeat": "Her hafta",
+      "taskPrio": "Yüksek",
+      "taskSub": "1/3",
+      "taskSrcLabel": "Notta böyle görünür",
+      "taskRowLabel": "Planlayıcıda böyle görünür",
+      "late1": "Faturayı öde",
+      "late1d": "3 gün gecikti",
+      "late2": "Raporu gönder",
+      "late2d": "1 gün gecikti",
+      "noteSample": "Osmanlı Devleti ne zaman kuruldu :: 1299\nElma ::: apple\nSu ==100== derecede kaynar.\n\nBu satırlar soru olur\n?\nBu satırlar cevap olur\n\n#tekrar",
+      "cardQ": "Osmanlı Devleti ne zaman kuruldu?",
+      "cardA": "1299",
+      "ivl": [
+        "10 dk",
+        "2 gün",
+        "5 gün",
+        "11 gün"
+      ],
+      "forecastCaption": "Örnek: önümüzdeki günlerde gelecek kartlar",
+      "cardCaption": "Örnek kart (gerçek ekranın küçük hali)",
+      "menuCaption": "Bir nota uzun basınca açılan menü",
+      "recName": "Toplantı notu",
+      "recCaption": "Not düzenlerken ses kaydı çubuğu"
+    },
+    "s": {
+      "start": {
+        "title": "Başlangıç",
+        "summary": "Notlar, dosyalar ve temel kısayollar.",
+        "files": {
+          "h": "Notlar senin dosyalarındır",
+          "p": "Her not, bilgisayarında düz bir `.md` (Markdown) dosyasıdır. İnternet ya da sunucu gerekmez. Her şey cihazında kalır. Sildiğin not önce Çöp Kutusu'na gider ve 30 gün saklanır. Yanlışlıkla silsen bile geri alabilirsin."
+        },
+        "create": {
+          "h": "Not açma ve hızlı geçiş",
+          "steps": [
+            "Yeni not için `⌘N` tuşlarına bas (Windows'ta `Ctrl+N`).",
+            "Başka bir nota atlamak ya da aramak için `⌘O` tuşlarına bas.",
+            "Soldaki Gezgin'de klasörlerine bak. Notları sürükleyip taşıyabilirsin.",
+            "Telefonda aynı işler alttaki çubukta: ara, yeni not, sekmeler ve menü."
+          ]
+        },
+        "keys": {
+          "h": "Klavye kısayolları",
+          "items": [
+            "Yeni not",
+            "Dosyaya git / ara",
+            "Ayrıntıyı ya da pencereyi kapat"
+          ]
+        }
+      },
+      "notes": {
+        "title": "Bağlantı, etiket ve graf",
+        "summary": "Notlarını birbirine bağla, haritasını gör.",
+        "links": {
+          "h": "Bağlantılar",
+          "p": "İki notu bağlamak için metnin içine çift köşeli parantez arasında not adını yaz. Bu, tıklanabilir bir bağlantı olur. Grafta da iki nokta arasında bir çizgi olarak görünür.",
+          "steps": [
+            "Notta `[[` yaz.",
+            "Bağlamak istediğin notun adını yaz, sonra `]]` ile kapat.",
+            "Önizlemede bağlantıya tıkla, o not açılır.",
+            "Bir notun Bağlantılar bölümünde, o nota bağlanan notları görürsün."
+          ]
+        },
+        "tags": {
+          "h": "Etiketler",
+          "p": "Notun içine `#` ile başlayan bir kelime yaz (örneğin `#günlük`). Aynı etiketi taşıyan notlar birbiriyle ilişkilenir. Grafta etiket yeşil bir düğüm olur."
+        },
+        "graph": {
+          "h": "Graf görünümü",
+          "p": "Graf, notlarının haritasıdır. Noktalar notları, çizgiler bağlantıları gösterir.",
+          "list": [
+            "Sürükleyerek gez, tekerlekle yakınlaştır.",
+            "Bir noktaya tıklarsan o not açılır.",
+            "Sağdaki + ve − düğmeleriyle yakınlaştır. Hedef simgesi görünümü ekrana sığdırır.",
+            "Ayar simgesinden etiketleri, bağlantısız notları, var olmayan notları ve okları aç ya da kapat."
+          ]
+        }
+      },
+      "planner": {
+        "title": "Planlayıcı ve görevler",
+        "summary": "Görev yaz, sıklık ve öncelik ver, günü planla, odaklan.",
+        "write": {
+          "h": "Görev ekleme",
+          "p": "Görevler aslında notlardaki `- [ ]` satırlarıdır. Planlayıcı bunları bütün notlarından toplar.",
+          "steps": [
+            "Planlayıcıyı aç (sol şeritte Planlayıcı).",
+            "\"Görevini buraya yaz…\" kutusuna görevi yaz, Enter'a bas. Telefonda klavyedeki gönder tuşu da olur.",
+            "Görev bugünün tarihiyle Yapılacaklar notuna eklenir. Kutu boşalır, art arda yeni görev yazabilirsin.",
+            "Görevi bitirince onay kutusunu işaretle. Yanlış işaretlersen Geri al ile açarsın."
+          ]
+        },
+        "detail": {
+          "h": "Görev ayrıntısı",
+          "p": "Bir göreve tıklayınca ayrıntı penceresi açılır. Orada şunları ayarlarsın:",
+          "list": [
+            "Görev başlığı.",
+            "Tarih ve saat. Tarihi ya da saati kaldırabilirsin.",
+            "Sıklık: Yok, Günlük, Haftalık, Aylık, Yıllık.",
+            "Öncelik: En yüksek, Yüksek, Orta, Düşük, En düşük.",
+            "Alt görevler ve notlar (Markdown yazabilirsin).",
+            "Bitince Kaydet'e bas."
+          ]
+        },
+        "repeat": {
+          "h": "Tekrar eden görev (sıklık)",
+          "p": "Tekrar eden bir görevi tamamlayınca, sıradaki tarih için yeni bir görev satırı kendiliğinden açılır. Kaçırdığın eski günler için yığın oluşmaz.",
+          "steps": [
+            "Görevi aç ve bir Tarih ver. Tekrar için tarih gerekir.",
+            "Sıklık'tan birini seç.",
+            "Aralığı yaz. Örneğin \"Her 2 günde bir\".",
+            "Haftalıkta günü seç (Pazartesi gibi). Aylıkta ayın kaçıncı günü olacağını yaz. Ay kısaysa son güne kayar.",
+            "Yıllık seçersen yukarıdaki tarihe göre her yıl tekrarlar."
+          ]
+        },
+        "priority": {
+          "h": "Öncelik",
+          "p": "Öncelik beş basamaktır: En yüksek, Yüksek, Orta, Düşük, En düşük. Görevin ayrıntı penceresinden seçersin. Satırda küçük bir işaret olarak görünür."
+        },
+        "subtasks": {
+          "h": "Alt görevler",
+          "p": "Büyük işi parçalara böl. Alt görevler, ana görevin altında girintili görev satırları olarak notta durur.",
+          "steps": [
+            "Görevi aç.",
+            "\"Alt görev ekle…\" kutusuna yaz, Enter'a bas.",
+            "Her alt görevi ayrıca işaretleyebilirsin.",
+            "Bitince Kaydet'e bas."
+          ]
+        },
+        "plan": {
+          "h": "Günü planla",
+          "p": "Geciken işleri tek hamlede bugüne almanın yolu. Yalnız planlama tarihi değişir. Saat, sıklık ve öncelik aynı kalır.",
+          "steps": [
+            "Planlayıcıda \"Günü planla\" düğmesine bas. Geciken iş yoksa düğmenin ipucu bunu söyler.",
+            "Bugüne almak istediğin geciken görevleri işaretle. Hepsi için \"Tümünü seç\" vardır.",
+            "\"Bugüne al\" düğmesine bas. Seçtiklerin bugünün listesine geçer."
+          ]
+        },
+        "views": {
+          "h": "Görünümler",
+          "list": [
+            "Bugüne Odaklan: bugünün görevleri. Üstteki sayaç kartlarına basarak listeyi süzersin (Geciken, Planlanmamış gibi).",
+            "Zaman Çizelgesi: günün saatli planı.",
+            "Pano: Geciken, Bugün ve Yaklaşan sütunları.",
+            "Takvim: ay görünümü. \"Bugüne dön\" ile geri gelirsin.",
+            "Günün Notu: bugünün günlük notunu açar, yoksa oluşturur."
+          ]
+        },
+        "pomodoro": {
+          "h": "Pomodoro",
+          "p": "Pomodoro, odak ve mola sayacıdır. Başlat'a basınca odak süresi işler, bitince mola gelir. Es geç molayı atlar, Sıfırla baştan başlatır. Süreleri, tur sayısını ve zil sesini Ayarlar > Pomodoro bölümünden değiştirirsin. Biten seanslar Raporlar ekranında görünür."
+        }
+      },
+      "review": {
+        "title": "Tekrar (aralıklı tekrar)",
+        "summary": "Öğrendiğin şeyi unutmak üzereyken karşına çıkarır.",
+        "what": {
+          "h": "Ne işe yarar",
+          "p": "Bir şeyi bir kez okuyunca birkaç gün sonra unutursun. Tekrar, unutmaya en yakın olduğun günde o bilgiyi yeniden sorar. Her gün her notu değil, yalnız o gün gerekeni gösterir. Yalnız işaretlediğin satırlar ve notlar tekrara girer."
+        },
+        "enable": {
+          "h": "Nasıl açılır",
+          "p": "Tekrar varsayılan olarak kapalıdır. Kapalıyken hiçbir şey taranmaz ve kasanda dosya oluşmaz.",
+          "steps": [
+            "Ayarlar'ı aç ve Tekrar bölümüne in.",
+            "\"Tekrarı kullan\" anahtarını aç.",
+            "Sol şeritte Tekrar düğmesi belirir. Planlayıcının sağ panelinde de küçük bir Tekrar kartı çıkar.",
+            "İstersen hazır ayarlardan birini seç: Hafif, Dengeli ya da Yoğun."
+          ]
+        },
+        "cards": {
+          "h": "Kart nasıl yazılır",
+          "p": "Notuna aşağıdaki gibi satırlar yaz. Liste maddesi olarak yazsan da çalışır. Kod bloğunun içindekiler kart sayılmaz. Loomen notuna hiç yazmaz, yalnız okur.",
+          "list": [
+            "`Soru :: Cevap` tek satırlık soru-cevaptır. İki nokta üst üste iki kez.",
+            "`Soru ::: Cevap` çift yönlüdür. İki kart olur, biri ileri biri geri.",
+            "`Cümle ==gizli kelime== devamı` yazarsan ==işaretli== yer gizlenir. Her gizli bölüm ayrı kart olur.",
+            "Çok satırlı kart: soru satırları, tek başına bir `?` satırı, cevap satırları. Boş satırla biter.",
+            "`#tekrar` etiketi notun tamamını bir okuma kartı yapar. `#tekrar/konu` biçimi de çalışır."
+          ]
+        },
+        "session": {
+          "h": "Oturum nasıl geçer",
+          "steps": [
+            "Tekrar ekranında Başla'ya bas. Üstte ilerleme çubuğu ve 3 / 20 gibi bir sayaç görürsün.",
+            "Önce yalnız soruyu görürsün. Cevabı kafandan söyle.",
+            "\"Cevabı göster\" düğmesine ya da boşluk tuşuna bas.",
+            "Cevabı görünce kendini dürüstçe değerlendir: dört düğmeden birine bas.",
+            "Sıradaki kart gelir. Hepsi bitince \"Bugünlük bitti\" yazar.",
+            "Notun tamamı olan kartlarda cevap düğmesi yerine \"Okudum\" vardır."
+          ]
+        },
+        "grades": {
+          "h": "Değerlendirme düğmeleri",
+          "p": "Her düğmenin altında, ona basarsan kartın ne zaman geri geleceği yazar.",
+          "list": [
+            "Bilemedim (1): hatırlamadın. Kart çok yakında yeniden sorulur.",
+            "Zor bildim (2): hatırladın ama zorlandın. Aralık kısa uzar.",
+            "Bildim (3): rahat hatırladın. Boşluk ya da Enter de bunu seçer.",
+            "Çok kolaydı (4): hiç düşünmedin. Kart uzun süre karşına çıkmaz."
+          ],
+          "keys": "Kısayollar: 1-4 değerlendirir, boşluk ya da Enter cevabı gösterir, `E` notu açar, `Esc` oturumu kapatır. Kartın altında \"Bugünlük ertele\" ve \"Dondur\" da var. Çok unutulan kart \"Çok unutuluyor\" diye işaretlenir."
+        },
+        "decks": {
+          "h": "Desteler",
+          "p": "Deste, bir klasörün kartlarını ayrı çalışmanı sağlar. Örneğin yalnız \"İngilizce\" klasörü.",
+          "steps": [
+            "Ayarlar > Tekrar > Uzman sekmesinde Desteler'e in.",
+            "\"Deste ekle\" düğmesine bas ve bir ad ver.",
+            "Klasör listesinden klasörü seç. \"Tüm kasa\" seçersen bütün kartlar girer.",
+            "Tekrar ekranında Desteler bölümünde her destenin yanında bir Başla düğmesi ve bugünkü kart sayısı olur."
+          ]
+        },
+        "limits": {
+          "h": "Günlük sınır, birikme ve yayma",
+          "p": "Bir gün çok kart çıkarsa hepsini yapmak zorunda değilsin. Sınıra sığmayanlar ertesi güne kayar ve \"Yarına kalan\" olarak görünür.",
+          "list": [
+            "Günde kaç yeni kart: hiç görmediğin kartlardan en fazla kaçı gelsin (varsayılan 10).",
+            "Günde en fazla kaç kart: yeniler dahil toplam tavan (varsayılan 60).",
+            "Günde en fazla kaç dakika: cevap sürelerini ölçüp kuyruğu kısar. 0 yazarsan süre sınırı olmaz.",
+            "Birikme büyürse Loomen yeni kart göstermeyi kendiliğinden durdurur. Birikme bitince yeniler geri gelir.",
+            "Birikmiş kart sayısı 20'yi geçerse ana ekranda \"7, 14 ya da 30 güne yay\" düğmeleri çıkar. Birikenler seçtiğin gün sayısına eşit dağıtılır."
+          ]
+        },
+        "vacation": {
+          "h": "Tatil modu ve kolay günler",
+          "steps": [
+            "Ayarlar > Tekrar > Basit sekmesinde Tatil'e in.",
+            "Dönüş tarihini seç.",
+            "O tarihe kadar hiçbir kart çıkmaz ve birikme de sayılmaz. Tekrar ekranı \"Tatil modundasın\" der.",
+            "Tatili erken bitirmek için tarihi sil ya da değiştir.",
+            "Kolay günler: haftanın bir gününe basarak normal, yarısı ve kapalı arasında geçersin. Kapalı günün kartları komşu günlere dağılır."
+          ]
+        },
+        "forecast": {
+          "h": "30 günlük tahmin",
+          "p": "Tekrar ekranının altında, önümüzdeki 30 günde her gün kaç kart geleceğini gösteren bir çubuk grafik vardır. Soldaki çubuk bugündür. Altında en yoğun günün kart sayısı yazar. Çizgi düz gidiyorsa yük dengelidir."
+        },
+        "settings": {
+          "h": "Ayarlar nerede",
+          "p": "Ayarlar > Tekrar bölümünde üç sekme var. Üstteki canlı kutu, ayarlarının günde kaç karta ve kaç dakikaya denk geldiğini anlık söyler.",
+          "list": [
+            "Basit: hazır ayarlar, hatırlama hedefi, günlük dakika, kolay günler, tatil.",
+            "Gelişmiş: günlük sınırlar, sıralama, çok unutulan kartlar, hangi yazımların kart sayılacağı, taranmayacak klasörler.",
+            "Uzman: hesap yöntemi, öğrenme adımları, en uzun aralık, desteler."
+          ]
+        }
+      },
+      "mobile": {
+        "title": "Telefonda kullanım",
+        "summary": "Alt çubuk, uzun basma menüleri ve sesli not.",
+        "nav": {
+          "h": "Alt çubuk",
+          "list": [
+            "Ana sayfa ve Günün Notu.",
+            "Ara: not adına göre arar.",
+            "Yeni not.",
+            "Sekmeler: açık notların arasında geçersin.",
+            "Menü: ekranlar ve ayarlar."
+          ]
+        },
+        "press": {
+          "h": "Uzun basma menüsü",
+          "p": "Telefonda sağ tık yoktur. Onun yerine uzun basarsın.",
+          "steps": [
+            "Gezgin'de bir not ya da klasöre parmağını yarım saniye basılı tut.",
+            "Menü açılır. Notta: yeniden adlandır, favorilere ekle, çöp kutusuna taşı. Klasörde: yeniden adlandır, buraya yeni not.",
+            "Menüden bir seçeneğe dokun. Kapatmak için boş bir yere dokun.",
+            "Parmağın kayarsa (listeyi kaydırıyorsan) menü açılmaz."
+          ]
+        },
+        "editorPress": {
+          "h": "Not içinde uzun basma",
+          "p": "Düzenleme modunda metne uzun basınca bir menü açılır: kes, kopyala, yapıştır, tümünü seç, biçimlendirme, ekleme (tablo, çizgi, kod bloğu gibi) ve bağlantı ekleme."
+        },
+        "voice": {
+          "h": "Sesli not",
+          "p": "Notun içine ses kaydı koyabilirsin. Kayıt kasadaki Ses Notları klasörüne kaydedilir ve nota bir ses oynatıcısı olarak eklenir.",
+          "steps": [
+            "Bir notu düzenleme moduna al.",
+            "Üstteki araç çubuğunda mikrofon simgesine bas. İzin isterse ver.",
+            "Konuş. Duraklat kaydı durdurur, oynat ile dinlersin.",
+            "Beğenmezsen çöp simgesiyle sil. \"Buradan kaydet\" ile bir yerden sonrasını yeniden kaydedersin.",
+            "Bittiğinde onay düğmesine bas, istersen kayda bir ad ver ve tekrar onayla. Kayıt nota eklenir.",
+            "Telefonda tek kayıt en çok 10 dakika sürer. Sınıra gelince kayıt durur. Kaydedip yenisini başlat."
+          ]
+        }
+      },
+      "draw": {
+        "title": "Çizim ve raporlar",
+        "summary": "Şema çiz, odak istatistiklerine bak.",
+        "draw": {
+          "h": "Çizim",
+          "p": "Çizim ekranında serbest el çizim ve şema yapabilirsin (Excalidraw). Sol şeritten Çizim'e gir, \"Yeni çizim\" ile başla."
+        },
+        "reports": {
+          "h": "Raporlar",
+          "p": "Raporlar ekranı Pomodoro seanslarını gösterir: bugün, bu hafta, toplam seans, odak süresi ve son 7 gün. Hiç seans yoksa boş görünür."
+        }
+      },
+      "gcal": {
+        "title": "Google Takvim",
+        "summary": "Tarihli görevlerin takvimine gitsin, etkinliklerin ajandanda görünsün.",
+        "connect": {
+          "h": "Bağlama",
+          "p": "Önce bir kasa klasörü seçili olmalı. Bu özellik uygulamada çalışır, tarayıcıda çalışmaz.",
+          "steps": [
+            "Ayarlar'ı aç ve Google Takvim bölümüne in.",
+            "\"Bağlan\" düğmesine bas. Tarayıcı açılır.",
+            "Google hesabını seç ve izin ver. Sonra uygulamaya dön.",
+            "Takvim listesinden görevlerin gönderileceği takvimi seç. Seçmezsen birincil takvim kullanılır.",
+            "\"Şimdi senkronize et\" düğmesine bas. Bitince \"Senkronize edildi\" yazar."
+          ]
+        },
+        "use": {
+          "h": "Nasıl çalışır",
+          "list": [
+            "Tarihli görevlerin takvime etkinlik olarak gider.",
+            "Takvimdeki etkinliklerin Planlayıcı ajandasında görünür.",
+            "\"Otomatik senkron\" açıksa bağlıyken her 5 dakikada bir gönderir ve çeker.",
+            "Son senkron zamanı aynı bölümde yazar.",
+            "Bağlantıyı \"Bağlantıyı kes\" ile kaldırırsın."
+          ]
+        }
+      },
+      "github": {
+        "title": "GitHub ve yedekleme",
+        "summary": "Kasanı GitHub'a yedekle, cihazlar arasında eşitle.",
+        "connect": {
+          "h": "GitHub'a bağlama",
+          "p": "Bu özellik uygulamada çalışır, tarayıcıda çalışmaz. Önce bir kasa klasörü seçili olmalı.",
+          "steps": [
+            "Ayarlar'ı aç ve GitHub Senkronizasyonu bölümüne in.",
+            "\"Bağlan\" düğmesine bas. Ekranda bir kod çıkar.",
+            "\"Kodu Kopyala ve GitHub'a Git\" düğmesine bas. Kod kopyalanır ve GitHub açılır.",
+            "GitHub sayfasında kodu yapıştırıp onayla. Loomen onayı bekler, sonra bağlanır.",
+            "Bir depo seç: listeden seç ya da \"Yeni depo\" ile oluştur (Özel seçeneği var).",
+            "\"Şimdi senkronize et\" düğmesine bas. Bitince \"Gönderildi\" ya da \"Çekildi + gönderildi\" yazar."
+          ]
+        },
+        "sync": {
+          "h": "Senkron ve yedek",
+          "list": [
+            "\"Otomatik senkron\" açıksa bağlıyken her 3 dakikada bir gönderir ve çeker.",
+            "Loomen'in kendi sunucusu yoktur. Notların düz dosya olduğu için iCloud Drive, Syncthing ya da Git ile de eşitleyebilirsin.",
+            "Kasa klasörünü yedeklemek, bütün verini yedeklemek demektir."
+          ]
+        }
+      },
+      "safety": {
+        "title": "Verilerin güvende",
+        "summary": "Notuna habersiz dokunulmaz.",
+        "safe": {
+          "h": "Güvence",
+          "p": "Loomen notlarının içeriğine habersiz dokunmaz. Taşıma ve yeniden adlandırma dosyayı olduğu gibi korur. Silme her zaman geri alınabilir. Tek gerçek kaynak, diskteki dosyandır."
+        }
+      }
+    }
   },
   "settings": {
     "title": "Ayarlar",

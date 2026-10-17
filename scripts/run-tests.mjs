@@ -45,6 +45,7 @@ const suites = [
   ["src/core/__test__/gcalItemsTest.ts", []],
   ["src/core/__test__/graphTest.ts", []],
   ["src/core/__test__/pinchTest.ts", []],
+  ["src/core/__test__/helpTest.ts", []],
 ];
 
 let failed = 0;

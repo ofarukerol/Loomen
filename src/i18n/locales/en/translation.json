@@ -392,34 +392,382 @@
   },
   "help": {
     "title": "Help & Guide",
-    "subtitle": "Learn Loomen in a few minutes — everything is simple and fully local.",
-    "filesTitle": "Your notes are your files",
-    "filesBody": "Every note is a plain .md (Markdown) file on your computer. No internet or server; everything stays on your device. Even if you delete a note it first goes to the Trash (kept for 30 days), so you won't lose it by accident.",
-    "createTitle": "Creating notes and quick switching",
-    "createBody": "Press ⌘N to create a new note. Press ⌘O to jump to or search for an existing one. Use the Explorer on the left to browse your folders, and drag notes to reorganize them.",
-    "linksTitle": "Links",
-    "linksBody": "To connect two notes, type the note's name inside double square brackets in your text. It becomes a clickable link and shows up in the Graph as a line between two dots. This is how you build a web between your notes.",
-    "linksExamplePre": "Example:",
-    "tagsTitle": "Tags",
-    "tagsBody": "Write a tag starting with # inside a note (e.g. #journal). Notes that share a tag become related. In the Graph, tags appear as green nodes that connect every note using them.",
-    "graphTitle": "Graph view",
-    "graphBody": "The Graph is a map of your notes: dots are notes, lines are links, tags appear as green nodes when turned on in settings. Drag to move around, scroll to zoom, click a dot to open the note. Use + / − on the right to zoom and the target icon to fit the graph to the screen; the settings icon toggles tags, unlinked notes, non-existent notes and arrows.",
-    "openGraph": "Open the graph",
-    "plannerTitle": "Planner, Calendar & Pomodoro",
-    "plannerBody": "The Planner keeps your daily tasks, calendar and focus timer (Pomodoro) in one place. The 'Today's Note' button at the top opens today's note. Complete tasks with a checkbox, give them dates, and drag to reorder. Focus while the Pomodoro runs, then rest on the break.",
-    "drawTitle": "Drawing & Reports",
-    "drawBody": "The Draw screen lets you make freehand sketches and diagrams (Excalidraw). The Reports screen shows summary statistics about your notes and tasks.",
-    "syncTitle": "Backup & Sync",
-    "syncBody": "Loomen has no server of its own. Because your notes are plain files, you can sync them across devices with iCloud Drive, Syncthing or Git. Backing up your vault folder means backing up all of your data.",
-    "shortcutsTitle": "Keyboard shortcuts",
-    "scNew": "New note",
-    "scOpen": "Go to file / search",
-    "scClose": "Close (detail or window)",
-    "safetyTitle": "Your data is safe",
-    "safetyBody": "Loomen never touches your notes' content silently. Moving and renaming preserve the file exactly; deleting is always reversible. The single source of truth is the file on your disk.",
-    "exampleNoteA": "Ideas",
-    "exampleNoteThis": "This note",
-    "exampleTag": "journal"
+    "subtitle": "Learn Loomen step by step. Everything is simple and stays on your device.",
+    "search": "Search help…",
+    "searchEmpty": "No section matches this search.",
+    "clearSearch": "Clear search",
+    "tocTitle": "Contents",
+    "expandAll": "Open all",
+    "collapseAll": "Close all",
+    "openGraph": "Open graph",
+    "openSettings": "Open settings",
+    "openReview": "Open Review",
+    "openPlanner": "Open planner",
+    "ex": {
+      "noteThis": "This note",
+      "noteA": "Ideas",
+      "tag": "journal",
+      "linkPre": "Example:",
+      "taskSource": "- [ ] Grocery shopping #home ⏫ 🔁 every week on Saturday 📅 2026-10-24 ⏰ 10:00",
+      "taskTitle": "Grocery shopping",
+      "taskDate": "Sat 10:00",
+      "taskRepeat": "Every week",
+      "taskPrio": "High",
+      "taskSub": "1/3",
+      "taskSrcLabel": "In the note it looks like this",
+      "taskRowLabel": "In the planner it looks like this",
+      "late1": "Pay the bill",
+      "late1d": "3 days late",
+      "late2": "Send the report",
+      "late2d": "1 day late",
+      "noteSample": "When was the Ottoman Empire founded :: 1299\nApple ::: manzana\nWater boils at ==100== degrees.\n\nThese lines become a question\n?\nThese lines become the answer\n\n#tekrar",
+      "cardQ": "When was the Ottoman Empire founded?",
+      "cardA": "1299",
+      "ivl": [
+        "10 min",
+        "2 days",
+        "5 days",
+        "11 days"
+      ],
+      "forecastCaption": "Example: cards coming up in the next days",
+      "cardCaption": "Example card (a small copy of the real screen)",
+      "menuCaption": "The menu that opens when you long-press a note",
+      "recName": "Meeting note",
+      "recCaption": "The voice recording bar while editing a note"
+    },
+    "s": {
+      "start": {
+        "title": "Getting started",
+        "summary": "Notes, files and basic shortcuts.",
+        "files": {
+          "h": "Your notes are your files",
+          "p": "Every note is a plain `.md` (Markdown) file on your computer. No internet or server is needed. Everything stays on your device. A deleted note goes to the Trash first and is kept for 30 days, so you can get it back."
+        },
+        "create": {
+          "h": "Opening notes and jumping around",
+          "steps": [
+            "Press `⌘N` for a new note (`Ctrl+N` on Windows).",
+            "Press `⌘O` to jump to another note or to search.",
+            "Browse your folders in the Explorer on the left. Drag notes to move them.",
+            "On a phone the same things are in the bottom bar: search, new note, tabs and menu."
+          ]
+        },
+        "keys": {
+          "h": "Keyboard shortcuts",
+          "items": [
+            "New note",
+            "Go to file / search",
+            "Close the detail or window"
+          ]
+        }
+      },
+      "notes": {
+        "title": "Links, tags and graph",
+        "summary": "Connect your notes and see their map.",
+        "links": {
+          "h": "Links",
+          "p": "To connect two notes, write the note name between double square brackets. It becomes a clickable link. In the graph it shows as a line between two dots.",
+          "steps": [
+            "Type `[[` in a note.",
+            "Type the name of the note you want to link, then close with `]]`.",
+            "In the preview, click the link to open that note.",
+            "In a note's Links section you see the notes that link to it."
+          ]
+        },
+        "tags": {
+          "h": "Tags",
+          "p": "Write a word that starts with `#` inside a note (for example `#journal`). Notes with the same tag are related. In the graph a tag is a green node."
+        },
+        "graph": {
+          "h": "Graph view",
+          "p": "The graph is a map of your notes. Dots are notes, lines are links.",
+          "list": [
+            "Drag to move around, use the wheel to zoom.",
+            "Click a dot to open that note.",
+            "Use the + and − buttons on the right to zoom. The target icon fits the view to the screen.",
+            "In the settings icon, turn tags, unlinked notes, missing notes and arrows on or off."
+          ]
+        }
+      },
+      "planner": {
+        "title": "Planner and tasks",
+        "summary": "Write tasks, set repeat and priority, plan your day, focus.",
+        "write": {
+          "h": "Adding a task",
+          "p": "Tasks are really `- [ ]` lines in your notes. The planner collects them from all your notes.",
+          "steps": [
+            "Open the planner (Planner in the left bar).",
+            "Type the task in the \"Type your task here…\" box and press Enter. On a phone the send key of the keyboard works too.",
+            "The task is added to the To-do note with today's date. The box empties, so you can type the next one right away.",
+            "When it is done, tick the checkbox. If you tick it by mistake, use Undo."
+          ]
+        },
+        "detail": {
+          "h": "Task details",
+          "p": "Click a task to open its detail window. There you set:",
+          "list": [
+            "The task title.",
+            "Date and time. You can remove the date or the time.",
+            "Repeat: None, Daily, Weekly, Monthly, Yearly.",
+            "Priority: Highest, High, Medium, Low, Lowest.",
+            "Subtasks and notes (you can write Markdown).",
+            "Press Save when you are done."
+          ]
+        },
+        "repeat": {
+          "h": "Repeating tasks",
+          "p": "When you complete a repeating task, a new task line for the next date is created automatically. Days you missed do not pile up.",
+          "steps": [
+            "Open the task and give it a Date. A repeat needs a date.",
+            "Pick one from Repeat.",
+            "Write the gap. For example \"Every 2 days\".",
+            "For weekly, pick the day (like Monday). For monthly, write which day of the month. If the month is shorter, it moves to the last day.",
+            "Yearly repeats every year, based on the date above."
+          ]
+        },
+        "priority": {
+          "h": "Priority",
+          "p": "Priority has five levels: Highest, High, Medium, Low, Lowest. You choose it in the task's detail window. It shows as a small mark on the row."
+        },
+        "subtasks": {
+          "h": "Subtasks",
+          "p": "Split a big job into pieces. Subtasks are kept in the note as indented task lines under the main task.",
+          "steps": [
+            "Open the task.",
+            "Type in the \"Add subtask…\" box and press Enter.",
+            "You can tick each subtask on its own.",
+            "Press Save when you are done."
+          ]
+        },
+        "plan": {
+          "h": "Plan the day",
+          "p": "A way to pull overdue work into today in one go. Only the planned date changes. Time, repeat and priority stay the same.",
+          "steps": [
+            "In the planner press \"Plan the day\". If nothing is overdue, the button's hint says so.",
+            "Tick the overdue tasks you want to move to today. \"Select all\" picks everything.",
+            "Press \"Move to today\". The ones you picked go to today's list."
+          ]
+        },
+        "views": {
+          "h": "Views",
+          "list": [
+            "Focus On Today: today's tasks. Press the counter cards on top to filter the list (Overdue, Unplanned and so on).",
+            "Timeline: the day's plan by hour.",
+            "Board: Overdue, Today and Upcoming columns.",
+            "Calendar: month view. \"Back to today\" brings you back.",
+            "Daily Note: opens today's daily note, or creates it."
+          ]
+        },
+        "pomodoro": {
+          "h": "Pomodoro",
+          "p": "Pomodoro is a focus and break timer. Press Start and the focus time runs, then a break comes. Skip jumps over the break, Reset starts again. Change the lengths, rounds and bell sound in Settings > Pomodoro. Finished sessions show in the Reports screen."
+        }
+      },
+      "review": {
+        "title": "Review (spaced repetition)",
+        "summary": "Brings back what you learned just before you forget it.",
+        "what": {
+          "h": "What it is for",
+          "p": "When you read something once, you forget it in a few days. Review asks you again on the day you are closest to forgetting. It does not show every note every day, only what is needed that day. Only the lines and notes you mark go into Review."
+        },
+        "enable": {
+          "h": "How to turn it on",
+          "p": "Review is off by default. While it is off, nothing is scanned and no files are created in your vault.",
+          "steps": [
+            "Open Settings and go to the Review section.",
+            "Turn on \"Use review\".",
+            "A Review button appears in the left bar. A small Review card also appears in the planner's right panel.",
+            "If you like, pick a preset: Light, Balanced or Heavy."
+          ]
+        },
+        "cards": {
+          "h": "How to write a card",
+          "p": "Write lines like these in your note. They also work as list items. Anything inside a code block is not a card. Loomen never writes to your note, it only reads.",
+          "list": [
+            "`Question :: Answer` is a one-line question and answer. Two colons.",
+            "`Question ::: Answer` works both ways. You get two cards, forward and backward.",
+            "Write `Sentence ==hidden word== rest` and the ==marked== part is hidden. Each hidden part is its own card.",
+            "Multi-line card: question lines, a lone `?` line, answer lines. It ends at a blank line.",
+            "The `#tekrar` tag turns the whole note into one reading card. The `#tekrar/topic` form works too."
+          ]
+        },
+        "session": {
+          "h": "How a session goes",
+          "steps": [
+            "On the Review screen press Start. On top you see a progress bar and a counter like 3 / 20.",
+            "First you see only the question. Say the answer in your head.",
+            "Press \"Show answer\" or the space key.",
+            "Once you see the answer, rate yourself honestly: press one of the four buttons.",
+            "The next card comes. When all are done it says \"Done for today\".",
+            "For whole-note cards there is \"I read it\" instead of the answer button."
+          ]
+        },
+        "grades": {
+          "h": "The rating buttons",
+          "p": "Under each button it shows when the card will come back if you press it.",
+          "list": [
+            "Did not know (1): you did not remember. The card is asked again very soon.",
+            "Knew it, barely (2): you remembered, but it was a struggle. The gap grows a little.",
+            "Knew it (3): you remembered easily. Space or Enter also picks this.",
+            "Very easy (4): you did not even think. The card will not show up for a long time."
+          ],
+          "keys": "Shortcuts: 1-4 rate the card, space or Enter shows the answer, `E` opens the note, `Esc` closes the session. Under the card there are also \"Postpone for today\" and \"Freeze\". A card you forget a lot is marked \"Forgotten often\"."
+        },
+        "decks": {
+          "h": "Decks",
+          "p": "A deck lets you study the cards of one folder on their own. For example only the \"English\" folder.",
+          "steps": [
+            "Go to Settings > Review > Expert tab and find Decks.",
+            "Press \"Add deck\" and give it a name.",
+            "Pick the folder from the list. If you pick \"Whole vault\", all cards are included.",
+            "On the Review screen, in the Decks section, each deck has a Start button and today's card count."
+          ]
+        },
+        "limits": {
+          "h": "Daily limit, backlog and spreading",
+          "p": "If one day has a lot of cards, you do not have to do them all. Cards that do not fit the limit move to the next day and show as \"Pushed to tomorrow\".",
+          "list": [
+            "New cards per day: at most how many never-seen cards come (default 10).",
+            "Most cards per day: the total cap, new ones included (default 60).",
+            "Most minutes per day: it measures your answer times and shortens the queue. Write 0 for no time limit.",
+            "If the backlog grows, Loomen stops showing new cards by itself. When the backlog is gone, new cards come back.",
+            "If the backlog goes above 20 cards, buttons \"Spread over 7 days\", \"Spread over 14 days\" or \"Spread over 30 days\" appear on the main screen. The backlog is shared evenly over the number of days you pick."
+          ]
+        },
+        "vacation": {
+          "h": "Holiday mode and easy days",
+          "steps": [
+            "Go to Settings > Review > Simple tab and find Holiday.",
+            "Pick your return date.",
+            "Until that date no cards come and the backlog is not counted. The Review screen says \"You are on holiday mode\".",
+            "To end the holiday early, clear or change the date.",
+            "Easy days: press a weekday to switch between normal, half and off. The cards of an off day are spread to the neighbouring days."
+          ]
+        },
+        "forecast": {
+          "h": "30-day forecast",
+          "p": "At the bottom of the Review screen there is a bar chart showing how many cards come each day for the next 30 days. The left bar is today. Below it you see the card count of the busiest day. If the bars stay level, the load is balanced."
+        },
+        "settings": {
+          "h": "Where the settings are",
+          "p": "Settings > Review has three tabs. The live box on top tells you right away how many cards and minutes per day your settings mean.",
+          "list": [
+            "Simple: presets, memory goal, daily minutes, easy days, holiday.",
+            "Advanced: daily limits, order, cards you forget a lot, which writings count as cards, folders that are not scanned.",
+            "Expert: calculation method, learning steps, longest gap, decks."
+          ]
+        }
+      },
+      "mobile": {
+        "title": "Using it on a phone",
+        "summary": "Bottom bar, long-press menus and voice notes.",
+        "nav": {
+          "h": "Bottom bar",
+          "list": [
+            "Home and Daily Note.",
+            "Search: finds notes by name.",
+            "New note.",
+            "Tabs: switch between open notes.",
+            "Menu: screens and settings."
+          ]
+        },
+        "press": {
+          "h": "Long-press menu",
+          "p": "A phone has no right click. You long-press instead.",
+          "steps": [
+            "In the Explorer, hold your finger on a note or folder for about half a second.",
+            "A menu opens. For a note: rename, add to favorites, move to trash. For a folder: rename, new note here.",
+            "Tap an option in the menu. Tap an empty spot to close it.",
+            "If your finger slides (you are scrolling the list), the menu does not open."
+          ]
+        },
+        "editorPress": {
+          "h": "Long-press inside a note",
+          "p": "In edit mode, long-pressing the text opens a menu: cut, copy, paste, select all, formatting, insert (table, line, code block and so on) and add link."
+        },
+        "voice": {
+          "h": "Voice note",
+          "p": "You can put a voice recording inside a note. The recording is saved in the Voice Notes folder of your vault and added to the note as an audio player.",
+          "steps": [
+            "Put a note into edit mode.",
+            "Press the microphone icon on the toolbar at the top. Allow access if it asks.",
+            "Speak. Pause stops the recording, play lets you listen.",
+            "If you don't like it, delete it with the bin icon. \"Record from here\" re-records everything after a point (the rest is replaced).",
+            "When done, press the confirm button, give the recording a name if you like, and confirm again. The recording is added to the note.",
+            "On a phone a single recording is at most 10 minutes. It stops at the limit. Save it and start a new one."
+          ]
+        }
+      },
+      "draw": {
+        "title": "Drawing and reports",
+        "summary": "Draw diagrams, look at focus statistics.",
+        "draw": {
+          "h": "Drawing",
+          "p": "On the Drawing screen you can make freehand drawings and diagrams (Excalidraw). Open Drawing in the left bar and start with \"New drawing\"."
+        },
+        "reports": {
+          "h": "Reports",
+          "p": "The Reports screen shows your Pomodoro sessions: today, this week, total sessions, focus time and the last 7 days. It looks empty until you finish a session."
+        }
+      },
+      "gcal": {
+        "title": "Google Calendar",
+        "summary": "Send dated tasks to your calendar and see your events in the agenda.",
+        "connect": {
+          "h": "Connecting",
+          "p": "A vault folder must be selected first. This feature works in the app, not in the browser.",
+          "steps": [
+            "Open Settings and go to the Google Calendar section.",
+            "Press \"Connect\". The browser opens.",
+            "Pick your Google account and allow access. Then return to the app.",
+            "From the calendar list pick the calendar your tasks will be sent to. If you don't, the primary calendar is used.",
+            "Press \"Sync now\". When it finishes it says \"Synced\"."
+          ]
+        },
+        "use": {
+          "h": "How it works",
+          "list": [
+            "Your dated tasks go to the calendar as events.",
+            "Events in your calendar show in the planner agenda.",
+            "If \"Auto sync\" is on, it sends and fetches every 5 minutes while connected.",
+            "The last sync time is shown in the same section.",
+            "Remove the connection with \"Disconnect\"."
+          ]
+        }
+      },
+      "github": {
+        "title": "GitHub and backup",
+        "summary": "Back up your vault to GitHub and keep devices in sync.",
+        "connect": {
+          "h": "Connecting to GitHub",
+          "p": "This feature works in the app, not in the browser. A vault folder must be selected first.",
+          "steps": [
+            "Open Settings and go to the GitHub Sync section.",
+            "Press \"Connect\". A code appears on screen.",
+            "Press \"Copy Code & Go to GitHub\". The code is copied and GitHub opens.",
+            "Paste the code on the GitHub page and confirm. Loomen waits for the confirmation, then connects.",
+            "Pick a repository: choose one from the list, or create one with \"New repo\" (it has a Private option).",
+            "Press \"Sync now\". When it finishes it says \"Pushed\" or \"Pulled + pushed\"."
+          ]
+        },
+        "sync": {
+          "h": "Sync and backup",
+          "list": [
+            "If \"Auto sync\" is on, it sends and fetches every 3 minutes while connected.",
+            "Loomen has no server of its own. Your notes are plain files, so you can also sync them with iCloud Drive, Syncthing or Git.",
+            "Backing up the vault folder means backing up all your data."
+          ]
+        }
+      },
+      "safety": {
+        "title": "Your data is safe",
+        "summary": "Your notes are never touched behind your back.",
+        "safe": {
+          "h": "Our promise",
+          "p": "Loomen never touches the content of your notes without telling you. Moving and renaming keep the file as it is. Deleting can always be undone. The only real source is the file on your disk."
+        }
+      }
+    }
   },
   "syncStatus": {
     "error": "Sync error"
