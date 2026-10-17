@@ -114,8 +114,8 @@ fn merge_into_head(
     }
     let tree_id = idx.write_tree_to(repo)?;
     let tree = repo.find_tree(tree_id)?;
-    // Son güvenlik: yerelde değişmiş ya da yeni olan her dosya birleşmiş ağaçta dosya olarak
-    // durmalı (ör. klasör ile aynı adlı dosya çakışması yerel notu düşürmesin). Değilse
+    // Son güvenlik: yerelde değişmiş ya da yeni bir dosya klasör/dosya çakışmasıyla birleşmiş
+    // ağaçtan düşmesin (ör. uzakta aynı adlı dosya yerel klasörü ezmesin). Değilse
     // hiçbir şey yazılmadan durulur; çalışma klasörüne dokunulmaz.
     let base = repo
         .merge_base(local.id(), remote.id())
@@ -133,10 +133,17 @@ fn merge_into_head(
             .as_ref()
             .and_then(|b| b.get_path(pp).ok())
             .map_or(false, |be| be.id() == e.id());
-        // İçerik birleştirmesiyle değişmiş olabilir (iki taraf farklı satırlar); yeter ki
-        // dosya birleşmiş ağaçta dosya olarak dursun.
-        let kept = tree.get_path(pp).map_or(false, |m| m.kind() == Some(git2::ObjectType::Blob));
-        if !unchanged && !kept {
+        // Yalnız klasör/dosya çakışması aranır: yerel dosyanın yerinde artık klasör var ya da
+        // üst klasörlerinden biri dosya olmuş. Yol yalnızca yoksa (uzakta yeniden adlandırma,
+        // içerik yeni ada birleşti) ya da içerik birleşmesiyle değiştiyse bu kayıp değildir.
+        let is_kind = |q: &str, k: git2::ObjectType| {
+            tree.get_path(std::path::Path::new(q)).map_or(false, |m| m.kind() == Some(k))
+        };
+        let parent_became_file = path
+            .match_indices('/')
+            .any(|(i, _)| is_kind(&path[..i], git2::ObjectType::Blob));
+        let df = is_kind(&path, git2::ObjectType::Tree) || parent_became_file;
+        if !unchanged && df {
             lost = Some(path);
             return git2::TreeWalkResult::Abort;
         }
@@ -499,12 +506,8 @@ mod tests {
         let res = merge_into_head(&repo, &lc, &rc, &sig());
         // Ya iki taraf da korunarak birleşir ya da hata döner ve hiçbir şeye dokunulmaz.
         assert_eq!(fs::read_to_string(dir.join("Klasor/Not.md")).unwrap(), "yerel not\n");
-        if res.is_err() {
-            assert_eq!(repo.head().unwrap().target().unwrap(), head_before);
-        } else {
-            let head = repo.head().unwrap().peel_to_tree().unwrap();
-            assert!(head.get_path(std::path::Path::new("Klasor/Not.md")).is_ok());
-        }
+        assert!(res.is_err(), "klasör/dosya çakışmasında senkron durmalı");
+        assert_eq!(repo.head().unwrap().target().unwrap(), head_before, "hiçbir şey commit'lenmemeli");
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -539,6 +542,35 @@ mod tests {
         merge_into_head(&repo, &lc, &rc, &sig()).unwrap();
         assert_eq!(fs::read_to_string(dir.join("N.md")).unwrap(), "1 yerel\n2\n3\n4\n5\n6 uzak\n");
         assert!(!dir.join("N (çakışma).md").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn uzakta_yeniden_adlandirilan_yerelde_degisen_not_birlesir() {
+        let (dir, repo) = tmp_repo("ad-degisti");
+        let base = "satır 1\nsatır 2\nsatır 3\nsatır 4\nsatır 5\nsatır 6\nsatır 7\nsatır 8\n";
+        fs::write(dir.join("A.md"), base).unwrap();
+        let b = commit_all(&repo, &[]);
+        let bc = repo.find_commit(b).unwrap();
+        // Uzak: A.md → B.md (içerik aynı).
+        let mut ri = Index::new().unwrap();
+        ri.read_tree(&bc.tree().unwrap()).unwrap();
+        let mut e = ri.get_path(std::path::Path::new("A.md"), 0).unwrap();
+        ri.remove_path(std::path::Path::new("A.md")).unwrap();
+        e.path = b"B.md".to_vec();
+        ri.add(&e).unwrap();
+        let rt = repo.find_tree(ri.write_tree_to(&repo).unwrap()).unwrap();
+        let r = repo.commit(None, &sig(), &sig(), "uzak ad", &rt, &[&bc]).unwrap();
+        // Yerel: A.md'nin bir satırı değişir.
+        fs::write(dir.join("A.md"), base.replace("satır 1", "satır 1 yerel")).unwrap();
+        let l = commit_all(&repo, &[&bc]);
+        let (lc, rc) = (repo.find_commit(l).unwrap(), repo.find_commit(r).unwrap());
+        merge_into_head(&repo, &lc, &rc, &sig()).expect("yeniden adlandırma senkronu durdurmamalı");
+        let all: String = ["A.md", "B.md"]
+            .iter()
+            .filter_map(|f| fs::read_to_string(dir.join(f)).ok())
+            .collect();
+        assert!(all.contains("satır 1 yerel"), "yerel değişiklik korunmalı");
         let _ = fs::remove_dir_all(&dir);
     }
 }
