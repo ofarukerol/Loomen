@@ -122,37 +122,44 @@ fn merge_into_head(
         .ok()
         .and_then(|b| repo.find_commit(b).ok())
         .and_then(|c| c.tree().ok());
+    // Kontrol iki taraf için de yapılır: yerel dosya uzak klasörün altında kalmasın, uzak not
+    // da yerel aynı adlı dosya yüzünden düşmesin (ikisi de sonraki gönderimde silinmiş görünür).
     let mut lost: Option<String> = None;
-    local.tree()?.walk(git2::TreeWalkMode::PreOrder, |dir, e| {
-        if e.kind() != Some(git2::ObjectType::Blob) {
-            return git2::TreeWalkResult::Ok;
+    for side in [local.tree()?, remote.tree()?] {
+        if lost.is_some() {
+            break;
         }
-        let path = format!("{dir}{}", e.name().unwrap_or(""));
-        let pp = std::path::Path::new(&path);
-        let unchanged = base
-            .as_ref()
-            .and_then(|b| b.get_path(pp).ok())
-            .map_or(false, |be| be.id() == e.id());
-        // Yalnız klasör/dosya çakışması aranır: yerel dosyanın yerinde artık klasör var ya da
-        // üst klasörlerinden biri dosya olmuş. Yol yalnızca yoksa (uzakta yeniden adlandırma,
-        // içerik yeni ada birleşti) ya da içerik birleşmesiyle değiştiyse bu kayıp değildir.
-        let is_kind = |q: &str, k: git2::ObjectType| {
-            tree.get_path(std::path::Path::new(q)).map_or(false, |m| m.kind() == Some(k))
-        };
-        let parent_became_file = path
-            .match_indices('/')
-            .any(|(i, _)| is_kind(&path[..i], git2::ObjectType::Blob));
-        let df = is_kind(&path, git2::ObjectType::Tree) || parent_became_file;
-        if !unchanged && df {
-            lost = Some(path);
-            return git2::TreeWalkResult::Abort;
-        }
-        git2::TreeWalkResult::Ok
-    })
-    .ok();
+        side.walk(git2::TreeWalkMode::PreOrder, |dir, e| {
+            if e.kind() != Some(git2::ObjectType::Blob) {
+                return git2::TreeWalkResult::Ok;
+            }
+            let path = format!("{dir}{}", e.name().unwrap_or(""));
+            let pp = std::path::Path::new(&path);
+            let unchanged = base
+                .as_ref()
+                .and_then(|b| b.get_path(pp).ok())
+                .map_or(false, |be| be.id() == e.id());
+            // Yalnız klasör/dosya çakışması aranır: dosyanın yerinde artık klasör var ya da üst
+            // klasörlerinden biri dosya olmuş. Yol yalnızca yoksa (öbür tarafta yeniden
+            // adlandırma) ya da içerik birleşmesiyle değiştiyse bu kayıp değildir.
+            let is_kind = |q: &str, k: git2::ObjectType| {
+                tree.get_path(std::path::Path::new(q)).map_or(false, |m| m.kind() == Some(k))
+            };
+            let parent_became_file = path
+                .match_indices('/')
+                .any(|(i, _)| is_kind(&path[..i], git2::ObjectType::Blob));
+            let df = is_kind(&path, git2::ObjectType::Tree) || parent_became_file;
+            if !unchanged && df {
+                lost = Some(path);
+                return git2::TreeWalkResult::Abort;
+            }
+            git2::TreeWalkResult::Ok
+        })
+        .ok();
+    }
     if let Some(p) = lost {
         return Err(git2::Error::from_str(&format!(
-            "Senkron durdu: \"{p}\" yerel değişikliği uzaktaki bir değişiklikle (ör. aynı adlı klasör/dosya) birleştirilemedi. Notlarınız olduğu gibi duruyor."
+            "Senkron durdu: \"{p}\" aynı adlı bir klasör/dosya ile çakıştı, birleştirilemedi. Birini yeniden adlandırın; notlarınız olduğu gibi duruyor."
         )));
     }
     let oid = repo.commit(Some("HEAD"), sig, sig, "Loomen birleştirme", &tree, &[local, remote])?;
@@ -571,6 +578,33 @@ mod tests {
             .filter_map(|f| fs::read_to_string(dir.join(f)).ok())
             .collect();
         assert!(all.contains("satır 1 yerel"), "yerel değişiklik korunmalı");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ters_dizin_dosya_cakismasi_uzak_notu_dusurmez() {
+        let (dir, repo) = tmp_repo("df-ters");
+        fs::write(dir.join("x.md"), "x\n").unwrap();
+        let b = commit_all(&repo, &[]);
+        let bc = repo.find_commit(b).unwrap();
+        // Uzak: Klasor/Not.md ekler.
+        let mut ri = Index::new().unwrap();
+        ri.read_tree(&bc.tree().unwrap()).unwrap();
+        let mut e = ri.get_path(std::path::Path::new("x.md"), 0).unwrap();
+        e.path = b"Klasor/Not.md".to_vec();
+        e.id = repo.blob(b"uzak not\n").unwrap();
+        ri.add(&e).unwrap();
+        let rt = repo.find_tree(ri.write_tree_to(&repo).unwrap()).unwrap();
+        let r = repo.commit(None, &sig(), &sig(), "uzak", &rt, &[&bc]).unwrap();
+        // Yerel: aynı adla DOSYA.
+        fs::write(dir.join("Klasor"), "yerel dosya\n").unwrap();
+        let l = commit_all(&repo, &[&bc]);
+        let (lc, rc) = (repo.find_commit(l).unwrap(), repo.find_commit(r).unwrap());
+        let head_before = repo.head().unwrap().target().unwrap();
+        let res = merge_into_head(&repo, &lc, &rc, &sig());
+        assert!(res.is_err(), "uzak not düşecekse senkron durmalı");
+        assert_eq!(repo.head().unwrap().target().unwrap(), head_before);
+        assert_eq!(fs::read_to_string(dir.join("Klasor")).unwrap(), "yerel dosya\n");
         let _ = fs::remove_dir_all(&dir);
     }
 }
