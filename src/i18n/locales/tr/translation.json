@@ -540,7 +540,7 @@
           "h": "Tekrar eden görev (sıklık)",
           "p": "Tekrar eden bir görevi tamamlayınca, sıradaki tarih için yeni bir görev satırı kendiliğinden açılır. Kaçırdığın eski günler için yığın oluşmaz.",
           "steps": [
-            "Görevi aç ve bir Tarih ver. Tekrar için tarih gerekir.",
+            "Görevi aç ve bir Tarih ver. Tarih vermezsen tekrar bugünden sayılır.",
             "Sıklık'tan birini seç.",
             "Aralığı yaz. Örneğin \"Her 2 günde bir\".",
             "Haftalıkta günü seç (Pazartesi gibi). Aylıkta ayın kaçıncı günü olacağını yaz. Ay kısaysa son güne kayar.",

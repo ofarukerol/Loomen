@@ -518,7 +518,7 @@
           "h": "Repeating tasks",
           "p": "When you complete a repeating task, a new task line for the next date is created automatically. Days you missed do not pile up.",
           "steps": [
-            "Open the task and give it a Date. A repeat needs a date.",
+            "Open the task and give it a Date. Without a date, the repeat counts from today.",
             "Pick one from Repeat.",
             "Write the gap. For example \"Every 2 days\".",
             "For weekly, pick the day (like Monday). For monthly, write which day of the month. If the month is shorter, it moves to the last day.",
