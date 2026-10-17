@@ -704,8 +704,6 @@
   "writeBar": {
     "notSaved": "Latest changes not saved · {{n}} attempts",
     "retry": "Try again",
-    "retrying": "Trying…",
-    "stillFailing": "Still can\u2019t open it.",
     "details": "Details",
     "dismiss": "Close"
   },
@@ -715,7 +713,9 @@
     "dismiss": "Close",
     "retry": "Retry",
     "alreadyVault": "This folder already belongs to the vault “{{name}}”. Pick the vault's own folder or a folder that isn't a vault.",
-    "mobileMessage": "Couldn't open the “{{name}}” vault. Try again or close and reopen the app."
+    "mobileMessage": "Couldn't open the “{{name}}” vault. Try again or close and reopen the app.",
+    "retrying": "Trying…",
+    "stillFailing": "Still can’t open it."
   },
   "update": {
     "ready": "New version ready: {{version}}",

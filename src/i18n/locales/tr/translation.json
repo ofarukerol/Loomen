@@ -704,8 +704,6 @@
   "writeBar": {
     "notSaved": "Son değişiklikler kaydedilmedi · {{n}} deneme",
     "retry": "Yeniden dene",
-    "retrying": "Deneniyor…",
-    "stillFailing": "Hâlâ açılamıyor.",
     "details": "Ayrıntılar",
     "dismiss": "Kapat"
   },
@@ -715,7 +713,9 @@
     "dismiss": "Kapat",
     "retry": "Yeniden dene",
     "alreadyVault": "Bu klasör zaten “{{name}}” kasasına ait. Kasanın kendi klasörünü ya da hiçbir kasaya ait olmayan bir klasör seçin.",
-    "mobileMessage": "“{{name}}” kasası açılamadı. Yeniden deneyin ya da uygulamayı kapatıp tekrar açın."
+    "mobileMessage": "“{{name}}” kasası açılamadı. Yeniden deneyin ya da uygulamayı kapatıp tekrar açın.",
+    "retrying": "Deneniyor…",
+    "stillFailing": "Hâlâ açılamıyor."
   },
   "update": {
     "ready": "Yeni sürüm hazır: {{version}}",
