@@ -5,6 +5,7 @@ import i18n from "../i18n";
 import type { TaskGroup, Task } from "../data/sampleVault";
 import type { ParsedTask, VaultBackend, VaultNote } from "../core/vault/types";
 import { isExpired, type TrashEntry } from "../core/vault/trash";
+import { createInFlight } from "../core/vault/inFlight";
 import {
   createSampleBackend,
   createTauriBackend,
@@ -815,6 +816,8 @@ export const useAppStore = create<AppState>()(
   // konur: "kuyruk boş" tek başına yetmez — arkadan gelen daha yeni kayıt başka bir boşaltmayla
   // çoktan alınıp yazılmış olabilir, eskisini geri koymak onu sonra ezerdi (LOM-18 incelemesi).
   let drawSeq = 0;
+  /** Başlamış ve henüz bitmemiş çizim yazmaları (LOM-30). */
+  const drawWrites = createInFlight();
 
   /** Son başarısız otomatik kayıt: şeritteki "Yeniden dene" bunu tekrarlar (LOM-20).
    *  `seq`: çizimde yazmanın BAŞLADIĞI andaki kuyruk sayacı (daha yeni sahneyi ezmemek için). */
@@ -867,13 +870,21 @@ export const useAppStore = create<AppState>()(
     const p = pendingDraw;
     const seq = drawSeq;
     pendingDraw = null;
-    if (!p) return true;
-    const ok = await writeDraw(p.path, p.json);
-    // Yazılamadıysa kayıt kuyruğa geri konur: sonraki boşaltma (ekrandan çıkış, kapanış,
-    // yeniden deneme) yine yazmayı dener. Arkadan yeni bir kayıt girdiyse (yazılmış ya da
-    // bekliyor olsun) eskisi geri KONMAZ — daha yeni sahne eskisiyle ezilmesin.
-    if (!ok && pendingDraw === null && drawSeq === seq) pendingDraw = p;
-    return ok;
+    if (p) {
+      void drawWrites.track(
+        writeDraw(p.path, p.json).then((ok) => {
+          // Yazılamadıysa kayıt kuyruğa geri konur: sonraki boşaltma (ekrandan çıkış, kapanış,
+          // yeniden deneme) yine yazmayı dener. Arkadan yeni bir kayıt girdiyse (yazılmış ya da
+          // bekliyor olsun) eskisi geri KONMAZ — daha yeni sahne eskisiyle ezilmesin.
+          if (!ok && pendingDraw === null && drawSeq === seq) pendingDraw = p;
+          return ok;
+        })
+      );
+    }
+    // Yalnız bu çağrının yazması değil, önceki boşaltmaların hâlâ süren yazmaları da beklenir
+    // (LOM-30): yoksa ikinci çağrı ilk yazma bitmeden "kaydedildi" der, kasa değişimi ve
+    // kapanış korumasız ilerler.
+    return drawWrites.settle();
   }
 
   function queueDrawSave(path: string, json: string): void {

@@ -35,6 +35,7 @@ const suites = [
   ["src/core/__test__/mobileTest.ts", []],
   ["src/core/__test__/writeErrorTest.ts", []],
   ["src/core/__test__/atomicWriteTest.ts", []],
+  ["src/core/__test__/inFlightTest.ts", []],
   ["src/core/__test__/writeErrorBarTest.ts", []],
   ["src/core/__test__/openErrorTest.ts", []],
   ["src/core/__test__/vaultOpenErrorBarTest.ts", []],
