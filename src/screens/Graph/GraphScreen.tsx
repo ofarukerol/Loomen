@@ -13,7 +13,8 @@ import {
 } from "d3-force";
 import { useAppStore } from "../../store/useAppStore";
 import { useIsMobile } from "../../hooks/useIsMobile";
-import { buildGraphModel, GRAPH_OPTION_DEFAULTS, type GLink, type GNode } from "./graphModel";
+import { clampZoom, pinchTransform, startPinch, type PinchStart, type Pt } from "../../core/pinch";
+import { buildGraphModel,GRAPH_OPTION_DEFAULTS, type GLink, type GNode } from "./graphModel";
 
 interface Forces {
   repel: number; // pozitif; charge.strength = -repel
@@ -126,7 +127,7 @@ export function GraphScreen() {
   const zoomBy = (factor: number) => {
     const tf = tfRef.current;
     const { w, h } = sizeRef.current;
-    const k2 = Math.min(4, Math.max(0.2, tf.k * factor));
+    const k2 = clampZoom(tf.k * factor);
     tf.x = w / 2 - ((w / 2 - tf.x) / tf.k) * k2;
     tf.y = h / 2 - ((h / 2 - tf.y) / tf.k) * k2;
     tf.k = k2;
@@ -344,7 +345,14 @@ export function GraphScreen() {
       return null;
     };
 
-    let mode: "drag" | "pan" | null = null;
+    let mode: "drag" | "pan" | "pinch" | null = null;
+    // Pinch: basılı işaretçiler (canvas koordinatı) ve pinch başlangıç görüntüsü.
+    const pointers = new Map<number, Pt>();
+    let pinch: PinchStart | null = null;
+    const twoPoints = (): [Pt, Pt] | null => {
+      const it = [...pointers.values()];
+      return it.length >= 2 ? [it[0], it[1]] : null;
+    };
     let dragNode: GNode | null = null;
     let startCX = 0,
       startCY = 0,
@@ -357,6 +365,21 @@ export function GraphScreen() {
       const rect = canvas.getBoundingClientRect();
       startCX = e.clientX - rect.left;
       startCY = e.clientY - rect.top;
+      pointers.set(e.pointerId, { x: startCX, y: startCY });
+      if (pointers.size >= 2) {
+        // İkinci parmak: tek parmak dokunuşunu iptal et (düğüm bırakılır, not açılmaz), pinch başlat.
+        if (mode === "drag" && dragNode) {
+          dragNode.fx = null;
+          dragNode.fy = null;
+          sim.alphaTarget(0);
+        }
+        dragNode = null;
+        mode = "pinch";
+        moved = true;
+        const two = twoPoints()!;
+        pinch = startPinch(tfRef.current, two[0], two[1]);
+        return;
+      }
       moved = false;
       const w = toWorld(e.clientX, e.clientY);
       const hit = hitTest(w.x, w.y);
@@ -376,6 +399,12 @@ export function GraphScreen() {
       const rect = canvas.getBoundingClientRect();
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
+      if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: cx, y: cy });
+      if (mode === "pinch") {
+        const two = twoPoints();
+        if (pinch && two) Object.assign(tfRef.current, pinchTransform(pinch, two[0], two[1]));
+        return;
+      }
       if (mode == null) {
         const w = toWorld(e.clientX, e.clientY);
         const hit = hitTest(w.x, w.y);
@@ -401,6 +430,16 @@ export function GraphScreen() {
       } catch {
         /* yoksay */
       }
+      pointers.delete(e.pointerId);
+      if (mode === "pinch") {
+        // Pinch bitti; kalan parmak dokunuş sayılmaz. Tüm parmaklar kalkınca sıfırla.
+        pinch = null;
+        if (pointers.size === 0) {
+          mode = null;
+          canvas.style.cursor = "grab";
+        }
+        return;
+      }
       if (mode === "drag" && dragNode) {
         dragNode.fx = null;
         dragNode.fy = null;
@@ -421,7 +460,7 @@ export function GraphScreen() {
       const cy = e.clientY - rect.top;
       const tf = tfRef.current;
       const factor = Math.exp(-e.deltaY * 0.0016);
-      const k2 = Math.min(4, Math.max(0.2, tf.k * factor));
+      const k2 = clampZoom(tf.k * factor);
       tf.x = cx - ((cx - tf.x) / tf.k) * k2;
       tf.y = cy - ((cy - tf.y) / tf.k) * k2;
       tf.k = k2;

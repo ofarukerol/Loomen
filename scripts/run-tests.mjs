@@ -44,6 +44,7 @@ const suites = [
   ["src/core/__test__/windowDragTest.ts", []],
   ["src/core/__test__/gcalItemsTest.ts", []],
   ["src/core/__test__/graphTest.ts", []],
+  ["src/core/__test__/pinchTest.ts", []],
 ];
 
 let failed = 0;
