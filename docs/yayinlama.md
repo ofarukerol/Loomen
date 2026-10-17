@@ -454,9 +454,28 @@ openssl base64 -A -in sertifika.p12 -out sertifika-base64.txt
   yalnızca kullanıcının kendi çizim verisi işlendiği için risk düşüktür.
 - **Google OAuth client secret** frontend paketine gömülür. Masaüstü OAuth istemcilerinde
   Google bunu gizli kabul etmez ve akış PKCE ile korunur — beklenen davranıştır.
-- **CSP** şu an tanımsız (`security.csp: null`). Mağaza için zorunlu değil ama sertleştirme
-  olarak eklenmesi önerilir; eklerken Excalidraw, ses oynatma (blob:) ve senkron uç noktaları
-  (GitHub/Google) izin listesine alınmalıdır.
+- **CSP (LOM-28)** `src-tauri/tauri.conf.json` → `app.security.csp` içinde tanımlı (JSON'da yorum
+  yazılamadığı için gerekçeler burada). `devCsp` geliştirmede Vite için `ws:` ve `'unsafe-inline'`
+  script'e izin verir; yayın CSP'si bundan sıkıdır.
+  - `script-src 'self' 'wasm-unsafe-eval'`: eval/`new Function` yok. `wasm-unsafe-eval` yalnız
+    Excalidraw'ın yazı tipi alt-kümeleme (harfbuzz wasm) dışa aktarımı için.
+  - `style-src ... 'unsafe-inline'`: CodeMirror ve Excalidraw çalışma anında `<style>` ekler.
+    Tauri nonce eklerse `'unsafe-inline'` geçersiz kalır; bu yüzden
+    `dangerousDisableAssetCspModification: ["style-src"]` ile stil için nonce kapatıldı.
+    Script için nonce/hash otomatik kalır. `dist/index.html`'de satır içi script yok.
+  - `font-src/style-src`: Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`).
+    Excalidraw çizim yazı tipleri `esm.sh`'tan gelir (`font-src` + `connect-src`).
+    İleride `EXCALIDRAW_ASSET_PATH` ile pakete gömülürse `esm.sh` kaldırılabilir.
+  - `img-src ... https:`: notlardaki uzak `![](https://...)` görselleri ve GitHub/Google avatarları.
+    `asset:` + `http://asset.localhost`, `blob:`, `data:` yerel görseller içindir.
+  - `media-src blob: asset: http://asset.localhost data:`: ses oynatıcı (blob URL).
+  - `connect-src 'self' ipc: http://ipc.localhost`: tüm ağ istekleri (GitHub, Google OAuth/Takvim,
+    AI sağlayıcıları, loomen.org sürüm kontrolü, güncelleyici) Rust tarafında yapılır ve CSP'ye
+    tabi değildir; webview'den dışarı fetch yoktur. Windows'ta `ipc:`/`asset:` yerine
+    `http://ipc.localhost` ve `http://asset.localhost` kullanıldığı için ikisi de yazıldı.
+  - `worker-src blob: data:`: Excalidraw/görsel küçültme worker'ları. `object-src 'none'`.
+  - Artık kalan risk: XSS olursa `ghToken`/`gcalTokens` hâlâ localStorage'da düz metin; CSP
+    sızdırmayı (connect-src) ve dış script'i engeller ama tokenları saklama sorunu ayrıca çözülmeli.
 
 ---
 
