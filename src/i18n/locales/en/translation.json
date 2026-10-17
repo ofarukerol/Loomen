@@ -704,6 +704,8 @@
   "writeBar": {
     "notSaved": "Latest changes not saved · {{n}} attempts",
     "retry": "Try again",
+    "retrying": "Trying…",
+    "stillFailing": "Still can\u2019t open it.",
     "details": "Details",
     "dismiss": "Close"
   },

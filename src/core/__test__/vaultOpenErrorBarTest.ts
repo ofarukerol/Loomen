@@ -32,6 +32,15 @@ check("aria-controls gösterdiği id DOM'da var (kapalıyken de)", !!ctl && desk
 check("Ayrıntılar kapalıyken hidden", /<code[^>]*hidden/.test(desktop));
 check("Ayrıntılarda dir=ltr", /<code[^>]*dir="ltr"/.test(desktop));
 
+const busy = renderToString(
+  createElement(VaultOpenErrorBarBody, { error, name: "Notlar", t, mobile: false, onRepick: noop, onRetry: noop, onDismiss: noop, retrying: true }),
+);
+check("deneme sürerken Yeniden dene kilitli", /<button[^>]*disabled[^>]*>vaultBar\.retrying/.test(busy) || (busy.includes("disabled") && busy.includes("vaultBar.retrying")));
+check("hata sürerken 'hâlâ açılamıyor' notu", renderToString(
+  createElement(VaultOpenErrorBarBody, { error, name: "Notlar", t, mobile: false, onRepick: noop, onRetry: noop, onDismiss: noop, stillFailing: true }),
+).includes("vaultBar.stillFailing"));
+check("not yokken stillFailing görünmez", !desktop.includes("vaultBar.stillFailing"));
+
 const mobile = renderToString(
   createElement(VaultOpenErrorBarBody, { error, name: "Notlar", t, mobile: true, onRepick: null, onRetry: noop, onDismiss: noop }),
 );

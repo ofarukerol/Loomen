@@ -704,6 +704,8 @@
   "writeBar": {
     "notSaved": "Son değişiklikler kaydedilmedi · {{n}} deneme",
     "retry": "Yeniden dene",
+    "retrying": "Deneniyor…",
+    "stillFailing": "Hâlâ açılamıyor.",
     "details": "Ayrıntılar",
     "dismiss": "Kapat"
   },

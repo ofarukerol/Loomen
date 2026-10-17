@@ -42,7 +42,8 @@ import {
   classifyOpenError,
   openErrorDetail,
   decideRepick,
-  shouldAutoRetry,
+  shouldRunQueuedRetry,
+  vaultLabel,
   recordOpenError,
   refineOpenErrorCode,
   type VaultOpenError,
@@ -226,6 +227,8 @@ interface AppState {
   writeError: WriteErrorState | null;
   /** Kasa açılamadı (LOM-23): pencere yerine tek şerit. Kasa açılınca temizlenir; kalıcı değildir. */
   vaultOpenError: VaultOpenError | null;
+  /** Yeniden deneme sürüyor (şerit düğmesi kilitlenir). */
+  vaultRetrying: boolean;
   backlinksCollapsed: boolean;
 
   // Görev detay paneli (seçili görev id'si "file:line")
@@ -414,7 +417,8 @@ interface AppState {
   // Vault aksiyonları (dosyaya yazar)
   bootstrap: () => Promise<void>;
   openVault: () => Promise<void>;
-  reopenVault: (path: string) => Promise<void>;
+  /** `guard` verilirse sıra gelince bir kez sorulur; false dönerse kasa değiştirilmeden çıkılır (LOM-26). */
+  reopenVault: (path: string, guard?: () => boolean | Promise<boolean>) => Promise<void>;
   reloadVault: () => Promise<void>;
   newNote: (folder?: string) => Promise<void>;
   newFolder: () => Promise<void>;
@@ -434,8 +438,8 @@ interface AppState {
   dismissVaultOpenError: () => void;
   /** Açılamayan kasanın klasörünü yeniden seç (listede yoksa yeni kasa ekle). */
   repickFailedVault: () => Promise<void>;
-  /** Açılamayan kasayı yeniden dener (şeritteki Yeniden dene, pencere odağa dönünce). */
-  /** auto=true: pencere odağı tetikledi; yalnız açık kasanın kendisi açılamadıysa denenir. */
+  /** Açılamayan kasayı yeniden dener (şeritteki Yeniden dene, pencere odağa dönünce).
+   *  auto=true: pencere odağı tetikledi; yalnız açık kasanın kendisi açılamadıysa denenir. */
   retryVaultOpen: (auto?: boolean) => Promise<void>;
   /** Son başarısız otomatik kaydı yeniden dene. */
   retryWrite: () => Promise<void>;
@@ -572,7 +576,8 @@ async function repickFolder(err: VaultOpenError): Promise<void> {
   const decision = decideRepick(err.path, picked, get().vaults.map((v) => v.path));
   if (decision === "cancel" || !picked) return;
   if (decision === "other-vault") {
-    const name = get().vaults.find((v) => decideRepick(v.path, picked, [v.path]) === "same")?.name ?? picked;
+    const same = get().vaults.find((v) => decideRepick(v.path, picked, [v.path]) === "same");
+    const name = same?.name || vaultLabel(same?.path ?? picked);
     await notifyError(i18n.t("vaultBar.alreadyVault", { name }));
     return;
   }
@@ -1160,6 +1165,7 @@ export const useAppStore = create<AppState>()(
     draftConflict: null,
     writeError: null,
     vaultOpenError: null,
+    vaultRetrying: false,
     backlinksCollapsed: false,
     selectedTask: null,
     modalLayers: 0,
@@ -1721,9 +1727,10 @@ export const useAppStore = create<AppState>()(
     // Kasayı listeye ekler (yoksa), entry'sindeki repoyu ghRepo'ya yansıtır. Şablon seed
     // hatası kasayı düşürmez; açılamazsa mevcut durum korunur (sessizce).
     // Çağrılar SIRAYA alınır: bootstrap() ile persist rehydrate aynı anda tetikleyebilir.
-    reopenVault: (rawPath) =>
+    reopenVault: (rawPath, guard) =>
       queueVaultOp(async () => {
         if (!isTauri()) return;
+        if (guard && !(await guard())) return;
         // Mobilde kayıtlı MUTLAK yol bayat olabilir (iOS güncellemesi veri klasörünü taşır):
         // klasör adını koruyup kökü tazele. Masaüstünde kasa app-data altında DEĞİLDİR,
         // yol olduğu gibi kullanılır.
@@ -1967,12 +1974,25 @@ export const useAppStore = create<AppState>()(
     retryVaultOpen: async (auto = false) => {
       const err = get().vaultOpenError;
       if (!err || retryingVaultOpen) return;
-      if (auto && (repickingFolder || !shouldAutoRetry(err, get().vaultPath))) return;
+      // Mobilde kayıtlı yol bayatsa hata yolu (tazelenmiş) ile açık kasa yolu (kayıtlı) farklı
+      // görünür; ikisini de tazelenmiş haliyle karşılaştır (LOM-26).
+      const activePaths = async () => {
+        const vp = get().vaultPath;
+        return get().platformMobile && vp ? [vp, await rebaseToAppDataDir(vp)] : [vp];
+      };
+      if (auto && repickingFolder) return;
       retryingVaultOpen = true;
       try {
-        await get().reopenVault(err.path);
+        if (auto && !shouldRunQueuedRetry(err.path, err, await activePaths(), true)) return;
+        set({ vaultRetrying: true });
+        // Sıra gelince hata hâlâ aynı kasada (ve otomatikte kasa hâlâ açık) mı diye tekrar bakılır:
+        // bu arada başka kasaya geçildiyse eski deneme geri götürmesin.
+        await get().reopenVault(err.path, async () =>
+          shouldRunQueuedRetry(err.path, get().vaultOpenError, await activePaths(), auto),
+        );
       } finally {
         retryingVaultOpen = false;
+        set({ vaultRetrying: false });
       }
     },
     retryWrite: async () => {

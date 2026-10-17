@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, X } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
@@ -17,6 +17,13 @@ export function VaultOpenErrorBar() {
   const dismiss = useAppStore((s) => s.dismissVaultOpenError);
   const repick = useAppStore((s) => s.repickFailedVault);
   const retry = useAppStore((s) => s.retryVaultOpen);
+  const retrying = useAppStore((s) => s.vaultRetrying);
+  // Düğmeyle denendi ve aynı hata sürdü: kısa "hâlâ açılamıyor" notu (şerit aynı kalır).
+  const [still, setStill] = useState(false);
+  const stillTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (stillTimer.current) clearTimeout(stillTimer.current);
+  }, []);
   const hasError = error !== null;
 
   // Pencere öne gelince bir kez yeniden dene: klasör geri geldiyse şerit kendiliğinden kalkar.
@@ -36,6 +43,15 @@ export function VaultOpenErrorBar() {
   }, [hasError, retry]);
 
   if (!error) return null;
+  const onRetry = async () => {
+    if (stillTimer.current) clearTimeout(stillTimer.current);
+    setStill(false);
+    await retry();
+    if (useAppStore.getState().vaultOpenError) {
+      setStill(true);
+      stillTimer.current = setTimeout(() => setStill(false), 4000);
+    }
+  };
   const name = vaults.find((v) => v.path === error.path)?.name || vaultLabel(error.path);
 
   // Anahtar yeni hatada değişir: gövde yeniden kurulur, Ayrıntılar kapalı başlar.
@@ -47,7 +63,9 @@ export function VaultOpenErrorBar() {
       t={t}
       mobile={mobile}
       onRepick={mobile ? null : () => void repick()}
-      onRetry={() => void retry()}
+      onRetry={() => void onRetry()}
+      retrying={retrying}
+      stillFailing={still && !retrying}
       onDismiss={dismiss}
     />
   );
@@ -62,11 +80,15 @@ interface BodyProps {
   /** Mobilde klasör seçici yok: null ise düğme gösterilmez. */
   onRepick: (() => void) | null;
   onRetry: () => void;
+  /** Deneme sürerken Yeniden dene kilitlenir. */
+  retrying?: boolean;
+  /** Deneme bitti, hata sürüyor: kısa not. */
+  stillFailing?: boolean;
   onDismiss: () => void;
 }
 
 /** İki satır: üstte ikon, metin ve kapat düğmesi; altta sarılabilen düğmeler. Dar sütunda X taşmaz. */
-export function VaultOpenErrorBarBody({ error, name, t, mobile, onRepick, onRetry, onDismiss }: BodyProps) {
+export function VaultOpenErrorBarBody({ error, name, t, mobile, onRepick, onRetry, retrying, stillFailing, onDismiss }: BodyProps) {
   const [open, setOpen] = useState(false);
   const detailId = useId();
 
@@ -91,8 +113,8 @@ export function VaultOpenErrorBarBody({ error, name, t, mobile, onRepick, onRetr
             {t("vaultBar.repick")}
           </button>
         )}
-        <button type="button" className="lo-vaultbar__btn" onClick={onRetry}>
-          {t("vaultBar.retry")}
+        <button type="button" className="lo-vaultbar__btn" onClick={onRetry} disabled={retrying} aria-busy={retrying}>
+          {retrying ? t("vaultBar.retrying") : t("vaultBar.retry")}
         </button>
         <button
           type="button"
@@ -103,6 +125,9 @@ export function VaultOpenErrorBarBody({ error, name, t, mobile, onRepick, onRetr
         >
           {t("vaultBar.details")}
         </button>
+      </div>
+      <div role="status" className="lo-vaultbar__text">
+        {stillFailing ? t("vaultBar.stillFailing") : null}
       </div>
       <code id={detailId} dir="ltr" hidden={!open} className="lo-vaultbar__detail">
         {error.path}

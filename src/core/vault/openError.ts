@@ -98,3 +98,20 @@ export function decideRepick(failedPath: string, picked: string | null, vaultPat
 export function shouldAutoRetry(err: VaultOpenError | null, activeVaultPath: string | null): boolean {
   return err !== null && err.path === activeVaultPath;
 }
+
+/**
+ * Sıraya girmiş yeniden denemenin sıra gelince hâlâ çalışması güvenli mi (LOM-26)? Deneme başlarken
+ * hata kasası denetlenir ama iş kasa sırasına girer; bu arada kullanıcı başka kasaya geçmiş olabilir
+ * (başarılı geçiş şeridi kaldırır). Sıra içinde hata hâlâ AYNI kasadaysa ve (otomatikse) o kasa hâlâ
+ * açık olansa devam edilir; aksi halde eski deneme habersiz kasa değiştirmesin diye atlanır.
+ * `activePaths`: açık kasanın yolu ve (mobilde) güncel klasöre göre tazelenmiş hali.
+ */
+export function shouldRunQueuedRetry(
+  startedFor: string,
+  current: VaultOpenError | null,
+  activePaths: Array<string | null>,
+  auto: boolean,
+): boolean {
+  if (!current || current.path !== startedFor) return false;
+  return !auto || activePaths.some((p) => shouldAutoRetry(current, p));
+}

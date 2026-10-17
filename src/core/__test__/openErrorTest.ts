@@ -11,6 +11,7 @@ import {
   refineOpenErrorCode,
   decideRepick,
   shouldAutoRetry,
+  shouldRunQueuedRetry,
   type VaultOpenError,
 } from "../vault/openError";
 
@@ -70,6 +71,16 @@ check("otomatik deneme: açık kasa A, hata B → denenmez", !shouldAutoRetry(er
 check("otomatik deneme: hata açık kasanın kendisi → denenir", shouldAutoRetry(errB, "/v/B"));
 check("otomatik deneme: hata yok → denenmez", !shouldAutoRetry(null, "/v/B"));
 check("otomatik deneme: açık kasa yok → denenmez", !shouldAutoRetry(errB, null));
+
+// Sıraya girmiş deneme (LOM-26): sıra gelince hata/kasa değiştiyse atlanır.
+const errA = { path: "/v/A", code: "missing" as const, detail: "x" };
+check("sıralı deneme: hata aynı kasada, düğme → çalışır", shouldRunQueuedRetry("/v/A", errA, ["/v/C"], false));
+check("sıralı deneme: C açıldı, şerit kalktı → atlanır", !shouldRunQueuedRetry("/v/A", null, ["/v/C"], false));
+check("sıralı deneme: hata başka kasaya geçti → atlanır", !shouldRunQueuedRetry("/v/A", errB, ["/v/A"], false));
+check("sıralı otomatik: açık kasa C, hata A → atlanır", !shouldRunQueuedRetry("/v/A", errA, ["/v/C"], true));
+check("sıralı otomatik: açık kasa A → çalışır", shouldRunQueuedRetry("/v/A", errA, ["/v/A"], true));
+check("sıralı otomatik: mobil tazelenmiş yol eşleşir (LOM-26)", shouldRunQueuedRetry("/new/A", { ...errA, path: "/new/A" }, ["/old/A", "/new/A"], true));
+check("sıralı otomatik: açık kasa yok → atlanır", !shouldRunQueuedRetry("/v/A", errA, [null], true));
 
 // ---- ayrıntı metni ----
 eq("Error nesnesinden mesaj", openErrorDetail(new Error("boom")), "boom");
