@@ -421,7 +421,6 @@
       "late1d": "3 days late",
       "late2": "Send the report",
       "late2d": "1 day late",
-      "noteSample": "When was the Ottoman Empire founded :: 1299\nApple ::: manzana\nWater boils at ==100== degrees.\n\nThese lines become a question\n?\nThese lines become the answer\n\n#tekrar",
       "cardQ": "When was the Ottoman Empire founded?",
       "cardA": "1299",
       "ivl": [
@@ -583,13 +582,81 @@
         },
         "cards": {
           "h": "How to write a card",
-          "p": "Write lines like these in your note. They also work as list items. Anything inside a code block is not a card. Loomen never writes to your note, it only reads.",
-          "list": [
-            "`Question :: Answer` is a one-line question and answer. Two colons.",
-            "`Question ::: Answer` works both ways. You get two cards, forward and backward.",
-            "Write `Sentence ==hidden word== rest` and the ==marked== part is hidden. Each hidden part is its own card.",
-            "Multi-line card: question lines, a lone `?` line, answer lines. It ends at a blank line.",
-            "The `#tekrar` tag turns the whole note into one reading card. The `#tekrar/topic` form works too."
+          "p": "Write lines like these in your note and Loomen builds the cards itself. They also work as list items. Anything inside a code block is not a card. Loomen never writes to your note, it only reads. You can turn each of these formats on or off in Settings > Review. There are five formats:",
+          "labels": {
+            "write": "Write in your note",
+            "card": "Becomes a card",
+            "front": "Front",
+            "back": "Back",
+            "read": "I read it"
+          },
+          "formats": [
+            {
+              "name": "One line",
+              "desc": "Put two colons (::) in the middle. The left side is the question, the right side is the answer.",
+              "write": "When was the Ottoman Empire founded :: 1299",
+              "cards": [
+                {
+                  "front": "When was the Ottoman Empire founded",
+                  "back": "1299"
+                }
+              ]
+            },
+            {
+              "name": "Both ways",
+              "desc": "Use three colons (:::) and you get two cards, one forward and one backward. You learn both sides.",
+              "write": "Elma ::: apple",
+              "cards": [
+                {
+                  "label": "Forward",
+                  "front": "Elma",
+                  "back": "apple"
+                },
+                {
+                  "label": "Backward",
+                  "front": "apple",
+                  "back": "Elma"
+                }
+              ]
+            },
+            {
+              "name": "Hidden word",
+              "desc": "Put the part you want to hide between double equals signs. Each hidden part becomes its own card.",
+              "write": "Water ==100== degrees ==boils==.",
+              "cards": [
+                {
+                  "front": "Water […] degrees boils. (1/2)",
+                  "back": "Water 100 degrees boils."
+                },
+                {
+                  "front": "Water 100 degrees […]. (2/2)",
+                  "back": "Water 100 degrees boils."
+                }
+              ]
+            },
+            {
+              "name": "Multi-line",
+              "desc": "Write the question lines, then a lone ? line, then the answer lines. The card ends at an empty line.",
+              "write": "What is photosynthesis?\nWhich organelle does it happen in?\n?\nPlants making food from light.\nThe chloroplast.\n(empty line)",
+              "cards": [
+                {
+                  "front": "What is photosynthesis?\nWhich organelle does it happen in?",
+                  "back": "Plants making food from light.\nThe chloroplast."
+                }
+              ]
+            },
+            {
+              "name": "Whole note",
+              "desc": "Write #tekrar anywhere in the note (#tekrar/topic works too). The note becomes one reading card. The card's title is the note's name. There is no answer: you read it and press Done reading.",
+              "write": "Photosynthesis is how plants make food from light.\n#tekrar",
+              "cards": [
+                {
+                  "kind": "read",
+                  "front": "Photosynthesis"
+                }
+              ],
+              "file": "Photosynthesis.md"
+            }
           ]
         },
         "session": {

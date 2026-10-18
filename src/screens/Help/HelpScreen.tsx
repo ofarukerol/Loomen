@@ -27,6 +27,7 @@ import {
   ListChecks,
 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
+import { CardFormats, type CardFormatsText } from "./CardFormats";
 
 /* ------------------------------------------------------------------ */
 /* Yapı: bölümler ve grupları. Metinler `help.s.<bölüm>.<grup>` altında */
@@ -40,7 +41,6 @@ type VisualId =
   | "graphGo"
   | "taskRow"
   | "planDay"
-  | "reviewSample"
   | "reviewAsk"
   | "reviewGrade"
   | "reviewSettingsGo"
@@ -96,7 +96,7 @@ const SECTIONS: SectionDef[] = [
     groups: [
       { id: "what" },
       { id: "enable", visual: "settingsGo" },
-      { id: "cards", visual: "reviewSample" },
+      { id: "cards" },
       { id: "session", visual: "reviewAsk" },
       { id: "grades", visual: "reviewGrade" },
       { id: "decks" },
@@ -145,6 +145,8 @@ interface GroupText {
   list?: string[];
   keys?: string;
   items?: string[];
+  formats?: CardFormatsText["formats"];
+  labels?: CardFormatsText["labels"];
 }
 
 /** İç içe çeviri nesnesindeki bütün metinleri tek satıra topla (arama için). */
@@ -523,12 +525,6 @@ export function HelpScreen() {
             <MiniPlanDay />
           </Demo>
         );
-      case "reviewSample":
-        return (
-          <Demo>
-            <Source text={t("help.ex.noteSample")} />
-          </Demo>
-        );
       case "reviewAsk":
         return (
           <Demo caption={t("help.ex.cardCaption")}>
@@ -680,6 +676,7 @@ export function HelpScreen() {
                             ))}
                           </ul>
                         )}
+                        {gt.formats && gt.labels && <CardFormats data={{ labels: gt.labels, formats: gt.formats }} />}
                         {gt.keys && (
                           <p className="lo-help__body lo-help__body--note">
                             <Rich text={gt.keys} />

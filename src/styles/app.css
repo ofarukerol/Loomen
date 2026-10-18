@@ -1068,7 +1068,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-help__steps li, .lo-help__list li { margin-bottom: 6px; padding-inline-start: 2px; }
 .lo-help__steps li::marker { color: var(--accent); font-weight: 600; }
 .lo-help__list li::marker { color: var(--fg3); }
-.lo-help__group .lo-help__chip { font-size: 12px; padding: 1px 6px; unicode-bidi: isolate; }
+.lo-help__group .lo-help__chip { font-size: 12px; padding: 1px 6px; unicode-bidi: isolate; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
 .lo-help__gorow { display: flex; flex-wrap: wrap; gap: 10px; }
 
 /* — Canlı mini örnekler — */
@@ -1077,6 +1077,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-help__democap { margin-top: 6px; font-size: 12px; color: var(--fg3); }
 .lo-help__src {
   margin: 0; font-family: var(--font-mono); font-size: 12px; line-height: 1.7; color: var(--fg1);
+  font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0;
   text-align: left; white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .lo-help__check {
@@ -1123,6 +1124,59 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-help__gradeivl { font-family: var(--font-mono); font-size: 10.5px; color: var(--fg3); }
 .lo-help__grade.is-g1 .lo-help__gradelabel { color: var(--danger); }
 .lo-help__grade.is-g3 .lo-help__gradelabel { color: var(--success); }
+
+/* — Kart biçimleri (Tekrar → Kart nasıl yazılır) — */
+.lo-help__fmts { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+.lo-help__fmt { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 14px; min-width: 0; }
+.lo-help__fmthead { display: flex; align-items: center; gap: 8px; }
+.lo-help__fmtnum {
+  flex: none; display: grid; place-items: center; width: 22px; height: 22px;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--accent); background: var(--accent-soft); border-radius: 6px;
+}
+.lo-help__fmtname { font-size: 14px; font-weight: 600; color: var(--fg1); }
+.lo-help__fmtdesc { margin: 6px 0 12px; font-size: 13.5px; line-height: 1.55; color: var(--fg2); }
+.lo-help__fmtrow { display: flex; align-items: center; gap: 12px; }
+.lo-help__write { flex: 1 1 0; min-width: 0; }
+.lo-help__writelabel, .lo-help__fsidelabel {
+  display: block; margin-bottom: 4px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg3);
+}
+.lo-help__writecode {
+  background: var(--bg-sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 9px 11px;
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.7; color: var(--fg1);
+  font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0;
+  white-space: pre-wrap; overflow-wrap: anywhere; unicode-bidi: plaintext;
+}
+.lo-help__fmtarrow { flex: none; color: var(--fg3); }
+[dir="rtl"] .lo-help__fmtarrow { transform: scaleX(-1); }
+.lo-help__fcards { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.lo-help__fcard {
+  position: relative; background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius-md);
+  box-shadow: var(--sh1); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0;
+}
+.lo-help__fcardtag {
+  align-self: flex-start; font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft);
+  border-radius: var(--radius-pill); padding: 1px 8px;
+}
+.lo-help__fside--back { border-top: 1px dashed var(--line); padding-top: 8px; }
+.lo-help__fsidelabel { margin-bottom: 2px; }
+.lo-help__fsidetext { font-size: 13.5px; line-height: 1.5; color: var(--fg1); white-space: pre-line; overflow-wrap: anywhere; }
+.lo-help__fside--back .lo-help__fsidetext { color: var(--fg2); }
+.lo-help__blank {
+  display: inline-block; min-width: 34px; height: 1.05em; vertical-align: -0.15em; margin-inline: 2px;
+  background: var(--bg-sunken); border: 1.5px dashed var(--fg3); border-radius: 5px; box-sizing: border-box;
+  text-align: center; line-height: 1; color: var(--fg3); padding-inline: 6px;
+}
+.lo-help__writefile { display: block; margin-bottom: 4px; font-family: var(--font-mono); font-size: 11.5px; color: var(--fg2); }
+[dir="rtl"] .lo-help__writefile { text-align: right; }
+.lo-help__fread {
+  align-self: stretch; text-align: center; font-size: 13px; font-weight: 500; color: #fff; background: var(--accent);
+  border-radius: var(--radius-sm); padding: 8px;
+}
+@media (max-width: 720px) {
+  .lo-help__fmtrow { flex-direction: column; align-items: stretch; gap: 8px; }
+  .lo-help__fmtarrow { align-self: center; transform: rotate(90deg); }
+  [dir="rtl"] .lo-help__fmtarrow { transform: rotate(90deg); }
+}
 
 .lo-help__fc { max-width: 460px; margin: 0 auto; }
 .lo-help__fcbars { display: flex; align-items: flex-end; gap: 3px; height: 84px; }

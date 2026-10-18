@@ -443,7 +443,6 @@
       "late1d": "3 gün gecikti",
       "late2": "Raporu gönder",
       "late2d": "1 gün gecikti",
-      "noteSample": "Osmanlı Devleti ne zaman kuruldu :: 1299\nElma ::: apple\nSu ==100== derecede kaynar.\n\nBu satırlar soru olur\n?\nBu satırlar cevap olur\n\n#tekrar",
       "cardQ": "Osmanlı Devleti ne zaman kuruldu?",
       "cardA": "1299",
       "ivl": [
@@ -605,13 +604,81 @@
         },
         "cards": {
           "h": "Kart nasıl yazılır",
-          "p": "Notuna aşağıdaki gibi satırlar yaz. Liste maddesi olarak yazsan da çalışır. Kod bloğunun içindekiler kart sayılmaz. Loomen notuna hiç yazmaz, yalnız okur.",
-          "list": [
-            "`Soru :: Cevap` tek satırlık soru-cevaptır. İki nokta üst üste iki kez.",
-            "`Soru ::: Cevap` çift yönlüdür. İki kart olur, biri ileri biri geri.",
-            "`Cümle ==gizli kelime== devamı` yazarsan ==işaretli== yer gizlenir. Her gizli bölüm ayrı kart olur.",
-            "Çok satırlı kart: soru satırları, tek başına bir `?` satırı, cevap satırları. Boş satırla biter.",
-            "`#tekrar` etiketi notun tamamını bir okuma kartı yapar. `#tekrar/konu` biçimi de çalışır."
+          "p": "Notuna aşağıdaki gibi satırlar yaz, Loomen kartı kendisi çıkarır. Liste maddesi olarak yazsan da çalışır. Kod bloğunun içindekiler kart sayılmaz. Loomen notuna hiç yazmaz, yalnız okur. Bu biçimleri Ayarlar > Tekrar'dan tek tek açıp kapatabilirsin. Beş biçim var:",
+          "labels": {
+            "write": "Notuna yaz",
+            "card": "Kart olur",
+            "front": "Ön yüz",
+            "back": "Arka yüz",
+            "read": "Okudum"
+          },
+          "formats": [
+            {
+              "name": "Tek satır",
+              "desc": "İki nokta üst üste iki kez (::) koy. Solu soru, sağı cevap olur.",
+              "write": "Osmanlı Devleti ne zaman kuruldu :: 1299",
+              "cards": [
+                {
+                  "front": "Osmanlı Devleti ne zaman kuruldu",
+                  "back": "1299"
+                }
+              ]
+            },
+            {
+              "name": "Çift yönlü",
+              "desc": "Üç kez (:::) yazarsan iki kart çıkar: biri ileri, biri geri. İki tarafı da ezberlersin.",
+              "write": "Elma ::: apple",
+              "cards": [
+                {
+                  "label": "İleri",
+                  "front": "Elma",
+                  "back": "apple"
+                },
+                {
+                  "label": "Geri",
+                  "front": "apple",
+                  "back": "Elma"
+                }
+              ]
+            },
+            {
+              "name": "Gizli kelime",
+              "desc": "Gizlemek istediğin yeri iki eşittir arasına al. Her gizli yer ayrı bir kart olur.",
+              "write": "Su ==100== derecede ==kaynar==.",
+              "cards": [
+                {
+                  "front": "Su […] derecede kaynar. (1/2)",
+                  "back": "Su 100 derecede kaynar."
+                },
+                {
+                  "front": "Su 100 derecede […]. (2/2)",
+                  "back": "Su 100 derecede kaynar."
+                }
+              ]
+            },
+            {
+              "name": "Çok satırlı",
+              "desc": "Soru satırlarını yaz, tek başına bir ? satırı koy, sonra cevap satırlarını yaz. Boş satıra gelince kart biter.",
+              "write": "Fotosentez nedir?\nHangi organelde olur?\n?\nBitkinin ışıkla besin üretmesi.\nKloroplastta.\n(boş satır)",
+              "cards": [
+                {
+                  "front": "Fotosentez nedir?\nHangi organelde olur?",
+                  "back": "Bitkinin ışıkla besin üretmesi.\nKloroplastta."
+                }
+              ]
+            },
+            {
+              "name": "Notun tamamı",
+              "desc": "Notun herhangi bir yerine #tekrar yaz (#tekrar/konu da olur). Not tek bir okuma kartı olur. Kartın başlığı notun adıdır. Cevap yoktur, okuyup Okudum'a basarsın.",
+              "write": "Fotosentez bitkinin ışıkla besin üretmesidir.\n#tekrar",
+              "cards": [
+                {
+                  "kind": "read",
+                  "front": "Fotosentez"
+                }
+              ],
+              "file": "Fotosentez.md"
+            }
           ]
         },
         "session": {
