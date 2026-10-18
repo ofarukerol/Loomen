@@ -1,6 +1,6 @@
 [package]
 name = "loomen"
-version = "1.0.2"
+version = "1.0.3"
 description = "Loomen — tamamen lokal Obsidian klonu + gömülü planlayıcı"
 authors = ["Faruk Erol"]
 edition = "2021"
