@@ -3384,14 +3384,12 @@ function queueSecret(name: "github" | "google", value: string | null): void {
         setPendingDeletes(pendingDeletes().filter((n) => n !== name));
       } else {
         await secretDelete(name);
+        setPendingDeletes(pendingDeletes().filter((n) => n !== name));
       }
     })
     .catch((e) => {
       if (value) secretsFallback(e);
-      else {
-        console.warn("Giriş anahtar zincirinden silinemedi, açılışta yeniden denenecek:", e);
-        setPendingDeletes([...pendingDeletes(), name]);
-      }
+      else console.warn("Giriş anahtar zincirinden silinemedi, açılışta yeniden denenecek:", e);
     });
 }
 function queueProfile(p: SecretProfile): void {
@@ -3427,7 +3425,11 @@ export async function loadSecrets(): Promise<void> {
     if (cur.gcalTokens === start.gcalTokens) {
       if (gKeychain) patch.gcalTokens = gKeychain;
     } else queueSecret("google", cur.gcalTokens ? encodeGoogle(cur.gcalTokens) : null);
+    // Hesap bilgisi yalnız girişi de varsa geri gelir (kesilmiş bağlantının adı görünmesin).
+    const hasGh = !!(patch.ghToken ?? cur.ghToken);
+    const hasG = !!(patch.gcalTokens ?? cur.gcalTokens);
     for (const k of PROFILE_KEYS) {
+      if (!(k === "ghUser" ? hasGh : hasG)) continue;
       if (cur[k] == null && stored[k] != null) (patch as Record<string, unknown>)[k] = stored[k];
     }
     secretsSuppress = true;
@@ -3446,9 +3448,19 @@ export async function loadSecrets(): Promise<void> {
 }
 
 useAppStore.subscribe((s, prev) => {
-  if (!secretsInKeychain || secretsSuppress) return;
-  if (s.ghToken !== prev.ghToken) queueSecret("github", s.ghToken);
-  if (s.gcalTokens !== prev.gcalTokens) queueSecret("google", s.gcalTokens ? encodeGoogle(s.gcalTokens) : null);
+  if (secretsSuppress) return;
+  // Bağlantı kesildi: silme, yedek moddayken bile (anahtar zincirinde eski kayıt kalmış olabilir)
+  // ÖNCE bekleyen listesine yazılır, başarıyla silinince düşer — uygulama arada kapansa da
+  // kesilen giriş bir sonraki açılışta geri gelmez.
+  const cut = (name: "github" | "google") => {
+    setPendingDeletes([...pendingDeletes(), name]);
+    queueSecret(name, null);
+  };
+  if (s.ghToken !== prev.ghToken && !s.ghToken) cut("github");
+  if (s.gcalTokens !== prev.gcalTokens && !s.gcalTokens) cut("google");
+  if (!secretsInKeychain) return;
+  if (s.ghToken !== prev.ghToken && s.ghToken) queueSecret("github", s.ghToken);
+  if (s.gcalTokens !== prev.gcalTokens && s.gcalTokens) queueSecret("google", encodeGoogle(s.gcalTokens));
   if (PROFILE_KEYS.some((k) => s[k] !== prev[k])) queueProfile(profileOf(s));
 });
 
