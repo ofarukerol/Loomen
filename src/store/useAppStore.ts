@@ -72,6 +72,7 @@ import {
   type GCalendar,
   type GEvent,
 } from "../core/google";
+import { secretSet, secretGet, secretDelete, encodeGoogle, decodeGoogle } from "../core/secrets";
 import { gcalEventTasks, gcalEventIdOf, isGcalTaskFile, patchDescriptionItem } from "../core/gcalItems";
 import { chatStream, cancelChat, testProvider, aiKeys } from "../core/ai/llm";
 import { newProviderId, DEFAULT_MODEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
@@ -1568,6 +1569,9 @@ export const useAppStore = create<AppState>()(
 
     // İlk yükleme: önce sample, sonra (Tauri'de) kayıtlı kasa varsa onu yükle.
     bootstrap: async () => {
+      // Girişleri anahtar zincirinden yükle / eski kaydı oraya taşı (LOM-46). Beklenmez:
+      // izin penceresi açılışı durdurmasın; token gelince senkron efektleri kendiliğinden başlar.
+      void loadSecrets();
       // Sample seed (şablonlar) — hata olsa bile akışı durdurma.
       ensureTemplates(backend).catch(() => {});
       await loadFromBackend();
@@ -3281,13 +3285,15 @@ export const useAppStore = create<AppState>()(
         pomoBreakLong: s.pomoBreakLong,
         taskOrder: s.taskOrder,
         favorites: s.favorites,
-        ghToken: s.ghToken,
+        // Girişler anahtar zincirindeyse localStorage'a yazılmaz (LOM-46). Taşınamadıysa
+        // (izin reddi, mobil hata) eskisi gibi burada kalır — bağlantı kaybolmasın.
+        ghToken: secretsInKeychain ? null : s.ghToken,
         ghUser: s.ghUser,
         ghRepo: s.ghRepo,
         ghLastSync: s.ghLastSync,
         ghAutoSync: s.ghAutoSync,
         ghBaseSha: s.ghBaseSha,
-        gcalTokens: s.gcalTokens,
+        gcalTokens: secretsInKeychain ? null : s.gcalTokens,
         gcalExpiresAt: s.gcalExpiresAt,
         gcalUser: s.gcalUser,
         gcalCalendarId: s.gcalCalendarId,
@@ -3308,6 +3314,70 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+// ─── Girişlerin anahtar zincirinde saklanması (LOM-46) ───────────────────────────────
+// 16 Eki 2026'da Air'de ~/Library/WebKit silinince localStorage'daki GitHub/Google girişleri
+// gitmişti; anahtar zinciri etkilenmedi. Akış: açılışta loadSecrets() eski localStorage
+// kaydını anahtar zincirine taşır ya da oradan okur; sonra her değişiklik (bağlan, yenile,
+// bağlantıyı kes) aşağıdaki abonelikle sırayla yazılır/silinir.
+
+/** Girişler anahtar zincirinde mi? Değilse partialize onları localStorage'da tutmaya devam eder. */
+let secretsInKeychain = false;
+/** loadSecrets'in kendi setState'i aboneliği tetiklemesin (aynı değeri geri yazmasın). */
+let secretsSuppress = false;
+let secretsQueue: Promise<void> = Promise.resolve();
+
+/** Anahtar zinciri yazılamazsa girişleri localStorage'a geri bırak — bağlantı kaybolmasın. */
+function secretsFallback(e: unknown): void {
+  console.warn("Girişler anahtar zincirine yazılamadı, ayarlarda tutuluyor:", e);
+  secretsInKeychain = false;
+  useAppStore.setState({}); // persist'i tetikle: partialize token'ları yeniden yazar
+}
+
+export async function loadSecrets(): Promise<void> {
+  if (!isTauri()) return;
+  const s = useAppStore.getState();
+  try {
+    const patch: Partial<AppState> = {};
+    if (s.ghToken) await secretSet("github", s.ghToken);
+    else {
+      const v = await secretGet("github");
+      if (v) patch.ghToken = v;
+    }
+    if (s.gcalTokens) await secretSet("google", encodeGoogle(s.gcalTokens));
+    else {
+      const g = decodeGoogle(await secretGet("google"));
+      if (g) patch.gcalTokens = g;
+    }
+    secretsInKeychain = true;
+    secretsSuppress = true;
+    try {
+      useAppStore.setState(patch); // boş olsa da persist yazılır → eski token'lar localStorage'dan düşer
+    } finally {
+      secretsSuppress = false;
+    }
+  } catch (e) {
+    console.warn("Girişler anahtar zincirinden okunamadı, ayarlardaki kayıt kullanılıyor:", e);
+  }
+}
+
+useAppStore.subscribe((s, prev) => {
+  if (!secretsInKeychain || secretsSuppress) return;
+  const run = (job: () => Promise<void>, onErr: (e: unknown) => void) => {
+    secretsQueue = secretsQueue.then(job).catch(onErr);
+  };
+  // Silme başarısızsa geri düşme yok: localStorage'a yazmak bağlantıyı geri getirmez,
+  // kayıt anahtar zincirinde kalır (bir sonraki bağlantıda üzerine yazılır).
+  const delErr = (e: unknown) => console.warn("Giriş anahtar zincirinden silinemedi:", e);
+  if (s.ghToken !== prev.ghToken) {
+    const v = s.ghToken;
+    run(() => (v ? secretSet("github", v) : secretDelete("github")), v ? secretsFallback : delErr);
+  }
+  if (s.gcalTokens !== prev.gcalTokens) {
+    const v = s.gcalTokens;
+    run(() => (v ? secretSet("google", encodeGoogle(v)) : secretDelete("google")), v ? secretsFallback : delErr);
+  }
+});
 
 /** "Bugüne Odaklan" sayaçları — gerçek vault verisinden. */
 export function useFocusCounts(): FocusCounts {

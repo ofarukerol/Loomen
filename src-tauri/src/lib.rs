@@ -11,6 +11,7 @@ mod github_api;
 #[cfg(desktop)]
 mod github_git;
 mod google;
+mod secrets;
 mod updater;
 #[cfg(target_os = "macos")]
 mod macos_bookmark;
@@ -248,6 +249,9 @@ pub fn run() {
         ai::keys::ai_key_set,
         ai::keys::ai_key_delete,
         ai::keys::ai_key_has,
+        secrets::secret_set,
+        secrets::secret_get,
+        secrets::secret_delete,
         ai::llm::ai_chat_stream,
         ai::llm::ai_chat_cancel,
         ai::llm::ai_provider_test,
@@ -288,6 +292,9 @@ pub fn run() {
         ai::keys::ai_key_set,
         ai::keys::ai_key_delete,
         ai::keys::ai_key_has,
+        secrets::secret_set,
+        secrets::secret_get,
+        secrets::secret_delete,
         ai::llm::ai_chat_stream,
         ai::llm::ai_chat_cancel,
         ai::llm::ai_provider_test,
