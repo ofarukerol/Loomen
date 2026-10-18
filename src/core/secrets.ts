@@ -4,7 +4,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { GoogleTokens } from "./google";
 
-export type SecretName = "github" | "google";
+export type SecretName = "github" | "google" | "profile";
 
 export const secretSet = (name: SecretName, value: string) => invoke<void>("secret_set", { name, value });
 export const secretGet = (name: SecretName) => invoke<string | null>("secret_get", { name });

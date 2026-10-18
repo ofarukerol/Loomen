@@ -13,7 +13,9 @@
 use tauri::AppHandle;
 
 /// Yalnız bu adlar saklanabilir — webview rastgele anahtar zinciri kaydı açamasın.
-const NAMES: [&str; 2] = ["github", "google"];
+/// `profile`: gizli değil ama girişle birlikte kalıcı olsun (hesap adı, seçili takvim) — ayarlar
+/// silinince giriş geri gelip "kim bağlı" boş kalmasın.
+const NAMES: [&str; 3] = ["github", "google", "profile"];
 
 fn check_name(name: &str) -> Result<(), String> {
     if NAMES.contains(&name) {
@@ -108,26 +110,33 @@ fn delete(app: &AppHandle, name: &str) -> Result<(), String> {
     Ok(())
 }
 
+// Komutlar async + spawn_blocking: senkron Tauri komutu ana iş parçacığında koşar; macOS
+// anahtar zinciri izin penceresi (ad-hoc imzalı sürüm güncellenince) açıkken arayüz donardı.
+
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
-pub fn secret_set(app: AppHandle, name: String, value: String) -> Result<(), String> {
+pub async fn secret_set(app: AppHandle, name: String, value: String) -> Result<(), String> {
     check_name(&name)?;
     if value.is_empty() {
         return Err("boş değer saklanmaz".into());
     }
-    set(&app, &name, &value)
+    blocking(move || set(&app, &name, &value)).await
 }
 
 /// Kayıt yoksa `None` (hata değil). Anahtar zinciri erişimi reddedilirse hata.
 #[tauri::command]
-pub fn secret_get(app: AppHandle, name: String) -> Result<Option<String>, String> {
+pub async fn secret_get(app: AppHandle, name: String) -> Result<Option<String>, String> {
     check_name(&name)?;
-    get(&app, &name)
+    blocking(move || get(&app, &name)).await
 }
 
 #[tauri::command]
-pub fn secret_delete(app: AppHandle, name: String) -> Result<(), String> {
+pub async fn secret_delete(app: AppHandle, name: String) -> Result<(), String> {
     check_name(&name)?;
-    delete(&app, &name)
+    blocking(move || delete(&app, &name)).await
 }
 
 #[cfg(test)]
@@ -138,6 +147,7 @@ mod tests {
     fn yalniz_bilinen_adlar() {
         assert!(check_name("github").is_ok());
         assert!(check_name("google").is_ok());
+        assert!(check_name("profile").is_ok());
         assert!(check_name("ai").is_err());
         assert!(check_name("").is_err());
         assert!(check_name("github/../x").is_err());

@@ -72,7 +72,7 @@ import {
   type GCalendar,
   type GEvent,
 } from "../core/google";
-import { secretSet, secretGet, secretDelete, encodeGoogle, decodeGoogle } from "../core/secrets";
+import { secretSet, secretGet, secretDelete, encodeGoogle, decodeGoogle, type SecretName } from "../core/secrets";
 import { gcalEventTasks, gcalEventIdOf, isGcalTaskFile, patchDescriptionItem } from "../core/gcalItems";
 import { chatStream, cancelChat, testProvider, aiKeys } from "../core/ai/llm";
 import { newProviderId, DEFAULT_MODEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
@@ -3327,6 +3327,47 @@ let secretsInKeychain = false;
 let secretsSuppress = false;
 let secretsQueue: Promise<void> = Promise.resolve();
 
+/** Hesap bilgisi girişle birlikte kalıcı (gizli değil): ayarlar silinince "kim bağlı" boş kalmasın. */
+type SecretProfile = Pick<AppState, "ghUser" | "gcalUser" | "gcalCalendarId" | "gcalCalendarName">;
+const PROFILE_KEYS = ["ghUser", "gcalUser", "gcalCalendarId", "gcalCalendarName"] as const;
+const profileOf = (s: AppState): SecretProfile => ({
+  ghUser: s.ghUser,
+  gcalUser: s.gcalUser,
+  gcalCalendarId: s.gcalCalendarId,
+  gcalCalendarName: s.gcalCalendarName,
+});
+function parseProfile(raw: string | null): Partial<SecretProfile> {
+  if (!raw) return {};
+  try {
+    const v = JSON.parse(raw) as Partial<SecretProfile>;
+    return v && typeof v === "object" ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Silinemeyen girişler (bağlantıyı kes sırasında anahtar zinciri hata verdi). Açılışta önce
+ * bunlar silinir; yoksa kesilen bağlantı bir sonraki açılışta anahtar zincirinden geri gelirdi.
+ */
+const PENDING_KEY = "loomen.secretsPendingDelete";
+function pendingDeletes(): SecretName[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(PENDING_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((x): x is SecretName => x === "github" || x === "google") : [];
+  } catch {
+    return [];
+  }
+}
+function setPendingDeletes(list: SecretName[]): void {
+  try {
+    if (list.length) localStorage.setItem(PENDING_KEY, JSON.stringify([...new Set(list)]));
+    else localStorage.removeItem(PENDING_KEY);
+  } catch {
+    /* localStorage yoksa bekleyen silme tutulamaz */
+  }
+}
+
 /** Anahtar zinciri yazılamazsa girişleri localStorage'a geri bırak — bağlantı kaybolmasın. */
 function secretsFallback(e: unknown): void {
   console.warn("Girişler anahtar zincirine yazılamadı, ayarlarda tutuluyor:", e);
@@ -3334,28 +3375,71 @@ function secretsFallback(e: unknown): void {
   useAppStore.setState({}); // persist'i tetikle: partialize token'ları yeniden yazar
 }
 
+/** Bir girişin GÜNCEL değerini sıraya alıp anahtar zincirine yaz ya da sil. */
+function queueSecret(name: "github" | "google", value: string | null): void {
+  secretsQueue = secretsQueue
+    .then(async () => {
+      if (value) {
+        await secretSet(name, value);
+        setPendingDeletes(pendingDeletes().filter((n) => n !== name));
+      } else {
+        await secretDelete(name);
+      }
+    })
+    .catch((e) => {
+      if (value) secretsFallback(e);
+      else {
+        console.warn("Giriş anahtar zincirinden silinemedi, açılışta yeniden denenecek:", e);
+        setPendingDeletes([...pendingDeletes(), name]);
+      }
+    });
+}
+function queueProfile(p: SecretProfile): void {
+  secretsQueue = secretsQueue
+    .then(() => secretSet("profile", JSON.stringify(p)))
+    .catch((e) => console.warn("Hesap bilgisi anahtar zincirine yazılamadı:", e));
+}
+
 export async function loadSecrets(): Promise<void> {
   if (!isTauri()) return;
-  const s = useAppStore.getState();
+  const start = useAppStore.getState();
   try {
-    const patch: Partial<AppState> = {};
-    if (s.ghToken) await secretSet("github", s.ghToken);
-    else {
-      const v = await secretGet("github");
-      if (v) patch.ghToken = v;
-    }
-    if (s.gcalTokens) await secretSet("google", encodeGoogle(s.gcalTokens));
-    else {
-      const g = decodeGoogle(await secretGet("google"));
-      if (g) patch.gcalTokens = g;
-    }
+    // 1) Önceki oturumdan kalan silmeler.
+    const pend = pendingDeletes();
+    for (const n of pend) await secretDelete(n);
+    setPendingDeletes([]);
+    // 2) Eski localStorage kaydını taşı; yoksa anahtar zincirinden oku.
+    let ghKeychain: string | null = null;
+    if (start.ghToken) await secretSet("github", start.ghToken);
+    else if (!pend.includes("github")) ghKeychain = await secretGet("github");
+    let gKeychain: GoogleTokens | null = null;
+    if (start.gcalTokens) await secretSet("google", encodeGoogle(start.gcalTokens));
+    else if (!pend.includes("google")) gKeychain = decodeGoogle(await secretGet("google"));
+    const stored = parseProfile(await secretGet("profile"));
+
+    // 3) Beklerken kullanıcı bağlanmış/kesmiş olabilir: GÜNCEL durumla birleştir.
+    const cur = useAppStore.getState();
     secretsInKeychain = true;
+    const patch: Partial<AppState> = {};
+    if (cur.ghToken === start.ghToken) {
+      if (ghKeychain) patch.ghToken = ghKeychain;
+    } else queueSecret("github", cur.ghToken);
+    if (cur.gcalTokens === start.gcalTokens) {
+      if (gKeychain) patch.gcalTokens = gKeychain;
+    } else queueSecret("google", cur.gcalTokens ? encodeGoogle(cur.gcalTokens) : null);
+    for (const k of PROFILE_KEYS) {
+      if (cur[k] == null && stored[k] != null) (patch as Record<string, unknown>)[k] = stored[k];
+    }
     secretsSuppress = true;
     try {
       useAppStore.setState(patch); // boş olsa da persist yazılır → eski token'lar localStorage'dan düşer
     } finally {
       secretsSuppress = false;
     }
+    // Anahtar zincirindeki hesap bilgisi güncel değilse (ilk taşıma ya da yeni bağlantı) yaz.
+    const merged = profileOf(useAppStore.getState());
+    const storedFull = Object.fromEntries(PROFILE_KEYS.map((k) => [k, stored[k] ?? null]));
+    if (JSON.stringify(merged) !== JSON.stringify(storedFull)) queueProfile(merged);
   } catch (e) {
     console.warn("Girişler anahtar zincirinden okunamadı, ayarlardaki kayıt kullanılıyor:", e);
   }
@@ -3363,20 +3447,9 @@ export async function loadSecrets(): Promise<void> {
 
 useAppStore.subscribe((s, prev) => {
   if (!secretsInKeychain || secretsSuppress) return;
-  const run = (job: () => Promise<void>, onErr: (e: unknown) => void) => {
-    secretsQueue = secretsQueue.then(job).catch(onErr);
-  };
-  // Silme başarısızsa geri düşme yok: localStorage'a yazmak bağlantıyı geri getirmez,
-  // kayıt anahtar zincirinde kalır (bir sonraki bağlantıda üzerine yazılır).
-  const delErr = (e: unknown) => console.warn("Giriş anahtar zincirinden silinemedi:", e);
-  if (s.ghToken !== prev.ghToken) {
-    const v = s.ghToken;
-    run(() => (v ? secretSet("github", v) : secretDelete("github")), v ? secretsFallback : delErr);
-  }
-  if (s.gcalTokens !== prev.gcalTokens) {
-    const v = s.gcalTokens;
-    run(() => (v ? secretSet("google", encodeGoogle(v)) : secretDelete("google")), v ? secretsFallback : delErr);
-  }
+  if (s.ghToken !== prev.ghToken) queueSecret("github", s.ghToken);
+  if (s.gcalTokens !== prev.gcalTokens) queueSecret("google", s.gcalTokens ? encodeGoogle(s.gcalTokens) : null);
+  if (PROFILE_KEYS.some((k) => s[k] !== prev[k])) queueProfile(profileOf(s));
 });
 
 /** "Bugüne Odaklan" sayaçları — gerçek vault verisinden. */
