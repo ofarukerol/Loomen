@@ -3,7 +3,8 @@
 
 import { parseTasks, rescheduleTaskLine, rescheduleTasksInContent } from "../markdown/taskParser";
 import { overdueOpenTasks, planRescheduleBatches } from "../vault/planDay";
-import { focusCounts } from "../vault/grouping";
+import { focusCounts, groupTasks } from "../vault/grouping";
+import { noteDateOf, planDate } from "../vault/planDate";
 
 let fails = 0;
 let ran = 0;
@@ -171,6 +172,48 @@ section("(d) Sayaçlar: Geciken düşer, Yapılacak artar");
   eq("Önce: geciken 3, yapılacak 1", [before.geciken, before.yapilacak], [3, 1]);
   eq("Sonra: geciken 1 (B seçilmedi), yapılacak 3", [after.geciken, after.yapilacak], [1, 3]);
   eq("Planlanmamış değişmez", after.planlanmamis, before.planlanmamis);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+section("LOM-47: günlük notta tarihsiz görev o günün tarihini alır");
+{
+  eq("Günlük not adı → tarih", noteDateOf("Günlük/2026/10-Ekim/2026-10-14-Çarşamba.md"), "2026-10-14");
+  eq("Eski düz ad", noteDateOf("Daily/2026-06-17.md"), "2026-06-17");
+  eq("Windows ayırıcısı", noteDateOf("Günlük\\2026\\2026-10-14-Çarşamba.md"), "2026-10-14");
+  eq("Tarihle başlamayan not", noteDateOf("Yapılacaklar.md"), undefined);
+  eq("Geçersiz tarih", noteDateOf("Günlük/2026-02-30-Pazartesi.md"), undefined);
+  eq("Tarih ortada ise sayılmaz", noteDateOf("Toplantı 2026-10-14.md"), undefined);
+  eq("Klasör adındaki tarih sayılmaz", noteDateOf("2026-10-14/Not.md"), undefined);
+
+  const DAILY = "Günlük/2026/10-Ekim/2026-10-14-Çarşamba.md";
+  const daily = parseTasks(DAILY, "# 2026-10-14\n- [ ] Tarihsiz\n- [ ] Kendi tarihi 📅 2026-10-20\n- [ ] Bugün de var ⏳ 2026-10-16\n");
+  const other = parseTasks("Yapılacaklar.md", "- [ ] Düz not tarihsiz\n");
+  eq("Tarihsiz → not tarihi", planDate(daily[0]), "2026-10-14");
+  eq("📅 kendi tarihini korur", planDate(daily[1]), "2026-10-20");
+  eq("⏳ not tarihinden önce gelir", planDate(daily[2]), "2026-10-16");
+  eq("Düz notta tarihsiz → Planlanmamış", planDate(other[0]), undefined);
+
+  const all = [...daily, ...other];
+  const c = focusCounts(all, TODAY);
+  eq("Sayaçlar: geciken 1, yapılacak 2, planlanmamış 1", [c.geciken, c.yapilacak, c.planlanmamis], [1, 2, 1]);
+  const g = groupTasks(all, TODAY);
+  check("Grup listesinde Planlanmamış yalnız düz not görevi", JSON.stringify(g).includes("Düz not tarihsiz"));
+  eq("Geciken listesinde tarihsiz günlük görev", overdueOpenTasks(all, TODAY).map((t) => t.description), ["Tarihsiz"]);
+
+  // Günü planla: satıra 📅 bugün eklenir, gerisi aynen kalır.
+  const content = "# 2026-10-14\r\n- [ ] Tarihsiz  \r\n- [ ] Kendi tarihi 📅 2026-10-20\r\n";
+  const tasks = parseTasks(DAILY, content);
+  const batch = planRescheduleBatches([`${DAILY}:1`], tasks).get(DAILY)!;
+  eq("Toplu iş addDue taşır", batch, [{ line: 1, raw: tasks[0].raw, addDue: true }]);
+  const r = rescheduleTasksInContent(content, batch, TODAY);
+  eq(
+    "📅 eklendi, CRLF ve diğer satırlar korundu",
+    r.content,
+    "# 2026-10-14\r\n- [ ] Tarihsiz 📅 2026-10-16\r\n- [ ] Kendi tarihi 📅 2026-10-20\r\n"
+  );
+  eq("addIfMissing olmadan tarihsiz satır aynen", rescheduleTaskLine("- [ ] Tarihsiz", TODAY), "- [ ] Tarihsiz");
+  eq("Blok kimliği sonda kalır", rescheduleTaskLine("- [ ] Tarihsiz ^abc-1", TODAY, true), "- [ ] Tarihsiz 📅 2026-10-16 ^abc-1");
+  eq("Tamamlanmış görev eklemede de aynen", rescheduleTaskLine("- [x] Bitti", TODAY, true), "- [x] Bitti");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

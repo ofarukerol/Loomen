@@ -2,9 +2,7 @@
 // UI ve mağaza bu iki fonksiyonu kullanır; dosya yazımı taskParser.rescheduleTasksInContent'te.
 
 import type { ParsedTask } from "./types";
-
-/** Planlama tarihi: due > scheduled (grouping.ts ile aynı kural). */
-const planDate = (t: ParsedTask) => t.due ?? t.scheduled;
+import { planDate } from "./planDate";
 
 /**
  * Geciken açık görevler — `focusCounts().geciken` ile aynı küme: tamamlanmamış, üst düzey
@@ -32,16 +30,17 @@ export function overdueOpenTasks(tasks: ParsedTask[], todayISO: string): ParsedT
 export function planRescheduleBatches(
   ids: string[],
   tasks: ParsedTask[],
-): Map<string, { line: number; raw: string }[]> {
+): Map<string, { line: number; raw: string; addDue?: boolean }[]> {
   const byId = new Map(tasks.map((t) => [`${t.file}:${t.line}`, t]));
   const seen = new Set<string>();
-  const out = new Map<string, { line: number; raw: string }[]>();
+  const out = new Map<string, { line: number; raw: string; addDue?: boolean }[]>();
   for (const id of ids) {
     const t = byId.get(id);
     if (!t || seen.has(id)) continue;
     seen.add(id);
     if (!out.has(t.file)) out.set(t.file, []);
-    out.get(t.file)!.push({ line: t.line, raw: t.raw });
+    // Tarihini günlük notun adından alan görevde (LOM-47) satıra 📅 eklenir.
+    out.get(t.file)!.push({ line: t.line, raw: t.raw, ...(!t.due && !t.scheduled ? { addDue: true } : {}) });
   }
   for (const items of out.values()) items.sort((a, b) => a.line - b.line);
   return out;

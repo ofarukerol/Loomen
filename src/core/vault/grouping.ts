@@ -4,11 +4,7 @@ import i18n from "../../i18n";
 import { relativeLabel, relativeKey } from "../../lib/relativeDate";
 import type { Task, TaskGroup, GroupKind } from "../../data/sampleVault";
 import type { ParsedTask } from "./types";
-
-/** Bir görevin planlama tarihi: due > scheduled. Yoksa undefined (Planlanmamış). */
-function planDate(t: ParsedTask): string | undefined {
-  return t.due ?? t.scheduled;
-}
+import { planDate } from "./planDate";
 
 function noteName(file: string): string {
   const base = file.split("/").pop() ?? file;

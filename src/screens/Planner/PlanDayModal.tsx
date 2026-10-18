@@ -5,6 +5,7 @@ import { CalendarCheck, X, FileText } from "lucide-react";
 import { useAppStore, useModalLayer } from "../../store/useAppStore";
 import { todayISO } from "../../core/vault";
 import { overdueOpenTasks } from "../../core/vault/planDay";
+import { planDate } from "../../core/vault/planDate";
 import { relativeLabel } from "../../lib/relativeDate";
 
 const taskId = (t: { file: string; line: number }) => `${t.file}:${t.line}`;
@@ -87,7 +88,7 @@ export function PlanDayModal({ onClose }: { onClose: () => void }) {
             <div className="lo-planday__list lo-scroll">
               {overdue.map((tk) => {
                 const id = taskId(tk);
-                const date = tk.due ?? tk.scheduled!;
+                const date = planDate(tk)!;
                 return (
                   <label className="lo-planday__row" key={id}>
                     <input

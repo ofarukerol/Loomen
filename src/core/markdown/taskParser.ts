@@ -291,14 +291,23 @@ export function taskLineMatches(content: string, line: number, raw: string): boo
  * tekrar (🔁), bilinmeyen token'lar, girinti, sondaki `\r` — bayt bayt aynı kalır.
  * Satır yeniden serileştirilmez ve yeni satır/örnek üretilmez: tekrar eden görevde
  * yalnız bu örneğin tarihi kayar. Tamamlanmış ya da tarihsiz görev aynen döner.
+ * `addIfMissing`: tarihini günlük notun adından alan görev (LOM-47) — satırda tarih yok,
+ * sona ` 📅 bugün` eklenir (sondaki `\r` ve Obsidian blok kimliği `^abc` korunur).
  */
-export function rescheduleTaskLine(raw: string, todayISO: string): string {
+export function rescheduleTaskLine(raw: string, todayISO: string, addIfMissing = false): string {
   const t = parseTaskLine("", 0, raw);
   if (!t || t.done) return raw;
   // parseTaskLine'ın planDate'i (due > scheduled) ile aynı token seçilir; matchDate
   // ilk eşleşmeye baktığı için burada da yalnız ilk eşleşme değişir.
   const emoji = t.due ? EMOJI.due : t.scheduled ? EMOJI.scheduled : undefined;
-  if (!emoji) return raw;
+  if (!emoji) {
+    if (!addIfMissing) return raw;
+    const cr = raw.endsWith("\r") ? "\r" : "";
+    const body = raw.slice(0, raw.length - cr.length).replace(/\s+$/, "");
+    const m = /\s+\^[A-Za-z0-9-]+$/.exec(body); // blok kimliği satırın sonunda kalmalı
+    const head = m ? body.slice(0, m.index) : body;
+    return `${head} ${EMOJI.due} ${todayISO}${m ? m[0] : ""}${cr}`;
+  }
   return raw.replace(new RegExp(`${emoji}(\\s*)${DATE}`), (_m, ws: string) => `${emoji}${ws}${todayISO}`);
 }
 
@@ -310,7 +319,7 @@ export function rescheduleTaskLine(raw: string, todayISO: string): string {
  */
 export function rescheduleTasksInContent(
   content: string,
-  items: { line: number; raw: string }[],
+  items: { line: number; raw: string; addDue?: boolean }[],
   todayISO: string,
 ): { content: string; changed: number; stale: number[] } {
   // Ayraçları da tut: [satır, ayraç, satır, ayraç, …] — birleştirme dosyayı aynen kurar.
@@ -318,12 +327,12 @@ export function rescheduleTasksInContent(
   const lineCount = Math.ceil(parts.length / 2);
   let changed = 0;
   const stale: number[] = [];
-  for (const { line, raw } of items) {
+  for (const { line, raw, addDue } of items) {
     if (line < 0 || line >= lineCount || parts[line * 2] !== raw.replace(/\r$/, "")) {
       stale.push(line);
       continue;
     }
-    const next = rescheduleTaskLine(parts[line * 2], todayISO);
+    const next = rescheduleTaskLine(parts[line * 2], todayISO, addDue);
     if (next !== parts[line * 2]) {
       parts[line * 2] = next;
       changed++;

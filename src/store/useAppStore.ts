@@ -81,6 +81,7 @@ import { transcribe } from "../core/ai/stt";
 import { splitProposals, appendText, uniquePath, type ProposalState } from "../core/ai/proposal";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, taskLineMatches, setTaskChildren, getSubtasks, getTaskNotes, rescheduleTasksInContent, type TaskPatch } from "../core/markdown/taskParser";
 import { planRescheduleBatches } from "../core/vault/planDay";
+import { planDate } from "../core/vault/planDate";
 import {
   DEFAULT_SETTINGS as SRS_DEFAULTS,
   PRESETS as SRS_PRESETS,
@@ -2482,8 +2483,9 @@ export const useAppStore = create<AppState>()(
         if (!dTask || !tTask) return;
         if (dTask.file === tTask.file && dTask.line === tTask.line) return;
 
-        const tDate = tTask.due ?? tTask.scheduled;
-        const dDate = dTask.due ?? dTask.scheduled;
+        // Günlük nottan gün alan tarihsiz görev de o günün grubunda (LOM-47).
+        const tDate = planDate(tTask);
+        const dDate = planDate(dTask);
         // Takvim maddesinin günü etkinliğe ait: başka güne taşınmaz, yalnız gün içinde sıralanır.
         if (isGcalTaskFile(dTask.file) && tDate !== dDate) return;
 
@@ -2512,7 +2514,7 @@ export const useAppStore = create<AppState>()(
         // 2) Hedef grubun (aynı gün; tarihsizse aynı kaynak not) sıralı, açık kardeşleri —
         //    sürüklenen hariç. Komşuların değerleri arasından midpoint ile kesin yerleştir.
         const inTargetGroup = (p: (typeof parsedTasks)[number]) => {
-          const pd = p.due ?? p.scheduled;
+          const pd = planDate(p);
           return tDate ? pd === tDate : !pd && p.file === tTask.file;
         };
         const sibs = [...parsedTasks, ...s.gcalTasks]
