@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Github, RefreshCw, LogOut, Copy, Check, X, AlertTriangle, Plus, ChevronDown } from "lucide-react";
+import { Github, RefreshCw, LogOut, Copy, Check, X, AlertTriangle, Plus, ChevronDown, Link2, HardDrive } from "lucide-react";
 import { useAppStore, useModalLayer } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
-import { useIsMobile } from "../../hooks/useIsMobile";
 import { GITHUB_CLIENT_ID, type GhRepo } from "../../core/github";
 import { RepoPickerSheet } from "./RepoPickerSheet";
 
@@ -106,11 +105,11 @@ export function GitHubDeviceModal() {
 }
 
 /**
- * Mobil depo seçici — masaüstündeki "Kasalar" (VaultManager, klasör seçici içerir ve mobilde
- * gizli) yerine, tek mobil kasa için sade seç/oluştur kontrolü. GitHubSync içinde, depo
- * bağlanmamışken gösterilir. Native <select> yerine aranabilir sheet (RepoPickerSheet).
+ * "Kasayı depoya bağla" adımı (LOM-45) — GitHub bağlı ama etkin kasa bir depoya bağlı değilken
+ * senkron kartında vurgulu gösterilir; senkron bu adım olmadan çalışmaz. Masaüstünde ve
+ * mobilde aynı. Native <select> yerine aranabilir sheet (RepoPickerSheet).
  */
-function MobileRepoPicker({ vaultPath }: { vaultPath: string }) {
+function LinkVaultStep({ vaultPath, vaultName }: { vaultPath: string; vaultName: string }) {
   const { t } = useTranslation();
   const setVaultRepo = useAppStore((s) => s.setVaultRepo);
   const createRepoForVault = useAppStore((s) => s.createRepoForVault);
@@ -128,9 +127,13 @@ function MobileRepoPicker({ vaultPath }: { vaultPath: string }) {
   }, [loadRepos]);
 
   return (
-    <div className="lo-set__row lo-set__row--border">
+    <div className="lo-set__row lo-set__row--border lo-gh__link">
       <div style={{ width: "100%" }}>
-        <div className="lo-set__rowtitle">{t("settings.vaultRepo")}</div>
+        <div className="lo-gh__linktitle">
+          <Link2 size={15} strokeWidth={2} />
+          {t("github.linkVaultTitle")}
+        </div>
+        <div className="lo-set__rowsub">{t("github.linkVaultSub", { vault: vaultName })}</div>
         {creating ? (
           <div className="lo-vdetail__create">
             <input
@@ -209,22 +212,21 @@ export function GitHubSync() {
   const status = useAppStore((s) => s.ghStatus);
   const autoSync = useAppStore((s) => s.ghAutoSync);
   const vaultPath = useAppStore((s) => s.vaultPath);
+  const vaults = useAppStore((s) => s.vaults);
   const beginAuth = useAppStore((s) => s.ghBeginAuth);
   const disconnect = useAppStore((s) => s.ghDisconnect);
   const sync = useAppStore((s) => s.ghSync);
   const setAutoSync = useAppStore((s) => s.ghSetAutoSync);
 
   const tauri = isTauri();
-  // Gerçek mobil platform DAİMA mobil sayılır — tablet/yatay ekranda (>768px) depo seçici
-  // hiç görünmüyor, masaüstündeki "Kasalar bölümünden seç" uyarısı çıkıyordu ama o bölüm
-  // mobilde klasör seçici içerdiği için kullanılamıyor.
-  const platformMobile = useAppStore((s) => s.platformMobile);
-  const isMobile = useIsMobile() || platformMobile;
+  const activeVault = vaults.find((v) => v.path === vaultPath);
+  const vaultName = activeVault?.name || vaultPath?.split(/[\\/]/).filter(Boolean).pop() || "";
 
   return (
     <>
-      <div className="lo-set__section">{t("github.title")}</div>
-      <div className="lo-card lo-set__card">
+      {/* Kasalar'ın altına bağlı alt bölüm (LOM-45): senkron kasaya göre çalışır. */}
+      <div className="lo-set__section lo-set__section--sub">{t("github.title")}</div>
+      <div className="lo-card lo-set__card lo-set__card--sub">
         {!tauri ? (
           <div className="lo-set__row">
             <div className="lo-set__rowsub">{t("github.desktopOnly")}</div>
@@ -267,10 +269,10 @@ export function GitHubSync() {
               </button>
             </div>
 
-            {/* Mobilde depo seçimi burada (Kasalar/VaultManager mobilde gizli — klasör seçici içerir). */}
-            {isMobile && vaultPath && !repo && <MobileRepoPicker vaultPath={vaultPath} />}
+            {/* Etkin kasa depoya bağlı değil → bağlama adımı (masaüstü ve mobil). */}
+            {vaultPath && !repo && <LinkVaultStep vaultPath={vaultPath} vaultName={vaultName} />}
 
-            {/* Senkron — masaüstünde depo seçimi Kasalar bölümünden yapılır */}
+            {/* Senkron */}
             <div className="lo-set__row lo-set__row--border">
               <div>
                 <div className="lo-set__rowtitle">{t("github.syncTitle")}</div>
@@ -281,10 +283,16 @@ export function GitHubSync() {
                 {status && <div className="lo-gh__status">{statusText(t, status)}</div>}
                 {!vaultPath ? (
                   <div className="lo-gh__warn">{t("github.needVault")}</div>
-                ) : !repo ? (
-                  !isMobile && <div className="lo-gh__warn">{t("github.repoInVaults")}</div>
                 ) : (
-                  <div className="lo-set__rowsub">{repo.full_name}</div>
+                  repo && (
+                    <div className="lo-gh__pair">
+                      <HardDrive size={13} strokeWidth={1.9} />
+                      <span>{vaultName}</span>
+                      <span className="lo-gh__pairarrow">→</span>
+                      <Github size={13} strokeWidth={1.9} />
+                      <span>{repo.full_name}</span>
+                    </div>
+                  )
                 )}
               </div>
               <button

@@ -240,11 +240,14 @@ export function SettingsScreen() {
 
         {/* Kasa yönetimi — mobilde de var: kasa app-data altında adla oluşturulur (klasör
             seçici yerine); konum değiştirme yalnız masaüstü. */}
-        <VaultManager />
-        {/* GitHub: mobilde REST API senkronuyla çalışır (git2 yerine). */}
+        {/* Kasa ve GitHub senkronu tek grup (LOM-45): senkron kasaya bağlı alt bölüm olarak
+            hemen altta. GitHub: mobilde REST API senkronuyla çalışır (git2 yerine). */}
+        <div className="lo-set__group">
+          <VaultManager />
+          <GitHubSync />
+        </div>
         <AiSettings />
 
-        <GitHubSync />
         {/* Google Takvim: mobilde deep-link OAuth (iOS client id gerekir). */}
         <GoogleCalendarSync />
         <UpdateSettings />

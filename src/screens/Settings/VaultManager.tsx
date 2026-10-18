@@ -10,6 +10,7 @@ import {
   Github,
   FolderOpen,
   Plus,
+  Link2Off,
 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
@@ -118,7 +119,22 @@ export function VaultManager() {
                     </span>
                     <span className="lo-vault__path">{v.path}</span>
                   </span>
-                  {v.repo && <Github className="lo-vault__gh" size={14} strokeWidth={1.9} />}
+                  {/* GitHub bağlıyken her kasanın depo durumu görünür (LOM-45). */}
+                  {token ? (
+                    v.repo ? (
+                      <span className="lo-vault__repo" title={v.repo.full_name}>
+                        <Github size={12} strokeWidth={2} />
+                        <span className="lo-vault__repotext">{v.repo.name}</span>
+                      </span>
+                    ) : (
+                      <span className="lo-vault__repo is-missing">
+                        <Link2Off size={12} strokeWidth={2} />
+                        {t("settings.noRepoBadge")}
+                      </span>
+                    )
+                  ) : (
+                    v.repo && <Github className="lo-vault__gh" size={14} strokeWidth={1.9} />
+                  )}
                 </button>
 
                 {open && (
@@ -153,7 +169,7 @@ export function VaultManager() {
                     )}
 
                     {/* GitHub deposu */}
-                    <div className="lo-vdetail__row">
+                    <div className={"lo-vdetail__row" + (token && !v.repo ? " is-need" : "")}>
                       <span className="lo-vdetail__label">{t("settings.vaultRepo")}</span>
                       {!token ? (
                         <span className="lo-vdetail__hint">{t("settings.connectGhFirst")}</span>
