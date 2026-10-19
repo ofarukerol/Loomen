@@ -28,6 +28,7 @@ interface Display {
   tags: boolean; // #etiketleri düğüm olarak göster ve paylaşan notları bağla
   orphans: boolean; // bağlantısız notları göster
   ghosts: boolean; // var olmayan hedef notları (hayalet) göster
+  journal: boolean; // Günlük/ ve Şablonlar/ notlarını göster (LOM-50)
   arrows: boolean; // kenarlarda yön okları
   textFade: number; // etiket solma eşiği (k); bunun altında yazılar kaybolur
 }
@@ -90,8 +91,9 @@ export function GraphScreen() {
         tags: display.tags,
         orphans: display.orphans,
         ghosts: display.ghosts,
+        journal: display.journal,
       }),
-    [notes, contents, display.tags, display.orphans, display.ghosts],
+    [notes, contents, display.tags, display.orphans, display.ghosts, display.journal],
   );
 
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -570,6 +572,14 @@ export function GraphScreen() {
                     onChange={(e) => setDisplay((d) => ({ ...d, ghosts: e.target.checked }))}
                   />
                   <span>{t("graph.ghosts")}</span>
+                </label>
+                <label className="lo-graph__check">
+                  <input
+                    type="checkbox"
+                    checked={display.journal}
+                    onChange={(e) => setDisplay((d) => ({ ...d, journal: e.target.checked }))}
+                  />
+                  <span>{t("graph.journal")}</span>
                 </label>
                 <label className="lo-graph__check">
                   <input

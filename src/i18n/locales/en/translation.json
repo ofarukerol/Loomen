@@ -379,6 +379,7 @@
     "display": "Display",
     "tags": "Show tags",
     "orphans": "Show unlinked notes",
+    "journal": "Show daily notes and templates",
     "ghosts": "Show non-existent notes",
     "arrows": "Arrows",
     "textFade": "Text fade threshold",

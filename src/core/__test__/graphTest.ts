@@ -48,10 +48,11 @@ const C = note("Notlar/Alt/C.md");
 // ─────────────────────────────────────────────────────────────────────────────
 section("Varsayılanlar");
 
-eq("Varsayılan: etiket kapalı, hayalet kapalı, yetim açık", GRAPH_OPTION_DEFAULTS, {
+eq("Varsayılan: etiket kapalı, hayalet kapalı, yetim açık, günlük kapalı", GRAPH_OPTION_DEFAULTS, {
   tags: false,
   orphans: true,
   ghosts: false,
+  journal: false,
 });
 
 {
@@ -246,6 +247,31 @@ eq(
   eq("Komşuluk iki yönlü", [...(g.neighbors.get("Notlar/B.md") ?? [])], ["A.md"]);
 }
 eq("Boş kasa", buildGraphModel([], {}, GRAPH_OPTION_DEFAULTS).hubId, null);
+
+// ─────────────────────────────────────────────────────────────────────────────
+section("Günlük ve şablonlar gizli (LOM-50)");
+{
+  const D = note("Günlük/2026/10-Ekim/2026-10-18-Pazar.md");
+  const W = note("Günlük/2026/Haftalık Plan/2026-W12.md");
+  const T = note("Şablonlar/Günlük.md");
+  const K = note("Şablonlar/Günlük (çakışma).md");
+  const G = note("Günlükler/Benim.md"); // benzer adlı kullanıcı klasörü gizlenmez
+  const all = [A, B, D, W, T, K, G];
+  const contents = {
+    "A.md": "[[B]] [[2026-10-18-Pazar]] [d](Günlük/2026/10-Ekim/2026-10-18-Pazar.md)",
+    "Günlük/2026/10-Ekim/2026-10-18-Pazar.md": "[[A]] [[B]]",
+    "Şablonlar/Günlük.md": "[[A]]",
+  };
+  const ids = (o: Partial<GraphOptions> = {}) =>
+    buildGraphModel(all, contents, { ...GRAPH_OPTION_DEFAULTS, ...o }).nodes.map((n) => n.id).sort();
+  eq("Varsayılanda Günlük/ ve Şablonlar/ notu düğüm olmaz", ids(), ["A.md", "Günlükler/Benim.md", "Notlar/B.md"].sort());
+  eq("Gizli nota giden ve gizli nottan çıkan kenar yok", edges(all, contents), ["A.md→Notlar/B.md:wiki"]);
+  eq("Gizli nota giden bağlantı hayalet de olmaz", ids({ ghosts: true }), ["A.md", "Günlükler/Benim.md", "Notlar/B.md"].sort());
+  eq("Hub ve not sayısı yalnız görünenlerden", buildGraphModel(all, contents, GRAPH_OPTION_DEFAULTS).noteCount, 3);
+  eq("Ayrışık NFD yol da gizlenir", ids().length, buildGraphModel([...all, note("Günlük/x.md".normalize("NFD"))], contents, GRAPH_OPTION_DEFAULTS).nodes.length);
+  eq("Seçenek açıkken hepsi görünür", ids({ journal: true }).length, 7);
+  eq("Seçenek açıkken günlük kenarları geri gelir", edges(all, contents, { journal: true }).length, 4);
+}
 
 console.log(`\n${ran - fails}/${ran} geçti`);
 process.exit(fails === 0 ? 0 : 1);

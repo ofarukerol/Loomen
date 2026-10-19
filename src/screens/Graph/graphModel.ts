@@ -32,10 +32,22 @@ export interface GraphOptions {
   orphans: boolean;
   /** Var olmayan hedef notları (hayalet) düğüm olarak göster. */
   ghosts: boolean;
+  /** Günlük/ ve Şablonlar/ altındaki notları da göster (LOM-50; varsayılan kapalı). */
+  journal: boolean;
 }
 
 /** Varsayılan: yalnız açık bağlantılar; bağlantısız notlar Obsidian'daki gibi görünür. */
-export const GRAPH_OPTION_DEFAULTS: GraphOptions = { tags: false, orphans: true, ghosts: false };
+export const GRAPH_OPTION_DEFAULTS: GraphOptions = { tags: false, orphans: true, ghosts: false, journal: false };
+
+// Uygulamanın kendi ürettiği notların klasörleri (core/vault DAILY_DIR ve TEMPLATES_DIR ile aynı;
+// o modül Tauri'ye bağlı olduğu için buradan içe aktarılmaz). Günlük, haftalık plan ve şablonlar
+// kullanıcının elle eklediği notlar değildir; açık değilse grafta düğüm olmaz (LOM-50).
+const JOURNAL_DIRS = ["Günlük", "Şablonlar"];
+/** Yol uygulamanın ürettiği klasörlerden birinin altında mı (kasa köküne göre, NFC). */
+export function isJournalPath(path: string): boolean {
+  const p = path.normalize("NFC");
+  return JOURNAL_DIRS.some((d) => p.startsWith(d + "/"));
+}
 
 export interface GraphModel {
   nodes: GNode[];
@@ -139,7 +151,11 @@ export function buildGraphModel(
     );
   };
 
-  const noteNodes: GNode[] = notes.map((n) => ({ id: n.path, name: n.name, deg: 0, kind: "note" }));
+  // Gizli notlar bağlantı çözümünde yer alır (hedefi hayalete dönmesin) ama düğüm/kenar olmaz.
+  const hidden = (path: string) => !opts.journal && isJournalPath(path);
+  const noteNodes: GNode[] = notes
+    .filter((n) => !hidden(n.path))
+    .map((n) => ({ id: n.path, name: n.name, deg: 0, kind: "note" }));
   const deg = new Map<string, number>(noteNodes.map((n) => [n.id, 0]));
   const links: GLink[] = [];
   const seen = new Set<string>();
@@ -152,7 +168,7 @@ export function buildGraphModel(
     neighbors.get(a)!.add(b);
   };
   const addEdge = (a: string, b: string, kind: LinkKind) => {
-    if (a === b) return;
+    if (a === b || hidden(b)) return;
     const key = a < b ? `${a}→${b}` : `${b}→${a}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -183,6 +199,7 @@ export function buildGraphModel(
 
   for (const n of notes) {
     if ((n.kind ?? "note") !== "note") continue; // çizim JSON'u bağlantı kaynağı değil
+    if (hidden(n.path)) continue;
     const content = contents[n.path] ?? "";
     if (!content) continue;
     const from = folderOf(n.path);

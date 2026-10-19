@@ -401,6 +401,7 @@
     "display": "Görünüm",
     "tags": "Etiketleri göster",
     "orphans": "Bağlantısız notları göster",
+    "journal": "Günlük ve şablon notlarını göster",
     "ghosts": "Var olmayan notları göster",
     "arrows": "Yön okları",
     "textFade": "Etiket solma eşiği",
