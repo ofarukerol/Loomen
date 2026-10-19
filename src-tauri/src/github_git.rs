@@ -759,6 +759,21 @@ mod tests {
     }
 
     #[test]
+    fn yedek_klasoru_temiz_birlesen_dosya_da_birlestirilmez() {
+        let (dir, repo) = tmp_repo("yedek-temiz");
+        let f = ".loomen/cakisma-gecmisi/S/N.md";
+        fs::create_dir_all(dir.join(".loomen/cakisma-gecmisi/S")).unwrap();
+        let base = "1\n2\n3\n4\n5\n6\n";
+        let (l, r) = diverge_at(&repo, &dir, f, base, "1 y\n2\n3\n4\n5\n6\n", "1\n2\n3\n4\n5\n6 u\n", now_secs() + 1000);
+        let (lc, rc) = (repo.find_commit(l).unwrap(), repo.find_commit(r).unwrap());
+        merge_into_head(&repo, &lc, &rc, &sig()).unwrap();
+        let d = dir.join(".loomen/cakisma-gecmisi/S");
+        assert_eq!(fs::read_to_string(d.join("N.md")).unwrap(), "1 y\n2\n3\n4\n5\n6\n");
+        assert_eq!(fs::read_to_string(d.join("N-2.md")).unwrap(), "1\n2\n3\n4\n5\n6 u\n");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn uzak_dosya_zamani_son_dokunan_commit_olur() {
         let (dir, repo) = tmp_repo("zaman");
         let (l, r) = diverge_at(&repo, &dir, "Z.md", "a\n", "a yerel\n", "a uzak\n", 5_000);

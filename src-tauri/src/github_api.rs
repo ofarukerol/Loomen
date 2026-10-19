@@ -84,8 +84,15 @@ fn plan_merge(
 
         // Yedek klasörü dosyaları (`.loomen/`) asla birleştirilmez: aynı yolda farklı dosya varsa
         // uzak olan -2 ekiyle ayrı yola gelir, ikisi de kalır.
-        if crate::sync_merge::is_backup_path(p) && in_r && in_l {
+        // Yalnız iki taraf da base'e göre değiştiyse (ya da base yoksa); tek taraflı değişiklik normal akar.
+        let both_changed = !in_b || (r_sha != b_sha && l_sha != b_sha);
+        if crate::sync_merge::is_backup_path(p) && in_r && in_l && both_changed {
             if let Some(sha) = r_sha {
+                let stem = p.rsplit_once('.').map_or(p.as_str(), |(a, _)| a);
+                // Aynı içerik zaten bir -N kopyasında duruyorsa yeni kopya açılmaz.
+                if local_sha.iter().any(|(k, v)| v == sha && k.starts_with(stem) && crate::sync_merge::is_backup_path(k)) {
+                    continue;
+                }
                 let target = crate::sync_merge::backup_variant_path(p, |c| {
                     remote.contains_key(c) || local_sha.contains_key(c) || plan.writes.iter().any(|(w, _)| w == c)
                 });
@@ -593,6 +600,25 @@ mod tests {
         let plan = plan_merge(&m(&[(p, "r")]), &m(&[(p, "l")]), &m(&[]));
         assert!(plan.merges.is_empty());
         assert_eq!(plan.writes, vec![(".loomen/cakisma-gecmisi/S/N-2.md".to_string(), "r".to_string())]);
+    }
+
+    #[test]
+    fn yedek_klasoru_tek_tarafli_degisiklik_normal_akar() {
+        let p = ".loomen/cakisma-gecmisi/S/N.md";
+        // Yalnız uzak değişti: yerinde güncellenir, -2 açılmaz.
+        let plan = plan_merge(&m(&[(p, "r")]), &m(&[(p, "b")]), &m(&[(p, "b")]));
+        assert_eq!(plan.writes, vec![(p.to_string(), "r".to_string())]);
+        // Yalnız yerel değişti: uzaktan eski sürüm geri çekilmez.
+        let plan = plan_merge(&m(&[(p, "b")]), &m(&[(p, "l")]), &m(&[(p, "b")]));
+        assert!(plan.writes.is_empty() && plan.merges.is_empty());
+        // İkisi de değişti: gelen -2 ile ayrı yola.
+        let plan = plan_merge(&m(&[(p, "r")]), &m(&[(p, "l")]), &m(&[(p, "b")]));
+        assert_eq!(plan.writes, vec![(".loomen/cakisma-gecmisi/S/N-2.md".to_string(), "r".to_string())]);
+        // Aynı içerik zaten -2'de duruyorsa tekrar kopya açılmaz.
+        let l2 = m(&[(p, "l"), (".loomen/cakisma-gecmisi/S/N-2.md", "r")]);
+        let r2 = m(&[(p, "r")]);
+        let plan = plan_merge(&r2, &l2, &m(&[(p, "b")]));
+        assert!(plan.writes.is_empty());
     }
 
     #[test]
