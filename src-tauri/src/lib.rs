@@ -12,6 +12,7 @@ mod github_api;
 mod github_git;
 mod google;
 mod secrets;
+mod sync_merge;
 mod updater;
 #[cfg(target_os = "macos")]
 mod macos_bookmark;

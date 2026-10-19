@@ -312,6 +312,8 @@ function FolderNode({
 
 const SYNC_LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
 const KNOWN_SYNC = new Set(["pushed", "pulledPushed", "needVault"]);
+/** Senkron "merged:N" durumu: N not iki taraftan otomatik birleştirildi (LOM-51). */
+const mergedCount = (status: string | null) => (status?.startsWith("merged:") ? Number(status.slice(7)) || 0 : 0);
 
 export function Explorer() {
   const { t, i18n } = useTranslation();
@@ -726,7 +728,11 @@ export function Explorer() {
                   )
                 ) : (
                   <>
-                    {ghStatus && !KNOWN_SYNC.has(ghStatus) ? (
+                    {mergedCount(ghStatus) > 0 && !ghSyncing ? (
+                      <span className="lo-foot__time" title={t("github.mergedHint")}>
+                        {t("github.merged", { count: mergedCount(ghStatus) })}
+                      </span>
+                    ) : ghStatus && !KNOWN_SYNC.has(ghStatus) ? (
                       <span className="lo-foot__time is-error" title={ghStatus}>
                         {t("syncStatus.error")}
                       </span>

@@ -351,6 +351,8 @@
     "needVault": "Önce bir kasa klasörü seç (Ayarlar → Kasa).",
     "pushed": "Gönderildi ✓",
     "pulledPushed": "Çekildi + gönderildi ✓",
+    "merged": "{{count}} not otomatik birleştirildi ✓",
+    "mergedHint": "İki cihazda da değişen notlar birleştirildi. Düşen metin varsa .loomen/cakisma-gecmisi klasöründe yedeği duruyor.",
     "deviceTitle": "GitHub ile bağlan",
     "deviceStep": "Aşağıdaki kodu kopyala, GitHub sayfasında karşına çıkınca yapıştır:",
     "deviceWaiting": "Onay bekleniyor…",

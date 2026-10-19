@@ -329,6 +329,8 @@
     "needVault": "Select a vault folder first (Settings → Vault).",
     "pushed": "Pushed ✓",
     "pulledPushed": "Pulled + pushed ✓",
+    "merged": "{{count}} note(s) auto-merged ✓",
+    "mergedHint": "Notes changed on both devices were merged. Any replaced text is kept in .loomen/cakisma-gecmisi.",
     "deviceTitle": "Connect with GitHub",
     "deviceStep": "Copy the code below, then paste it on the GitHub page that opens:",
     "deviceWaiting": "Waiting for approval…",

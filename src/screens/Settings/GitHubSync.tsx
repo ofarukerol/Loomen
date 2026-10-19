@@ -193,8 +193,9 @@ function LinkVaultStep({ vaultPath, vaultName }: { vaultPath: string; vaultName:
   );
 }
 
-function statusText(t: (k: string) => string, status: string | null): string | null {
+function statusText(t: (k: string, o?: Record<string, unknown>) => string, status: string | null): string | null {
   if (!status) return null;
+  if (status.startsWith("merged:")) return t("github.merged", { count: Number(status.slice(7)) || 0 });
   if (status === "pushed") return t("github.pushed");
   if (status === "pulledPushed") return t("github.pulledPushed");
   if (status === "needVault") return t("github.needVault");

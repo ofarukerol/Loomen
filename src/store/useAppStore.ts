@@ -2629,8 +2629,8 @@ export const useAppStore = create<AppState>()(
             ghSyncing: false,
             ghLastSync: new Date().toISOString(),
             ghBaseSha: res.base_sha,
-            ghStatus: res.conflicts.length
-              ? `${res.conflicts.length} çakışma (kopya oluşturuldu)`
+            ghStatus: res.merged.length
+              ? `merged:${res.merged.length}`
               : res.pulled
                 ? "pulledPushed"
                 : "pushed",
@@ -2649,7 +2649,7 @@ export const useAppStore = create<AppState>()(
           set({
             ghSyncing: false,
             ghLastSync: new Date().toISOString(),
-            ghStatus: res.pulled ? "pulledPushed" : "pushed",
+            ghStatus: res.merged.length ? `merged:${res.merged.length}` : res.pulled ? "pulledPushed" : "pushed",
           });
           await get().reloadVault();
         }

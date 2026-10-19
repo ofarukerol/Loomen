@@ -1,11 +1,12 @@
 // GitHub REST (Git Data API) tabanlı iki yönlü senkron — reqwest, TÜM platformlar (mobil dahil).
 // git2/openssl gerektirmez. Dosya bazlı 3-yönlü birleştirme (base = son senkron commit'i):
-// çakışmada veri KAYBEDİLMEZ — yerel korunur, uzak kopya "<ad> (çakışma).<uzantı>" olarak yazılır.
+// çakışan metinler satır bazlı otomatik birleşir, örtüşen parçada yeni taraf kazanır ve kaybeden
+// tarafın tam dosyası `.loomen/cakisma-gecmisi/` altına yedeklenir (LOM-51, bkz. sync_merge.rs).
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 use serde_json::{json, Value};
 use sha1::{Digest, Sha1};
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 const UA: &str = "Loomen-App";
@@ -26,7 +27,8 @@ pub struct ApiSyncResult {
     base_sha: Option<String>,
     pulled: usize,
     pushed: usize,
-    conflicts: Vec<String>,
+    /// İki tarafın değişikliği otomatik birleştirilen notlar (LOM-51).
+    merged: Vec<String>,
     message: String,
 }
 
@@ -38,60 +40,37 @@ fn git_blob_sha(content: &[u8]) -> String {
     h.finalize().iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// Çakışan uzak dosya için ayrı ad: "Not.md" -> "Not (çakışma).md"; bu ad alınmışsa
-/// "Not (çakışma 2).md", "Not (çakışma 3).md"... (LOM-9). `taken` bir adın kullanımda olup
-/// olmadığını söyler (yerel, uzak, bu senkronda planlanan ya da diskte var olan dosya).
-/// Eskiden ad sabitti: önceki senkrondan kalan kopya ya da aynı adlı gerçek bir not
-/// sessizce eziliyordu.
-pub(crate) fn conflict_path(p: &str, taken: impl Fn(&str) -> bool) -> String {
-    let slash = p.rfind('/').map_or(0, |i| i + 1);
-    let (stem, ext) = match p[slash..].rfind('.') {
-        Some(rel) if rel > 0 => (&p[..slash + rel], &p[slash + rel..]),
-        _ => (p, ""),
-    };
-    for i in 1.. {
-        let cand = if i == 1 {
-            format!("{stem} (çakışma){ext}")
-        } else {
-            format!("{stem} (çakışma {i}){ext}")
-        };
-        if !taken(&cand) {
-            return cand;
-        }
-    }
-    unreachable!()
+/// İki tarafta da değişmiş (ya da iki tarafta da yeni) bir dosyanın içerik birleştirmesi.
+#[derive(Debug, PartialEq)]
+struct MergeJob {
+    path: String,
+    remote_sha: String,
+    /// Son senkronlanan sürümün blob sha'sı; dosya iki tarafta da yeniyse None.
+    base_sha: Option<String>,
 }
 
 /// Birleştirme planı: ağdan bağımsız, test edilebilir karar kısmı.
 #[derive(Debug, Default, PartialEq)]
 struct MergePlan {
-    /// (hedef yerel yol, uzak blob sha). Hedef = aynı yol (çekme) ya da çakışma kopyası.
+    /// (yerel yol, uzak blob sha): uzaktan olduğu gibi alınacaklar.
     writes: Vec<(String, String)>,
     /// Uzakta silinmiş, yerelde dokunulmamış dosyalar (çöp kutusuna taşınır).
     deletes: Vec<String>,
-    conflicts: Vec<String>,
+    /// İçerik birleştirmesi gerekenler (sync_merge ile çözülür).
+    merges: Vec<MergeJob>,
     pulled: usize,
     pushed: usize,
 }
 
-/// Dosya bazlı 3-yönlü birleştirme (base = son senkron). Veri kaybetmez: çakışmada yerel
-/// kalır, uzak sürüm benzersiz adlı kopya olur.
+/// Dosya bazlı 3-yönlü birleştirme (base = son senkron). Veri kaybetmez: iki tarafta da
+/// değişen dosya `merges`e girer; bir taraf silmiş öbürü değiştirmişse değiştiren kazanır.
 fn plan_merge(
     remote: &BTreeMap<String, String>,
     local_sha: &BTreeMap<String, String>,
     base: &BTreeMap<String, String>,
 ) -> MergePlan {
     let mut plan = MergePlan::default();
-    // Sıralı gez: kopya adları her çalıştırmada aynı çıksın.
     let paths: BTreeSet<&String> = remote.keys().chain(local_sha.keys()).chain(base.keys()).collect();
-    let mut planned: HashSet<String> = HashSet::new();
-    let mut conflict_copy = |p: &str, r_sha: &str, plan: &mut MergePlan| {
-        let target = conflict_path(p, |c| {
-            remote.contains_key(c) || local_sha.contains_key(c) || planned.contains(c)
-        });
-        planned.insert(target.clone());
-        plan.writes.push((target, r_sha.to_string()));
-    };
 
     for p in paths {
         let r_sha = remote.get(p);
@@ -112,9 +91,8 @@ fn plan_merge(
                 }
                 (None, Some(_)) => plan.pushed += 1, // yerel yeni → tree'de kalır
                 (Some(sha), Some(_)) => {
-                    // ikisi de farklı yeni → çakışma: yerel kalsın, uzak kopya yaz
-                    conflict_copy(p, sha, &mut plan);
-                    plan.conflicts.push(p.clone());
+                    // ikisi de farklı yeni → base yok: tüm dosya, yeni taraf kazanır
+                    plan.merges.push(MergeJob { path: p.clone(), remote_sha: sha.clone(), base_sha: None });
                 }
                 (None, None) => {}
             }
@@ -134,11 +112,21 @@ fn plan_merge(
             } else if r_sha == l_sha {
                 // ikisi de aynı değişikliği yaptı (ya da ikisi de sildi)
             } else {
-                // gerçek çakışma → yerel korunur, uzak kopya (varsa)
-                if let Some(sha) = r_sha {
-                    conflict_copy(p, sha, &mut plan);
+                match (r_sha, l_sha) {
+                    (Some(sha), Some(_)) => plan.merges.push(MergeJob {
+                        path: p.clone(),
+                        remote_sha: sha.clone(),
+                        base_sha: b_sha.cloned(),
+                    }),
+                    // Yerel silmiş, uzak değiştirmiş: değiştiren kazanır, not geri gelir.
+                    (Some(sha), None) => {
+                        plan.writes.push((p.clone(), sha.clone()));
+                        plan.pulled += 1;
+                    }
+                    // Uzak silmiş, yerel değiştirmiş: yerel kalır (tree'de zaten var).
+                    (None, Some(_)) => plan.pushed += 1,
+                    (None, None) => {}
                 }
-                plan.conflicts.push(p.clone());
             }
         }
     }
@@ -179,14 +167,15 @@ fn disk_sha(full: &Path) -> Option<String> {
     std::fs::read(full).ok().map(|b| git_blob_sha(&b))
 }
 
-/// Yerel kasadaki tüm dosyaları oku (rel yol -> içerik). Gizli (.) klasörler atlanır (.git/.trash).
+/// Yerel kasadaki tüm dosyaları oku (rel yol -> içerik). Gizli (.) klasörler atlanır (.git/.trash);
+/// tek istisna `.loomen` (çakışma yedekleri): senkronlanır, ama not listesinde görünmez (LOM-51).
 fn read_local(root: &Path) -> BTreeMap<String, Vec<u8>> {
     let mut out = BTreeMap::new();
     fn walk(root: &Path, dir: &Path, out: &mut BTreeMap<String, Vec<u8>>) {
         let Ok(entries) = std::fs::read_dir(dir) else { return };
         for e in entries.flatten() {
             let name = e.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') {
+            if name.starts_with('.') && !(dir == root && name == ".loomen") {
                 continue;
             }
             let p = e.path();
@@ -346,6 +335,91 @@ async fn set_ref(c: &reqwest::Client, token: &str, o: &str, r: &str, br: &str, s
     Ok(())
 }
 
+/// Uzakta `path` dosyasına dokunan en son commit'in zamanı (epoch saniye); öğrenilemezse None.
+async fn remote_file_time(c: &reqwest::Client, token: &str, o: &str, r: &str, br: &str, path: &str) -> Option<i64> {
+    let url = reqwest::Url::parse_with_params(
+        &format!("{API}/repos/{o}/{r}/commits"),
+        &[("sha", br), ("path", path), ("per_page", "1")],
+    )
+    .ok()?;
+    let v = gh_get(c, token, url.as_str()).await.ok()??;
+    crate::sync_merge::parse_iso8601(v[0]["commit"]["committer"]["date"].as_str()?)
+}
+
+fn file_mtime(full: &Path) -> Option<i64> {
+    std::fs::metadata(full)
+        .ok()?
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_secs() as i64)
+}
+
+/// Birleştirme sonucunu diske ve yerel state'e uygular; kaybeden tarafın tam dosyası
+/// yedek klasörüne yazılır (o da `local` içine girer, yani gönderilir).
+fn apply_resolution(
+    root: &Path,
+    local: &mut BTreeMap<String, Vec<u8>>,
+    remote: &BTreeMap<String, String>,
+    p: &str,
+    res: crate::sync_merge::Resolution,
+    stamp: &str,
+) -> Result<(), String> {
+    if let Some(b) = res.backup {
+        let dest = crate::sync_merge::backup_path(stamp, p, |cand| {
+            local.contains_key(cand) || remote.contains_key(cand) || root.join(cand).exists()
+        });
+        // Önce yedek, sonra asıl dosya: ikisi arasında kesilirse yine veri kaybı olmaz.
+        atomic_write(&root.join(&dest), &b)?;
+        local.insert(dest, b);
+    }
+    atomic_write(&root.join(p), &res.content)?;
+    local.insert(p.to_string(), res.content);
+    Ok(())
+}
+
+/// Tek dosyayı iki taraf için birleştirir. `local` yerine diskteki GÜNCEL içerik okunur
+/// (senkron sürerken kullanıcı yazmış olabilir). true = içerik gerçekten birleştirildi.
+#[allow(clippy::too_many_arguments)]
+async fn resolve_conflict(
+    c: &reqwest::Client,
+    token: &str,
+    (o, r, br): (&str, &str, &str),
+    root: &Path,
+    local: &mut BTreeMap<String, Vec<u8>>,
+    remote: &BTreeMap<String, String>,
+    p: &str,
+    remote_sha: &str,
+    base_sha: Option<&String>,
+    stamp: &str,
+) -> Result<bool, String> {
+    let full = root.join(p);
+    let remote_bytes = get_blob(c, token, o, r, remote_sha).await?;
+    let base_bytes = match base_sha {
+        Some(sha) => Some(get_blob(c, token, o, r, sha).await?),
+        None => None,
+    };
+    // Uzak zamanı öğrenilemezse uzak "eski" sayılır: yerel kazanır, uzak sürüm yedeğe gider.
+    let remote_time = remote_file_time(c, token, o, r, br, p).await.unwrap_or(0);
+    // Ağ işleri bitti: yerel dosya EN SON okunur, hemen ardından birleştirilip yazılır (yarış penceresi yok).
+    let Ok(local_bytes) = std::fs::read(&full) else {
+        // Senkron sürerken kullanıcı dosyayı silmiş: uzak sürüm geri gelir, hiçbir şey kaybolmaz.
+        atomic_write(&full, &remote_bytes)?;
+        local.insert(p.to_string(), remote_bytes);
+        return Ok(false);
+    };
+    let local_time = file_mtime(&full).unwrap_or(0);
+    let res = crate::sync_merge::merge_file(p, base_bytes.as_deref(), &local_bytes, &remote_bytes, local_time, remote_time);
+    let identical = res.mode == crate::sync_merge::Mode::Identical;
+    if identical {
+        local.insert(p.to_string(), local_bytes);
+        return Ok(false);
+    }
+    apply_resolution(root, local, remote, p, res, stamp)?;
+    Ok(true)
+}
+
 // ---------- Ana senkron ----------
 
 #[tauri::command]
@@ -396,39 +470,49 @@ pub async fn github_api_sync(
 
     // 4) Dosya bazlı 3-yönlü birleştirme (karar kısmı ağdan bağımsız: plan_merge)
     let plan = plan_merge(&remote, &local_sha, &base);
-    let mut conflicts = plan.conflicts.clone();
+    let mut merged: Vec<String> = Vec::new();
+    let stamp = crate::sync_merge::format_stamp(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0),
+    );
+    let ctx = (o, r, br);
 
     // 5) Pull sonuçlarını diske + yerel state'e uygula. Diske dokunmadan hemen önce dosyanın
     //    okunduğu andan beri değişmediği kontrol edilir: senkron sürerken kullanıcı notu
-    //    düzenlediyse üzerine yazılmaz, uzak sürüm kopya olur (LOM-9).
+    //    düzenlediyse üzerine yazılmaz, iki sürüm birleştirilir (LOM-9, LOM-51).
     for (p, r_sha) in &plan.writes {
+        let full = root.join(p);
         let content = get_blob(&c, &token, o, r, r_sha).await?;
-        let mut target = p.clone();
-        let full = root.join(&target);
-        let expected = local_sha.get(p);
-        if disk_sha(&full).as_ref() != expected {
-            target = conflict_path(p, |cand| {
-                local.contains_key(cand) || remote.contains_key(cand) || root.join(cand).exists()
-            });
-            if !conflicts.contains(p) {
-                conflicts.push(p.clone());
+        if disk_sha(&full).as_ref() != local_sha.get(p) {
+            if resolve_conflict(&c, &token, ctx, root, &mut local, &remote, p, r_sha, base.get(p), &stamp).await? {
+                merged.push(p.clone());
             }
+            continue;
         }
-        atomic_write(&root.join(&target), &content)?;
-        local.insert(target, content);
+        atomic_write(&full, &content)?;
+        local.insert(p.clone(), content);
+    }
+    for job in &plan.merges {
+        if resolve_conflict(&c, &token, ctx, root, &mut local, &remote, &job.path, &job.remote_sha, job.base_sha.as_ref(), &stamp).await? {
+            merged.push(job.path.clone());
+        }
     }
     for p in &plan.deletes {
         let full = root.join(p);
         // Okunduktan sonra değiştiyse silme: kullanıcının yeni yazdığı kaybolmasın.
         if disk_sha(&full).as_ref() != local_sha.get(p) {
-            conflicts.push(p.clone());
+            if let Ok(fresh) = std::fs::read(&full) {
+                local.insert(p.clone(), fresh);
+            }
             continue;
         }
         if move_to_trash(root, p).is_ok() {
             local.remove(p);
         }
     }
-    let (pulled, pushed) = (plan.pulled, plan.pushed);
+    let (pulled, pushed) = (plan.pulled + merged.len(), plan.pushed);
 
     // 6) Birleşmiş yerel state'ten yeni tree + commit + ref
     let mut entries: Vec<Value> = vec![];
@@ -463,7 +547,7 @@ pub async fn github_api_sync(
         base_sha: new_base,
         pulled,
         pushed,
-        conflicts,
+        merged,
         message: "ok".into(),
     })
 }
@@ -476,42 +560,40 @@ mod tests {
         items.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
     }
 
-    #[test]
-    fn cakisma_adi_bossa_sade() {
-        assert_eq!(conflict_path("Klasör/Not.md", |_| false), "Klasör/Not (çakışma).md");
-        assert_eq!(conflict_path("Not", |_| false), "Not (çakışma)");
-        assert_eq!(conflict_path(".gizli/x", |_| false), ".gizli/x (çakışma)");
+    fn job(path: &str, remote: &str, base: Option<&str>) -> MergeJob {
+        MergeJob { path: path.into(), remote_sha: remote.into(), base_sha: base.map(String::from) }
     }
 
     #[test]
-    fn cakisma_adi_var_olani_ezmez() {
-        let var = ["Not (çakışma).md", "Not (çakışma 2).md"];
-        assert_eq!(conflict_path("Not.md", |c| var.contains(&c)), "Not (çakışma 3).md");
-    }
-
-    #[test]
-    fn onceki_cakisma_kopyasi_ezilmez() {
-        // LOM-9: önceki senkrondan kalan kopya yerelde duruyor; yeni çakışma onu ezmemeli.
+    fn iki_tarafta_degisen_dosya_birlestirmeye_girer_kopya_olmaz() {
         let base = m(&[("Not.md", "b")]);
         let local = m(&[("Not.md", "l"), ("Not (çakışma).md", "eski")]);
         let remote = m(&[("Not.md", "r"), ("Not (çakışma).md", "eski")]);
         let plan = plan_merge(&remote, &local, &base);
-        assert_eq!(plan.writes, vec![("Not (çakışma 2).md".to_string(), "r".to_string())]);
-        assert_eq!(plan.conflicts, vec!["Not.md".to_string()]);
-        assert!(plan.deletes.is_empty());
+        assert_eq!(plan.merges, vec![job("Not.md", "r", Some("b"))]);
+        assert!(plan.writes.is_empty() && plan.deletes.is_empty());
     }
 
     #[test]
-    fn ayni_senkronda_iki_cakisma_ayni_adi_almaz() {
-        // "A.md" çakışıyor; uzakta ayrıca gerçek bir "A (çakışma).md" notu var ve yeni.
-        let base = m(&[("A.md", "b")]);
-        let local = m(&[("A.md", "l")]);
-        let remote = m(&[("A.md", "r"), ("A (çakışma).md", "gercek")]);
-        let plan = plan_merge(&remote, &local, &base);
-        let targets: Vec<&str> = plan.writes.iter().map(|(t, _)| t.as_str()).collect();
-        assert!(targets.contains(&"A (çakışma).md")); // uzaktaki gerçek not çekilir
-        assert!(targets.contains(&"A (çakışma 2).md")); // uzak sürümün kopyası ayrı ad alır
-        assert_eq!(targets.len(), 2);
+    fn iki_tarafta_yeni_dosya_base_siz_birlestirmeye_girer() {
+        let plan = plan_merge(&m(&[("N.md", "r")]), &m(&[("N.md", "l")]), &m(&[]));
+        assert_eq!(plan.merges, vec![job("N.md", "r", None)]);
+    }
+
+    #[test]
+    fn yerel_silme_uzak_degisiklik_not_kalir() {
+        let base = m(&[("X.md", "1")]);
+        let plan = plan_merge(&m(&[("X.md", "2")]), &m(&[]), &base);
+        assert_eq!(plan.writes, vec![("X.md".to_string(), "2".to_string())]);
+        assert!(plan.merges.is_empty() && plan.deletes.is_empty());
+    }
+
+    #[test]
+    fn uzak_silme_yerel_degisiklik_not_kalir() {
+        let base = m(&[("X.md", "1")]);
+        let plan = plan_merge(&m(&[]), &m(&[("X.md", "yerel")]), &base);
+        assert!(plan.writes.is_empty() && plan.deletes.is_empty() && plan.merges.is_empty());
+        assert_eq!(plan.pushed, 1);
     }
 
     #[test]
@@ -521,7 +603,7 @@ mod tests {
         let remote = m(&[]);
         let plan = plan_merge(&remote, &local, &base);
         assert_eq!(plan.deletes, vec!["Sil.md".to_string()]);
-        assert_eq!(plan.conflicts, vec!["Kalsin.md".to_string()]);
+        assert!(plan.merges.is_empty() && plan.writes.is_empty());
     }
 
     #[test]
@@ -529,6 +611,41 @@ mod tests {
         let base = m(&[("X.md", "1")]);
         let plan = plan_merge(&m(&[]), &m(&[]), &base);
         assert_eq!(plan, MergePlan::default());
+    }
+
+    #[test]
+    fn yedek_klasoru_okunur_diger_gizliler_atlanir() {
+        let dir = std::env::temp_dir().join(format!("loomen-lom51-read-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join(".loomen/cakisma-gecmisi/S")).unwrap();
+        std::fs::create_dir_all(dir.join(".trash")).unwrap();
+        std::fs::write(dir.join(".loomen/cakisma-gecmisi/S/N.md"), "y").unwrap();
+        std::fs::write(dir.join(".trash/x"), "t").unwrap();
+        std::fs::write(dir.join("N.md"), "n").unwrap();
+        let files = read_local(&dir);
+        let keys: Vec<&str> = files.keys().map(|k| k.as_str()).collect();
+        assert_eq!(keys, vec![".loomen/cakisma-gecmisi/S/N.md", "N.md"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cozum_kazananı_ve_yedegi_yazar() {
+        use crate::sync_merge::{merge_file, Mode};
+        let dir = std::env::temp_dir().join(format!("loomen-lom51-apply-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut local: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+        local.insert("N.md".into(), b"a\nyerel\nc\n".to_vec());
+        std::fs::write(dir.join("N.md"), b"a\nyerel\nc\n").unwrap();
+        let res = merge_file("N.md", Some(b"a\nb\nc\n"), b"a\nyerel\nc\n", b"a\nuzak\nc\n", 1, 2);
+        assert_eq!(res.mode, Mode::LineMerged);
+        apply_resolution(&dir, &mut local, &m(&[]), "N.md", res, "2026-01-01_000000").unwrap();
+        assert_eq!(std::fs::read(dir.join("N.md")).unwrap(), b"a\nuzak\nc\n");
+        let y = dir.join(".loomen/cakisma-gecmisi/2026-01-01_000000/N.md");
+        assert_eq!(std::fs::read(&y).unwrap(), b"a\nyerel\nc\n");
+        assert!(local.contains_key(".loomen/cakisma-gecmisi/2026-01-01_000000/N.md"));
+        assert_eq!(local["N.md"], b"a\nuzak\nc\n");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

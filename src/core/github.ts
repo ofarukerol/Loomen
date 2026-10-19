@@ -36,6 +36,8 @@ export interface GhRepo {
 export interface SyncResult {
   committed: boolean;
   pulled: boolean;
+  /** İki tarafın değişikliği otomatik birleştirilen notlar (LOM-51). */
+  merged: string[];
   message: string;
 }
 /** Mobil (ve isteğe bağlı masaüstü) için REST/Git-Data-API senkron sonucu. */
@@ -43,7 +45,8 @@ export interface ApiSyncResult {
   base_sha: string | null;
   pulled: number;
   pushed: number;
-  conflicts: string[];
+  /** İki tarafın değişikliği otomatik birleştirilen notlar (LOM-51). */
+  merged: string[];
   message: string;
 }
 
