@@ -184,7 +184,11 @@ fn merge_text(base: &str, local: &str, remote: &str, winner: Side) -> Option<(St
                 out.extend(tr[r.0..r.1].iter().copied());
             }
         } else {
-            // Örtüşen parça: yeni taraf kazanır, kaybedenin metni yedeğe gider.
+            // Bitişik ama örtüşmeyen düzenlemeler (ör. 2. ve 3. satır) ayrı ayrı uygulanır.
+            if split_region(bs, ls, rs, &tb[b.0..b.1], &tl[l.0..l.1], &tr[r.0..r.1], winner, out) {
+                return;
+            }
+            // Gerçekten örtüşen parça: yeni taraf kazanır, kaybedenin metni yedeğe gider.
             *lost = true;
             if winner == Side::Local {
                 out.extend(tl[l.0..l.1].iter().copied());
@@ -209,6 +213,76 @@ fn merge_text(base: &str, local: &str, remote: &str, winner: Side) -> Option<(St
         text.pop();
     }
     Some((text, lost))
+}
+
+/// Bölgede bir tarafın base'e göre değişen aralıkları: (base_baş, base_son, yan_baş, yan_son).
+fn side_hunks(bs: &[u32], ss: &[u32]) -> Option<Vec<(usize, usize, usize, usize)>> {
+    let m = lcs_matches(bs, ss)?;
+    let mut out = Vec::new();
+    let (mut b0, mut s0) = (0usize, 0usize);
+    for i in 0..=bs.len() {
+        let (bi, si) = if i < bs.len() {
+            match m[i] {
+                Some(j) => (i, j),
+                None => continue,
+            }
+        } else {
+            (bs.len(), ss.len())
+        };
+        if bi > b0 || si > s0 {
+            out.push((b0, bi, s0, si));
+        }
+        b0 = bi + 1;
+        s0 = si + 1;
+    }
+    Some(out)
+}
+
+/// Çakışan bölgeyi iki tarafın base aralıkları ayrıksa birlikte uygular. Aralıklar paylaşılan
+/// bir base satırında kesişiyorsa false döner (çağıran yeni-kazanır kuralına geçer).
+/// Aynı noktaya iki ekleme: ikisi de kalır, eski taraf önce.
+#[allow(clippy::too_many_arguments)]
+fn split_region(
+    bs: &[u32],
+    ls: &[u32],
+    rs: &[u32],
+    bt: &[&str],
+    lt: &[&str],
+    rt: &[&str],
+    winner: Side,
+    out: &mut String,
+) -> bool {
+    let (Some(hl), Some(hr)) = (side_hunks(bs, ls), side_hunks(bs, rs)) else { return false };
+    // (base_baş, base_son, sıra, metin): sıra = ekleme önce (0), eski taraf önce.
+    let older = if winner == Side::Local { Side::Remote } else { Side::Local };
+    let mut all: Vec<(usize, usize, u8, String)> = Vec::new();
+    let text = |toks: &[&str], a: usize, b: usize| toks[a..b].concat();
+    for &(b0, b1, s0, s1) in &hl {
+        let rank = if b0 == b1 { if older == Side::Local { 0 } else { 1 } } else { 2 };
+        all.push((b0, b1, rank, text(lt, s0, s1)));
+    }
+    for &(b0, b1, s0, s1) in &hr {
+        // İki tarafın birebir aynı değişikliği bir kez uygulanır.
+        if hl.iter().any(|&(c0, c1, t0, t1)| c0 == b0 && c1 == b1 && ls[t0..t1] == rs[s0..s1]) {
+            continue;
+        }
+        let rank = if b0 == b1 { if older == Side::Remote { 0 } else { 1 } } else { 2 };
+        all.push((b0, b1, rank, text(rt, s0, s1)));
+    }
+    all.sort_by_key(|h| (h.0, h.2));
+    let mut pos = 0usize;
+    let mut res = String::new();
+    for (b0, b1, _, t) in &all {
+        if *b0 < pos {
+            return false; // ortak base satırı: gerçek örtüşme
+        }
+        res.push_str(&bt[pos..*b0].concat());
+        res.push_str(t);
+        pos = *b1;
+    }
+    res.push_str(&bt[pos..].concat());
+    out.push_str(&res);
+    true
 }
 
 /// a'nın her satırı için b'deki eşleşen (LCS) satır; ortak baş/son atılır, ortası DP ile.
@@ -257,6 +331,27 @@ fn lcs_matches(a: &[u32], b: &[u32]) -> Option<Vec<Option<usize>>> {
         }
     }
     Some(m)
+}
+
+/// Yedek klasörü (`.loomen/`) dosyaları birleştirilmez. İki tarafta aynı yolda FARKLI dosya
+/// varsa gelen, adına -2, -3... eklenerek ayrı yola alınır; ikisi de kalır.
+pub fn is_backup_path(p: &str) -> bool {
+    p.starts_with(".loomen/")
+}
+
+pub fn backup_variant_path(p: &str, taken: impl Fn(&str) -> bool) -> String {
+    let slash = p.rfind('/').map_or(0, |i| i + 1);
+    let (stem, ext) = match p[slash..].rfind('.') {
+        Some(rel) if rel > 0 => (&p[..slash + rel], &p[slash + rel..]),
+        _ => (p, ""),
+    };
+    for i in 2.. {
+        let cand = format!("{stem}-{i}{ext}");
+        if !taken(&cand) {
+            return cand;
+        }
+    }
+    unreachable!()
 }
 
 // ---------- Zaman yardımcıları (bağımlılıksız) ----------
@@ -495,5 +590,63 @@ mod tests {
         assert_eq!(backup_path("S", "A/N.md", |_| false), ".loomen/cakisma-gecmisi/S/A/N.md");
         let var = [".loomen/cakisma-gecmisi/S/A/N.md"];
         assert_eq!(backup_path("S", "A/N.md", |c| var.contains(&c)), ".loomen/cakisma-gecmisi/S-2/A/N.md");
+    }
+
+    #[test]
+    fn bitisik_satir_duzenlemeleri_ikisi_de_kalir() {
+        let r = mf("1\n2\n3\n4\n", "1\n2 yerel\n3\n4\n", "1\n2\n3 uzak\n4\n", OLD, NEW);
+        assert_eq!(txt(&r), "1\n2 yerel\n3 uzak\n4\n");
+        assert!(r.backup.is_none());
+        let r = mf("1\n2\n3\n4\n", "1\n2 yerel\n3\n4\n", "1\n2\n3 uzak\n4\n", NEW, OLD);
+        assert_eq!(txt(&r), "1\n2 yerel\n3 uzak\n4\n");
+        assert!(r.backup.is_none());
+    }
+
+    #[test]
+    fn bir_taraf_duzenler_bitisik_satiri_oteki_siler() {
+        let r = mf("1\n2\n3\n4\n", "1\n2 yerel\n3\n4\n", "1\n2\n4\n", OLD, NEW);
+        assert_eq!(txt(&r), "1\n2 yerel\n4\n");
+        assert!(r.backup.is_none());
+    }
+
+    #[test]
+    fn ayni_satiri_iki_taraf_duzenlerse_yeni_kazanir_ve_yedek() {
+        let r = mf("1\n2\n3\n", "1\n2 yerel\n3\n", "1\n2 uzak\n3\n", OLD, NEW);
+        assert_eq!(txt(&r), "1\n2 uzak\n3\n");
+        assert_eq!(r.backup.as_deref(), Some("1\n2 yerel\n3\n".as_bytes()));
+    }
+
+    #[test]
+    fn bitisik_duzenleme_ve_ekleme() {
+        // Yerel 2. satırı değiştirir, uzak 3. satırın önüne satır ekler ve 3'ü değiştirir (ayrık).
+        let r = mf("1\n2\n3\n", "1\n2 yerel\n3\n", "1\n2\nara\n3\n", OLD, NEW);
+        assert_eq!(txt(&r), "1\n2 yerel\nara\n3\n");
+        assert!(r.backup.is_none());
+    }
+
+    #[test]
+    fn bos_yerel_dosya_uzak_duzenlemeyle_tum_dosya_kurali() {
+        let r = mf("a\nb\n", "", "a\nB\n", OLD, NEW);
+        assert_eq!(txt(&r), "a\nB\n");
+        assert_eq!(r.backup, Some(vec![]));
+        let r = mf("a\nb\n", "", "a\nB\n", NEW, OLD);
+        assert_eq!(txt(&r), "");
+        assert_eq!(r.backup.as_deref(), Some("a\nB\n".as_bytes()));
+    }
+
+    #[test]
+    fn crlf_ve_sonda_satir_sonu_yok() {
+        let r = mf("a\r\nb\r\nc", "a\r\nB\r\nc", "a\r\nb\r\nc uzak", OLD, NEW);
+        assert_eq!(txt(&r), "a\r\nB\r\nc uzak");
+        assert!(r.backup.is_none());
+    }
+
+    #[test]
+    fn yedek_klasoru_yolu_birlestirilmez_ek_alir() {
+        assert!(is_backup_path(".loomen/cakisma-gecmisi/S/N.md"));
+        assert!(!is_backup_path("Not.md"));
+        let var = [".loomen/x/N-2.md"];
+        assert_eq!(backup_variant_path(".loomen/x/N.md", |c| var.contains(&c)), ".loomen/x/N-3.md");
+        assert_eq!(backup_variant_path(".loomen/x/N.md", |_| false), ".loomen/x/N-2.md");
     }
 }

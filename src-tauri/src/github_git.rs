@@ -168,6 +168,17 @@ fn merge_into_head(
     for e in clean_merged {
         let path = String::from_utf8_lossy(&e.path).to_string();
         let pp = std::path::Path::new(&path);
+        if crate::sync_merge::is_backup_path(&path) {
+            if let (Ok(l), Ok(r)) = (lt.get_path(pp), rt.get_path(pp)) {
+                let dest = crate::sync_merge::backup_variant_path(&path, |p| {
+                    let q = std::path::Path::new(p);
+                    idx.get_path(q, 0).is_some() || lt.get_path(q).is_ok() || rt.get_path(q).is_ok()
+                });
+                idx.add(&new_blob_entry(&e, l.id(), blob_bytes(repo, l.id())?.len(), &path))?;
+                idx.add(&new_blob_entry(&e, r.id(), blob_bytes(repo, r.id())?.len(), &dest))?;
+            }
+            continue;
+        }
         // libgit2 satır birleştirmesi JSON/çizim gibi dosyalarda bozuk içerik üretebilir:
         // bunlar tüm dosya kuralıyla (yeni kazanır, eski yedeklenir) yeniden çözülür.
         if !crate::sync_merge::line_mergeable_path(&path) {
@@ -204,6 +215,19 @@ fn merge_into_head(
                 (anc, Some(ours), Some(theirs)) => {
                     if ours.id == theirs.id {
                         idx.add(&stage0(ours))?;
+                        continue;
+                    }
+                    if crate::sync_merge::is_backup_path(&path) {
+                        // Yedekler birleştirilmez: ikisi de kalır, gelen -2 ekiyle ayrı yola gider.
+                        idx.add(&stage0(ours))?;
+                        let dest = crate::sync_merge::backup_variant_path(&path, |p| {
+                            let pp = std::path::Path::new(p);
+                            idx.get_path(pp, 0).is_some() || lt.get_path(pp).is_ok() || rt.get_path(pp).is_ok()
+                        });
+                        let mut e = stage0(theirs);
+                        e.path = dest.as_bytes().to_vec();
+                        e.flags = (e.flags & !0xFFF) | (dest.len().min(0xFFF) as u16);
+                        idx.add(&e)?;
                         continue;
                     }
                     let base = match &anc {
@@ -705,6 +729,32 @@ mod tests {
         merge_into_head(&repo, &lc, &rc, &sig()).unwrap();
         assert_eq!(fs::read_to_string(dir.join("ayar.json")).unwrap(), base.replace("\"e\": 5", "\"e\": 7"));
         assert_eq!(backups(&dir).len(), 1);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn yedek_klasorunde_ayni_yolda_farkli_dosya_ikisi_de_kalir() {
+        let (dir, repo) = tmp_repo("yedek-yedek");
+        fs::write(dir.join("x.md"), "x\n").unwrap();
+        let b = commit_all(&repo, &[]);
+        let bc = repo.find_commit(b).unwrap();
+        let mut ri = Index::new().unwrap();
+        ri.read_tree(&bc.tree().unwrap()).unwrap();
+        let mut e = ri.get_path(std::path::Path::new("x.md"), 0).unwrap();
+        e.path = b".loomen/cakisma-gecmisi/S/N.md".to_vec();
+        e.id = repo.blob(b"uzak yedek\n").unwrap();
+        ri.add(&e).unwrap();
+        let rt = repo.find_tree(ri.write_tree_to(&repo).unwrap()).unwrap();
+        let r = repo.commit(None, &sig(), &sig(), "uzak", &rt, &[&bc]).unwrap();
+        fs::create_dir_all(dir.join(".loomen/cakisma-gecmisi/S")).unwrap();
+        fs::write(dir.join(".loomen/cakisma-gecmisi/S/N.md"), "yerel yedek\n").unwrap();
+        let l = commit_all(&repo, &[&bc]);
+        let (lc, rc) = (repo.find_commit(l).unwrap(), repo.find_commit(r).unwrap());
+        merge_into_head(&repo, &lc, &rc, &sig()).unwrap();
+        let d = dir.join(".loomen/cakisma-gecmisi/S");
+        assert_eq!(fs::read_to_string(d.join("N.md")).unwrap(), "yerel yedek\n");
+        assert_eq!(fs::read_to_string(d.join("N-2.md")).unwrap(), "uzak yedek\n");
+        assert_eq!(backups(&dir).len(), 2, "yedeğin yedeği oluşmaz");
         let _ = fs::remove_dir_all(&dir);
     }
 

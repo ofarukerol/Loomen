@@ -82,6 +82,19 @@ fn plan_merge(
             continue; // özdeş
         }
 
+        // Yedek klasörü dosyaları (`.loomen/`) asla birleştirilmez: aynı yolda farklı dosya varsa
+        // uzak olan -2 ekiyle ayrı yola gelir, ikisi de kalır.
+        if crate::sync_merge::is_backup_path(p) && in_r && in_l {
+            if let Some(sha) = r_sha {
+                let target = crate::sync_merge::backup_variant_path(p, |c| {
+                    remote.contains_key(c) || local_sha.contains_key(c) || plan.writes.iter().any(|(w, _)| w == c)
+                });
+                plan.writes.push((target, sha.clone()));
+                plan.pulled += 1;
+            }
+            continue;
+        }
+
         if !in_b {
             // unwrap() yok: koşullar ileride değişse bile senkron ortasında çökme olmasın.
             match (r_sha, l_sha) {
@@ -572,6 +585,14 @@ mod tests {
         let plan = plan_merge(&remote, &local, &base);
         assert_eq!(plan.merges, vec![job("Not.md", "r", Some("b"))]);
         assert!(plan.writes.is_empty() && plan.deletes.is_empty());
+    }
+
+    #[test]
+    fn yedek_klasorunde_farkli_dosya_birlestirilmez_ek_alir() {
+        let p = ".loomen/cakisma-gecmisi/S/N.md";
+        let plan = plan_merge(&m(&[(p, "r")]), &m(&[(p, "l")]), &m(&[]));
+        assert!(plan.merges.is_empty());
+        assert_eq!(plan.writes, vec![(".loomen/cakisma-gecmisi/S/N-2.md".to_string(), "r".to_string())]);
     }
 
     #[test]
