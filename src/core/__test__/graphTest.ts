@@ -268,7 +268,11 @@ section("Günlük ve şablonlar gizli (LOM-50)");
   eq("Gizli nota giden ve gizli nottan çıkan kenar yok", edges(all, contents), ["A.md→Notlar/B.md:wiki"]);
   eq("Gizli nota giden bağlantı hayalet de olmaz", ids({ ghosts: true }), ["A.md", "Günlükler/Benim.md", "Notlar/B.md"].sort());
   eq("Hub ve not sayısı yalnız görünenlerden", buildGraphModel(all, contents, GRAPH_OPTION_DEFAULTS).noteCount, 3);
-  eq("Ayrışık NFD yol da gizlenir", ids().length, buildGraphModel([...all, note("Günlük/x.md".normalize("NFD"))], contents, GRAPH_OPTION_DEFAULTS).nodes.length);
+  {
+    const nfd = note("Günlük/Ödev.md".normalize("NFD"));
+    const g = buildGraphModel([A, nfd], {}, GRAPH_OPTION_DEFAULTS);
+    eq("Ayrışık (NFD) yazılmış Günlük yolu da gizlenir", g.nodes.map((n) => n.id), ["A.md"]);
+  }
   eq("Seçenek açıkken hepsi görünür", ids({ journal: true }).length, 7);
   eq("Seçenek açıkken günlük kenarları geri gelir", edges(all, contents, { journal: true }).length, 4);
 }

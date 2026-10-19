@@ -84,7 +84,7 @@ export function GraphScreen() {
   const [forces, setForces] = useState<Forces>(DEFAULTS);
   const [display, setDisplay] = useState<Display>(DISPLAY_DEFAULTS);
 
-  // Yapısal seçenekler (tags/orphans/ghosts) grafı yeniden kurar; arrows/textFade yalnız çizimi etkiler.
+  // Yapısal seçenekler (tags/orphans/ghosts/journal) grafı yeniden kurar; arrows/textFade yalnız çizimi etkiler.
   const graph = useMemo(
     () =>
       buildGraphModel(notes, contents, {
