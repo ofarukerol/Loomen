@@ -102,6 +102,10 @@ eq("tablo satırı atlanır", summarizeDay("| a | b |\n|---|---|\nmetin").sectio
 eq("HTML yorumu (çok satır) atlanır", summarizeDay("a\n<!-- gizli\nçok satır -->\nb <!-- x --> c").sections[0].lines, ["a", "b  c".replace("  ", " ")]);
 const st = summarizeDay("* [x] yıldızlı\n+ [ ] artılı");
 eq("* ve + görevler", [st.done, st.openCount], [["yıldızlı"], 1]);
+const nfd = "Günlük".normalize("NFD");
+eq("NFD klasör adı eşleşir", findOnThisDay([`${nfd}/2025/10-Ekim/2025-10-20-Pazartesi.md`], `${nfd}/2026/10-Ekim/2026-10-20-Salı.md`).map((e) => e.year), [2025]);
+eq("NFD Günlük kökü Daily/'ye tercih edilir", findOnThisDay([`Daily/2025-10-20-Pazartesi.md`, `${nfd}/2025/2025-10-20-Pazartesi.md`], cur)[0].path, `${nfd}/2025/2025-10-20-Pazartesi.md`);
+eq("kod bloğundaki <!-- yorum açmaz", summarizeDay("```html\n<!-- örnek\n```\nsonraki satır").sections[0].lines, ["sonraki satır"]);
 
 console.log(`\n${fails === 0 ? "✅" : "❌"} ${ran} kontrol, ${fails} hata`);
 process.exit(fails === 0 ? 0 : 1);

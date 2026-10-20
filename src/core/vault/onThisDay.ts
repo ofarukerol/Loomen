@@ -12,10 +12,16 @@ export interface OnThisDayEntry {
 }
 
 /** Günlük klasörü: yolun herhangi bir derinliğinde `Günlük/` ya da `Daily/` dizini var mı. */
+// macOS/senkron yolları NFD gelebilir ("Gu\u0308nlu\u0308k"); harf büyüklüğü de fark etmesin.
+const folderKey = (d: string) => d.normalize("NFC").toLocaleLowerCase("tr");
+const isDailyDir = (d: string) => {
+  const k = folderKey(d);
+  return k === "günlük" || k === "daily";
+};
 function inDailyFolder(p: string): boolean {
-  const parts = p.split(/[/\\]/);
-  return parts.slice(0, -1).some((d) => d === "Günlük" || d === "Daily");
+  return p.split(/[/\\]/).slice(0, -1).some(isDailyDir);
 }
+const rootIsGunluk = (p: string) => folderKey(p.split(/[/\\]/)[0]) === "günlük";
 
 /**
  * Aynı ay-gün, daha eski yıl, yılda bir not; yeniden eskiye. 29 Şubat yalnız 29 Şubat ile eşleşir.
@@ -37,8 +43,8 @@ export function findOnThisDay(paths: string[], currentPath: string): OnThisDayEn
     const prev = byYear.get(year);
     // Aynı yılda birden fazla not varsa kökü Günlük/ olanı, eşitse yolu alfabetik öndekini seç.
     const better = (a: string, b: string) => {
-      const ag = /^Günlük\//.test(a);
-      const bg = /^Günlük\//.test(b);
+      const ag = rootIsGunluk(a);
+      const bg = rootIsGunluk(b);
       if (ag !== bg) return ag;
       return a < b;
     };
@@ -145,8 +151,9 @@ export function summarizeDay(content: string): DaySummary {
         if (!raw.trim()) return;
       } else return;
     }
-    raw = raw.replace(/<!--.*?-->/g, "");
-    const open = raw.indexOf("<!--");
+    // Kod bloğu içindeki "<!--" yorum açmaz (HTML örneği olabilir).
+    if (fence === null) raw = raw.replace(/<!--.*?-->/g, "");
+    const open = fence === null ? raw.indexOf("<!--") : -1;
     if (open >= 0) {
       inComment = true;
       raw = raw.slice(0, open);
