@@ -153,6 +153,15 @@ section("Tarihler aynı farkla kayar, pomodoro sıfırlanır, tarihsiz göreve b
   eq("Yeni örnek: üç tarih +2 gün, 🍅 yok", out[1], "- [ ] Kapılar 🔁 every 2 days 🛫 2026-10-16 ⏳ 2026-10-17 📅 2026-10-18");
   const nodate = toggleTaskInContent("- [ ] Kapılar 🔁 every day", 0, TODAY).split("\n");
   eq("Tarihsiz: yeni örnek yarına tarihli", nodate[1], "- [ ] Kapılar 🔁 every day 📅 2026-10-17");
+  // LOM-48: günlük notta tarihsiz görev → baz notun günü (kaçırılan tekrarlar atlanır).
+  const weekly = toggleTaskInContent("- [ ] Rapor 🔁 every week", 0, TODAY, undefined, "2026-10-14").split("\n");
+  eq("Günlük not tarihli: sonraki örnek notun gününden haftalık", weekly[1], "- [ ] Rapor 🔁 every week 📅 2026-10-21");
+  const daily = toggleTaskInContent("- [ ] Su iç 🔁 every day", 0, TODAY, undefined, "2026-10-10").split("\n");
+  eq("Günlük not tarihli, günlük kural: geçmiş atlanır, yarın", daily[1], "- [ ] Su iç 🔁 every day 📅 2026-10-17");
+  const withDue = toggleTaskInContent("- [ ] Ödeme 🔁 every month 📅 2026-10-05", 0, TODAY, undefined, "2026-10-01").split("\n");
+  eq("📅 varsa notun günü dikkate alınmaz", withDue[1], "- [ ] Ödeme 🔁 every month 📅 2026-11-05");
+  const wDone = toggleTaskInContent("- [ ] Rapor 🔁 every week", 0, TODAY, undefined, "2026-10-14");
+  eq("Notun günüyle tamamla → geri al başa döner", toggleTaskInContent(wDone, 0, TODAY, undefined, "2026-10-14"), "- [ ] Rapor 🔁 every week");
   const nested = toggleTaskInContent("- [ ] Üst\n    - [ ] Kapılar 🔁 every day 📅 2026-10-16", 1, TODAY).split("\n");
   eq("Girinti korunur", nested[2], "    - [ ] Kapılar 🔁 every day 📅 2026-10-17");
 }

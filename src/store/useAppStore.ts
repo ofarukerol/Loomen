@@ -82,7 +82,7 @@ import { transcribe } from "../core/ai/stt";
 import { splitProposals, appendText, uniquePath, type ProposalState } from "../core/ai/proposal";
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, taskLineMatches, setTaskChildren, getSubtasks, getTaskNotes, rescheduleTasksInContent, type TaskPatch } from "../core/markdown/taskParser";
 import { planRescheduleBatches } from "../core/vault/planDay";
-import { planDate } from "../core/vault/planDate";
+import { noteDateOf, planDate } from "../core/vault/planDate";
 import {
   DEFAULT_SETTINGS as SRS_DEFAULTS,
   PRESETS as SRS_PRESETS,
@@ -2348,7 +2348,8 @@ export const useAppStore = create<AppState>()(
         const task = s.parsedTasks.find((p) => p.file === file && p.line === line);
         try {
           const content = await backend.readNote(file);
-          const next = toggleTaskInContent(content, line, todayISO(), task?.raw);
+          // Tarihsiz tekrarlı görevin sonraki örneği günlük notun gününden sayılır (LOM-48).
+          const next = toggleTaskInContent(content, line, todayISO(), task?.raw, noteDateOf(file));
           if (next === content) {
             // Satır kaymış (ya da zaten aynı): yazma, listeyi tazele ki kullanıcı güncel
             // hâli görsün ve tekrar deneyebilsin.

@@ -140,6 +140,7 @@ export function toggleTaskInContent(
   line: number,
   todayISO: string,
   expectedRaw?: string,
+  noteISO?: string,
 ): string {
   const lines = splitLines(content);
   if (line < 0 || line >= lines.length) return content;
@@ -152,7 +153,7 @@ export function toggleTaskInContent(
     const [, end] = childBlockRange(lines, line);
     if (!before.done) {
       // Tamamlanıyor: açık örnek yoksa çocuk bloğunun altına tek yeni örnek aç.
-      const next = nextInstanceLine(before, todayISO);
+      const next = nextInstanceLine(before, todayISO, noteISO);
       if (next !== undefined && findOpenRecurringSibling(lines, before, line) === -1) {
         lines.splice(end, 0, next);
       }
@@ -161,7 +162,7 @@ export function toggleTaskInContent(
       // Örnek tamamlandığı gün (✅) üretildi; geri alma ertesi gün yapılsa da o günle hesapla.
       // Dosyada başka açık örnek de varsa tamamlamada satır eklenmemiştir — hiçbirine dokunma.
       const reopened = parseTaskLine("", line, lines[line]);
-      const next = reopened && nextInstanceLine(reopened, before.doneDate ?? todayISO);
+      const next = reopened && nextInstanceLine(reopened, before.doneDate ?? todayISO, noteISO);
       if (
         next !== undefined &&
         end < lines.length &&
@@ -198,12 +199,13 @@ export function findOpenRecurringSibling(lines: string[], t: ParsedTask, skipLin
 /**
  * Tekrar eden görevin bir sonraki açık örneğinin satırı (tanınmayan kuralda undefined).
  * Tarihler (📅 ⏳ 🛫) plan tarihiyle aynı gün farkı kadar ileri kayar; kaçırılan geçmiş
- * tekrarlar atlanır. Plan tarihi yoksa baz bugündür ve yeni örnek 📅 ile o güne düşer.
+ * tekrarlar atlanır. Plan tarihi yoksa baz günlük notun günüdür (`noteISO`, LOM-48), o da
+ * yoksa bugündür; bu durumda yeni örnek 📅 ile o güne düşer.
  * Pomodoro ve ✅ taşınmaz; öncelik, etiket, saat ve kural korunur.
  */
-export function nextInstanceLine(t: ParsedTask, todayISO: string): string | undefined {
+export function nextInstanceLine(t: ParsedTask, todayISO: string, noteISO?: string): string | undefined {
   const base = t.due ?? t.scheduled ?? t.start;
-  const next = nextRecurrenceDate(t.recurrence, base ?? todayISO, todayISO);
+  const next = nextRecurrenceDate(t.recurrence, base ?? noteISO ?? todayISO, todayISO);
   if (!next) return undefined;
   const shift = (d: string | undefined) => (d ? shiftISO(d, daysBetweenISO(base!, next)) : undefined);
   const fresh: ParsedTask = {
