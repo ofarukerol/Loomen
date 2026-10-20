@@ -11,21 +11,31 @@ export interface OnThisDayEntry {
   yearsAgo: number;
 }
 
-/** Aynı ay-gün, daha eski yıl, yılda bir not; yeniden eskiye. 29 Şubat yalnız 29 Şubat ile eşleşir. */
+/** Günlük klasörü: yolun herhangi bir derinliğinde `Günlük/` ya da `Daily/` dizini var mı. */
+function inDailyFolder(p: string): boolean {
+  const parts = p.split(/[/\\]/);
+  return parts.slice(0, -1).some((d) => d === "Günlük" || d === "Daily");
+}
+
+/**
+ * Aynı ay-gün, daha eski yıl, yılda bir not; yeniden eskiye. 29 Şubat yalnız 29 Şubat ile eşleşir.
+ * Hem açık not hem adaylar günlük klasöründe (`Günlük/` ya da `Daily/`, her derinlikte) olmalı.
+ */
 export function findOnThisDay(paths: string[], currentPath: string): OnThisDayEntry[] {
+  if (!inDailyFolder(currentPath)) return [];
   const cur = noteDateOf(currentPath);
   if (!cur) return [];
   const curYear = Number(cur.slice(0, 4));
   const md = cur.slice(5);
   const byYear = new Map<number, OnThisDayEntry>();
   for (const p of paths) {
-    if (p === currentPath) continue;
+    if (p === currentPath || !inDailyFolder(p)) continue;
     const iso = noteDateOf(p);
     if (!iso || iso.slice(5) !== md) continue;
     const year = Number(iso.slice(0, 4));
     if (year >= curYear) continue;
     const prev = byYear.get(year);
-    // Aynı yılda birden fazla not varsa Günlük/ altındakini, sonra yolu kısa olanı seç.
+    // Aynı yılda birden fazla not varsa kökü Günlük/ olanı, eşitse yolu alfabetik öndekini seç.
     const better = (a: string, b: string) => {
       const ag = /^Günlük\//.test(a);
       const bg = /^Günlük\//.test(b);
@@ -71,7 +81,8 @@ function cleanInline(s: string): string {
     .replace(/\[\[([^\]]*)\]\]/g, "$1")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/(\*\*|__)(.+?)\1/g, "$2")
-    .replace(/(\*|_)(.+?)\1/g, "$2")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/(^|[^\p{L}\p{N}_])_([^_]+?)_(?![\p{L}\p{N}_])/gu, "$1$2")
     .replace(/~~(.+?)~~/g, "$1")
     .replace(/==(.+?)==/g, "$1")
     .replace(/`([^`]*)`/g, "$1")
@@ -113,19 +124,36 @@ export function summarizeDay(content: string): DaySummary {
   };
 
   let fence: string | null = null;
-  let inFront = false;
   const lines = content.split(/\r?\n/);
-  lines.forEach((raw, i) => {
-    if (i === 0 && raw.trim() === "---") {
-      inFront = true;
-      return;
+  // Frontmatter yalnız ilk satır `---` ve ilk ~40 satırda kapanış `---` varsa sayılır.
+  let frontEnd = -1;
+  if (lines[0]?.trim() === "---") {
+    for (let k = 1; k < Math.min(lines.length, 40); k++) {
+      if (lines[k].trim() === "---") {
+        frontEnd = k;
+        break;
+      }
     }
-    if (inFront) {
-      if (raw.trim() === "---") inFront = false;
-      return;
+  }
+  let inComment = false;
+  lines.forEach((raw, i) => {
+    if (i <= frontEnd) return;
+    if (inComment) {
+      if (raw.includes("-->")) {
+        inComment = false;
+        raw = raw.slice(raw.indexOf("-->") + 3);
+        if (!raw.trim()) return;
+      } else return;
+    }
+    raw = raw.replace(/<!--.*?-->/g, "");
+    const open = raw.indexOf("<!--");
+    if (open >= 0) {
+      inComment = true;
+      raw = raw.slice(0, open);
+      if (!raw.trim()) return;
     }
     const fm = /^\s*(```+|~~~+)/.exec(raw);
-    if (fm) {
+    if (fm && !raw.slice(fm[0].length).includes(fm[1])) {
       if (fence === null) fence = fm[1][0];
       else if (fm[1][0] === fence) fence = null;
       return;
@@ -138,7 +166,8 @@ export function summarizeDay(content: string): DaySummary {
       cur = { ...cleanTitle(h[1]), all: [] };
       return;
     }
-    const task = parseTaskLine("", i, raw);
+    if (/^\s*\|.*\|\s*$/.test(raw)) return; // tablo satırı
+    const task = parseTaskLine("", i, raw.replace(/^(\s*)[*+](\s+\[)/, "$1-$2"));
     if (task) {
       if (task.done) {
         doneTotal++;

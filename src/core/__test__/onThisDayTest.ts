@@ -44,6 +44,10 @@ eq("aynı yıl hariç", findOnThisDay([cur, "Günlük/2026/09-Eylül/2026-09-20-
 const leap = "Günlük/2028/02-Şubat/2028-02-29-Salı.md";
 eq("29 Şubat yalnız 29 Şubat", findOnThisDay(["Günlük/2024/02-Şubat/2024-02-29-Perşembe.md", "Günlük/2027/02-Şubat/2027-02-28-Pazar.md", "Günlük/2026/03-Mart/2026-03-01-Pazar.md"], leap).map((e) => e.year), [2024]);
 
+eq("Projeler/ altındaki tarihli not hariç", findOnThisDay([...paths, "Projeler/2025-10-20-retro.md"], cur).map((e) => e.path).includes("Projeler/2025-10-20-retro.md"), false);
+eq("açık not günlük klasörde değilse boş", findOnThisDay(paths, "Projeler/2026-10-20-retro.md"), []);
+eq("derin Günlük/ yolu", findOnThisDay(["Arşiv/Günlük/2019/10-Ekim/2019-10-20-Cmt.md"], cur).length, 1);
+
 section("summarizeDay");
 const note = `Sabah koşu yaptım. [[Proje X|X projesi]] ile ilgilendim.
 
@@ -86,6 +90,18 @@ check("yalnız görevle empty false", !many.empty);
 
 const tmpl = summarizeDay("---\ntags: [daily]\n---\n\n## 💭 Ephemeral Notlar (Gün İçi Notlar)\n\n## 📝 Günün Özeti\n\n## 💡 Günün Kattıkları\n\n## 📚 Okuduklarım/İzlediklerim\n\n");
 check("boş şablon empty", tmpl.empty && tmpl.sections.length === 0);
+
+section("summarizeDay — sağlamlık");
+const nofm = summarizeDay("---\nbaşlık gibi satır\nher şey burada");
+eq("kapanışsız --- frontmatter değil", nofm.sections[0]?.lines, ["başlık gibi satır", "her şey burada"]);
+const fm = summarizeDay("---\ntags: [a]\n---\nmetin");
+eq("kapalı frontmatter atlanır", fm.sections[0].lines, ["metin"]);
+eq("tek satırda açılıp kapanan çit", summarizeDay("```x``` satır\nsonra").sections[0].lines.length, 2);
+eq("snake_case bozulmaz", summarizeDay("dosya_adı_burada ve _vurgu_").sections[0].lines, ["dosya_adı_burada ve vurgu"]);
+eq("tablo satırı atlanır", summarizeDay("| a | b |\n|---|---|\nmetin").sections[0].lines, ["metin"]);
+eq("HTML yorumu (çok satır) atlanır", summarizeDay("a\n<!-- gizli\nçok satır -->\nb <!-- x --> c").sections[0].lines, ["a", "b  c".replace("  ", " ")]);
+const st = summarizeDay("* [x] yıldızlı\n+ [ ] artılı");
+eq("* ve + görevler", [st.done, st.openCount], [["yıldızlı"], 1]);
 
 console.log(`\n${fails === 0 ? "✅" : "❌"} ${ran} kontrol, ${fails} hata`);
 process.exit(fails === 0 ? 0 : 1);

@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import { tr, enUS, ar } from "date-fns/locale";
 import { useAppStore } from "../../store/useAppStore";
 import { findOnThisDay, summarizeDay } from "../../core/vault/onThisDay";
-import { noteDateOf } from "../../core/vault/planDate";
 
 const LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
 
@@ -14,7 +13,7 @@ const LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
  * "Geçmiş yıllarda bugün" (LOM-52): açık günlük notun önceki yıllardaki aynı gün notları, yeniden
  * eskiye zaman çizelgesi. YALNIZ OKUR — hiçbir notu yazmaz; tıklayınca notu açar.
  */
-export function OnThisDay({ noteName }: { noteName: string }) {
+export function OnThisDay() {
   const { t, i18n } = useTranslation();
   const notes = useAppStore((s) => s.notes);
   const contents = useAppStore((s) => s.noteContents);
@@ -23,15 +22,22 @@ export function OnThisDay({ noteName }: { noteName: string }) {
   const toggle = useAppStore((s) => s.toggleOnThisDay);
   const openNote = useAppStore((s) => s.openNote);
 
-  const items = useMemo(() => {
-    if (!activeNote || !noteDateOf(activeNote)) return [];
-    return findOnThisDay(
-      notes.map((n) => n.path),
+  const entries = useMemo(
+    () =>
       activeNote
-    ).map((e) => ({ ...e, summary: summarizeDay(contents[e.path] ?? "") }));
-  }, [notes, contents, activeNote]);
+        ? findOnThisDay(
+            notes.map((n) => n.path),
+            activeNote
+          )
+        : [],
+    [notes, activeNote]
+  );
+  const items = useMemo(
+    () => (collapsed ? [] : entries.map((e) => ({ ...e, summary: summarizeDay(contents[e.path] ?? "") }))),
+    [entries, contents, collapsed]
+  );
 
-  if (!noteDateOf(noteName + ".md") || items.length === 0) return null;
+  if (entries.length === 0) return null;
   const locale = LOCALES[i18n.language] ?? tr;
   const dayLabel = (iso: string) =>
     format(new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))), "EEEE", { locale });
@@ -51,7 +57,7 @@ export function OnThisDay({ noteName }: { noteName: string }) {
           <span className="lo-otd__title">{t("otd.title")}</span>
         </button>
         <div className="lo-otd__chips">
-          {items.map((it) => (
+          {entries.map((it) => (
             <button
               key={it.path}
               type="button"
@@ -67,8 +73,8 @@ export function OnThisDay({ noteName }: { noteName: string }) {
           type="button"
           className="lo-otd__chev"
           onClick={toggle}
-          aria-expanded={!collapsed}
-          aria-label={t("otd.title")}
+          aria-hidden
+          tabIndex={-1}
         >
           <ChevronDown size={16} strokeWidth={2.2} />
         </button>

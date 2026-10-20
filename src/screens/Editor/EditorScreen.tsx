@@ -187,7 +187,7 @@ export function EditorScreen() {
       )}
 
       {crumbs.length > 0 && <DailyHeader noteName={crumbs[crumbs.length - 1]} />}
-      {crumbs.length > 0 && <OnThisDay noteName={crumbs[crumbs.length - 1]} />}
+      {crumbs.length > 0 && <OnThisDay />}
 
       <div className="lo-editor__body">
         <div className={"lo-editor__scroll lo-scroll" + (editing ? "" : " lo-editor__scroll--preview")}>

@@ -3792,7 +3792,7 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 .lo-otd.is-collapsed .lo-otd__panel { grid-template-rows: 0fr; }
 .lo-otd__panelin { overflow: hidden; min-height: 0; }
 .lo-otd__list {
-  list-style: none; margin: 0; padding: 4px 40px 16px; max-height: 45vh; overflow-y: auto;
+  list-style: none; margin: 0; padding: 4px 40px 16px; max-height: 45vh; max-height: 45dvh; overflow-y: auto;
   position: relative;
 }
 .lo-otd__item { position: relative; padding-inline-start: 24px; padding-bottom: 10px; }
@@ -3838,7 +3838,7 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 .lo-app.is-mobile .lo-otd__chips { order: 3; flex-basis: 100%; }
 .lo-app.is-mobile .lo-otd__chev { margin-inline-start: auto; }
 .lo-app.is-mobile .lo-otd__toggle { flex: 1; }
-.lo-app.is-mobile .lo-otd__list { padding: 2px 16px 14px; max-height: 40vh; }
+.lo-app.is-mobile .lo-otd__list { padding: 2px 16px 14px; max-height: 32vh; max-height: 32dvh; }
 .lo-app.is-mobile .lo-otd__card { padding: 9px 12px; }
 
 @media (prefers-reduced-motion: reduce) {
