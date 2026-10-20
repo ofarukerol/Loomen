@@ -288,6 +288,17 @@
     "pause": "Pause",
     "reset": "Reset"
   },
+  "otd": {
+    "title": "On this day",
+    "yearsAgo_one": "{{count}} year ago",
+    "yearsAgo_other": "{{count}} years ago",
+    "notes": "Notes",
+    "more": "+{{count}} more",
+    "open_one": "{{count}} open task",
+    "open_other": "{{count}} open tasks",
+    "empty": "Empty day",
+    "openNote": "Open note: {{date}}"
+  },
   "editor": {
     "backlinks": "Links",
     "backlinksSub": "Notes that link here",

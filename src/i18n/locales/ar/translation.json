@@ -307,6 +307,25 @@
     "pause": "إيقاف",
     "reset": "إعادة ضبط"
   },
+  "otd": {
+    "title": "في مثل هذا اليوم",
+    "yearsAgo_zero": "اليوم",
+    "yearsAgo_one": "قبل سنة",
+    "yearsAgo_two": "قبل سنتين",
+    "yearsAgo_few": "قبل {{count}} سنوات",
+    "yearsAgo_many": "قبل {{count}} سنة",
+    "yearsAgo_other": "قبل {{count}} سنة",
+    "notes": "ملاحظات",
+    "more": "+{{count}} أخرى",
+    "open_zero": "لا مهام مفتوحة",
+    "open_one": "مهمة مفتوحة",
+    "open_two": "مهمتان مفتوحتان",
+    "open_few": "{{count}} مهام مفتوحة",
+    "open_many": "{{count}} مهمة مفتوحة",
+    "open_other": "{{count}} مهمة مفتوحة",
+    "empty": "يوم فارغ",
+    "openNote": "فتح الملاحظة: {{date}}"
+  },
   "editor": {
     "backlinks": "روابط",
     "backlinksSub": "ملاحظات ترتبط هنا",

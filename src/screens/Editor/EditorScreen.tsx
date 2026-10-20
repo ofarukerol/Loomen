@@ -12,6 +12,7 @@ import { BacklinksPanel } from "./BacklinksPanel";
 import { EditorToolbar } from "./EditorToolbar";
 import { EditorContextMenu } from "./EditorContextMenu";
 import { DailyHeader } from "./DailyHeader";
+import { OnThisDay } from "./OnThisDay";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { firstSectionCaret } from "./noteCaret";
 
@@ -186,6 +187,7 @@ export function EditorScreen() {
       )}
 
       {crumbs.length > 0 && <DailyHeader noteName={crumbs[crumbs.length - 1]} />}
+      {crumbs.length > 0 && <OnThisDay noteName={crumbs[crumbs.length - 1]} />}
 
       <div className="lo-editor__body">
         <div className={"lo-editor__scroll lo-scroll" + (editing ? "" : " lo-editor__scroll--preview")}>

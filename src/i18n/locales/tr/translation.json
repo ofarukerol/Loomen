@@ -310,6 +310,17 @@
     "pause": "Duraklat",
     "reset": "Sıfırla"
   },
+  "otd": {
+    "title": "Geçmiş yıllarda bugün",
+    "yearsAgo_one": "{{count}} yıl önce",
+    "yearsAgo_other": "{{count}} yıl önce",
+    "notes": "Notlar",
+    "more": "+{{count}} daha",
+    "open_one": "{{count}} açık görev",
+    "open_other": "{{count}} açık görev",
+    "empty": "Boş gün",
+    "openNote": "Notu aç: {{date}}"
+  },
   "editor": {
     "backlinks": "Bağlantılar",
     "backlinksSub": "Bu nota bağlananlar",

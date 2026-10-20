@@ -232,6 +232,8 @@ interface AppState {
   /** Yeniden deneme sürüyor (şerit düğmesi kilitlenir). */
   vaultRetrying: boolean;
   backlinksCollapsed: boolean;
+  /** "Geçmiş yıllarda bugün" bloğu kapalı mı (LOM-52). */
+  onThisDayCollapsed: boolean;
 
   // Görev detay paneli (seçili görev id'si "file:line")
   selectedTask: string | null;
@@ -372,6 +374,7 @@ interface AppState {
   setDraft: (text: string) => void;
   toggleEditing: () => void;
   toggleBacklinks: () => void;
+  toggleOnThisDay: () => void;
   saveNote: () => Promise<void>;
   /** Bekleyen taslağı hemen diske yaz (editör kapanırken / not değişirken çağrılır). */
   /** Bekleyen taslağı yazar. `false` = yazılamadı (çağıran devam etmemeli).
@@ -1169,6 +1172,7 @@ export const useAppStore = create<AppState>()(
     vaultOpenError: null,
     vaultRetrying: false,
     backlinksCollapsed: false,
+    onThisDayCollapsed: false,
     selectedTask: null,
     modalLayers: 0,
     activeDraw: null,
@@ -1388,6 +1392,7 @@ export const useAppStore = create<AppState>()(
     },
     toggleEditing: () => set((s) => ({ editing: !s.editing })),
     toggleBacklinks: () => set((s) => ({ backlinksCollapsed: !s.backlinksCollapsed })),
+    toggleOnThisDay: () => set((s) => ({ onThisDayCollapsed: !s.onThisDayCollapsed })),
     saveNote: async () => {
       const s = get();
       if (!s.activeNote) return;
@@ -3269,6 +3274,7 @@ export const useAppStore = create<AppState>()(
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
         backlinksCollapsed: s.backlinksCollapsed,
+        onThisDayCollapsed: s.onThisDayCollapsed,
         pomo: s.pomo,
         pomoSound: s.pomoSound,
         pomoHistory: s.pomoHistory,
