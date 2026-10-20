@@ -13,7 +13,7 @@ export interface OnThisDayEntry {
 
 /** Günlük klasörü: yolun herhangi bir derinliğinde `Günlük/` ya da `Daily/` dizini var mı. */
 // macOS/senkron yolları NFD gelebilir ("Gu\u0308nlu\u0308k"); harf büyüklüğü de fark etmesin.
-const folderKey = (d: string) => d.normalize("NFC").toLocaleLowerCase("tr");
+const folderKey = (d: string) => d.normalize("NFC").toLowerCase();
 const isDailyDir = (d: string) => {
   const k = folderKey(d);
   return k === "günlük" || k === "daily";
