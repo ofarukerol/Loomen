@@ -168,5 +168,15 @@ export function createTauriBackend(root: string): VaultBackend {
      * derinlik ve kayıt sayısıyla sınırlı (tmpFiles.ts › removeStaleTmpFiles).
      */
     cleanupStaleTmp: async () => removeStaleTmpFiles(root, Date.now(), { readDir, remove }),
+
+    /** LOM-54: klasörün doğrudan girdileri (alt klasörlere inilmez); klasör yoksa boş dizi. */
+    listDir: async (dir) => {
+      const target = dir ? abs(dir) : root;
+      if (!(await exists(target))) return [];
+      const entries = await readDir(target);
+      return entries
+        .filter((e) => !e.name.startsWith("."))
+        .map((e) => ({ name: e.name, isDirectory: e.isDirectory }));
+    },
   };
 }

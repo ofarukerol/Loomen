@@ -1,4 +1,4 @@
-import type { VaultBackend, VaultNote } from "./types";
+import type { DirEntry, VaultBackend, VaultNote } from "./types";
 import { TRASH_DIR, encodeTrashName, toTrashEntry, type TrashEntry } from "./trash";
 
 // Tarayıcı/fallback için in-memory kasa. Tauri yokken (veya kasa seçilmeden) UI bununla çalışır.
@@ -169,6 +169,20 @@ export function createSampleBackend(): VaultBackend {
     },
     async purgeTrashItem(trashName) {
       delete store[`${TRASH_DIR}/${trashName}`];
+    },
+    // LOM-54: bellekte klasör yok; anahtarların ilk yol parçası girdidir, devamı olan klasördür.
+    async listDir(dir): Promise<DirEntry[]> {
+      const prefix = dir ? `${dir}/` : "";
+      const seen = new Map<string, boolean>();
+      for (const path of [...Object.keys(store), ...binStore.keys()]) {
+        if (!path.startsWith(prefix)) continue;
+        const rest = path.slice(prefix.length);
+        const slash = rest.indexOf("/");
+        const name = slash < 0 ? rest : rest.slice(0, slash);
+        if (!name || name.startsWith(".")) continue;
+        seen.set(name, (seen.get(name) ?? false) || slash >= 0);
+      }
+      return [...seen].map(([name, isDirectory]) => ({ name, isDirectory }));
     },
   };
 }

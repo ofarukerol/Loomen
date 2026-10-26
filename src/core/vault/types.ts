@@ -51,6 +51,12 @@ export interface VaultData {
   contents: Record<string, string>;
 }
 
+/** Bir klasör girdisi (listDir sonucu). */
+export interface DirEntry {
+  name: string;
+  isDirectory: boolean;
+}
+
 /** Dosya sistemi portu — gerçek (Tauri) ve sahte (test/sample) adapter'lar gerçekler. */
 export interface VaultBackend {
   /** Vault'taki tüm .md dosyalarını listele. */
@@ -82,4 +88,12 @@ export interface VaultBackend {
 
   /** Atomik yazmadan artakalan eski yan dosyaları sil; silinen sayısını döner (LOM-18). */
   cleanupStaleTmp?(): Promise<number>;
+
+  /**
+   * Bir klasörün doğrudan girdilerini listele ('' = kasa kökü); klasör yoksa boş dizi.
+   * Nokta ile başlayan girdiler (.git, .trash…) atlanır. listNotes yalnız .md/.excalidraw
+   * döndürdüğü için .json kayıtları bulmak isteyenler bunu kullanır — ör. Alışkanlık/<id>.json
+   * (LOM-54). Adlar diskteki biçimiyle döner (macOS'ta NFD olabilir).
+   */
+  listDir?(dir: string): Promise<DirEntry[]>;
 }
