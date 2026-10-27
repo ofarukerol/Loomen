@@ -3,3 +3,4 @@ export * from "./types";
 export * from "./model";
 export * from "./codec";
 export * from "./store";
+export * from "./view";

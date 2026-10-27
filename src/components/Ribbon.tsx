@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { NotebookPen, Share2, BarChart3, PencilRuler, Settings, Sun, Moon, HelpCircle, Sparkles, Repeat2 } from "lucide-react";
+import { NotebookPen, Share2, BarChart3, PencilRuler, Settings, Sun, Moon, HelpCircle, Sparkles, Repeat2, Sprout } from "lucide-react";
 import { useAppStore, type Screen } from "../store/useAppStore";
 
 const ICON = 21;
@@ -53,6 +53,7 @@ export function Ribbon() {
       </button>
       {btn("graph", t("ribbon.graph"), <Share2 size={ICON} strokeWidth={SW} />)}
       {btn("draw", t("ribbon.draw"), <PencilRuler size={ICON} strokeWidth={SW} />)}
+      {btn("habits", t("ribbon.habit"), <Sprout size={ICON} strokeWidth={SW} />)}
       {srsEnabled && btn("review", t("ribbon.review"), <Repeat2 size={ICON} strokeWidth={SW} />)}
       {btn("reports", t("ribbon.reports"), <BarChart3 size={ICON} strokeWidth={SW} />)}
       {aiEnabled && btn("assistant", t("ribbon.assistant"), <Sparkles size={ICON} strokeWidth={SW} />)}

@@ -111,9 +111,28 @@ import {
   type SrsSettings,
   type SrsState,
 } from "../core/srs";
+import {
+  dayKey as habitDayKey,
+  isFinished as habitIsFinished,
+  isHistoryFilter,
+  isSealed as habitIsSealed,
+  loadHabits,
+  newHabit,
+  newRound as habitNextRound,
+  quitHabit,
+  removeHabit,
+  restart as habitRestartRound,
+  saveHabit,
+  setExcused as habitSetExcused,
+  toggleDay as habitToggle,
+  type Habit,
+  type HabitHistoryFilter,
+  type HabitVault,
+  type NewHabitInput,
+} from "../core/habit";
 
 export type Theme = "light" | "dark";
-export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help" | "assistant" | "review";
+export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help" | "assistant" | "review" | "habits";
 export type PlannerLayout = "timeline" | "board";
 export type Lang = "tr" | "en" | "ar";
 export type EditorTab = "daily" | "proje" | "fikirler";
@@ -337,6 +356,17 @@ interface AppState {
   /** Seçili deste (null = tüm kasa). */
   srsDeck: string | null;
 
+  // Alışkanlıklar (LOM-55) — veri kasadaki Alışkanlık/<id>.json dosyalarında durur, localStorage'a
+  // yalnız Geçmiş süzgeci girer (bkz partialize).
+  /** Bütün turlar (aktif ve bitmiş), oluşturulma sırasıyla. */
+  habits: Habit[];
+  habitsLoaded: boolean;
+  /** Okunamayan dosyaların adları — ekranda sade bir uyarı satırı; üstlerine asla yazılmaz. */
+  habitBroken: string[];
+  /** Ayrıntısı açık tur (null = liste). */
+  habitDetailId: string | null;
+  habitHistoryFilter: HabitHistoryFilter;
+
   // Pomodoro
   pomo: PomodoroSettings;
   /** Pomodoro başlayınca/bitince ses çal. */
@@ -533,6 +563,27 @@ interface AppState {
   /** Bir kartın geçmişini sıfırla (yeniden öğren). */
   srsResetCard: (id: string) => Promise<void>;
   srsEndSession: () => void;
+
+  // Alışkanlık aksiyonları (LOM-55). Gün anahtarı yerel YYYY-MM-DD.
+  /** Alışkanlık/ klasörünü baştan oku. */
+  habitLoad: () => Promise<void>;
+  /** Yeni alışkanlık (1. tur). Geçersiz girdi (boş ad, ileri tarih) hata atar; kayıt hatası bildirilir, null döner. */
+  habitAdd: (input: NewHabitInput) => Promise<Habit | null>;
+  /** Günün çentiğini aç/kapat (gelecek gün ve bırakılmış tur yok sayılır). */
+  habitToggleDay: (id: string, day: string) => Promise<void>;
+  /** Günün mazeretini aç/kapat. */
+  habitToggleExcused: (id: string, day: string) => Promise<void>;
+  /** Bırak: tur Geçmiş'e "Bırakıldı" olarak iner. */
+  habitQuit: (id: string) => Promise<void>;
+  /** Turu çöp kutusuna taşı (kalıcı silmez). */
+  habitDelete: (id: string) => Promise<void>;
+  /** Aynı süreyle bugünden yeniden başlat; süren tur bırakılır. Yeni turu döner (soyda daha yeni süren tur varsa ya da kayıt olmazsa null). */
+  habitRestart: (id: string) => Promise<Habit | null>;
+  /** Bir tur daha (süre değişebilir); süren tur bırakılır. Yeni turu döner (soyda daha yeni süren tur varsa ya da kayıt olmazsa null). */
+  habitNewRound: (id: string, opts: { days: number; start: string }) => Promise<Habit | null>;
+  /** Ayrıntıyı aç (null = listeye dön). Kimlik verilirse Alışkanlıklar ekranına geçer. */
+  habitOpenDetail: (id: string | null) => void;
+  habitSetHistoryFilter: (f: HabitHistoryFilter) => void;
 }
 
 /** Boş Excalidraw sahnesi (yeni çizim oluştururken). */
@@ -643,6 +694,24 @@ let backend: VaultBackend = createSampleBackend();
 let unwatch: (() => void) | null = null;
 /** Tekrar verisi hangi kasa için yüklendi (kasa değişince baştan okunur). */
 let srsVault: string | null = null;
+
+/**
+ * Alışkanlık kasası: hangi backend için okundu ve son bilinen dosya metinleri (saveHabit
+ * değişmeyen dosyayı bununla yazmaz, yüklenmemiş dosyanın üstüne bununla yazmaz).
+ */
+let habitVault: HabitVault | null = null;
+let habitVaultOf: VaultBackend | null = null;
+/** Okuma ve yazmalar SIRAYLA: okuma her zaman kendinden önceki yazmaların sonucunu görür. */
+let habitOps: Promise<unknown> = Promise.resolve();
+function queueHabitOp<T>(fn: () => Promise<T>): Promise<T> {
+  const next = habitOps.then(fn, fn);
+  habitOps = next.catch(() => {});
+  return next;
+}
+/** Bellekteki her değişiklikte artar: okuma sürerken çentik atıldıysa okuma sonucu bayattır. */
+let habitGen = 0;
+/** Yazma sırasındayken kasa değişti: veri yazılmadı, kullanıcıya hata gösterilmez. */
+class HabitVaultChanged extends Error {}
 
 /**
  * Kasa açma/değiştirme işlemleri SIRAYLA çalışır. bootstrap() ile persist rehydrate'i
@@ -785,7 +854,71 @@ export const useAppStore = create<AppState>()(
     set(patch);
     void refreshTrash();
     void refreshSrs();
+    void refreshHabits();
   }
+
+  /**
+   * Alışkanlıkları kasadan yeniden oku (senkron ya da başka cihaz dosyayı değiştirmiş olabilir).
+   * Kasa değiştiyse eski kasanın turları önce ekrandan kalkar.
+   */
+  async function refreshHabits(): Promise<void> {
+    if (habitVaultOf !== backend) {
+      habitGen++;
+      habitVault = null;
+      habitVaultOf = null;
+      set({ habits: [], habitsLoaded: false, habitBroken: [], habitDetailId: null });
+    }
+    try {
+      await get().habitLoad();
+    } catch (err) {
+      console.error("[habit] alışkanlıklar okunamadı:", err);
+    }
+  }
+
+  /** Alışkanlık kaydı/silme hatası: bildir, diskteki doğruya dön. */
+  async function habitFailed(e: unknown): Promise<void> {
+    if (e instanceof HabitVaultChanged) return; // yeni kasa refreshHabits ile zaten okunuyor
+    console.error("[habit] kaydedilemedi:", e);
+    habitGen++;
+    void get().habitLoad().catch(() => {});
+    await notifyError(i18n.t("habit.saveError", { detail: errText(e) }));
+  }
+
+  /**
+   * Turları bellekte hemen güncelle, sonra sırayla diske yaz. Değişmeyen tur yazılmaz.
+   * Yazma anında kasa değişmişse (başka kasaya geçildi) eski kasaya yazılmaz.
+   */
+  async function habitCommit(changed: Habit[]): Promise<boolean> {
+    if (changed.length === 0) return true;
+    const src = backend;
+    habitGen++;
+    const ids = new Set(changed.map((h) => h.id));
+    const rest = get().habits.filter((h) => !ids.has(h.id));
+    set({ habits: [...rest, ...changed].sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) });
+    try {
+      await queueHabitOp(async () => {
+        if (backend !== src || habitVaultOf !== src || !habitVault) throw new HabitVaultChanged("Kasa değişti");
+        for (const h of changed) await saveHabit(src, h, habitVault);
+      });
+      return true;
+    } catch (e) {
+      await habitFailed(e);
+      return false;
+    }
+  }
+
+  const habitById = (id: string) => get().habits.find((h) => h.id === id) ?? null;
+  const habitToday = () => habitDayKey(new Date());
+
+  /** Yeni tur açılırken eskisi hâlâ sürüyorsa (mühürlü değil) bırakılır: iki aktif kopya kalmasın. */
+  const retire = (h: Habit, today: string): Habit[] =>
+    h.status === "active" && !habitIsFinished(h, today) && !habitIsSealed(h, today) ? [quitHabit(h, Date.now())] : [];
+
+  /** Aynı soyda bu turdan sonra açılmış ve süren bir tur var mı (çift tıklama iki tur açmasın). */
+  const hasNewerLive = (h: Habit, today: string) =>
+    get().habits.some(
+      (x) => x.id !== h.id && x.lineageId === h.lineageId && x.createdAt >= h.createdAt && !habitIsFinished(x, today),
+    );
 
   /**
    * Kartları notlardan yeniden çıkar ve kayıtlı durumlarla eşleştir.
@@ -1229,6 +1362,12 @@ export const useAppStore = create<AppState>()(
     srsAnswered: 0,
     srsShownAt: 0,
     srsDeck: null,
+
+    habits: [],
+    habitsLoaded: false,
+    habitBroken: [],
+    habitDetailId: null,
+    habitHistoryFilter: "all",
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoSound: true,
@@ -3075,6 +3214,108 @@ export const useAppStore = create<AppState>()(
 
     srsEndSession: () => set({ srsQueue: [], srsIndex: 0, srsShow: false }),
 
+    // ——— Alışkanlıklar (LOM-55) ———
+    // NOTE_SAFETY: buradaki hiçbir kod not dosyasına yazmaz. Yalnız Alışkanlık/<id>.json yazılır;
+    // silme çöp kutusuna taşır. Okunamayan dosyanın üstüne yazılmaz (core/habit/store.ts).
+
+    habitLoad: async () => {
+      const src = backend;
+      // Sayaç ÇAĞRI anında alınır: okuma sırada beklerken atılan çentik de onu bayat yapar.
+      const gen = habitGen;
+      await queueHabitOp(async () => {
+        const loaded = await loadHabits(src);
+        if (backend !== src) return; // arada kasa değişti
+        const { habits: disk, ...vault } = loaded;
+        let habits = disk;
+        if (gen !== habitGen) {
+          // Okuma sürerken bellekte değişiklik oldu → bu sonuç bayat. Bu kasa hiç okunmadıysa
+          // (ilk okuma sürerken eklendi) yine de benimsenir: bellekteki yeni kayıtlar diskin
+          // üstüne bindirilir, sıradaki yazma onları dosyaya taşır.
+          if (habitVaultOf === src && habitVault) return;
+          const mem = new Map(get().habits.map((h) => [h.id, h]));
+          habits = [...disk.map((h) => mem.get(h.id) ?? h), ...[...mem.values()].filter((h) => !disk.some((d) => d.id === h.id))];
+          habits.sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        }
+        habitVault = vault;
+        habitVaultOf = src;
+        const detail = get().habitDetailId;
+        set({
+          habits,
+          habitsLoaded: true,
+          habitBroken: vault.broken,
+          // Açık tur başka cihazda silindiyse listeye dön.
+          habitDetailId: detail && habits.some((h) => h.id === detail) ? detail : null,
+        });
+      });
+    },
+
+    habitAdd: async (input) => {
+      const h = newHabit(input, habitToday(), Date.now()); // geçersiz girdi burada hata atar
+      return (await habitCommit([h])) ? h : null;
+    },
+
+    habitToggleDay: async (id, day) => {
+      const h = habitById(id);
+      if (!h) return;
+      const next = habitToggle(h, day, habitToday());
+      if (next !== h) await habitCommit([next]);
+    },
+
+    habitToggleExcused: async (id, day) => {
+      const h = habitById(id);
+      if (!h) return;
+      const next = habitSetExcused(h, day, !h.excused.includes(day), habitToday());
+      if (next !== h) await habitCommit([next]);
+    },
+
+    habitQuit: async (id) => {
+      const h = habitById(id);
+      if (!h) return;
+      const next = quitHabit(h, Date.now());
+      if (next !== h) await habitCommit([next]);
+    },
+
+    habitDelete: async (id) => {
+      if (!habitById(id)) return;
+      const src = backend;
+      habitGen++;
+      set((s) => ({
+        habits: s.habits.filter((h) => h.id !== id),
+        habitDetailId: s.habitDetailId === id ? null : s.habitDetailId,
+      }));
+      try {
+        await queueHabitOp(async () => {
+          if (backend !== src || habitVaultOf !== src || !habitVault) throw new HabitVaultChanged("Kasa değişti");
+          await removeHabit(src, id, habitVault);
+        });
+        void refreshTrash();
+      } catch (e) {
+        await habitFailed(e);
+      }
+    },
+
+    habitRestart: async (id) => {
+      const h = habitById(id);
+      if (!h) return null;
+      const today = habitToday();
+      if (hasNewerLive(h, today)) return null;
+      const next = habitRestartRound(h, today, Date.now());
+      return (await habitCommit([...retire(h, today), next])) ? next : null;
+    },
+
+    habitNewRound: async (id, opts) => {
+      const h = habitById(id);
+      if (!h) return null;
+      const today = habitToday();
+      if (hasNewerLive(h, today)) return null;
+      const next = habitNextRound(h, opts, today, Date.now()); // aralık dışı süre/ileri tarih hata atar
+      return (await habitCommit([...retire(h, today), next])) ? next : null;
+    },
+
+    habitOpenDetail: (id) => set(id ? { habitDetailId: id, screen: "habits" } : { habitDetailId: null }),
+
+    habitSetHistoryFilter: (f) => set({ habitHistoryFilter: isHistoryFilter(f) ? f : "all" }),
+
     srsAnswer: async (g) => {
       const s = get();
       const item = s.srsQueue[s.srsIndex];
@@ -3225,6 +3466,7 @@ export const useAppStore = create<AppState>()(
           taskOrder: p.taskOrder ?? current.taskOrder,
           pomoHistory: p.pomoHistory ?? current.pomoHistory,
           gcalMap: p.gcalMap ?? current.gcalMap,
+          habitHistoryFilter: isHistoryFilter(p.habitHistoryFilter) ? p.habitHistoryFilter : current.habitHistoryFilter,
         };
       },
       onRehydrateStorage: () => (state) => {
@@ -3317,6 +3559,8 @@ export const useAppStore = create<AppState>()(
         aiShowContext: s.aiShowContext,
         aiCanWrite: s.aiCanWrite,
         aiVoiceAutoSend: s.aiVoiceAutoSend,
+        // Alışkanlıklar: yalnız Geçmiş süzgeci. Alışkanlık verisi BURAYA EKLENMEZ — kasada durur.
+        habitHistoryFilter: s.habitHistoryFilter,
       }),
     }
   )

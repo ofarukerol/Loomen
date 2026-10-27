@@ -24,6 +24,7 @@ import { SettingsScreen } from "./screens/Settings/SettingsScreen";
 import { HelpScreen } from "./screens/Help/HelpScreen";
 import { AssistantScreen } from "./screens/Assistant/AssistantScreen";
 import { ReviewScreen } from "./screens/Review/ReviewScreen";
+import { HabitsScreen } from "./screens/Habits/HabitsScreen";
 import { TaskDetail } from "./screens/Planner/TaskDetail";
 import { GitHubDeviceModal } from "./screens/Settings/GitHubSync";
 
@@ -42,6 +43,8 @@ export default function App() {
   const selectTask = useAppStore((s) => s.selectTask);
   const modalLayers = useAppStore((s) => s.modalLayers);
   const platformMobile = useAppStore((s) => s.platformMobile);
+  const habitDetailId = useAppStore((s) => s.habitDetailId);
+  const habitOpenDetail = useAppStore((s) => s.habitOpenDetail);
 
   // Mobil (dar ekran / iOS-Android): sol/sağ panel + üst sekme şeridi yerine alt bar + drawer.
   // Gerçek mobil platform her zaman mobil sayılır (tablet/yatay ekranda genişlik eşiği tutmaz).
@@ -222,6 +225,8 @@ export default function App() {
    */
   const closers: (() => void)[] = [];
   if (screen !== "planner") closers.push(() => setScreen("planner"));
+  // Alışkanlık ayrıntısı ekranın üstünde bir katman: geri önce listeye döner.
+  if (screen === "habits" && habitDetailId) closers.push(() => habitOpenDetail(null));
   if (selectedTask) closers.push(() => selectTask(null));
   if (drawerOpen) closers.push(() => setDrawerOpen(false));
   if (tabsOpen) closers.push(() => setTabsOpen(false));
@@ -313,6 +318,7 @@ export default function App() {
           {screen === "help" && <HelpScreen />}
           {screen === "assistant" && <AssistantScreen />}
           {screen === "review" && <ReviewScreen />}
+          {screen === "habits" && <HabitsScreen />}
         </div>
       </div>
       {!isMobile && showRight && <RightPanel />}

@@ -11,7 +11,8 @@
     "draw": "Draw",
     "help": "Help",
     "assistant": "Assistant",
-    "review": "Review"
+    "review": "Review",
+    "habit": "Habits"
   },
   "reports": {
     "title": "Reports",
@@ -1166,5 +1167,128 @@
     "downloadingPct": "Downloading update… {{pct}}%",
     "failed": "The update couldn't be installed. You can try again.",
     "checkFailed": "Couldn't get version info. Check your internet connection."
+  },
+  "habit": {
+    "title": "Habits",
+    "add": "Add habit",
+    "tabActive": "Active",
+    "tabHistory": "History",
+    "back": "Back to list",
+    "close": "Close",
+    "cancel": "Cancel",
+    "openDetail": "Open {{name}}",
+    "openLive": "Go to the running round (round {{n}})",
+    "dayOf": "Day {{day}} / {{total}}",
+    "dayN": "Day {{n}}",
+    "round": "Round {{n}}",
+    "streak_one": "{{count}}-day streak",
+    "streak_other": "{{count}}-day streak",
+    "noStreak": "No streak yet",
+    "percent": "{{n}}%",
+    "todayMark": "Mark today",
+    "todayDone": "Done today",
+    "todayExcused": "Excused today",
+    "sealedLine": "Round complete. It moves to History tomorrow.",
+    "sealUnit_one": "{{count}} day",
+    "sealUnit_other": "{{count}} days",
+    "allDone": "All done for today.",
+    "noActive": "No habit is running right now.",
+    "broken_one": "{{count}} habit file couldn't be read and was left as is:",
+    "broken_other": "{{count}} habit files couldn't be read and were left as is:",
+    "saveError": "Couldn't save the habit: {{detail}}",
+    "emptyTitle": "Add your first habit",
+    "emptyBody": "Pick a length and make one mark a day. As the row fills up, the habit settles in.",
+    "emptyExample": "For example: a 21-day morning walk, or reading one page every morning for 41 days.",
+    "emptyCta": "Add your first habit",
+    "intentLabel": "Intention",
+    "gridLabel": "{{name}} days",
+    "gridHint": "Tap a day to mark or unmark it. Right-click or long-press for excuse and the day's note.",
+    "newRound": "One more round",
+    "restart": "Start over",
+    "quit": "Quit",
+    "delete": "Delete",
+    "state": {
+      "done": "Done",
+      "today": "Today",
+      "missed": "Missed",
+      "excused": "Excused",
+      "future": "Upcoming"
+    },
+    "sum": {
+      "done": "Done",
+      "rate": "Success",
+      "longest": "Longest streak",
+      "left": "Days left"
+    },
+    "outcome": {
+      "completed": "Completed",
+      "ended": "Ended · {{done}}/{{total}}",
+      "quit": "Quit"
+    },
+    "filter": {
+      "label": "Filter history",
+      "all": "All",
+      "completed": "Completed",
+      "quit": "Quit"
+    },
+    "history": {
+      "empty": "Finished and quit habits will show up here.",
+      "emptyFilter": "Nothing matches this filter.",
+      "rounds_one": "{{count}} round",
+      "rounds_other": "{{count}} rounds",
+      "openActive": "Go to the running round"
+    },
+    "menu": {
+      "done": "Mark as done",
+      "undo": "Remove mark",
+      "excuse": "Mark as excused",
+      "excuseHint": "Keeps the streak",
+      "unexcuse": "Remove excuse",
+      "openNote": "Open the day's note",
+      "noNote": "No note for this day"
+    },
+    "confirm": {
+      "quitTitle": "Quit {{name}}?",
+      "quitBody": "The round ends here and moves to History as \"Quit\". Your marks stay as they are.",
+      "restartTitle": "Start {{name}} over?",
+      "restartBody_one": "This round is quit and a new {{count}}-day round starts today. The old round stays in History.",
+      "restartBody_other": "This round is quit and a new {{count}}-day round starts today. The old round stays in History.",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteBody": "This round's file moves to the vault's trash and disappears from History too."
+    },
+    "color": {
+      "terra": "Terracotta",
+      "teal": "Teal",
+      "amber": "Amber",
+      "green": "Green",
+      "purple": "Purple",
+      "red": "Red",
+      "charcoal": "Charcoal"
+    },
+    "form": {
+      "title": "New habit",
+      "roundTitle": "One more round",
+      "name": "Name",
+      "namePlaceholder": "e.g. Morning walk",
+      "nameRequired": "Give it a name.",
+      "icon": "Icon",
+      "color": "Color",
+      "duration": "Length",
+      "custom": "Custom",
+      "customLabel": "Custom length ({{min}}-{{max}} days)",
+      "customRange": "Enter a number of days between {{min}} and {{max}}.",
+      "days": "days",
+      "start": "Start",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "startDate": "Start date",
+      "noFuture": "Pick today or an earlier day.",
+      "intent": "Intention",
+      "optional": "(optional)",
+      "intentPlaceholder": "Why am I starting?",
+      "add": "Add",
+      "startRound": "Start round",
+      "roundExists": "This habit already has a running round."
+    }
   }
 }

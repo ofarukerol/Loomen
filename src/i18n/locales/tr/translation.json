@@ -14,7 +14,8 @@
     "draw": "Çizim",
     "help": "Yardım",
     "assistant": "Asistan",
-    "review": "Tekrar"
+    "review": "Tekrar",
+    "habit": "Alışkanlıklar"
   },
   "reports": {
     "title": "Raporlar",
@@ -1166,5 +1167,128 @@
     "downloadingPct": "Güncelleme indiriliyor… %{{pct}}",
     "failed": "Güncelleme kurulamadı. Tekrar deneyebilirsin.",
     "checkFailed": "Sürüm bilgisi alınamadı. İnternet bağlantını kontrol et."
+  },
+  "habit": {
+    "title": "Alışkanlıklar",
+    "add": "Alışkanlık ekle",
+    "tabActive": "Aktif",
+    "tabHistory": "Geçmiş",
+    "back": "Listeye dön",
+    "close": "Kapat",
+    "cancel": "Vazgeç",
+    "openDetail": "{{name}} ayrıntısını aç",
+    "openLive": "Süren tura geç ({{n}}. tur)",
+    "dayOf": "Gün {{day}} / {{total}}",
+    "dayN": "Gün {{n}}",
+    "round": "{{n}}. tur",
+    "streak_one": "{{count}} gün üst üste",
+    "streak_other": "{{count}} gün üst üste",
+    "noStreak": "Seri henüz başlamadı",
+    "percent": "%{{n}}",
+    "todayMark": "Bugünü işaretle",
+    "todayDone": "Bugün yapıldı",
+    "todayExcused": "Bugün mazeretli",
+    "sealedLine": "Tur tamamlandı. Yarın Geçmiş'e geçer.",
+    "sealUnit_one": "{{count}} gün",
+    "sealUnit_other": "{{count}} gün",
+    "allDone": "Bugünün hepsi tamam.",
+    "noActive": "Şu an süren bir alışkanlık yok.",
+    "broken_one": "{{count}} alışkanlık dosyası okunamadı, olduğu gibi bırakıldı:",
+    "broken_other": "{{count}} alışkanlık dosyası okunamadı, olduğu gibi bırakıldı:",
+    "saveError": "Alışkanlık kaydedilemedi: {{detail}}",
+    "emptyTitle": "İlk alışkanlığını ekle",
+    "emptyBody": "Bir süre seç, her gün bir çentik at. Dizi doldukça alışkanlık yerleşir.",
+    "emptyExample": "Örnek: 21 gün sabah yürüyüşü ya da 41 gün her sabah bir sayfa okumak.",
+    "emptyCta": "İlk alışkanlığını ekle",
+    "intentLabel": "Niyet",
+    "gridLabel": "{{name}} gün dizisi",
+    "gridHint": "Bir güne dokun: çentik at ya da kaldır. Sağ tık ya da uzun basış: mazeret ve günün notu.",
+    "newRound": "Bir tur daha",
+    "restart": "Yeniden başlat",
+    "quit": "Bırak",
+    "delete": "Sil",
+    "state": {
+      "done": "Yapıldı",
+      "today": "Bugün",
+      "missed": "Kaçırıldı",
+      "excused": "Mazeretli",
+      "future": "Gelecek"
+    },
+    "sum": {
+      "done": "Tamamlanan",
+      "rate": "Başarı",
+      "longest": "En uzun seri",
+      "left": "Kalan gün"
+    },
+    "outcome": {
+      "completed": "Tamamlandı",
+      "ended": "Bitti · {{done}}/{{total}}",
+      "quit": "Bırakıldı"
+    },
+    "filter": {
+      "label": "Geçmişi süz",
+      "all": "Hepsi",
+      "completed": "Tamamlanan",
+      "quit": "Bırakılan"
+    },
+    "history": {
+      "empty": "Biten ya da bırakılan alışkanlıklar burada görünecek.",
+      "emptyFilter": "Bu süzgece uyan kayıt yok.",
+      "rounds_one": "{{count}} tur",
+      "rounds_other": "{{count}} tur",
+      "openActive": "Süren tura geç"
+    },
+    "menu": {
+      "done": "Yapıldı olarak işaretle",
+      "undo": "Çentiği kaldır",
+      "excuse": "Mazeretli say",
+      "excuseHint": "Seriyi bozmaz",
+      "unexcuse": "Mazereti kaldır",
+      "openNote": "Günün notunu aç",
+      "noNote": "Bu günün notu yok"
+    },
+    "confirm": {
+      "quitTitle": "{{name}} bırakılsın mı?",
+      "quitBody": "Tur burada kapanır ve Geçmiş'e \"Bırakıldı\" olarak iner. Attığın çentikler olduğu gibi kalır.",
+      "restartTitle": "{{name}} yeniden başlasın mı?",
+      "restartBody_one": "Bu tur bırakılır ve bugünden yeni bir {{count}} günlük tur başlar. Eski tur Geçmiş'te kalır.",
+      "restartBody_other": "Bu tur bırakılır ve bugünden yeni bir {{count}} günlük tur başlar. Eski tur Geçmiş'te kalır.",
+      "deleteTitle": "{{name}} silinsin mi?",
+      "deleteBody": "Bu turun dosyası kasanın çöp kutusuna taşınır ve Geçmiş'ten de kalkar."
+    },
+    "color": {
+      "terra": "Kiremit",
+      "teal": "Deniz",
+      "amber": "Kehribar",
+      "green": "Yeşil",
+      "purple": "Mor",
+      "red": "Kırmızı",
+      "charcoal": "Kömür"
+    },
+    "form": {
+      "title": "Yeni alışkanlık",
+      "roundTitle": "Bir tur daha",
+      "name": "Ad",
+      "namePlaceholder": "Ör. Sabah yürüyüşü",
+      "nameRequired": "Bir ad yaz.",
+      "icon": "Simge",
+      "color": "Renk",
+      "duration": "Süre",
+      "custom": "Özel",
+      "customLabel": "Özel süre ({{min}}-{{max}} gün)",
+      "customRange": "{{min}} ile {{max}} arasında bir gün sayısı yaz.",
+      "days": "gün",
+      "start": "Başlangıç",
+      "today": "Bugün",
+      "yesterday": "Dün",
+      "startDate": "Başlangıç tarihi",
+      "noFuture": "Bugün ya da daha önceki bir gün seç.",
+      "intent": "Niyet",
+      "optional": "(isteğe bağlı)",
+      "intentPlaceholder": "Neden başlıyorum?",
+      "add": "Ekle",
+      "startRound": "Turu başlat",
+      "roundExists": "Bu alışkanlığın süren bir turu zaten var."
+    }
   }
 }
