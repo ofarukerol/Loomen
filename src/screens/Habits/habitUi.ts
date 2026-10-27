@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { format } from "date-fns";
 import { tr, enUS, ar } from "date-fns/locale";
-import { dayKey, endKey, parseKey, type Habit, type HabitColor } from "../../core/habit";
+import { dayKey, finishedOn, parseKey, type Habit, type HabitColor } from "../../core/habit";
 import { dailyPathFor } from "../../core/vault";
 
 const LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
@@ -135,9 +135,5 @@ export function dailyNoteFor(key: string, notePaths: string[]): string | null {
 
 /** Bırakılan turun bırakma günü (son günden sonra olamaz); bırakılmadıysa null. */
 export function quitDay(habit: Habit): string | null {
-  if (habit.status !== "quit") return null;
-  const end = endKey(habit);
-  if (habit.quitAt == null || !Number.isFinite(habit.quitAt)) return end;
-  const q = dayKey(new Date(habit.quitAt));
-  return q < end ? q : end;
+  return habit.status === "quit" ? finishedOn(habit) : null;
 }

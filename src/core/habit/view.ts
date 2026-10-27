@@ -3,7 +3,7 @@
 // Ekran ne göstereceğine burada karar verir: Aktif listede kim, hangi sırayla; mühür ne zaman;
 // son 7 gün şeridi; Geçmiş'in soy grupları ve süzgeci. React/i18n/dosya yok — node testi koşar.
 
-import { addDays, cellState, endKey, isFinished, outcome } from "./model";
+import { addDays, cellState, dayIndex, endKey, isFinished, outcome } from "./model";
 import type { CellState, Habit, Outcome } from "./types";
 
 /** Geçmiş süzgeci — localStorage'a giren tek alışkanlık ayarı. */
@@ -97,13 +97,43 @@ const localKey = (ms: number) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-function finishedOn(habit: Habit): string {
+/** Turun kapandığı gün: bırakıldıysa bırakma günü (son günden sonra olamaz), değilse son gün. */
+export function finishedOn(habit: Habit): string {
   const end = endKey(habit);
   if (habit.status === "quit" && habit.quitAt != null && Number.isFinite(habit.quitAt)) {
     const q = localKey(habit.quitAt);
     return q < end ? q : end;
   }
   return end;
+}
+
+/**
+ * Bırakılan turun bırakma gününün tur içindeki sırası (1 tabanlı, 1..days); bırakılmadıysa null.
+ * Bırakma anı başlangıçtan önceyse 1 sayılır.
+ */
+export function quitDayNo(habit: Habit): number | null {
+  if (habit.status !== "quit") return null;
+  return Math.min(Math.max(dayIndex(habit, finishedOn(habit)), 1), habit.days);
+}
+
+/**
+ * Önceki sırayı koru: `prevIds` sırasıyla hâlâ listede olan turlar (güncel nesneleriyle), ardından
+ * öncekinde olmayan yeniler kendi sıralarıyla. Çentik atılan kart parmağın altından kaçmasın diye.
+ */
+export function keepOrder(prevIds: string[], next: Habit[]): Habit[] {
+  if (prevIds.length === 0) return next;
+  const byId = new Map(next.map((h) => [h.id, h]));
+  const seen = new Set<string>();
+  const out: Habit[] = [];
+  for (const id of prevIds) {
+    const h = byId.get(id);
+    if (h && !seen.has(id)) {
+      out.push(h);
+      seen.add(id);
+    }
+  }
+  for (const h of next) if (!seen.has(h.id)) out.push(h);
+  return out;
 }
 
 function passes(o: Outcome, filter: HabitHistoryFilter): boolean {

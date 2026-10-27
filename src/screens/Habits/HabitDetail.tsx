@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Flag, RotateCcw, Repeat, Trash2, ArrowRight } from "lucide-react";
-import { dayIndex, endKey, isFinished, isSealed, outcome, stats, type Habit } from "../../core/habit";
+import { dayIndex, endKey, isFinished, isSealed, outcome, quitDayNo, stats, type Habit } from "../../core/habit";
 import { useAppStore } from "../../store/useAppStore";
 import { HabitRing } from "./HabitRing";
 import { HabitGrid } from "./HabitGrid";
@@ -20,10 +20,13 @@ export function HabitDetail({
   habit,
   today,
   onNewRound,
+  onQuit,
 }: {
   habit: Habit;
   today: string;
   onNewRound: (h: Habit) => void;
+  /** Bırakma kaydedildi, ayrıntı kapandı: liste Geçmiş'e geçer (LOM-58). */
+  onQuit?: (h: Habit) => void;
 }) {
   const { t, i18n } = useTranslation();
   const habits = useAppStore((s) => s.habits);
@@ -44,11 +47,22 @@ export function HabitDetail({
   const res = outcome(habit, today);
   const dayNo = finished ? habit.days : Math.min(Math.max(dayIndex(habit, today), 1), habit.days);
   const marked = st.completed + st.excused;
+  // Bırakılan turda "Gün 41 / 41" yerine bırakma günü yazar (LOM-58).
+  const qNo = quitDayNo(habit);
 
   const newerLive = habits.find(
     (x) => x.id !== habit.id && x.lineageId === habit.lineageId && x.createdAt >= habit.createdAt && !isFinished(x, today),
   );
   const live = !finished && !quit;
+
+  // Kayıt düşerse store geri alır ve hata şeridi çıkar; o zaman ayrıntı açık kalır.
+  const quitNow = async () => {
+    await habitQuit(habit.id);
+    const saved = useAppStore.getState().habits.find((h) => h.id === habit.id);
+    if (saved?.status !== "quit") return;
+    openDetail(null);
+    onQuit?.(saved);
+  };
 
   const restart = async () => {
     const h = await habitRestart(habit.id);
@@ -71,7 +85,9 @@ export function HabitDetail({
         <div className="lo-hab-detail__titles">
           <h1 className="lo-hab-detail__name">{habit.name}</h1>
           <div className="lo-hab-detail__meta">
-            <span className="lo-hab-detail__day">{t("habit.dayOf", { day: dayNo, total: habit.days })}</span>
+            <span className="lo-hab-detail__day">
+              {qNo != null ? t("habit.quitOnDay", { n: qNo }) : t("habit.dayOf", { day: dayNo, total: habit.days })}
+            </span>
             {habit.round > 1 && <span className="lo-hab-card__round">{t("habit.round", { n: habit.round })}</span>}
             {res && <OutcomeBadge outcome={res} />}
             {sealed && <span className="lo-hab-badge is-completed">{t("habit.outcome.completed")}</span>}
@@ -87,7 +103,7 @@ export function HabitDetail({
         </blockquote>
       )}
 
-      <dl className="lo-hab-summary">
+      <dl className={"lo-hab-summary" + (quit ? " lo-hab-summary--three" : "")}>
         <div className="lo-hab-summary__item">
           <dt>{t("habit.sum.done")}</dt>
           <dd>
@@ -103,10 +119,12 @@ export function HabitDetail({
           <dt>{t("habit.sum.longest")}</dt>
           <dd>{st.longestStreak}</dd>
         </div>
-        <div className="lo-hab-summary__item">
-          <dt>{t("habit.sum.left")}</dt>
-          <dd>{finished ? 0 : st.remaining}</dd>
-        </div>
+        {!quit && (
+          <div className="lo-hab-summary__item">
+            <dt>{t("habit.sum.left")}</dt>
+            <dd>{finished ? 0 : st.remaining}</dd>
+          </div>
+        )}
       </dl>
 
       <section className="lo-hab-detail__grid">
@@ -169,7 +187,7 @@ export function HabitDetail({
           title={t("habit.confirm.quitTitle", { name: habit.name })}
           body={t("habit.confirm.quitBody")}
           confirmLabel={t("habit.quit")}
-          onConfirm={() => habitQuit(habit.id)}
+          onConfirm={quitNow}
           onClose={() => setAsk(null)}
         />
       )}

@@ -10,8 +10,10 @@ import {
   isHistoryFilter,
   isMilestone,
   isSealed,
+  keepOrder,
   lastSevenStrip,
   markedToday,
+  quitDayNo,
   type Habit,
 } from "../habit";
 
@@ -160,6 +162,36 @@ check("yeniden başlatılan tur aynı grupta, yenisi başta", xs.length === 1 &&
 // Bozuk bırakma anı kapanışı son günün ötesine taşımaz.
 const late = mk({ id: "z", start: "2026-09-01", days: 7, status: "quit", quitAt: new Date(2026, 9, 1).getTime() });
 check("bırakma anı son günden sonraysa son gün", historyGroups([late], TODAY)[0]?.items[0]?.finishedOn === "2026-09-07");
+
+// Bırakma günü sırası (LOM-58).
+const q41 = mk({ start: "2026-10-01", days: 41, status: "quit", quitAt: new Date(2026, 9, 11, 15).getTime() });
+check("quitDayNo: 41 günlük tur 11 Ekim'de bırakıldı → 11", quitDayNo(q41) === 11, String(quitDayNo(q41)));
+const qLate = mk({ start: "2026-09-01", days: 7, status: "quit", quitAt: new Date(2026, 9, 1).getTime() });
+check("quitDayNo: bırakma anı son günden sonra → days", quitDayNo(qLate) === 7, String(quitDayNo(qLate)));
+const qNone = mk({ start: "2026-09-01", days: 21, status: "quit" });
+check("quitDayNo: quitAt yoksa → days", quitDayNo(qNone) === 21, String(quitDayNo(qNone)));
+const qEarly = mk({ start: "2026-10-10", days: 21, status: "quit", quitAt: new Date(2026, 9, 5).getTime() });
+check("quitDayNo: bırakma başlangıçtan önce → 1", quitDayNo(qEarly) === 1, String(quitDayNo(qEarly)));
+check("quitDayNo: aktif tur → null", quitDayNo(mk()) === null);
+
+// Sabit kart sırası (LOM-58).
+const o1 = mk({ id: "o1" });
+const o2 = mk({ id: "o2" });
+const o3 = mk({ id: "o3" });
+const o2b = { ...o2, done: [TODAY] };
+const ko1 = keepOrder(["o1", "o2", "o3"], [o1, o3, o2b]);
+check(
+  "keepOrder: aynı küme farklı sırada → önceki sıra, güncel nesne",
+  ko1.map((h) => h.id).join(",") === "o1,o2,o3" && ko1[1] === o2b,
+  ko1.map((h) => h.id).join(","),
+);
+const o4 = mk({ id: "o4" });
+const ko2 = keepOrder(["o2", "o1"], [o4, o1, o2]);
+check("keepOrder: yeni kimlik sona eklenir", ko2.map((h) => h.id).join(",") === "o2,o1,o4", ko2.map((h) => h.id).join(","));
+const ko3 = keepOrder(["o1", "o2", "o3"], [o3, o1]);
+check("keepOrder: listeden çıkan düşer", ko3.map((h) => h.id).join(",") === "o1,o3", ko3.map((h) => h.id).join(","));
+const nx = [o3, o1];
+check("keepOrder: boş önceki sıra → next aynen", keepOrder([], nx) === nx);
 
 console.log(fails === 0 ? "\nHepsi geçti." : `\n${fails} test başarısız.`);
 process.exit(fails === 0 ? 0 : 1);

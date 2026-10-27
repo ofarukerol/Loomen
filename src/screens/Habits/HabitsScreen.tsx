@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Sprout, CheckCheck, AlertTriangle } from "lucide-react";
-import { activeHabits, allDoneToday, historyGroups, type Habit } from "../../core/habit";
+import { Plus, Sprout, CheckCheck, AlertTriangle, History } from "lucide-react";
+import { activeHabits, allDoneToday, historyGroups, keepOrder, type Habit } from "../../core/habit";
 import { useAppStore } from "../../store/useAppStore";
 import { HabitCard } from "./HabitCard";
 import { HabitDetail } from "./HabitDetail";
@@ -25,6 +25,10 @@ export function HabitsScreen() {
   const today = useToday();
   const [tab, setTab] = useState<Tab>("active");
   const [form, setForm] = useState<HabitFormMode | null>(null);
+  // Bırakılan turun adı: "… Geçmiş'e taşındı" satırı 3 sn görünür (LOM-58).
+  const [notice, setNotice] = useState<string | null>(null);
+  // Aktif kartların gösterilen sırası: çentik atınca kart parmağın altından kaçmasın (LOM-58).
+  const [order, setOrder] = useState<string[]>([]);
 
   // Kasa açılışında store zaten okur; ekran ondan önce açıldıysa (ya da okuma düştüyse) bir kez dene.
   useEffect(() => {
@@ -38,6 +42,29 @@ export function HabitsScreen() {
     [habits, today],
   );
   const detail = detailId ? habits.find((h) => h.id === detailId) ?? null : null;
+
+  useEffect(() => {
+    if (!notice) return;
+    const id = setTimeout(() => setNotice(null), 3000);
+    return () => clearTimeout(id);
+  }, [notice]);
+
+  // Sıra liste görünür olunca (ilk çizim, sekmeye dönüş, ayrıntıdan dönüş) ve aktif tur kümesi
+  // değişince yenilenir; yalnız bugünün işareti değişince dokunulmaz. Boya öncesi çalışır ki
+  // eski sıra bir kare bile görünmesin.
+  const listVisible = !detail && tab === "active";
+  const activeKey = useMemo(() => active.map((h) => h.id).sort().join("|"), [active]);
+  useLayoutEffect(() => {
+    if (listVisible) setOrder(active.map((h) => h.id));
+  }, [listVisible, activeKey]);
+  const shown = useMemo(() => keepOrder(order, active), [order, active]);
+
+  const onQuit = (h: Habit) => {
+    setTab("history");
+    setNotice(h.name);
+    const st = useAppStore.getState();
+    if (st.habitHistoryFilter === "completed") st.habitSetHistoryFilter("all");
+  };
 
   const openNew = () => setForm({ kind: "new" });
   const openRound = (from: Habit) => setForm({ kind: "round", from });
@@ -61,7 +88,7 @@ export function HabitsScreen() {
 
   let body;
   if (detail) {
-    body = <HabitDetail key={detail.id} habit={detail} today={today} onNewRound={openRound} />;
+    body = <HabitDetail key={detail.id} habit={detail} today={today} onNewRound={openRound} onQuit={onQuit} />;
   } else {
     body = (
       <>
@@ -76,6 +103,13 @@ export function HabitsScreen() {
         </header>
 
         {brokenLine}
+
+        {notice && (
+          <div className="lo-hab-notice" role="status">
+            <History size={16} strokeWidth={2} aria-hidden />
+            {t("habit.movedToHistory", { name: notice })}
+          </div>
+        )}
 
         {habits.length > 0 && (
           <div className="lo-hab-tabs" role="tablist" aria-label={t("habit.title")}>
@@ -129,7 +163,7 @@ export function HabitsScreen() {
                 </div>
               )}
               <div className="lo-hab-list">
-                {active.map((h) => (
+                {shown.map((h) => (
                   <HabitCard key={h.id} habit={h} today={today} />
                 ))}
               </div>

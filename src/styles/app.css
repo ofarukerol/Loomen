@@ -2952,7 +2952,6 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   cursor: pointer;
 }
 .lo-mtop__item:active { background: var(--line-soft); }
-.lo-mtop__item--empty { color: var(--fg3); cursor: default; }
 
 /* ---- Alt toolbar (yüzen pill) ---- */
 .lo-mbar {
@@ -3938,6 +3937,17 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 }
 .lo-hab-alldone > svg { color: var(--success); flex-shrink: 0; }
 
+/* Bırakılan tur Geçmiş'e indi: kısa bilgi satırı (LOM-58). */
+.lo-hab-notice {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 14px; padding: 10px 14px;
+  font-size: 13.5px; color: var(--fg2);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  border-radius: var(--radius-md);
+  animation: loFade 0.3s ease both;
+}
+.lo-hab-notice > svg { color: var(--accent); flex-shrink: 0; }
+
 .lo-hab-quiet {
   display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 44px 20px;
   font-size: 13.5px; color: var(--fg3); text-align: center;
@@ -4089,9 +4099,9 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 
 /* — Ayrıntı — */
 .lo-hab-detail { animation: loFade 0.22s ease both; }
-.lo-hab-detail__bar { margin: -8px 0 14px; }
+.lo-hab-detail__bar { margin: -10px 0 12px; }
 .lo-hab-back {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px;
   margin-inline-start: -10px; font-family: inherit; font-size: 13px; color: var(--fg2);
   background: none; border: 0; border-radius: var(--radius-sm); cursor: pointer;
 }
@@ -4119,6 +4129,8 @@ html[lang="ar"] .lo-hab-intent q { font-style: normal; }
 html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
 
 .lo-hab-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+/* Bırakılan turda Kalan gün kutusu yok (LOM-58). */
+.lo-hab-summary--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .lo-hab-summary__item {
   min-width: 0; padding: 12px 14px;
   background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius-lg);
@@ -4196,7 +4208,7 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
 .lo-hab-hint { margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: var(--fg3); }
 
 .lo-hab-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 20px; }
-.lo-hab-actions .lo-btn { min-height: 38px; }
+.lo-hab-actions .lo-btn { min-height: 40px; }
 .lo-hab-btn--ghostdanger { margin-inline-start: auto; color: var(--danger); background: transparent; border-color: transparent; }
 .lo-hab-btn--ghostdanger:hover:not(:disabled) { color: var(--danger); background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
 .lo-hab-btn--danger { color: #fff; background: var(--danger); border-color: var(--danger); }
@@ -4379,7 +4391,7 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
 .lo-hab-round__mid { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .lo-hab-round__pct { font-family: var(--font-mono); font-size: 12px; color: var(--fg2); font-variant-numeric: tabular-nums; }
 .lo-hab-hgroup__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.lo-hab-hgroup__actions .lo-btn { min-height: 36px; }
+.lo-hab-hgroup__actions .lo-btn { min-height: 40px; }
 
 /* — Mobil ve dar ekran — */
 .lo-app.is-mobile .lo-hab__inner { padding: 20px 16px 40px; }
@@ -4402,6 +4414,7 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
 .lo-app.is-mobile .lo-hab-grid__row { gap: 5px; }
 .lo-app.is-mobile .lo-hab-grid { max-width: none; }
 .lo-app.is-mobile .lo-hab-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.lo-app.is-mobile .lo-hab-summary--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .lo-app.is-mobile .lo-hab-summary__item { padding: 10px 12px; }
 .lo-app.is-mobile .lo-hab-actions .lo-btn { flex: 1 1 auto; justify-content: center; }
 .lo-app.is-mobile .lo-hab-btn--ghostdanger { margin-inline-start: 0; }

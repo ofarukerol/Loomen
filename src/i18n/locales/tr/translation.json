@@ -983,7 +983,6 @@
     "noTabs": "Açık sekme yok",
     "more": "Diğer",
     "planner": "Planlayıcı",
-    "noActions": "İşlem yok",
     "home": "Ana sayfa",
     "back": "Geri"
   },
@@ -1181,6 +1180,8 @@
     "openDetail": "{{name}} ayrıntısını aç",
     "openLive": "Süren tura geç ({{n}}. tur)",
     "dayOf": "Gün {{day}} / {{total}}",
+    "quitOnDay": "{{n}}. günde bırakıldı",
+    "movedToHistory": "{{name}} Geçmiş'e taşındı",
     "dayN": "Gün {{n}}",
     "round": "{{n}}. tur",
     "streak_one": "{{count}} gün üst üste",

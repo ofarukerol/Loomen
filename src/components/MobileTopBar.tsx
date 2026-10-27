@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PanelLeft, BookOpen, CalendarDays, MoreVertical, SquarePen } from "lucide-react";
+import { PanelLeft, BookOpen, CalendarDays, MoreVertical, SquarePen, Sprout } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 
 /**
  * Mobil üst bar: solda menü (drawer), sağda günlük-not toggle + ⋮ menü.
  * - Kitap ikonu: planner/başka nottayken → günlük notu açar; günlük nottayken → planlayıcıya döner.
  * - ⋮ menüsü: not editöründeyken okuma/düzenleme modunu değiştirir (masaüstündeki .lo-modetoggle'ın
- *   mobil karşılığı; EditorScreen'deki buton mobilde gizli).
+ *   mobil karşılığı; EditorScreen'deki buton mobilde gizli). Her ekranda Alışkanlıklar'ı açar
+ *   (Ribbon mobilde gizli; LOM-58).
  */
 export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
   const { t } = useTranslation();
@@ -47,6 +48,11 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
     setMenuOpen(false);
   };
 
+  const onHabits = () => {
+    setScreen("habits");
+    setMenuOpen(false);
+  };
+
   return (
     <div className="lo-mtop">
       <button className="lo-mtop__btn" onClick={onMenu} title={t("mobile.menu")} aria-label={t("mobile.menu")}>
@@ -82,14 +88,16 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
           </button>
           {menuOpen && (
             <div className="lo-mtop__dropdown" role="menu">
-              {inEditor ? (
+              {inEditor && (
                 <button className="lo-mtop__item" onClick={() => void onToggleMode()} role="menuitem">
                   {editing ? <BookOpen size={16} strokeWidth={1.9} /> : <SquarePen size={16} strokeWidth={1.9} />}
                   <span>{editing ? t("editor.reading") : t("editor.edit")}</span>
                 </button>
-              ) : (
-                <div className="lo-mtop__item lo-mtop__item--empty">{t("mobile.noActions")}</div>
               )}
+              <button className="lo-mtop__item" onClick={onHabits} role="menuitem">
+                <Sprout size={16} strokeWidth={1.9} />
+                <span>{t("ribbon.habit")}</span>
+              </button>
             </div>
           )}
         </div>

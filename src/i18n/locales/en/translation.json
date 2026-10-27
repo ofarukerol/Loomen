@@ -961,7 +961,6 @@
     "noTabs": "No open tabs",
     "more": "More",
     "planner": "Planner",
-    "noActions": "No actions",
     "home": "Home",
     "back": "Back"
   },
@@ -1181,6 +1180,8 @@
     "openDetail": "Open {{name}}",
     "openLive": "Go to the running round (round {{n}})",
     "dayOf": "Day {{day}} / {{total}}",
+    "quitOnDay": "Quit on day {{n}}",
+    "movedToHistory": "{{name}} moved to History",
     "dayN": "Day {{n}}",
     "round": "Round {{n}}",
     "streak_one": "{{count}}-day streak",
