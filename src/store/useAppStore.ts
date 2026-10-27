@@ -910,7 +910,11 @@ export const useAppStore = create<AppState>()(
   const habitById = (id: string) => get().habits.find((h) => h.id === id) ?? null;
   const habitToday = () => habitDayKey(new Date());
 
-  /** Yeni tur açılırken eskisi hâlâ sürüyorsa (mühürlü değil) bırakılır: iki aktif kopya kalmasın. */
+  /**
+   * Yeni tur açılırken eskisi hâlâ sürüyorsa (mühürlü değil) bırakılır: iki aktif kopya kalmasın.
+   * habitCommit'e yeni turdan SONRA verilir: ikinci yazım düşerse en kötü iki canlı tur kalır
+   * (Süren tura geç ile çözülür); eski tur bırakılıp yeni tur hiç oluşmamış olmaz.
+   */
   const retire = (h: Habit, today: string): Habit[] =>
     h.status === "active" && !habitIsFinished(h, today) && !habitIsSealed(h, today) ? [quitHabit(h, Date.now())] : [];
 
@@ -3300,7 +3304,7 @@ export const useAppStore = create<AppState>()(
       const today = habitToday();
       if (hasNewerLive(h, today)) return null;
       const next = habitRestartRound(h, today, Date.now());
-      return (await habitCommit([...retire(h, today), next])) ? next : null;
+      return (await habitCommit([next, ...retire(h, today)])) ? next : null;
     },
 
     habitNewRound: async (id, opts) => {
@@ -3309,7 +3313,7 @@ export const useAppStore = create<AppState>()(
       const today = habitToday();
       if (hasNewerLive(h, today)) return null;
       const next = habitNextRound(h, opts, today, Date.now()); // aralık dışı süre/ileri tarih hata atar
-      return (await habitCommit([...retire(h, today), next])) ? next : null;
+      return (await habitCommit([next, ...retire(h, today)])) ? next : null;
     },
 
     habitOpenDetail: (id) => set(id ? { habitDetailId: id, screen: "habits" } : { habitDetailId: null }),
