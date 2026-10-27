@@ -7,6 +7,7 @@ import {
   dayList,
   endKey,
   historyGroups,
+  quitDayNo,
   stats,
   type Habit,
   type HabitHistoryFilter,
@@ -129,6 +130,7 @@ function RoundRow({ item, today, showRound }: { item: HistoryItem; today: string
   const kind = item.outcome.kind;
   const sealed = kind === "completed";
   const days = t("habit.sealUnit", { count: h.days });
+  const qNo = h.status === "quit" ? quitDayNo(h) : null;
 
   return (
     <li className="lo-hab-round">
@@ -154,6 +156,7 @@ function RoundRow({ item, today, showRound }: { item: HistoryItem; today: string
         <span className="lo-hab-round__mid">
           <OutcomeBadge outcome={item.outcome} />
           <span className="lo-hab-round__pct">{t("habit.percent", { n: st.percent })}</span>
+          {qNo != null && <span className="lo-hab-round__quit">{t("habit.quitOnDay", { n: qNo })}</span>}
         </span>
         <HabitStrip days={heat} variant="heat" />
         {sealed && (
