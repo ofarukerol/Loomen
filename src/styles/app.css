@@ -4439,3 +4439,71 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
   .lo-modal:has(> .lo-hab-form, > .lo-hab-confirm) { animation: none; }
   .lo-hab-cell:active:not([aria-disabled="true"]), .lo-hab-today:active, .lo-hab-emoji:active { transform: none; }
 }
+
+/* — Sağ paneldeki "Bugünün alışkanlıkları" kartı (LOM-56): satır başına simge, ad, küçük halka,
+   "Gün x / y" ve 40px çentik düğmesi. Dar sütunda (360px mobil) ad kırpılır, gün etiketi düşer. — */
+.lo-hab-side { padding: 12px 14px; margin-bottom: 14px; }
+.lo-hab-side__head {
+  display: flex; align-items: center; gap: 7px;
+  font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--fg3); background: transparent; border: none; padding: 0; cursor: pointer;
+  border-radius: 4px; transition: color 150ms ease;
+}
+.lo-hab-side__head:hover { color: var(--accent); }
+html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
+.lo-hab-side__head:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.lo-hab-side__all {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--fg3); margin-block: 8px 2px;
+}
+.lo-hab-side__all svg { color: var(--accent); flex-shrink: 0; }
+.lo-hab-side__list { list-style: none; margin: 6px 0 0; padding: 0; }
+.lo-hab-side__row {
+  --hab-ink: color-mix(in srgb, var(--hab-c, var(--accent)) 72%, var(--fg1));
+  display: flex; align-items: center; gap: 8px;
+  min-height: 40px; padding-block: 3px; min-width: 0;
+}
+.lo-hab-side__row + .lo-hab-side__row { border-top: 1px solid var(--line); }
+.lo-hab-side__emoji { flex: none; width: 20px; text-align: center; font-size: 15px; line-height: 1; }
+.lo-hab-side__name {
+  flex: 1; min-width: 0; font-size: 13px; color: var(--fg1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color 150ms ease;
+}
+.lo-hab-side__row.is-done .lo-hab-side__name { color: var(--fg3); }
+.lo-hab-side__row .lo-hab-ring { flex: none; }
+.lo-hab-side__day {
+  flex: none; font-family: var(--font-mono); font-size: 11px; color: var(--fg3); white-space: nowrap;
+}
+.lo-hab-side__check {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; margin-inline-end: -4px; padding: 0; cursor: pointer;
+  position: relative; border: none; border-radius: 50%; background: transparent; color: var(--hab-on);
+  transition: transform 150ms ease;
+}
+/* Görünen daire 28px; dokunma alanı düğmenin tamamı (40px). */
+.lo-hab-side__check::before {
+  content: ""; position: absolute; width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--hab-c) 60%, var(--line)); background: var(--hab-c-soft);
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+.lo-hab-side__check > svg { position: relative; }
+@media (hover: hover) {
+  .lo-hab-side__check:hover::before { border-color: var(--hab-c); box-shadow: 0 0 0 3px var(--hab-c-soft); }
+}
+.lo-hab-side__check:focus-visible { outline: none; }
+.lo-hab-side__check:focus-visible::before { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 4px var(--hab-c); }
+.lo-hab-side__check:active { transform: scale(0.92); }
+.lo-hab-side__check.is-on::before { background: var(--hab-c); border-color: var(--hab-c); animation: loHabPop 0.24s ease both; }
+.lo-hab-side__check.is-excused { color: var(--hab-ink); }
+.lo-hab-side__check.is-excused::before { border-style: dashed; }
+
+/* Dar sağ sütun ve mobil: gün etiketi yer kaplamasın, halka ilerlemeyi zaten gösteriyor. */
+@media (max-width: 380px) {
+  .lo-hab-side__day { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lo-hab-side *, .lo-hab-side *::before { animation: none !important; transition: none !important; }
+  .lo-hab-side__check:active { transform: none; }
+}

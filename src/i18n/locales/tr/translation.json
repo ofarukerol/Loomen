@@ -1169,6 +1169,8 @@
     "checkFailed": "Sürüm bilgisi alınamadı. İnternet bağlantını kontrol et."
   },
   "habit": {
+    "todayTitle": "Bugünün alışkanlıkları",
+    "uncheck": "Çentiği kaldır",
     "title": "Alışkanlıklar",
     "add": "Alışkanlık ekle",
     "tabActive": "Aktif",

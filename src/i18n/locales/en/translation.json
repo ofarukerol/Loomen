@@ -1169,6 +1169,8 @@
     "checkFailed": "Couldn't get version info. Check your internet connection."
   },
   "habit": {
+    "todayTitle": "Today's habits",
+    "uncheck": "Uncheck",
     "title": "Habits",
     "add": "Add habit",
     "tabActive": "Active",
