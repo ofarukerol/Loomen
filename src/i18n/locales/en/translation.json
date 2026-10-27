@@ -1204,6 +1204,7 @@
     "emptyExample": "For example: a 21-day morning walk, or reading one page every morning for 41 days.",
     "emptyCta": "Add your first habit",
     "intentLabel": "Intention",
+    "milestones": "Milestones",
     "gridLabel": "{{name}} days",
     "gridHint": "Tap a day to mark or unmark it. Right-click or long-press for excuse and the day's note.",
     "newRound": "One more round",

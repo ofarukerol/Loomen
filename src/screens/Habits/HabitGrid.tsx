@@ -168,7 +168,7 @@ export function HabitGrid({
                   onPointerCancel={press.onPointerCancel}
                   onPointerLeave={press.onPointerLeave}
                 >
-                  <span className="lo-hab-cell__no">{c.no}</span>
+                  <span className={"lo-hab-cell__no" + (milestone ? " is-ms" : "")}>{c.no}</span>
                   <CellMark state={c.state} />
                 </button>
               );

@@ -44,6 +44,8 @@ export function HabitRing({
           // Boş halkada yuvarlak uç bir nokta gibi görünmesin.
           opacity={v > 0 ? 1 : 0}
         />
+        {/* Boş halkada saat 12'de başlangıç noktası (svg -90° döndüğü için x ekseninde). */}
+        <circle cx={c + r} cy={c} r={stroke / 2} className="lo-hab-ring__start" opacity={v > 0 ? 0 : 1} />
       </svg>
       {children != null && <span className="lo-hab-ring__inner">{children}</span>}
     </div>

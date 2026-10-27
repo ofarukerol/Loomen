@@ -3926,6 +3926,7 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
   text-align: center; color: var(--fg3); background: var(--line-soft); border-radius: 999px;
 }
 .lo-hab-tab.is-on .lo-hab-tab__count { color: var(--accent); background: var(--accent-soft); }
+[data-theme="dark"] .lo-hab-tab__count { color: var(--fg2); background: color-mix(in srgb, var(--bg) 70%, var(--line-soft)); }
 
 .lo-hab-alldone {
   display: flex; align-items: center; gap: 9px; margin-bottom: 14px; padding: 10px 14px;
@@ -3978,6 +3979,8 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 }
 .lo-hab-ring__inner { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .lo-hab-ring.is-full .lo-hab-ring__track { stroke: var(--hab-c-soft, var(--accent-soft)); }
+/* Boş halkada saat 12'de başlangıç noktası; ilk çentikte söner. */
+.lo-hab-ring__start { fill: var(--hab-c, var(--accent)); transition: opacity var(--dur-base); }
 
 /* — Aktif liste ve kart — */
 .lo-hab-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 14px; }
@@ -4011,6 +4014,7 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 }
 .lo-hab-card__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
 .lo-hab-card__day { font-family: var(--font-mono); font-size: 12.5px; color: var(--fg2); font-variant-numeric: tabular-nums; }
+.lo-hab-card__day.is-first { color: var(--hab-ink); font-weight: 700; }
 .lo-hab-card__round {
   display: inline-flex; align-items: center; padding: 1px 8px; font-size: 11px; font-weight: 600;
   color: var(--hab-ink); background: var(--hab-c-soft); border-radius: 999px; white-space: nowrap;
@@ -4088,14 +4092,17 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 .lo-hab-strip__day.is-today { background: transparent; box-shadow: inset 0 0 0 1.5px var(--hab-c); }
 .lo-hab-strip__day.is-future { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
 .lo-hab-strip__day.is-out { background: transparent; }
-.lo-hab-strip--heat { gap: 2px; }
-.lo-hab-strip--heat .lo-hab-strip__day { height: 9px; border-radius: 2px; }
-/* Uzun turlarda (60+ gün) aralık kalkar: şerit taşmadan tek bant olur. */
-.lo-hab-strip--heat:has(> :nth-child(31)) { gap: 1px; }
-.lo-hab-strip--heat:has(> :nth-child(61)) { gap: 0; }
-.lo-hab-strip--heat:has(> :nth-child(61)) .lo-hab-strip__day { border-radius: 0; }
-.lo-hab-strip--heat:has(> :nth-child(61)) .lo-hab-strip__day:first-child { border-start-start-radius: 2px; border-end-start-radius: 2px; }
-.lo-hab-strip--heat:has(> :nth-child(61)) .lo-hab-strip__day:last-child { border-start-end-radius: 2px; border-end-end-radius: 2px; }
+/* Kartta son 7 gün: okunur kare hücre, altında gün harfi; bugün vurgulu. */
+.lo-hab-strip--week { gap: 6px; }
+.lo-hab-strip__col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.lo-hab-strip--week .lo-hab-strip__day {
+  flex: none; width: 100%; max-width: 28px; min-width: 12px; height: auto; aspect-ratio: 1; border-radius: 6px;
+}
+.lo-hab-strip__dow { font-size: 10px; line-height: 1; color: var(--fg3); white-space: nowrap; }
+.lo-hab-strip__col.is-now .lo-hab-strip__dow { color: var(--hab-ink); font-weight: 700; }
+/* Geçmiş'te bütün günler: sabit küçük kare, uzun turda satıra kırılır. */
+.lo-hab-strip--heat { flex-wrap: wrap; gap: 3px; }
+.lo-hab-strip--heat .lo-hab-strip__day { flex: 0 0 10px; width: 10px; height: 10px; border-radius: 2px; }
 
 /* — Ayrıntı — */
 .lo-hab-detail { animation: loFade 0.22s ease both; }
@@ -4146,10 +4153,12 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
   padding: 18px; background: var(--bg-elev); border: 1px solid var(--line);
   border-radius: var(--radius-xl); box-shadow: var(--sh1);
 }
+/* Dizi ve yan sütun yan yana; yer kalmazsa yan sütun alta düşer. */
+.lo-hab-gridwrap { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px; }
 
 /* — Gün dizisi — */
-.lo-hab-grid { display: flex; flex-direction: column; gap: 7px; max-width: 448px; }
-.lo-hab-grid__row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 7px; }
+.lo-hab-grid { display: flex; flex-direction: column; gap: 8px; flex: 0 1 496px; min-width: 0; }
+.lo-hab-grid__row { display: grid; grid-template-columns: repeat(7, minmax(0, 64px)); gap: 8px; }
 .lo-hab-cell {
   position: relative; display: flex; align-items: center; justify-content: center;
   aspect-ratio: 1; min-width: 0; min-height: 40px; padding: 0;
@@ -4175,10 +4184,17 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
 
 .lo-hab-cell.is-done { background: var(--hab-c); border-color: var(--hab-c); color: var(--hab-on); }
 .lo-hab-cell.is-done .lo-hab-cell__no { color: color-mix(in srgb, var(--hab-on) 78%, transparent); }
+/* Dönüm noktası gününün numarası küçük etiket; dolu hücrede renkler ters. */
+.lo-hab-cell__no.is-ms {
+  top: 2px; inset-inline-start: 3px; padding: 1px 3px; border-radius: 4px;
+  font-weight: 700; color: var(--hab-ink); background: var(--hab-c-soft);
+}
+.lo-hab-cell.is-done .lo-hab-cell__no.is-ms { color: var(--hab-c); background: var(--hab-on); }
 .lo-hab-cell.is-today { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 4px color-mix(in srgb, var(--hab-c) 70%, transparent); }
 .lo-hab-cell.is-today:not(.is-done) { border-color: var(--hab-c); background: var(--hab-c-soft); }
 .lo-hab-cell.is-today .lo-hab-cell__no { font-weight: 700; }
 .lo-hab-cell.is-today:not(.is-done) .lo-hab-cell__no { color: var(--hab-ink); }
+.lo-hab-cell.is-future .lo-hab-cell__no.is-ms { opacity: 1; }
 .lo-hab-cell.is-missed { background: transparent; }
 .lo-hab-cell__slash { color: var(--fg3); opacity: 0.6; }
 .lo-hab-cell__slash path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
@@ -4187,16 +4203,41 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
 .lo-hab-cell.is-future { background: transparent; border-style: dashed; cursor: default; }
 .lo-hab-cell.is-future .lo-hab-cell__no { opacity: 0.7; }
 .lo-hab-grid.is-readonly .lo-hab-cell { cursor: default; }
+/* Koyu temada boş, mazeretli ve kaçırılan hücre zeminden ayrışsın. */
+[data-theme="dark"] .lo-hab-cell.is-future { border-color: color-mix(in srgb, var(--fg3) 45%, transparent); }
+[data-theme="dark"] .lo-hab-cell.is-excused { border-color: color-mix(in srgb, var(--hab-c) 60%, transparent); }
+[data-theme="dark"] .lo-hab-cell.is-excused .lo-hab-cell__moon { color: var(--hab-ink); }
+[data-theme="dark"] .lo-hab-cell__slash { color: var(--fg2); opacity: 0.85; }
 
-/* Dönüm noktası (7, 14, 21 …) küçük nokta; son gün küçük baklava */
-.lo-hab-cell.is-milestone::after,
-.lo-hab-cell.is-last::after {
-  content: ""; position: absolute; bottom: 4px; inset-inline-end: 4px;
-  width: 4px; height: 4px; border-radius: 50%; background: var(--hab-c); pointer-events: none;
+/* Dönüm noktası (7, 14, 21 …) alt kenarda ince hafta çizgisi; son günde biraz kalın. */
+.lo-hab-cell.is-milestone::after {
+  content: ""; position: absolute; bottom: 4px; inset-inline: 8px;
+  height: 2px; border-radius: 2px; background: var(--hab-c); pointer-events: none;
 }
-.lo-hab-cell.is-last::after { width: 5px; height: 5px; border-radius: 1px; transform: rotate(45deg); bottom: 5px; inset-inline-end: 5px; }
-.lo-hab-cell.is-done.is-milestone::after,
-.lo-hab-cell.is-done.is-last::after { background: var(--hab-on); }
+.lo-hab-cell.is-last::after { height: 3px; }
+.lo-hab-cell.is-done.is-milestone::after { background: var(--hab-on); }
+
+/* — Yan sütun: niyet ve dönüm noktaları — */
+.lo-hab-aside { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.lo-hab-aside .lo-hab-intent { margin: 0; }
+.lo-hab-aside__title {
+  display: block; margin-bottom: 8px; font-size: 10.5px; font-weight: 650; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--fg3);
+}
+html[lang="ar"] .lo-hab-aside__title { letter-spacing: 0; }
+.lo-hab-miles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.lo-hab-miles__item { display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 12.5px; color: var(--fg3); }
+.lo-hab-miles__dot {
+  width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--hab-c) 55%, var(--line));
+}
+.lo-hab-miles__day { font-weight: 600; white-space: nowrap; }
+.lo-hab-miles__date { font-family: var(--font-mono); font-size: 11.5px; white-space: nowrap; }
+.lo-hab-miles__item.is-reached { color: var(--fg2); }
+.lo-hab-miles__item.is-reached .lo-hab-miles__dot { background: var(--hab-c); border-color: var(--hab-c); }
+.lo-hab-miles__item.is-today { color: var(--hab-ink); }
+.lo-hab-miles__item.is-today .lo-hab-miles__day { font-weight: 700; }
+.lo-hab-miles__item.is-today .lo-hab-miles__dot { box-shadow: 0 0 0 3px var(--hab-c-soft); }
 
 .lo-hab-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 16px; font-size: 11.5px; color: var(--fg3); }
 .lo-hab-legend__item { display: inline-flex; align-items: center; gap: 6px; }
@@ -4317,7 +4358,8 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
   font-family: inherit; font-size: 13px; font-weight: 500; color: var(--fg2);
   background: var(--bg-sunken); border: 1px solid var(--line); border-radius: var(--radius-pill);
   cursor: pointer; white-space: nowrap;
-  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast);
+  /* Zemin geçişsiz: seçimden çıkan çip bir an dolu görünmesin. */
+  transition: border-color var(--dur-fast), color var(--dur-fast);
 }
 .lo-hab-chip:hover { color: var(--fg1); border-color: var(--fg3); }
 .lo-hab-chip.is-on { color: var(--hab-on); background: var(--hab-c, var(--accent)); border-color: var(--hab-c, var(--accent)); }
@@ -4352,9 +4394,9 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
   display: inline-flex; align-items: center; padding: 2px 9px; font-size: 11.5px; font-weight: 600;
   line-height: 1.45; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums;
 }
-.lo-hab-badge.is-completed { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+.lo-hab-badge.is-completed { color: var(--hab-on); background: var(--hab-c, var(--success)); }
 .lo-hab-badge.is-ended { color: var(--fg2); background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); }
-.lo-hab-badge.is-quit { color: var(--fg2); background: transparent; box-shadow: inset 0 0 0 1px var(--fg3); }
+.lo-hab-badge.is-quit { color: var(--fg2); background: transparent; border: 1px dashed var(--fg3); padding-block: 1px; padding-inline: 8px; }
 
 /* — Geçmiş — */
 .lo-hab-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
@@ -4372,22 +4414,45 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
   flex-shrink: 0; padding: 1px 8px; font-size: 11px; font-weight: 600;
   color: var(--hab-ink); background: var(--hab-c-soft); border-radius: 999px;
 }
-.lo-hab-rounds { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.lo-hab-round { min-width: 0; }
+.lo-hab-rounds { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+/* Tur: solda küçük halka, sağda düğme; halkalar ince zaman çizgisiyle bağlı. */
+.lo-hab-round { position: relative; display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.lo-hab-round:not(:last-child)::after {
+  content: ""; position: absolute; inset-inline-start: 17px; top: 41px; bottom: -9px;
+  width: 2px; background: var(--line); pointer-events: none;
+}
+.lo-hab-round__ring { flex-shrink: 0; padding-top: 2px; }
+.lo-hab-round__ring .lo-hab-ring__inner { color: var(--fg3); }
+.lo-hab-round__ring.is-completed .lo-hab-ring__inner { color: var(--hab-c); }
+.lo-hab-round__emoji { font-size: 14px; line-height: 1; }
 .lo-hab-round__btn {
-  display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; padding: 10px 12px;
+  position: relative; flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 10px 12px;
   font-family: inherit; color: inherit; text-align: start;
   background: var(--bg); border: 1px solid var(--line-soft); border-radius: var(--radius-md); cursor: pointer;
   transition: border-color var(--dur-fast);
 }
+.lo-hab-round__btn.is-sealed { padding-inline-end: 62px; }
 @media (hover: hover) {
   .lo-hab-round__btn:hover { border-color: color-mix(in srgb, var(--hab-c) 55%, var(--line)); }
 }
 .lo-hab-round__btn:focus-visible { outline: 2px solid var(--hab-c); outline-offset: 1px; }
-.lo-hab-round__top { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
-.lo-hab-round__no { font-size: 12px; font-weight: 650; color: var(--hab-ink); }
-.lo-hab-round__range { font-family: var(--font-mono); font-size: 12px; color: var(--fg2); }
-.lo-hab-round__days { margin-inline-start: auto; font-family: var(--font-mono); font-size: 11.5px; color: var(--fg3); }
+.lo-hab-round__title { font-size: 13px; font-weight: 650; color: var(--hab-ink); overflow-wrap: anywhere; }
+.lo-hab-round__range { margin-top: -4px; font-family: var(--font-mono); font-size: 11.5px; color: var(--fg3); }
+/* Tamamlanan turda mini "21 gün" mührü (kart mührünün küçüğü, animasyonsuz). */
+.lo-hab-round__seal {
+  position: absolute; top: 8px; inset-inline-end: 10px; width: 44px; height: 44px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: var(--hab-ink); border: 1.5px solid var(--hab-c); border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--bg), inset 0 0 0 2.5px color-mix(in srgb, var(--hab-c) 55%, transparent);
+  background: color-mix(in srgb, var(--hab-c) 8%, var(--bg));
+  transform: rotate(-12deg); pointer-events: none;
+}
+.lo-hab-round__sealnum { font-family: var(--font-mono); font-size: 14px; font-weight: 700; line-height: 1; }
+.lo-hab-round__sealunit {
+  margin-top: 1px; max-width: 36px; font-size: 7px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+html[lang="ar"] .lo-hab-round__sealunit { letter-spacing: 0; }
 .lo-hab-round__mid { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .lo-hab-round__pct { font-family: var(--font-mono); font-size: 12px; color: var(--fg2); font-variant-numeric: tabular-nums; }
 .lo-hab-hgroup__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -4412,7 +4477,12 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
 .lo-app.is-mobile .lo-hab-detail__grid { padding: 14px 12px; }
 .lo-app.is-mobile .lo-hab-grid,
 .lo-app.is-mobile .lo-hab-grid__row { gap: 5px; }
-.lo-app.is-mobile .lo-hab-grid { max-width: none; }
+.lo-app.is-mobile .lo-hab-grid { flex-basis: 100%; }
+.lo-app.is-mobile .lo-hab-grid__row { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.lo-app.is-mobile .lo-hab-gridwrap { gap: 18px; }
+.lo-app.is-mobile .lo-hab-aside { flex-basis: 100%; }
+.lo-app.is-mobile .lo-hab-miles { flex-direction: row; flex-wrap: wrap; gap: 6px 14px; }
+.lo-app.is-mobile .lo-hab-strip--heat .lo-hab-strip__day { flex-basis: 8px; width: 8px; height: 8px; }
 .lo-app.is-mobile .lo-hab-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .lo-app.is-mobile .lo-hab-summary--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .lo-app.is-mobile .lo-hab-summary__item { padding: 10px 12px; }

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Repeat, RotateCcw, ArrowRight, History } from "lucide-react";
+import { Repeat, RotateCcw, ArrowRight, History, Check, Flag } from "lucide-react";
 import {
   HISTORY_FILTERS,
   cellState,
@@ -13,13 +13,15 @@ import {
   type HistoryItem,
 } from "../../core/habit";
 import { useAppStore } from "../../store/useAppStore";
+import { HabitRing } from "./HabitRing";
 import { HabitStrip } from "./HabitStrip";
 import { OutcomeBadge } from "./OutcomeBadge";
 import { colorVars, fmtRange } from "./habitUi";
 
 /**
- * Geçmiş: bitmiş ve bırakılmış turlar, aynı alışkanlığın turları bir kartta (en yenisi üstte).
- * Her turda tarih aralığı, sonuç rozeti, başarı yüzdesi ve bütün günlerin minik ısı şeridi.
+ * Geçmiş: bitmiş ve bırakılmış turlar, aynı alışkanlığın turları bir kartta; turlar ince zaman
+ * çizgisiyle bağlı, 1. tur üstte (gruplar yine en yeni tura göre sıralı). Her turda küçük halka,
+ * tarih aralığı, sonuç rozeti, başarı yüzdesi ve bütün günlerin ısı şeridi; tamamlanan turda mühür.
  * Süzgeç (Hepsi / Tamamlanan / Bırakılan) localStorage'a giren tek alışkanlık ayarıdır.
  */
 export function HabitHistory({ today, onNewRound }: { today: string; onNewRound: (h: Habit) => void }) {
@@ -77,7 +79,8 @@ export function HabitHistory({ today, onNewRound }: { today: string; onNewRound:
                 </header>
 
                 <ol className="lo-hab-rounds">
-                  {g.items.map((it) => (
+                  {/* Çekirdek en yeniyi önde verir; zaman çizgisi 1. turdan aşağı akar. */}
+                  {[...g.items].reverse().map((it) => (
                     <RoundRow key={it.habit.id} item={it} today={today} showRound={g.items.length > 1 || it.habit.round > 1} />
                   ))}
                 </ol>
@@ -123,25 +126,42 @@ function RoundRow({ item, today, showRound }: { item: HistoryItem; today: string
     return { key, state: st0 === "today" && key !== today ? ("missed" as const) : st0 };
   });
   const range = fmtRange(h.start, h.status === "quit" ? item.finishedOn : endKey(h), i18n.language);
+  const kind = item.outcome.kind;
+  const sealed = kind === "completed";
+  const days = t("habit.sealUnit", { count: h.days });
 
   return (
     <li className="lo-hab-round">
+      <div className={`lo-hab-round__ring is-${kind}`}>
+        <HabitRing value={(st.completed + st.excused) / h.days} size={36} stroke={3.5}>
+          {kind === "completed" ? (
+            <Check size={15} strokeWidth={2.6} aria-hidden />
+          ) : kind === "quit" ? (
+            <Flag size={13} strokeWidth={2.2} aria-hidden />
+          ) : (
+            <span className="lo-hab-round__emoji">{h.emoji}</span>
+          )}
+        </HabitRing>
+      </div>
       <button
         type="button"
-        className="lo-hab-round__btn"
+        className={"lo-hab-round__btn" + (sealed ? " is-sealed" : "")}
         onClick={() => openDetail(h.id)}
         aria-label={t("habit.openDetail", { name: h.name }) + (showRound ? ` · ${t("habit.round", { n: h.round })}` : "")}
       >
-        <span className="lo-hab-round__top">
-          {showRound && <span className="lo-hab-round__no">{t("habit.round", { n: h.round })}</span>}
-          <span className="lo-hab-round__range">{range}</span>
-          <span className="lo-hab-round__days">{t("habit.sealUnit", { count: h.days })}</span>
-        </span>
+        <span className="lo-hab-round__title">{showRound ? `${t("habit.round", { n: h.round })} · ${days}` : days}</span>
+        <span className="lo-hab-round__range">{range}</span>
         <span className="lo-hab-round__mid">
           <OutcomeBadge outcome={item.outcome} />
           <span className="lo-hab-round__pct">{t("habit.percent", { n: st.percent })}</span>
         </span>
         <HabitStrip days={heat} variant="heat" />
+        {sealed && (
+          <span className="lo-hab-round__seal" aria-hidden>
+            <span className="lo-hab-round__sealnum">{h.days}</span>
+            <span className="lo-hab-round__sealunit">{t("habit.sealUnit", { count: h.days })}</span>
+          </span>
+        )}
       </button>
     </li>
   );

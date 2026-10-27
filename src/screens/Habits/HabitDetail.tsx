@@ -5,6 +5,7 @@ import { dayIndex, endKey, isFinished, isSealed, outcome, quitDayNo, stats, type
 import { useAppStore } from "../../store/useAppStore";
 import { HabitRing } from "./HabitRing";
 import { HabitGrid } from "./HabitGrid";
+import { HabitAside } from "./HabitAside";
 import { HabitConfirm } from "./HabitConfirm";
 import { OutcomeBadge } from "./OutcomeBadge";
 import { colorVars, fmtRange, quitDay } from "./habitUi";
@@ -12,9 +13,9 @@ import { colorVars, fmtRange, quitDay } from "./habitUi";
 type Ask = "quit" | "delete" | "restart" | null;
 
 /**
- * Bir turun ayrıntısı: niyet, halka, özet satırı (tamamlanan, başarı, en uzun seri, kalan), gün
- * dizisi ve eylemler. Süren turda Bırak / Yeniden başlat / Sil; biten ya da mühürlü turda
- * Bir tur daha / Yeniden başlat / Sil. Aynı soyda daha yeni süren tur varsa ona gidilir.
+ * Bir turun ayrıntısı: halka, özet satırı (tamamlanan, başarı, en uzun seri, kalan), gün
+ * dizisi (yanında niyet ve dönüm noktaları) ve eylemler. Süren turda Bırak / Yeniden başlat / Sil;
+ * biten ya da mühürlü turda Bir tur daha / Yeniden başlat / Sil. Aynı soyda daha yeni süren tur varsa ona gidilir.
  */
 export function HabitDetail({
   habit,
@@ -96,13 +97,6 @@ export function HabitDetail({
         </div>
       </header>
 
-      {habit.intent && (
-        <blockquote className="lo-hab-intent">
-          <span className="lo-hab-intent__label">{t("habit.intentLabel")}</span>
-          <q>{habit.intent}</q>
-        </blockquote>
-      )}
-
       <dl className={"lo-hab-summary" + (quit ? " lo-hab-summary--three" : "")}>
         <div className="lo-hab-summary__item">
           <dt>{t("habit.sum.done")}</dt>
@@ -128,7 +122,10 @@ export function HabitDetail({
       </dl>
 
       <section className="lo-hab-detail__grid">
-        <HabitGrid habit={habit} today={today} readOnly={readOnly} cutoff={cutoff} />
+        <div className="lo-hab-gridwrap">
+          <HabitGrid habit={habit} today={today} readOnly={readOnly} cutoff={cutoff} />
+          <HabitAside habit={habit} today={today} cutoff={cutoff} />
+        </div>
         <div className="lo-hab-legend" aria-hidden>
           <span className="lo-hab-legend__item">
             <span className="lo-hab-legend__sw is-done" />

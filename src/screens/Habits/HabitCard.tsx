@@ -38,7 +38,9 @@ export function HabitCard({ habit, today }: { habit: Habit; today: string }) {
         <span className="lo-hab-card__info">
           <span className="lo-hab-card__name">{habit.name}</span>
           <span className="lo-hab-card__meta">
-            <span className="lo-hab-card__day">{t("habit.dayOf", { day: dayNo, total: habit.days })}</span>
+            <span className={"lo-hab-card__day" + (dayNo === 1 && marked === 0 ? " is-first" : "")}>
+              {t("habit.dayOf", { day: dayNo, total: habit.days })}
+            </span>
             {habit.round > 1 && <span className="lo-hab-card__round">{t("habit.round", { n: habit.round })}</span>}
           </span>
           <span className={"lo-hab-card__streak" + (st.currentStreak > 0 ? " is-on" : "")}>
@@ -76,7 +78,7 @@ export function HabitCard({ habit, today }: { habit: Habit; today: string }) {
         </button>
       )}
 
-      <HabitStrip days={lastSevenStrip(habit, today)} variant="week" />
+      <HabitStrip days={lastSevenStrip(habit, today)} variant="week" today={today} />
 
       {sealed && (
         <div className="lo-hab-seal" aria-hidden>
