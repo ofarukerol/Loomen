@@ -3,7 +3,7 @@ name: LOM-55 — Alışkanlıklar ekranı: liste, gün dizisi, ekleme, Geçmiş 
 description: Loomen'e Alışkanlıklar ekranı eklenir: store eylemleri, Ribbon düğmesi, Aktif/Geçmiş listeleri, halka ve 7'li gün dizisi, ekleme ve onay pencereleri, tr/en/ar çeviri ve app.css stilleri; veri LOM-54 çekirdeğiyle Alışkanlık/ klasörüne yazılır.
 type: project
 proje: loomen
-kaynak: kart LOM-55 · dal fix/LOM-55 · Loomen@b965a347716d7cb4e459c80fe9c93e74df9bf65a · test koşusu d4431e12-3880-4ee9-91a0-9005da9a8c10 (Excalibur)
+kaynak: kart LOM-55 · dal fix/LOM-55 · Loomen@8f48f6a1472fe58ccff2a04aea84ae675ec62823 · test koşusu bce5b40d-f1f9-4f41-9d9d-66aaf707f47c (Excalibur)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-10-27
@@ -62,13 +62,13 @@ Loomen'e Alışkanlıklar ekranı eklenir: store eylemleri, Ribbon düğmesi, Ak
 
 Testler geçti.
 
-> Tip denetimi hatasız bitti (çıktı boş, kod 0). Birim testlerinin hepsi geçti: 26 test dosyası. Derleme 6 dk 12 sn sürdü ve bitti; tek uyarı büyük paket boyutu uyarısı. Canlı doğrulama insana kaldı.
+> Tip denetimi, birim testleri ve derleme hatasız geçti. Canlı doğrulama insana kaldı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-55`
-- Commit: `Loomen@b965a347716d7cb4e459c80fe9c93e74df9bf65a`
-- Test koşusu: `d4431e12-3880-4ee9-91a0-9005da9a8c10` (Excalibur)
+- Commit: `Loomen@8f48f6a1472fe58ccff2a04aea84ae675ec62823`
+- Test koşusu: `bce5b40d-f1f9-4f41-9d9d-66aaf707f47c` (Excalibur)
 
 ## Durum
 
