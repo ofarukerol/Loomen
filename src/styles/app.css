@@ -553,8 +553,16 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-chip--pomo { font-family: var(--font-mono); font-size: 11px; background: var(--bg-sunken); color: var(--fg2); }
 
 /* ---- Sağ panel ---- */
+/* Masaüstü sarmalayıcı: genişlik --side-w (RightPanel, LOM-63); tutamak kayan sütunun dışında. */
+.lo-sidewrap {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  min-height: 0;
+}
 .lo-side {
-  width: 312px;
+  /* Dar pencerede orta gövdeye yer kalsın: kayıtlı genişlik ne olursa olsun pencereye göre kısılır. */
+  width: min(var(--side-w, 312px), max(260px, 100vw - 640px));
   flex-shrink: 0;
   border-inline-start: 1px solid var(--line);
   background: var(--bg-sunken);
@@ -564,6 +572,36 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   gap: 16px;
   overflow-y: auto;
 }
+/* Genişlik tutamağı: bloğun iç kenarı (RTL'de mantıksal konumla sağ kenar). */
+.lo-side__grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-start: -3px;
+  width: 7px;
+  z-index: 5;
+  cursor: col-resize;
+  touch-action: none;
+}
+.lo-side__grip::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  inset-inline-start: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.lo-side__grip:hover::after,
+.lo-side__grip.is-active::after { opacity: 0.55; }
+.lo-side__grip:focus-visible { outline: none; }
+.lo-side__grip:focus-visible::after { opacity: 0.9; }
+/* Sürüklerken metin seçilmesin, imleç her yerde aynı kalsın. */
+.lo-app.is-resizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+.lo-app.is-resizing * { cursor: col-resize !important; }
 .lo-card {
   background: var(--bg-elev);
   border: 1px solid var(--line);

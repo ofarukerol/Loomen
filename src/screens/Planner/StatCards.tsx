@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { useFocusCounts } from "../../store/useAppStore";
+import type { AgendaFilter } from "../../core/vault/agendaView";
 
-export type TaskFilter = "yapilacak" | "geciken" | "planlanmamis";
+export type TaskFilter = AgendaFilter;
 
 export function StatCards({
   compact,

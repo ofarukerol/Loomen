@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { CheckCircle2, Circle } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import type { GroupKind, Task } from "../../data/sampleVault";
+import { boardColumns } from "../../core/vault/agendaView";
 
 function BoardCard({ task, danger }: { task: Task; danger?: boolean }) {
   const toggleTask = useAppStore((s) => s.toggleTask);
@@ -43,7 +44,8 @@ function BoardCard({ task, danger }: { task: Task; danger?: boolean }) {
 export function Board() {
   const { t } = useTranslation();
   const groups = useAppStore((s) => s.groups);
-  const tasksOf = (kind: GroupKind) => groups.filter((g) => g.kind === kind).flatMap((g) => g.tasks);
+  // Yalnız açık görevler — tamamlanan görev geciken sayılmaz, Pano'da gizlenir (LOM-63).
+  const byKind = boardColumns(groups);
 
   const columns: { key: GroupKind; label: string; dot: string; danger?: boolean }[] = [
     { key: "overdue", label: t("board.overdue"), dot: "var(--danger)", danger: true },
@@ -54,7 +56,7 @@ export function Board() {
   return (
     <div className="lo-board lo-scroll">
       {columns.map((col) => {
-        const tasks = tasksOf(col.key);
+        const tasks = byKind[col.key];
         return (
           <div className="lo-board__col" key={col.key}>
             <div className="lo-board__colhead">

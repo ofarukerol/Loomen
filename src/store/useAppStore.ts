@@ -83,6 +83,7 @@ import { splitProposals, appendText, uniquePath, type ProposalState } from "../c
 import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPatch, taskLineMatches, setTaskChildren, getSubtasks, getTaskNotes, rescheduleTasksInContent, type TaskPatch } from "../core/markdown/taskParser";
 import { planRescheduleBatches } from "../core/vault/planDay";
 import { noteDateOf, planDate } from "../core/vault/planDate";
+import { clampRightWidth, RIGHT_PANEL_DEFAULT } from "../core/layout/rightPanel";
 import {
   DEFAULT_SETTINGS as SRS_DEFAULTS,
   PRESETS as SRS_PRESETS,
@@ -208,6 +209,8 @@ interface AppState {
   // Panel görünürlüğü + odak genişletme
   leftCollapsed: boolean;
   rightCollapsed: boolean;
+  /** Masaüstü sağ blok genişliği (px, LOM-63); 260-560 arası, kalıcı. */
+  rightWidth: number;
   focusExpanded: boolean;
 
   // Vault
@@ -422,6 +425,8 @@ interface AppState {
   toggleArabic: () => void;
   toggleLeft: () => void;
   toggleRight: () => void;
+  setRightWidth: (w: number) => void;
+  resetRightWidth: () => void;
   setFocusExpanded: (v: boolean) => void;
   goToDayNote: () => Promise<void>;
   goToDate: (date: Date) => Promise<void>;
@@ -571,7 +576,7 @@ interface AppState {
   // Alışkanlık aksiyonları (LOM-55). Gün anahtarı yerel YYYY-MM-DD.
   /** Alışkanlık/ klasörünü baştan oku. */
   habitLoad: () => Promise<void>;
-  /** Yeni alışkanlık (1. tur). Geçersiz girdi (boş ad, ileri tarih) hata atar; kayıt hatası bildirilir, null döner. */
+  /** Yeni alışkanlık (1. tur). Geçersiz girdi (boş ad, ileri tarih) hata atar; kayıt hatası HabitSaveError atar (pencere gösterir). */
   habitAdd: (input: NewHabitInput) => Promise<Habit | null>;
   /** Günün çentiğini aç/kapat (gelecek gün ve bırakılmış tur yok sayılır). */
   habitToggleDay: (id: string, day: string) => Promise<void>;
@@ -583,13 +588,13 @@ interface AppState {
   habitDelete: (id: string) => Promise<void>;
   /** Aynı süreyle bugünden yeniden başlat; süren tur bırakılır. Yeni turu döner (soyda daha yeni süren tur varsa ya da kayıt olmazsa null). */
   habitRestart: (id: string) => Promise<Habit | null>;
-  /** Bir tur daha (süre değişebilir); süren tur bırakılır. Yeni turu döner (soyda daha yeni süren tur varsa ya da kayıt olmazsa null). */
+  /** Bir tur daha (süre değişebilir); süren tur bırakılır. Yeni turu döner (soyda daha yeni süren tur varsa null); kayıt hatası HabitSaveError atar. */
   habitNewRound: (id: string, opts: { days: number; start: string }) => Promise<Habit | null>;
   /** Ayrıntıyı aç (null = listeye dön). Kimlik verilirse Alışkanlıklar ekranına geçer. */
   habitOpenDetail: (id: string | null) => void;
   habitSetHistoryFilter: (f: HabitHistoryFilter) => void;
   /** Ad, simge, renk ve niyeti yerinde güncelle; süre, başlangıç ve çentikler değişmez (LOM-62).
-   *  Boş ad / geçersiz renk hata atar; değişiklik yoksa ya da kayıt olmazsa null döner. */
+   *  Boş ad / geçersiz renk hata atar; kayıt hatası HabitSaveError atar; değişiklik yoksa null döner. */
   habitEdit: (id: string, input: EditHabitInput) => Promise<Habit | null>;
   toggleHabitToday: () => void;
 }
@@ -720,6 +725,8 @@ function queueHabitOp<T>(fn: () => Promise<T>): Promise<T> {
 let habitGen = 0;
 /** Yazma sırasındayken kasa değişti: veri yazılmadı, kullanıcıya hata gösterilmez. */
 class HabitVaultChanged extends Error {}
+/** Pencereden yapılan alışkanlık kaydı yazılamadı (LOM-63): pencere açık kalır, ileti orada görünür. */
+export class HabitSaveError extends Error {}
 
 /**
  * Kasa açma/değiştirme işlemleri SIRAYLA çalışır. bootstrap() ile persist rehydrate'i
@@ -883,24 +890,27 @@ export const useAppStore = create<AppState>()(
     }
   }
 
-  /** Alışkanlık kaydı/silme hatası: bildir, diskteki doğruya dön. */
-  async function habitFailed(e: unknown): Promise<void> {
+  /** Alışkanlık kaydı/silme hatası: bildir, diskteki doğruya dön. `quiet`: ileti pencerede gösterilecek. */
+  async function habitFailed(e: unknown, quiet = false): Promise<void> {
     if (e instanceof HabitVaultChanged) return; // yeni kasa refreshHabits ile zaten okunuyor
     console.error("[habit] kaydedilemedi:", e);
     habitGen++;
     void get().habitLoad().catch(() => {});
-    await notifyError(i18n.t("habit.saveError", { detail: errText(e) }));
+    if (!quiet) await notifyError(i18n.t("habit.saveError", { detail: errText(e) }));
   }
 
   /**
    * Turları bellekte hemen güncelle, sonra sırayla diske yaz. Değişmeyen tur yazılmaz.
    * Yazma anında kasa değişmişse (başka kasaya geçildi) eski kasaya yazılmaz.
+   * `rethrow`: pencereden gelen kayıtta hata bildirim yerine HabitSaveError olarak fırlatılır;
+   * pencere açık kalır ve iletiyi kendisi gösterir (LOM-63). Bellek yine diskteki doğruya döner.
    */
-  async function habitCommit(changed: Habit[]): Promise<boolean> {
+  async function habitCommit(changed: Habit[], rethrow = false): Promise<boolean> {
     if (changed.length === 0) return true;
     const src = backend;
     habitGen++;
     const ids = new Set(changed.map((h) => h.id));
+    const before = new Map(get().habits.filter((h) => ids.has(h.id)).map((h) => [h.id, h]));
     const rest = get().habits.filter((h) => !ids.has(h.id));
     set({ habits: [...rest, ...changed].sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) });
     try {
@@ -910,7 +920,15 @@ export const useAppStore = create<AppState>()(
       });
       return true;
     } catch (e) {
-      await habitFailed(e);
+      // İyimser değişikliği hemen geri al: disk de okunamazsa (habitLoad düşer) bellek yazılmamış
+      // hâlde kalmasın; yoksa pencerede yeniden "Kaydet" değişiklik yok sanıp kapanırdı (LOM-63).
+      // Bu arada başka bir kayıt aynı turu değiştirdiyse ona dokunulmaz.
+      const mine = new Set(changed);
+      set((st) => ({
+        habits: st.habits.flatMap((h) => (mine.has(h) ? (before.has(h.id) ? [before.get(h.id)!] : []) : [h])),
+      }));
+      await habitFailed(e, rethrow);
+      if (rethrow) throw new HabitSaveError(i18n.t("habit.saveError", { detail: errText(e) }));
       return false;
     }
   }
@@ -1291,6 +1309,7 @@ export const useAppStore = create<AppState>()(
 
     leftCollapsed: false,
     rightCollapsed: false,
+    rightWidth: RIGHT_PANEL_DEFAULT,
     focusExpanded: false,
 
     vaultPath: null,
@@ -1588,6 +1607,11 @@ export const useAppStore = create<AppState>()(
     toggleArabic: () => set((s) => ({ lang: s.lang === "ar" ? "tr" : "ar" })),
     toggleLeft: () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
     toggleRight: () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
+    setRightWidth: (w) => {
+      const next = clampRightWidth(w);
+      if (next !== get().rightWidth) set({ rightWidth: next });
+    },
+    resetRightWidth: () => set({ rightWidth: RIGHT_PANEL_DEFAULT }),
     setFocusExpanded: (focusExpanded) => set({ focusExpanded }),
     todayNotePath: () => todayDailyPath(),
     // "Günün Notu" — bugünün notunu (yoksa şablonla oluşturup) sekmede aç.
@@ -3264,7 +3288,7 @@ export const useAppStore = create<AppState>()(
 
     habitAdd: async (input) => {
       const h = newHabit(input, habitToday(), Date.now()); // geçersiz girdi burada hata atar
-      return (await habitCommit([h])) ? h : null;
+      return (await habitCommit([h], true)) ? h : null;
     },
 
     habitToggleDay: async (id, day) => {
@@ -3322,7 +3346,7 @@ export const useAppStore = create<AppState>()(
       const today = habitToday();
       if (hasNewerLive(h, today)) return null;
       const next = habitNextRound(h, opts, today, Date.now()); // aralık dışı süre/ileri tarih hata atar
-      return (await habitCommit([next, ...retire(h, today)])) ? next : null;
+      return (await habitCommit([next, ...retire(h, today)], true)) ? next : null;
     },
 
     habitOpenDetail: (id) => set(id ? { habitDetailId: id, screen: "habits" } : { habitDetailId: null }),
@@ -3334,7 +3358,7 @@ export const useAppStore = create<AppState>()(
       if (!h) return null;
       const next = habitEditFields(h, input); // boş ad / geçersiz renk burada hata atar
       if (next === h) return null;
-      return (await habitCommit([next])) ? next : null;
+      return (await habitCommit([next], true)) ? next : null;
     },
 
     toggleHabitToday: () => set((s) => ({ habitTodayCollapsed: !s.habitTodayCollapsed })),
@@ -3492,6 +3516,8 @@ export const useAppStore = create<AppState>()(
           habitHistoryFilter: isHistoryFilter(p.habitHistoryFilter) ? p.habitHistoryFilter : current.habitHistoryFilter,
           habitTodayCollapsed:
             typeof p.habitTodayCollapsed === "boolean" ? p.habitTodayCollapsed : current.habitTodayCollapsed,
+          // Bozuk/aşırı kayıt paneli ekranı yutacak kadar büyütmesin (LOM-63).
+          rightWidth: p.rightWidth === undefined ? current.rightWidth : clampRightWidth(p.rightWidth),
         };
       },
       onRehydrateStorage: () => (state) => {
@@ -3540,6 +3566,7 @@ export const useAppStore = create<AppState>()(
         platformMobile: s.platformMobile,
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
+        rightWidth: s.rightWidth,
         backlinksCollapsed: s.backlinksCollapsed,
         onThisDayCollapsed: s.onThisDayCollapsed,
         pomo: s.pomo,

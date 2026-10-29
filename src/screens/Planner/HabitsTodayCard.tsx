@@ -57,7 +57,8 @@ export function HabitsTodayCard() {
           <ArrowUpRight size={16} strokeWidth={2} className="lo-hab-flip" aria-hidden />
         </button>
       </div>
-      <div id="lo-hab-side-panel" className="lo-hab-side__panel" aria-hidden={collapsed}>
+      {/* Daraltılmış içerik etkisiz: odak almaz, tıklanmaz, okuyucuya görünmez (LOM-63). */}
+      <div id="lo-hab-side-panel" className="lo-hab-side__panel" inert={collapsed}>
         <div className="lo-hab-side__panelin">
           {allDoneToday(habits, today) && (
             <div className="lo-hab-side__all" role="status">
@@ -91,7 +92,6 @@ export function HabitsTodayCard() {
                     aria-pressed={done}
                     aria-label={`${h.name}: ${label}`}
                     title={label}
-                    tabIndex={collapsed ? -1 : undefined}
                     onClick={() => void toggleDay(h.id, today)}
                   >
                     {excused ? (

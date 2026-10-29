@@ -114,7 +114,7 @@ export function HabitForm({
     setError(null);
     try {
       if (editing) {
-        // null: değişiklik yok ya da kayıt hatası (store bildirdi ve geri aldı).
+        // null: değişiklik yok → kapat. Kayıt hatası fırlar (catch): pencere açık, yazılanlar kalır (LOM-63).
         const h = await habitEdit(editing.id, { name: name.trim(), emoji, color, intent: intent.trim() });
         if (h) onDone?.(h);
         onClose();
@@ -123,7 +123,7 @@ export function HabitForm({
       const h = from
         ? await habitNewRound(from.id, { days, start })
         : await habitAdd({ name: name.trim(), emoji, color, intent: intent.trim() || undefined, days, start });
-      // null: kayıt hatası (store bildirdi) ya da bu soyda zaten süren bir tur var.
+      // null: bu soyda zaten süren bir tur var. Kayıt hatası fırlar ve aşağıda pencerede gösterilir.
       if (h) {
         onDone?.(h);
         onClose();

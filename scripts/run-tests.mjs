@@ -50,6 +50,8 @@ const suites = [
   ["src/core/__test__/graphTest.ts", []],
   ["src/core/__test__/pinchTest.ts", []],
   ["src/core/__test__/helpTest.ts", []],
+  ["src/core/__test__/rightPanelTest.ts", []],
+  ["src/core/__test__/agendaViewTest.ts", []],
 ];
 
 let failed = 0;

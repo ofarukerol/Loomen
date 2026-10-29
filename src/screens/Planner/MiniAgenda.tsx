@@ -5,6 +5,7 @@ import { useAppStore, useFocusCounts } from "../../store/useAppStore";
 import type { GroupKind, Task } from "../../data/sampleVault";
 import type { GEvent } from "../../core/google";
 import { StatCards, type TaskFilter } from "./StatCards";
+import { miniAgendaSections } from "../../core/vault/agendaView";
 import { QuickAdd } from "./QuickAdd";
 import { PlanDayModal } from "./PlanDayModal";
 
@@ -157,9 +158,31 @@ export function MiniAgenda() {
   );
 
   // Aktif filtreye göre satırları kur (başlık = tarih ya da planlanmamışta kaynak not).
+  // Sıra: geciken günler (kırmızı başlık) → Google Takvim → bugün/yaklaşan (LOM-63).
+  const sections = miniAgendaSections(groups, unplannedTasks, filter);
   const rows: ReactNode[] = [];
+  const sectionRows = (overdue: boolean) => {
+    for (const sec of sections) {
+      if ((sec.kind === "overdue") !== overdue) continue;
+      rows.push(
+        sec.kind === "source" ? (
+          <div className="lo-mini__date lo-mini__date--src" key={sec.key}>
+            <FileText size={11} strokeWidth={2} />
+            {sec.label}
+          </div>
+        ) : (
+          <div className={"lo-mini__date " + labelClass(sec.kind)} key={sec.key}>
+            {sec.label}
+          </div>
+        )
+      );
+      for (const tk of sec.tasks) rows.push(taskRow(tk));
+    }
+  };
 
-  // Google Takvim etkinlikleri (salt okunur) — yalnızca "yapılacak" görünümünde, üstte.
+  sectionRows(true);
+
+  // Google Takvim etkinlikleri (salt okunur) — yalnızca "yapılacak" görünümünde, gecikenlerin altında.
   if (filter === "yapilacak" && gcalEvents.length > 0) {
     rows.push(
       <div className="lo-mini__date lo-mini__date--gcal" key="gcal-h">
@@ -178,35 +201,7 @@ export function MiniAgenda() {
     }
   }
 
-  if (filter === "planlanmamis") {
-    const bySource = new Map<string, Task[]>();
-    for (const tk of unplannedTasks) {
-      if (!bySource.has(tk.source)) bySource.set(tk.source, []);
-      bySource.get(tk.source)!.push(tk);
-    }
-    for (const [src, tasks] of bySource) {
-      rows.push(
-        <div className="lo-mini__date lo-mini__date--src" key={"s" + src}>
-          <FileText size={11} strokeWidth={2} />
-          {src}
-        </div>
-      );
-      for (const tk of tasks) rows.push(taskRow(tk));
-    }
-  } else {
-    const wanted: GroupKind[] = filter === "geciken" ? ["overdue"] : ["today", "upcoming"];
-    for (const g of groups) {
-      if (!wanted.includes(g.kind)) continue;
-      const open = g.tasks.filter((tk) => !tk.done);
-      if (open.length === 0) continue;
-      rows.push(
-        <div className={"lo-mini__date " + labelClass(g.kind)} key={"d" + g.id}>
-          {g.label}
-        </div>
-      );
-      for (const tk of open) rows.push(taskRow(tk));
-    }
-  }
+  sectionRows(false);
 
   return (
     <div className="lo-card lo-mini">
