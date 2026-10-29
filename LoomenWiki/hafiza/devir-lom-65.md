@@ -3,7 +3,7 @@ name: LOM-65 — Tekrar listeleri: altyapı (liste dosyası, kartlar, günlük s
 description: Testler kaldı: Tekrar listeleri için arka plan: kasada Tekrar/Listeler/<id>.txt düz metin liste dosyası (başlık bloğu + "ön :: arka" satırları), bu satırlardan mevcut kimlik/eşleştirme mantığıyla kart üretimi, yapıştırma ayrıştırıcısı, liste başına günlük yeni kart sınırı ve depo bağlantısı; ekranda değişiklik yok.
 type: project
 proje: loomen
-kaynak: kart LOM-65 · dal fix/LOM-65 · commit yok · test koşusu 7b0de364-0a5b-472d-807e-c7e567181354 (Excalibur)
+kaynak: kart LOM-65 · dal fix/LOM-65 · commit yok · test koşusu e2dc55af-b68b-47c4-a53b-6826c19a0070 (Excalibur)
 guven: iddia
 durum: gelistirildi
 ---
@@ -51,12 +51,12 @@ Tekrar listeleri için arka plan: kasada Tekrar/Listeler/<id>.txt düz metin lis
 
 Testler KALDI; iş doğrulanmadı.
 
-> Tip denetimi temiz, 27 test dosyasının tümü geçti (srsListTest dahil). Canlı doğrulama gerekmedi, ekranda yeni öğe yok. Kokpit: `gecti=true` ama özet bir kontrolün koşmadığını söylüyor: "Canlı doğrulama gerekmedi, ekranda yeni öğe yok". O kontrolü koştur ve komut çıktısını alıntıla; yalnız fiziksel doğrulamaysa (yazıcı, terazi, kasa ekranı) `insana_kalan`a tek cümlecik olarak yaz, özette otomatik
+> Tip denetimi temiz çıktı. Bütün test paketi geçti: 27 test dosyası, kırmızı yok. Yeni liste testleri de yeşil: dosya yazma/okuma, ayıraçlar, kimlik kararlılığı, günlük sınır ve notlara yazılmaması. Canlı doğrulama bu kartta gerekmiyor, ekranda yeni bir şey yok. Kokpit: `gecti=true` ama özet bir kontrolün koşmadığını söylüyor: "Canlı doğrulama bu kartta gerekmiyor, ekranda yeni bir şey yok". O kont
 
 ## Kanıt
 
 - Dal: `fix/LOM-65`
-- Test koşusu: `7b0de364-0a5b-472d-807e-c7e567181354` (Excalibur)
+- Test koşusu: `e2dc55af-b68b-47c4-a53b-6826c19a0070` (Excalibur)
 
 ## Durum
 
