@@ -1,12 +1,11 @@
 ---
 name: LOM-65 — Tekrar listeleri: altyapı (liste dosyası, kartlar, günlük sınır)
-description: Tekrar listeleri için arka plan: kasada Tekrar/Listeler/<id>.txt düz metin liste dosyası (başlık bloğu + "ön :: arka" satırları), bu satırlardan mevcut kimlik/eşleştirme mantığıyla kart üretimi, yapıştırma ayrıştırıcısı, liste başına günlük yeni kart sınırı ve depo bağlantısı; ekranda değişiklik yok.
+description: Testler kaldı: Tekrar listeleri için arka plan: kasada Tekrar/Listeler/<id>.txt düz metin liste dosyası (başlık bloğu + "ön :: arka" satırları), bu satırlardan mevcut kimlik/eşleştirme mantığıyla kart üretimi, yapıştırma ayrıştırıcısı, liste başına günlük yeni kart sınırı ve depo bağlantısı; ekranda değişiklik yok.
 type: project
 proje: loomen
-kaynak: kart LOM-65 · dal fix/LOM-65 · Loomen@a49b22b4f13bdc74564fd7c25d7cee1afa084279 · test koşusu 985e39a6-a1f4-41c8-880a-4bb338276da6 (Excalibur)
-guven: dogrulandi
-durum: test_gecti
-dogrulama_tarihi: 2026-10-29
+kaynak: kart LOM-65 · dal fix/LOM-65 · commit yok · test koşusu 7b0de364-0a5b-472d-807e-c7e567181354 (Excalibur)
+guven: iddia
+durum: gelistirildi
 ---
 
 # LOM-65 — Tekrar listeleri: altyapı (liste dosyası, kartlar, günlük sınır)
@@ -50,16 +49,15 @@ Tekrar listeleri için arka plan: kasada Tekrar/Listeler/<id>.txt düz metin lis
 
 ## Test
 
-Testler geçti.
+Testler KALDI; iş doğrulanmadı.
 
-> Tip denetimi temiz geçti. Tüm test paketi bu turda yeniden koşuldu ve 27 test dosyasının tümü geçti. Yeni liste testleri (srsListTest) ve eski tekrar testleri yeşil. Kodda değişiklik yapılmadı. Plan canlı test istemediği için canlı doğrulama koşturulmadı; kartta ekranda görünen bir değişiklik yok.
+> Tip denetimi temiz, 27 test dosyasının tümü geçti (srsListTest dahil). Canlı doğrulama gerekmedi, ekranda yeni öğe yok. Kokpit: `gecti=true` ama özet bir kontrolün koşmadığını söylüyor: "Canlı doğrulama gerekmedi, ekranda yeni öğe yok". O kontrolü koştur ve komut çıktısını alıntıla; yalnız fiziksel doğrulamaysa (yazıcı, terazi, kasa ekranı) `insana_kalan`a tek cümlecik olarak yaz, özette otomatik
 
 ## Kanıt
 
 - Dal: `fix/LOM-65`
-- Commit: `Loomen@a49b22b4f13bdc74564fd7c25d7cee1afa084279`
-- Test koşusu: `985e39a6-a1f4-41c8-880a-4bb338276da6` (Excalibur)
+- Test koşusu: `7b0de364-0a5b-472d-807e-c7e567181354` (Excalibur)
 
 ## Durum
 
-Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.
+Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
