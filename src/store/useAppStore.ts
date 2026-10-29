@@ -93,20 +93,34 @@ import {
   balanceDays,
   buildQueue,
   collectCards,
+  collectListCards,
+  decodeList,
+  dropListStates,
   futureLoad,
   isoDay,
+  isListFile,
+  keepListStates,
+  listIdOf,
+  listNewCaps,
+  listPath,
+  loadLists,
   loadLog,
   loadSettings,
   loadStates,
   matchStates,
   migratePath,
+  removeList,
+  saveList,
   saveSettings,
   saveStates,
   schedule as srsSchedule,
   spreadBacklog,
+  twinId,
   type DayCount,
+  type ListVault,
   type Grade,
   type QueueItem,
+  type ReviewList,
   type SrsCard,
   type SrsLog,
   type SrsSettings,
@@ -345,8 +359,10 @@ interface AppState {
   srsStates: Record<string, SrsState>;
   /** ISO gün → o gün yapılan iş (tavanlar buradan hesaplanır). */
   srsDaily: Record<string, DayCount>;
-  /** Notlardan çıkarılmış kartlar — her yüklemede yeniden üretilir. */
+  /** Notlardan ve tekrar listelerinden çıkarılmış kartlar — her yüklemede yeniden üretilir. */
   srsCards: SrsCard[];
+  /** Tekrar listeleri (LOM-65) — kasadaki Tekrar/Listeler/<id>.txt dosyaları. */
+  srsLists: ReviewList[];
   /** Ölçülen ortalama cevap süresi (saniye) — süre bütçesi bundan hesaplanır. */
   srsSecPerCard: number;
   /** Süren oturumun kuyruğu. */
@@ -572,6 +588,12 @@ interface AppState {
   /** Bir kartın geçmişini sıfırla (yeniden öğren). */
   srsResetCard: (id: string) => Promise<void>;
   srsEndSession: () => void;
+  /** Tekrar listesini kaydet (yeni ya da düzenlenmiş); notlara yazılmaz. */
+  srsListSave: (list: ReviewList) => Promise<void>;
+  /** Tekrar listesini çöp kutusuna taşı; kartlarının ilerlemesi de silinir. */
+  srsListDelete: (id: string) => Promise<void>;
+  /** Yalnız bu listeden oturum aç (listenin ve genel günlük sınırla). */
+  srsStartList: (id: string) => void;
 
   // Alışkanlık aksiyonları (LOM-55). Gün anahtarı yerel YYYY-MM-DD.
   /** Alışkanlık/ klasörünü baştan oku. */
@@ -708,6 +730,8 @@ let backend: VaultBackend = createSampleBackend();
 let unwatch: (() => void) | null = null;
 /** Tekrar verisi hangi kasa için yüklendi (kasa değişince baştan okunur). */
 let srsVault: string | null = null;
+/** Tekrar listelerinin son bilinen dosya metinleri ve okunamayanlar (saveList bununla korur). */
+let srsListVault: ListVault | null = null;
 
 /**
  * Alışkanlık kasası: hangi backend için okundu ve son bilinen dosya metinleri (saveHabit
@@ -953,6 +977,30 @@ export const useAppStore = create<AppState>()(
     );
 
   /**
+   * Tekrar listelerini kasadan yeniden oku (senkronla gelen değişiklik görünsün).
+   * Okuma başarısızsa eldeki listeler kalır: listeler kaybolup ilerlemeleri atılmasın.
+   */
+  async function reloadSrsLists(fresh = false): Promise<void> {
+    try {
+      const loaded = await loadLists(backend);
+      srsListVault = { raw: loaded.raw, broken: loaded.broken };
+      set({ srsLists: loaded.lists });
+    } catch (err) {
+      console.error("[srs] tekrar listeleri okunamadı:", err);
+      // Kasa değiştiyse eski kasanın listeleri kalmasın (durumlarını keepListStates korur).
+      if (fresh) {
+        srsListVault = null;
+        set({ srsLists: [] });
+      }
+    }
+  }
+
+  /** Bütün kartlar: notlardaki işaretli kartlar + tekrar listelerinin kartları. */
+  function gatherSrsCards(cfg: SrsSettings): SrsCard[] {
+    return [...collectCards(get().noteContents, cfg.syntax, cfg.excluded), ...collectListCards(get().srsLists)];
+  }
+
+  /**
    * Kartları notlardan yeniden çıkar ve kayıtlı durumlarla eşleştir.
    * Diske YALNIZCA modül açıkken yazar — kapalıyken kasada Tekrar/ klasörü oluşmaz.
    */
@@ -965,10 +1013,13 @@ export const useAppStore = create<AppState>()(
         return;
       }
       const cfg = get().srsSettings;
-      const cards = collectCards(get().noteContents, cfg.syntax, cfg.excluded);
-      const m = matchStates(cards, get().srsStates);
-      set({ srsCards: cards, srsStates: m.states });
-      if (cfg.enabled && m.changed && cards.length > 0) await saveStates(backend, m.states, get().srsDaily);
+      await reloadSrsLists();
+      const cards = gatherSrsCards(cfg);
+      const saved = get().srsStates;
+      const m = matchStates(cards, saved);
+      const states = keepListStates(m.states, saved, get().srsLists);
+      set({ srsCards: cards, srsStates: states });
+      if (cfg.enabled && m.changed && cards.length > 0) await saveStates(backend, states, get().srsDaily);
     } catch (err) {
       console.error("[srs] kartlar tazelenemedi:", err);
     }
@@ -1388,6 +1439,7 @@ export const useAppStore = create<AppState>()(
     srsStates: {},
     srsDaily: {},
     srsCards: [],
+    srsLists: [],
     srsSecPerCard: 15,
     srsQueue: [],
     srsIndex: 0,
@@ -3180,7 +3232,8 @@ export const useAppStore = create<AppState>()(
 
     // ——— Tekrar (aralıklı tekrar) ———
     // NOTE_SAFETY: buradaki hiçbir kod not dosyasına yazmaz. Yalnız Tekrar/ altındaki
-    // üç dosya yazılır: durum.json, gecmis.jsonl, ayarlar.json.
+    // üç dosya yazılır: durum.json, gecmis.jsonl, ayarlar.json; bir de tekrar listeleri
+    // (Tekrar/Listeler/<id>.txt, LOM-65).
 
     srsLoad: async () => {
       const cfg = await loadSettings(backend);
@@ -3188,11 +3241,12 @@ export const useAppStore = create<AppState>()(
       const log = await loadLog(backend);
       const sec = avgSeconds(log.slice(-200).map((l) => l.ms));
 
-      const cards = collectCards(get().noteContents, cfg.syntax, cfg.excluded);
+      await reloadSrsLists(true);
+      const cards = gatherSrsCards(cfg);
       const m = matchStates(cards, saved);
       // Oturum sürerken diskten gelen eski kayıt bellektekini ezmesin: daha yeni olan kazanır.
       const mem = get().srsStates;
-      const merged: Record<string, SrsState> = { ...m.states };
+      const merged: Record<string, SrsState> = keepListStates({ ...m.states }, saved, get().srsLists);
       for (const [id, st] of Object.entries(mem)) {
         const disk = merged[id];
         if (!disk) continue;
@@ -3210,10 +3264,11 @@ export const useAppStore = create<AppState>()(
       await saveSettings(backend, next);
       // İşaretleme biçimleri değiştiyse kart listesi yeniden çıkarılmalı.
       if (patch.syntax || patch.excluded || patch.enabled) {
-        const cards = collectCards(get().noteContents, next.syntax, next.excluded);
-        const m = matchStates(cards, get().srsStates);
-        set({ srsCards: cards, srsStates: m.states });
-        if (next.enabled && cards.length > 0) await saveStates(backend, m.states, get().srsDaily);
+        const cards = gatherSrsCards(next);
+        const saved = get().srsStates;
+        const states = keepListStates(matchStates(cards, saved).states, saved, get().srsLists);
+        set({ srsCards: cards, srsStates: states });
+        if (next.enabled && cards.length > 0) await saveStates(backend, states, get().srsDaily);
       }
     },
 
@@ -3228,8 +3283,10 @@ export const useAppStore = create<AppState>()(
       const d = deckId ? cfg.desteler.find((x) => x.id === deckId) : null;
       let cards = s.srsCards;
       if (d) {
+        // Desteler notlardan tanımlanır; tekrar listelerinin kartları desteye girmez.
         cards = cards.filter(
           (c) =>
+            !isListFile(c.file) &&
             (!d.folder || c.file === d.folder || c.file.startsWith(d.folder + "/")) &&
             (!d.tag || (s.noteContents[c.file] ?? "").includes("#" + d.tag)),
         );
@@ -3237,7 +3294,9 @@ export const useAppStore = create<AppState>()(
       const cfg2: SrsSettings = d
         ? { ...cfg, newPerDay: d.newPerDay ?? cfg.newPerDay, maxPerDay: d.maxPerDay ?? cfg.maxPerDay }
         : cfg;
-      const q = buildQueue(cards, s.srsStates, s.srsDaily, cfg2, new Date(), s.srsSecPerCard);
+      const now = new Date();
+      const caps = d ? undefined : listNewCaps(s.srsLists, s.srsDaily[isoDay(now)], cfg);
+      const q = buildQueue(cards, s.srsStates, s.srsDaily, cfg2, now, s.srsSecPerCard, caps);
       set({
         srsQueue: q.items,
         srsIndex: 0,
@@ -3247,6 +3306,68 @@ export const useAppStore = create<AppState>()(
         srsShownAt: Date.now(),
         screen: "review",
       });
+    },
+
+    srsStartList: (id) => {
+      const s = get();
+      const list = s.srsLists.find((l) => l.id === id);
+      if (!list) return;
+      const file = listPath(id);
+      const cfg = s.srsSettings;
+      const cfg2: SrsSettings = { ...cfg, newPerDay: Math.min(list.newPerDay ?? cfg.newPerDay, cfg.newPerDay) };
+      const now = new Date();
+      const caps = listNewCaps([list], s.srsDaily[isoDay(now)], cfg);
+      const cards = s.srsCards.filter((c) => c.file === file);
+      const q = buildQueue(cards, s.srsStates, s.srsDaily, cfg2, now, s.srsSecPerCard, caps);
+      set({
+        srsQueue: q.items,
+        srsIndex: 0,
+        srsShow: false,
+        srsAnswered: 0,
+        srsDeck: null,
+        srsShownAt: Date.now(),
+        screen: "review",
+      });
+    },
+
+    srsListSave: async (list) => {
+      // Durumlar yüklenmeden yazılırsa durum.json yalnız liste kartlarıyla ezilirdi.
+      if (!get().srsLoaded) await get().srsLoad();
+      if (!srsListVault) await reloadSrsLists();
+      const v = srsListVault;
+      if (!v) throw new Error("Tekrar listeleri okunamadı; liste kaydedilmedi");
+      await saveList(backend, list, v);
+      // Ekrandaki liste dosyadakiyle birebir aynı olsun (temizlenmiş satırlar, boş satır yok).
+      const stored = decodeList(list.id, v.raw[list.id]) ?? list;
+      const lists = get().srsLists.some((l) => l.id === list.id)
+        ? get().srsLists.map((l) => (l.id === list.id ? stored : l))
+        : [...get().srsLists, stored];
+      set({ srsLists: lists });
+      const cfg = get().srsSettings;
+      const cards = gatherSrsCards(cfg);
+      const saved = get().srsStates;
+      const m = matchStates(cards, saved);
+      const states = keepListStates(m.states, saved, lists);
+      set({ srsCards: cards, srsStates: states });
+      if (cfg.enabled && m.changed) await saveStates(backend, states, get().srsDaily);
+    },
+
+    srsListDelete: async (id) => {
+      if (!get().srsLoaded) await get().srsLoad();
+      if (!srsListVault) await reloadSrsLists();
+      const v = srsListVault;
+      if (!v) throw new Error("Tekrar listeleri okunamadı; liste silinmedi");
+      await removeList(backend, id, v);
+      const lists = get().srsLists.filter((l) => l.id !== id);
+      const states = dropListStates(get().srsStates, listPath(id));
+      const file = listPath(id);
+      set({
+        srsLists: lists,
+        srsCards: get().srsCards.filter((c) => c.file !== file),
+        srsStates: states,
+        srsQueue: get().srsQueue.filter((q, i) => i < get().srsIndex || q.card.file !== file),
+      });
+      if (get().srsSettings.enabled) await saveStates(backend, states, get().srsDaily);
     },
 
     srsReveal: () => set({ srsShow: true }),
@@ -3391,7 +3512,16 @@ export const useAppStore = create<AppState>()(
       const states = { ...s.srsStates, [item.card.id]: st };
 
       // Aynı notun diğer kartlarını bugünlük ertele (arka arkaya aynı konuyu sormasın).
-      if (cfg.burySiblings) {
+      // Liste kartında yalnız ters yönlü eşi ertelenir: listenin geri kalanı aynı "not" değildir.
+      const listId = listIdOf(item.card.file);
+      const list = listId ? s.srsLists.find((l) => l.id === listId) : undefined;
+      if (cfg.burySiblings && listId) {
+        const twin = list ? twinId(item.card, list) : null;
+        const o = twin ? states[twin] : undefined;
+        if (twin && o && o.phase !== "learning" && o.phase !== "relearning") {
+          states[twin] = { ...o, postponed: isoDay(now) };
+        }
+      } else if (cfg.burySiblings) {
         const today = isoDay(now);
         for (const c of s.srsCards) {
           if (c.file !== item.card.file || c.id === item.card.id) continue;
@@ -3402,10 +3532,10 @@ export const useAppStore = create<AppState>()(
 
       const day = isoDay(now);
       const dc = s.srsDaily[day] ?? { n: 0, r: 0, ms: 0 };
-      const daily = {
-        ...s.srsDaily,
-        [day]: { n: dc.n + (item.bucket === "new" ? 1 : 0), r: dc.r + 1, ms: dc.ms + ms },
-      };
+      const isNew = item.bucket === "new";
+      const dayCount: DayCount = { ...dc, n: dc.n + (isNew ? 1 : 0), r: dc.r + 1, ms: dc.ms + ms };
+      if (isNew && listId) dayCount.lists = { ...dc.lists, [listId]: (dc.lists?.[listId] ?? 0) + 1 };
+      const daily = { ...s.srsDaily, [day]: dayCount };
 
       const log: SrsLog = {
         id: item.card.id,

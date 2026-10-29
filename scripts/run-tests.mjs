@@ -30,6 +30,7 @@ const suites = [
   ["src/core/__test__/onThisDayTest.ts", []],
   ["src/core/__test__/vaultTest.ts", existsSync(vault) ? [vault] : null],
   ["src/core/__test__/srsTest.ts", []],
+  ["src/core/__test__/srsListTest.ts", []],
   ["src/core/__test__/habitTest.ts", []],
   ["src/core/__test__/habitViewTest.ts", []],
   ["src/core/__test__/aiTest.ts", []],

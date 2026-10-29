@@ -4,3 +4,4 @@ export * from "./fsrs";
 export * from "./parser";
 export * from "./store";
 export * from "./queue";
+export * from "./lists";

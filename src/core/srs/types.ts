@@ -21,7 +21,7 @@ export type CardKind =
 export interface SrsCard {
   /** Kalıcı kimlik: hash(dosya yolu + soru metni). Satır numarası KULLANILMAZ. */
   id: string;
-  /** Kasaya göre not yolu. */
+  /** Kasaya göre not yolu — liste kartında `Tekrar/Listeler/<id>.txt` (bkz. lists.ts). */
   file: string;
   /** Soru metninin normalize hali — kimliğin ikinci parçası, kurtarmada kullanılır. */
   key: string;
@@ -184,7 +184,8 @@ export const PRESETS: Record<"light" | "balanced" | "heavy", Partial<SrsSettings
 };
 
 /** Kasa içindeki tekrar klasörü — görünür (senkronlanır) ama dosya ağacında listelenmez
- *  (ağaç yalnız .md ve .excalidraw gösterir). */
+ *  (ağaç yalnız .md ve .excalidraw gösterir). Tekrar listeleri `Tekrar/Listeler/<id>.txt`
+ *  dosyalarında durur (lists.ts). */
 export const SRS_DIR = "Tekrar";
 export const STATE_FILE = `${SRS_DIR}/durum.json`;
 export const LOG_FILE = `${SRS_DIR}/gecmis.jsonl`;

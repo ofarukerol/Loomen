@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Play, Layers, Clock, AlertTriangle, Sparkles, CalendarRange, Settings2 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
-import { buildQueue, forecast, isoDay } from "../../core/srs";
+import { buildQueue, forecast, isoDay, listNewCaps } from "../../core/srs";
 import { ReviewSession } from "./ReviewSession";
 
 const FORECAST_DAYS = 30;
@@ -11,6 +11,7 @@ export function ReviewScreen() {
   const { t } = useTranslation();
   const cfg = useAppStore((s) => s.srsSettings);
   const cards = useAppStore((s) => s.srsCards);
+  const lists = useAppStore((s) => s.srsLists);
   const states = useAppStore((s) => s.srsStates);
   const daily = useAppStore((s) => s.srsDaily);
   const sec = useAppStore((s) => s.srsSecPerCard);
@@ -23,10 +24,11 @@ export function ReviewScreen() {
 
   const inSession = queue.length > 0 && index < queue.length;
 
-  const info = useMemo(
-    () => buildQueue(cards, states, daily, cfg, new Date(), sec),
-    [cards, states, daily, cfg, sec],
-  );
+  const info = useMemo(() => {
+    const now = new Date();
+    // Oturumla aynı sayılar: tekrar listelerinin günlük sınırı burada da uygulanır.
+    return buildQueue(cards, states, daily, cfg, now, sec, listNewCaps(lists, daily[isoDay(now)], cfg));
+  }, [cards, lists, states, daily, cfg, sec]);
 
   const fc = useMemo(() => forecast(states, FORECAST_DAYS), [states]);
   const today = daily[isoDay(new Date())] ?? { n: 0, r: 0, ms: 0 };

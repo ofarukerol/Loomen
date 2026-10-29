@@ -7,7 +7,7 @@
  * çökme/güç kesintisinde geride kalır.
  *
  * Açılışta yalnız BU kalıba birebir uyan, hedefi Loomen'in yazdığı bir dosya türü olan
- * (.md, .excalidraw, .json, .jsonl) ve belli yaştan eski dosyalar silinir. Kullanıcının
+ * (.md, .excalidraw, .json, .jsonl, .txt) ve belli yaştan eski dosyalar silinir. Kullanıcının
  * kendi `.tmp` dosyalarına (ör. `belge.mayis2025.tmp`, `foto.jpg.m1a2b3c4d.tmp`) dokunulmaz.
  */
 
@@ -22,9 +22,10 @@ const MIN_TIME = Date.UTC(2024, 0, 1);
 
 /**
  * Loomen'in `writeNote` ile (dolayısıyla yan dosyayla) yazdığı dosya türleri: notlar ve
- * şablonlar (.md), çizimler (.excalidraw), tekrar ayarı/durumu (.json) ve geçmişi (.jsonl).
+ * şablonlar (.md), çizimler (.excalidraw), tekrar ayarı/durumu (.json), geçmişi (.jsonl) ve
+ * tekrar listeleri (.txt, Tekrar/Listeler/).
  */
-export const TMP_TARGET_EXTS = ["md", "excalidraw", "json", "jsonl"] as const;
+export const TMP_TARGET_EXTS = ["md", "excalidraw", "json", "jsonl", "txt"] as const;
 
 /** `<hedef>.<8 hane zaman><sıra: 0 ya da başında sıfır olmayan 1–6 hane>.tmp` */
 const TMP_RE = /^(.+)\.([0-9a-z]{8})(0|[1-9a-z][0-9a-z]{0,5})\.tmp$/;

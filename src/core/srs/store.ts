@@ -33,6 +33,8 @@ export interface DayCount {
   r: number;
   /** O gün harcanan süre (ms). */
   ms: number;
+  /** Liste kimliği → o gün o listeden gösterilen yeni kart (LOM-65; eski dosyalarda yok). */
+  lists?: Record<string, number>;
 }
 
 export interface SrsData {

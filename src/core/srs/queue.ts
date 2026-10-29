@@ -136,7 +136,9 @@ export function avgSeconds(msList: number[]): number {
   return good[Math.floor(good.length / 2)] / 1000;
 }
 
-/** Bugünün kuyruğunu kur. */
+/** Bugünün kuyruğunu kur.
+ *  `newCapByFile` (isteğe bağlı): dosya yolu → bugün o dosyadan alınabilecek yeni kart sayısı
+ *  (tekrar listelerinin günlük sınırı). Genel yeni kart sınırı yine geçerlidir. */
 export function buildQueue(
   cards: SrsCard[],
   states: Record<string, SrsState>,
@@ -144,6 +146,7 @@ export function buildQueue(
   cfg: SrsSettings,
   now = new Date(),
   secPerCard = GUESS_SEC,
+  newCapByFile?: Record<string, number>,
 ): QueueInfo {
   const today = isoDay(now);
   const empty: QueueInfo = {
@@ -207,7 +210,24 @@ export function buildQueue(
   // — Sınırlar: önce tekrar, ARTAN yeri yeni kartlar alır —
   const takenReview = reviewQ.slice(0, maxRev);
   const leftover = cfg.newIgnoresLimit ? maxNew : Math.max(0, maxRev - takenReview.length);
-  const takenNew = newQ.slice(0, Math.min(maxNew, leftover));
+  const newRoom = Math.min(maxNew, leftover);
+  let takenNew: QueueItem[];
+  if (!newCapByFile) {
+    takenNew = newQ.slice(0, newRoom);
+  } else {
+    // Sıra aynı (dosya, satır); hakkı biten dosyanın kartları atlanır, diğerleri gelmeye devam eder.
+    const left: Record<string, number> = { ...newCapByFile };
+    takenNew = [];
+    for (const it of newQ) {
+      if (takenNew.length >= newRoom) break;
+      const cap = left[it.card.file];
+      if (cap !== undefined) {
+        if (cap <= 0) continue;
+        left[it.card.file] = cap - 1;
+      }
+      takenNew.push(it);
+    }
+  }
 
   let items = [...learnQ, ...takenReview, ...takenNew];
 
