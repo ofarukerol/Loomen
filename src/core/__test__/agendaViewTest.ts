@@ -61,6 +61,9 @@ section("(a) Varsayılan mini liste: gecikenler en üstte");
   check("Yalnız tamamlanmış gün bölüm üretmez", !secs.some((s) => s.key === "d2026-10-22"));
   const overdueRows = secs.filter((s) => s.kind === "overdue").reduce((n, s) => n + s.tasks.length, 0);
   eq("Varsayılan listedeki geciken sayısı = Geciken sayacı", overdueRows, counts.geciken);
+  const rows = secs.reduce((n, s) => n + s.tasks.length, 0);
+  eq("Varsayılan listedeki satır sayısı = Yapılacak sayacı (LOM-67)", rows, counts.yapilacak);
+  eq("Yapılacak sayısı 4 (gecikenler dahil)", counts.yapilacak, 4);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

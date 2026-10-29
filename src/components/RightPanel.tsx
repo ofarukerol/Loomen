@@ -8,16 +8,18 @@ import { ReviewCard } from "../screens/Review/ReviewCard";
 import { useAppStore } from "../store/useAppStore";
 import { useIsMobile } from "../hooks/useIsMobile";
 import {
+  dragStartWidth,
   nextRightWidth,
   RIGHT_PANEL_MAX,
   RIGHT_PANEL_MIN,
-  RIGHT_PANEL_STEP,
+  rightWidthForKey,
 } from "../core/layout/rightPanel";
 
 const isRtl = () => document.documentElement.getAttribute("dir") === "rtl";
 
 /** Global sağ blok — her ekranda kalıcı (Pomodoro + Alışkanlıklar + Takvim + Tekrar + Bugüne Odaklan).
  *  Masaüstünde iç kenarındaki tutamakla genişliği ayarlanır (LOM-63); çift tık varsayılana döndürür.
+ *  Klavye: oklar adım adım, Home en dar, End en geniş, Enter varsayılan (LOM-67).
  *  Mobilde (planner gövdesi) tutamak yok, genişlik CSS'te `auto` kalır. */
 export function RightPanel() {
   const { t } = useTranslation();
@@ -28,6 +30,13 @@ export function RightPanel() {
   // Sürükleme sırasında genişlik yalnız burada tutulur; kayda bırakınca bir kez yazılır.
   const [live, setLive] = useState<number | null>(null);
   const drag = useRef<{ id: number; x: number; start: number; rtl: boolean; cur: number } | null>(null);
+  const sideRef = useRef<HTMLDivElement>(null);
+  // Dar pencerede CSS bloğu kayıtlı genişlikten dar gösterir (LOM-67); sürükleme ve
+  // ok tuşları ekranda görünen genişlikten başlar ki imleç boşa gidip blok zıplamasın.
+  const startWidth = () => {
+    const el = sideRef.current;
+    return dragStartWidth(el ? parseFloat(getComputedStyle(el).width) : NaN, width);
+  };
 
   const shown = live ?? width;
   // Sürükleme ortasında panel kapanır ya da telefon düzenine geçilirse (tutamak kalkar)
@@ -53,7 +62,8 @@ export function RightPanel() {
     if (e.button !== 0) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { id: e.pointerId, x: e.clientX, start: width, rtl: isRtl(), cur: width };
+    const start = startWidth();
+    drag.current = { id: e.pointerId, x: e.clientX, start, rtl: isRtl(), cur: start };
     document.querySelector(".lo-app")?.classList.add("is-resizing");
   };
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
@@ -67,10 +77,12 @@ export function RightPanel() {
     endDrag(true);
   };
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    // Alt+Sol gibi tarayıcı/sistem kısayollarını yutma.
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const next = rightWidthForKey(e.key, startWidth(), e.shiftKey, isRtl());
+    if (next == null) return;
     e.preventDefault();
-    const step = RIGHT_PANEL_STEP * (e.shiftKey ? 4 : 1);
-    setWidth(nextRightWidth(width, e.key === "ArrowLeft" ? -step : step, isRtl()));
+    setWidth(next);
   };
 
   const cards = (
@@ -110,7 +122,7 @@ export function RightPanel() {
         }}
         onKeyDown={onKey}
       />
-      <div className="lo-side lo-scroll">{cards}</div>
+      <div ref={sideRef} className="lo-side lo-scroll">{cards}</div>
     </div>
   );
 }

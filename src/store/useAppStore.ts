@@ -576,7 +576,8 @@ interface AppState {
   // Alışkanlık aksiyonları (LOM-55). Gün anahtarı yerel YYYY-MM-DD.
   /** Alışkanlık/ klasörünü baştan oku. */
   habitLoad: () => Promise<void>;
-  /** Yeni alışkanlık (1. tur). Geçersiz girdi (boş ad, ileri tarih) hata atar; kayıt hatası HabitSaveError atar (pencere gösterir). */
+  /** Yeni alışkanlık (1. tur). Geçersiz girdi (boş ad, ileri tarih) hata atar; kayıt hatası HabitSaveError atar (pencere gösterir);
+   *  kayıt sırasında kasa değiştiyse hata atmaz, null döner (LOM-67). */
   habitAdd: (input: NewHabitInput) => Promise<Habit | null>;
   /** Günün çentiğini aç/kapat (gelecek gün ve bırakılmış tur yok sayılır). */
   habitToggleDay: (id: string, day: string) => Promise<void>;
@@ -588,13 +589,13 @@ interface AppState {
   habitDelete: (id: string) => Promise<void>;
   /** Aynı süreyle bugünden yeniden başlat; süren tur bırakılır. Yeni turu döner (soyda daha yeni süren tur varsa ya da kayıt olmazsa null). */
   habitRestart: (id: string) => Promise<Habit | null>;
-  /** Bir tur daha (süre değişebilir); süren tur bırakılır. Yeni turu döner (soyda daha yeni süren tur varsa null); kayıt hatası HabitSaveError atar. */
+  /** Bir tur daha (süre değişebilir); süren tur bırakılır. Yeni turu döner (soyda daha yeni süren tur varsa ya da kasa değiştiyse null); kayıt hatası HabitSaveError atar. */
   habitNewRound: (id: string, opts: { days: number; start: string }) => Promise<Habit | null>;
   /** Ayrıntıyı aç (null = listeye dön). Kimlik verilirse Alışkanlıklar ekranına geçer. */
   habitOpenDetail: (id: string | null) => void;
   habitSetHistoryFilter: (f: HabitHistoryFilter) => void;
   /** Ad, simge, renk ve niyeti yerinde güncelle; süre, başlangıç ve çentikler değişmez (LOM-62).
-   *  Boş ad / geçersiz renk hata atar; kayıt hatası HabitSaveError atar; değişiklik yoksa null döner. */
+   *  Boş ad / geçersiz renk hata atar; kayıt hatası HabitSaveError atar; değişiklik yoksa ya da kasa değiştiyse null döner. */
   habitEdit: (id: string, input: EditHabitInput) => Promise<Habit | null>;
   toggleHabitToday: () => void;
 }
@@ -904,6 +905,7 @@ export const useAppStore = create<AppState>()(
    * Yazma anında kasa değişmişse (başka kasaya geçildi) eski kasaya yazılmaz.
    * `rethrow`: pencereden gelen kayıtta hata bildirim yerine HabitSaveError olarak fırlatılır;
    * pencere açık kalır ve iletiyi kendisi gösterir (LOM-63). Bellek yine diskteki doğruya döner.
+   * Kasa değiştiyse hata sayılmaz: fırlatılmaz, false döner; pencere sessizce kapanır (LOM-67).
    */
   async function habitCommit(changed: Habit[], rethrow = false): Promise<boolean> {
     if (changed.length === 0) return true;
@@ -928,7 +930,7 @@ export const useAppStore = create<AppState>()(
         habits: st.habits.flatMap((h) => (mine.has(h) ? (before.has(h.id) ? [before.get(h.id)!] : []) : [h])),
       }));
       await habitFailed(e, rethrow);
-      if (rethrow) throw new HabitSaveError(i18n.t("habit.saveError", { detail: errText(e) }));
+      if (rethrow && !(e instanceof HabitVaultChanged)) throw new HabitSaveError(i18n.t("habit.saveError", { detail: errText(e) }));
       return false;
     }
   }

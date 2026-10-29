@@ -22,7 +22,7 @@ Kod: `src/screens/Planner/`.
 ## Bugüne Odaklan + sayaçlar
 | Sayaç | Hesap (açık görevler) |
 |---|---|
-| Yapılacak | bitiş ya da planlanan tarih = bugün |
+| Yapılacak | bitiş ya da planlanan tarihi olan bütün açık görevler (gecikenler dahil); mini listenin varsayılan görünümündeki satır sayısıyla aynı (LOM-67) |
 | Geciken | bitiş tarihi < bugün |
 | Planlanmamış | bitiş ve planlanan tarih yok |
 

@@ -202,7 +202,7 @@
   },
   "planner": {
     "focusToday": "Focus On Today",
-    "resizeRight": "Right panel width — drag to resize, double-click to reset",
+    "resizeRight": "Right panel width — drag or use the arrow keys; Home for narrowest, End for widest, double-click or Enter to reset",
     "timeline": "Timeline",
     "board": "Board",
     "todo": "To Do",

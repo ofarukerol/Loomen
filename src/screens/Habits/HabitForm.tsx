@@ -73,6 +73,8 @@ export function HabitForm({
   const nameRef = useRef<HTMLInputElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  // Basış ve bırakış arka planın kendisinde mi: forma taşan tık kapatmasın (LOM-67).
+  const downOnBackdrop = useRef(false);
 
   useModalLayer();
 
@@ -114,7 +116,7 @@ export function HabitForm({
     setError(null);
     try {
       if (editing) {
-        // null: değişiklik yok → kapat. Kayıt hatası fırlar (catch): pencere açık, yazılanlar kalır (LOM-63).
+        // null: değişiklik yok ya da kasa değişti → kapat. Kayıt hatası fırlar (catch): pencere açık, yazılanlar kalır (LOM-63).
         const h = await habitEdit(editing.id, { name: name.trim(), emoji, color, intent: intent.trim() });
         if (h) onDone?.(h);
         onClose();
@@ -123,12 +125,15 @@ export function HabitForm({
       const h = from
         ? await habitNewRound(from.id, { days, start })
         : await habitAdd({ name: name.trim(), emoji, color, intent: intent.trim() || undefined, days, start });
-      // null: bu soyda zaten süren bir tur var. Kayıt hatası fırlar ve aşağıda pencerede gösterilir.
+      // null: bu soyda zaten süren bir tur var ya da kayıt sırasında kasa değişti (sessizce kapanır,
+      // LOM-67). Kayıt hatası fırlar ve aşağıda pencerede gösterilir.
       if (h) {
         onDone?.(h);
         onClose();
       } else if (from && hasLiveSibling(from)) {
         setError(t("habit.form.roundExists"));
+      } else {
+        onClose();
       }
     } catch (err) {
       setError(errText(err));
@@ -141,7 +146,22 @@ export function HabitForm({
   const preview = !editing && daysOk && startOk ? fmtRange(start, addDays(start, days - 1), i18n.language) : null;
 
   return createPortal(
-    <div className="lo-modal" onClick={onClose}>
+    <div
+      className="lo-modal"
+      onMouseDown={(e) => {
+        downOnBackdrop.current = e.target === e.currentTarget;
+      }}
+      onMouseUp={(e) => {
+        // Arka planda başlayıp formda biten sürüklemede tık arka plana düşer; onu da sayma.
+        if (e.target !== e.currentTarget) downOnBackdrop.current = false;
+      }}
+      onClick={(e) => {
+        // Hata görünürken ya da kayıt sürerken yanlış tık yazılanları silmesin (LOM-67).
+        const fromBackdrop = downOnBackdrop.current && e.target === e.currentTarget;
+        downOnBackdrop.current = false;
+        if (fromBackdrop && !error && !busy) onClose();
+      }}
+    >
       <form
         className="lo-hab-form"
         role="dialog"
