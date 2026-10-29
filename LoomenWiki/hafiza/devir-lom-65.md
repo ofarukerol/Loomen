@@ -1,11 +1,12 @@
 ---
 name: LOM-65 — Tekrar listeleri: altyapı (liste dosyası, kartlar, günlük sınır)
-description: Testler kaldı: Tekrar listeleri için arka plan: kasada Tekrar/Listeler/<id>.txt düz metin liste dosyası (başlık bloğu + "ön :: arka" satırları), bu satırlardan mevcut kimlik/eşleştirme mantığıyla kart üretimi, yapıştırma ayrıştırıcısı, liste başına günlük yeni kart sınırı ve depo bağlantısı; ekranda değişiklik yok.
+description: Tekrar listeleri için arka plan: kasada Tekrar/Listeler/<id>.txt düz metin liste dosyası (başlık bloğu + "ön :: arka" satırları), bu satırlardan mevcut kimlik/eşleştirme mantığıyla kart üretimi, yapıştırma ayrıştırıcısı, liste başına günlük yeni kart sınırı ve depo bağlantısı; ekranda değişiklik yok.
 type: project
 proje: loomen
-kaynak: kart LOM-65 · dal fix/LOM-65 · commit yok · test koşusu ebfd7693-7d8b-49bb-a3ef-e07ea6a601ac (Excalibur)
-guven: iddia
-durum: gelistirildi
+kaynak: kart LOM-65 · dal fix/LOM-65 · Loomen@a49b22b4f13bdc74564fd7c25d7cee1afa084279 · test koşusu 985e39a6-a1f4-41c8-880a-4bb338276da6 (Excalibur)
+guven: dogrulandi
+durum: test_gecti
+dogrulama_tarihi: 2026-10-29
 ---
 
 # LOM-65 — Tekrar listeleri: altyapı (liste dosyası, kartlar, günlük sınır)
@@ -49,15 +50,16 @@ Tekrar listeleri için arka plan: kasada Tekrar/Listeler/<id>.txt düz metin lis
 
 ## Test
 
-Testler KALDI; iş doğrulanmadı.
+Testler geçti.
 
-> İş yarıda durduruldu; testler koşmadı.
+> Tip denetimi temiz geçti. Tüm test paketi bu turda yeniden koşuldu ve 27 test dosyasının tümü geçti. Yeni liste testleri (srsListTest) ve eski tekrar testleri yeşil. Kodda değişiklik yapılmadı. Plan canlı test istemediği için canlı doğrulama koşturulmadı; kartta ekranda görünen bir değişiklik yok.
 
 ## Kanıt
 
 - Dal: `fix/LOM-65`
-- Test koşusu: `ebfd7693-7d8b-49bb-a3ef-e07ea6a601ac` (Excalibur)
+- Commit: `Loomen@a49b22b4f13bdc74564fd7c25d7cee1afa084279`
+- Test koşusu: `985e39a6-a1f4-41c8-880a-4bb338276da6` (Excalibur)
 
 ## Durum
 
-Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
+Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.
