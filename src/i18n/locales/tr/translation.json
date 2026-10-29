@@ -1292,7 +1292,13 @@
       "intentPlaceholder": "Neden başlıyorum?",
       "add": "Ekle",
       "startRound": "Turu başlat",
-      "roundExists": "Bu alışkanlığın süren bir turu zaten var."
-    }
+      "roundExists": "Bu alışkanlığın süren bir turu zaten var.",
+      "editTitle": "Alışkanlığı düzenle",
+      "save": "Kaydet",
+      "editFixed": "Süre ve başlangıç günü değişmez; çentikler korunur."
+    },
+    "edit": "Düzenle",
+    "openScreen": "Alışkanlıklar ekranını aç",
+    "todayProgress": "Bugün {{done}} / {{total}} yapıldı"
   }
 }

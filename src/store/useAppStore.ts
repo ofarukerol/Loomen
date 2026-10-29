@@ -113,6 +113,7 @@ import {
 } from "../core/srs";
 import {
   dayKey as habitDayKey,
+  editHabit as habitEditFields,
   isFinished as habitIsFinished,
   isHistoryFilter,
   isSealed as habitIsSealed,
@@ -129,6 +130,7 @@ import {
   type HabitHistoryFilter,
   type HabitVault,
   type NewHabitInput,
+  type EditHabitInput,
 } from "../core/habit";
 
 export type Theme = "light" | "dark";
@@ -366,6 +368,8 @@ interface AppState {
   /** Ayrıntısı açık tur (null = liste). */
   habitDetailId: string | null;
   habitHistoryFilter: HabitHistoryFilter;
+  /** Planner'daki "Bugünün alışkanlıkları" kartı daraltılmış mı (LOM-62). */
+  habitTodayCollapsed: boolean;
 
   // Pomodoro
   pomo: PomodoroSettings;
@@ -584,6 +588,10 @@ interface AppState {
   /** Ayrıntıyı aç (null = listeye dön). Kimlik verilirse Alışkanlıklar ekranına geçer. */
   habitOpenDetail: (id: string | null) => void;
   habitSetHistoryFilter: (f: HabitHistoryFilter) => void;
+  /** Ad, simge, renk ve niyeti yerinde güncelle; süre, başlangıç ve çentikler değişmez (LOM-62).
+   *  Boş ad / geçersiz renk hata atar; değişiklik yoksa ya da kayıt olmazsa null döner. */
+  habitEdit: (id: string, input: EditHabitInput) => Promise<Habit | null>;
+  toggleHabitToday: () => void;
 }
 
 /** Boş Excalidraw sahnesi (yeni çizim oluştururken). */
@@ -1372,6 +1380,7 @@ export const useAppStore = create<AppState>()(
     habitBroken: [],
     habitDetailId: null,
     habitHistoryFilter: "all",
+    habitTodayCollapsed: false,
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoSound: true,
@@ -3320,6 +3329,16 @@ export const useAppStore = create<AppState>()(
 
     habitSetHistoryFilter: (f) => set({ habitHistoryFilter: isHistoryFilter(f) ? f : "all" }),
 
+    habitEdit: async (id, input) => {
+      const h = habitById(id);
+      if (!h) return null;
+      const next = habitEditFields(h, input); // boş ad / geçersiz renk burada hata atar
+      if (next === h) return null;
+      return (await habitCommit([next])) ? next : null;
+    },
+
+    toggleHabitToday: () => set((s) => ({ habitTodayCollapsed: !s.habitTodayCollapsed })),
+
     srsAnswer: async (g) => {
       const s = get();
       const item = s.srsQueue[s.srsIndex];
@@ -3471,6 +3490,8 @@ export const useAppStore = create<AppState>()(
           pomoHistory: p.pomoHistory ?? current.pomoHistory,
           gcalMap: p.gcalMap ?? current.gcalMap,
           habitHistoryFilter: isHistoryFilter(p.habitHistoryFilter) ? p.habitHistoryFilter : current.habitHistoryFilter,
+          habitTodayCollapsed:
+            typeof p.habitTodayCollapsed === "boolean" ? p.habitTodayCollapsed : current.habitTodayCollapsed,
         };
       },
       onRehydrateStorage: () => (state) => {
@@ -3563,8 +3584,9 @@ export const useAppStore = create<AppState>()(
         aiShowContext: s.aiShowContext,
         aiCanWrite: s.aiCanWrite,
         aiVoiceAutoSend: s.aiVoiceAutoSend,
-        // Alışkanlıklar: yalnız Geçmiş süzgeci. Alışkanlık verisi BURAYA EKLENMEZ — kasada durur.
+        // Alışkanlıklar: yalnız Geçmiş süzgeci ve Planner kartının daraltması. Alışkanlık verisi BURAYA EKLENMEZ — kasada durur.
         habitHistoryFilter: s.habitHistoryFilter,
+        habitTodayCollapsed: s.habitTodayCollapsed,
       }),
     }
   )

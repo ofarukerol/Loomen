@@ -49,6 +49,12 @@ export function allDoneToday(habits: Habit[], today: string): boolean {
   return live.length > 0 && live.every((h) => markedToday(h, today));
 }
 
+/** Planner kartı özeti: süren turlardan bugün işaretli olanlar (yapıldı ya da mazeretli) / süren tur sayısı. */
+export function todayProgress(habits: Habit[], today: string): { done: number; total: number } {
+  const live = habits.filter((h) => !isFinished(h, today));
+  return { done: live.filter((h) => markedToday(h, today)).length, total: live.length };
+}
+
 export interface StripDay {
   key: string;
   /** Tur dışındaki gün (başlangıçtan önce) null. */

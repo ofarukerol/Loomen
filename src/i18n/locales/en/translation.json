@@ -1292,7 +1292,13 @@
       "intentPlaceholder": "Why am I starting?",
       "add": "Add",
       "startRound": "Start round",
-      "roundExists": "This habit already has a running round."
-    }
+      "roundExists": "This habit already has a running round.",
+      "editTitle": "Edit habit",
+      "save": "Save",
+      "editFixed": "Duration and start day stay the same; your check marks are kept."
+    },
+    "edit": "Edit",
+    "openScreen": "Open habits screen",
+    "todayProgress": "{{done}} of {{total}} done today"
   }
 }

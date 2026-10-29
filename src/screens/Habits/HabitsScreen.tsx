@@ -68,6 +68,7 @@ export function HabitsScreen() {
 
   const openNew = () => setForm({ kind: "new" });
   const openRound = (from: Habit) => setForm({ kind: "round", from });
+  const openEdit = (habit: Habit) => setForm({ kind: "edit", habit });
   const onCreated = () => {
     setTab("active");
     useAppStore.getState().habitOpenDetail(null);
@@ -88,7 +89,7 @@ export function HabitsScreen() {
 
   let body;
   if (detail) {
-    body = <HabitDetail key={detail.id} habit={detail} today={today} onNewRound={openRound} onQuit={onQuit} />;
+    body = <HabitDetail key={detail.id} habit={detail} today={today} onNewRound={openRound} onEdit={openEdit} onQuit={onQuit} />;
   } else {
     body = (
       <>
@@ -180,7 +181,7 @@ export function HabitsScreen() {
         {detail && brokenLine}
         {body}
       </div>
-      {form && <HabitForm mode={form} today={today} onClose={() => setForm(null)} onDone={onCreated} />}
+      {form && <HabitForm mode={form} today={today} onClose={() => setForm(null)} onDone={form.kind === "edit" ? undefined : onCreated} />}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   dayKey,
   dayList,
   decodeHabit,
+  editHabit,
   encodeHabit,
   endKey,
   isFinished,
@@ -183,6 +184,38 @@ const r3 = newRound(r2, { days: 21, start: "2026-10-26" }, "2026-10-26", NOW);
 check("üçüncü tur aynı soyda", r3.round === 3 && r3.lineageId === r1.id && r3.prevId === r2.id);
 const rs = restart(quitHabit(r2, NOW), "2026-10-26", NOW);
 check("yeniden başlat: bugünden, aktif, aynı tur, öncekine bağlı", rs.start === "2026-10-26" && rs.status === "active" && rs.quitAt === undefined && rs.round === 2 && rs.prevId === r2.id);
+
+// ---------------------------------------------------------------- düzenleme (LOM-62)
+
+const FIXED = ["id", "days", "start", "round", "prevId", "lineageId", "status", "done", "excused", "createdAt", "quitAt"] as const;
+const fixedOf = (x: Habit) => JSON.stringify(FIXED.map((k) => [k, x[k] ?? null]));
+const marked = base({
+  id: "e2",
+  lineageId: "e1",
+  prevId: "e1",
+  round: 2,
+  intent: "Her gün biraz",
+  done: ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"],
+  excused: ["2026-10-04"],
+});
+const ed = editHabit(marked, { name: "  Kitap oku ", emoji: "🧠", color: "purple", intent: " Daha sakin olmak " });
+check("düzenle: yeni ad/simge/renk/niyet geliyor", ed.name === "Kitap oku" && ed.emoji === "🧠" && ed.color === "purple" && ed.intent === "Daha sakin olmak");
+check("düzenle: kimlik, süre, başlangıç, tur, soy, durum, çentikler birebir aynı", fixedOf(ed) === fixedOf(marked), fixedOf(ed));
+check("düzenle: 7 çentik + 1 mazeret korunuyor", ed.done.length === 7 && ed.excused.join() === "2026-10-04" && stats(ed, TODAY).completed === stats(marked, TODAY).completed);
+check("düzenle: yeni alan eklenmiyor", Object.keys(ed).sort().join() === Object.keys(marked).sort().join());
+check("düzenle: girdi nesnesi değişmiyor", marked.name === "Okuma" && marked.color === "teal");
+check("düzenle: boş ad hata atar", throws(() => editHabit(marked, { name: "   " })));
+check("düzenle: geçersiz renk hata atar", throws(() => editHabit(marked, { name: "x", color: "pembe" as Habit["color"] })));
+const noIntent = editHabit(marked, { name: "Okuma", intent: "  " });
+check("düzenle: niyet boşaltılınca alan kalkar", !("intent" in noIntent) && fixedOf(noIntent) === fixedOf(marked));
+check("düzenle: boş simge mevcut simgeyi korur", editHabit(marked, { name: "Yeni", emoji: " " }).emoji === "📖");
+check("düzenle: değişiklik yoksa aynı nesne", editHabit(marked, { name: " Okuma ", emoji: "📖", color: "teal", intent: "Her gün biraz" }) === marked);
+check("düzenle: renk verilmezse mevcut kalır", editHabit(marked, { name: "Yeni" }).color === "teal");
+const edBack = decodeHabit(encodeHabit(ed));
+check("düzenle: dosyaya yazılıp geri okunuyor", !!edBack && encodeHabit(edBack) === encodeHabit(ed) && edBack.name === "Kitap oku" && fixedOf(edBack) === fixedOf(marked));
+const quitted = quitHabit(marked, NOW);
+const edQuit = editHabit(quitted, { name: "Bırakılan", emoji: quitted.emoji, color: quitted.color, intent: quitted.intent });
+check("düzenle: bırakılmış turda yalnız ad değişir", edQuit.name === "Bırakılan" && edQuit.status === "quit" && edQuit.quitAt === NOW && fixedOf(edQuit) === fixedOf(quitted) && edQuit.color === "teal");
 
 // ---------------------------------------------------------------- kodek
 

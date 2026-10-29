@@ -6,6 +6,7 @@
 
 import {
   DEFAULT_COLOR,
+  HABIT_COLORS,
   HABIT_EMOJIS,
   MAX_DAYS,
   MIN_DAYS,
@@ -256,4 +257,30 @@ export function restart(habit: Habit, today: string, now: number): Habit {
 export function quitHabit(habit: Habit, now: number): Habit {
   if (habit.status === "quit") return habit;
   return { ...habit, status: "quit", quitAt: now };
+}
+
+export interface EditHabitInput {
+  name: string;
+  emoji?: string;
+  color?: HabitColor;
+  intent?: string;
+}
+
+/**
+ * Düzenle: yalnız ad, simge, renk ve niyet değişir. Süre, başlangıç, tur, soy, durum ve
+ * çentikler olduğu gibi kalır. Boş ad ya da bilinmeyen renk reddedilir; niyet boşaltılırsa
+ * alan kalkar. Hiçbir şey değişmiyorsa aynı nesne döner (store yazmaz).
+ */
+export function editHabit(habit: Habit, input: EditHabitInput): Habit {
+  const name = input.name.trim();
+  if (!name) throw new Error("Alışkanlığın adı boş olamaz");
+  const color = input.color ?? habit.color;
+  if (!(HABIT_COLORS as readonly string[]).includes(color)) throw new Error(`Geçersiz renk: ${color}`);
+  const emoji = input.emoji?.trim() || habit.emoji;
+  const intent = input.intent?.trim() || undefined;
+  if (name === habit.name && emoji === habit.emoji && color === habit.color && intent === habit.intent) return habit;
+  const next: Habit = { ...habit, name, emoji, color };
+  if (intent) next.intent = intent;
+  else delete next.intent;
+  return next;
 }

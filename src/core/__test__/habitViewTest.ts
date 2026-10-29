@@ -14,6 +14,7 @@ import {
   lastSevenStrip,
   markedToday,
   quitDayNo,
+  todayProgress,
   type Habit,
 } from "../habit";
 
@@ -192,6 +193,15 @@ const ko3 = keepOrder(["o1", "o2", "o3"], [o3, o1]);
 check("keepOrder: listeden çıkan düşer", ko3.map((h) => h.id).join(",") === "o1,o3", ko3.map((h) => h.id).join(","));
 const nx = [o3, o1];
 check("keepOrder: boş önceki sıra → next aynen", keepOrder([], nx) === nx);
+
+// ---------------------------------------------------------------- Planner kartı özeti (LOM-62)
+
+const tp = todayProgress([b, quit, c, a, ended, d], TODAY);
+check("todayProgress: 4 süren turdan 2'si işaretli (yapıldı + mazeretli)", tp.done === 2 && tp.total === 4, JSON.stringify(tp));
+const tpDone = todayProgress([mk({ status: "quit", done: [TODAY] }), mk({ start: "2026-09-01", done: [TODAY] }), b], TODAY);
+check("todayProgress: bırakılan/biten sayılmaz", tpDone.done === 1 && tpDone.total === 1, JSON.stringify(tpDone));
+const tp0 = todayProgress([quit, ended], TODAY);
+check("todayProgress: süren yoksa 0/0", tp0.done === 0 && tp0.total === 0);
 
 console.log(fails === 0 ? "\nHepsi geçti." : `\n${fails} test başarısız.`);
 process.exit(fails === 0 ? 0 : 1);

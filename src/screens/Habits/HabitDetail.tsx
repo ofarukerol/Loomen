@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Flag, RotateCcw, Repeat, Trash2, ArrowRight } from "lucide-react";
+import { ArrowLeft, Flag, RotateCcw, Repeat, Trash2, ArrowRight, Pencil } from "lucide-react";
 import { dayIndex, endKey, isFinished, isSealed, outcome, quitDayNo, stats, type Habit } from "../../core/habit";
 import { useAppStore } from "../../store/useAppStore";
 import { HabitRing } from "./HabitRing";
@@ -16,16 +16,19 @@ type Ask = "quit" | "delete" | "restart" | null;
  * Bir turun ayrıntısı: halka, özet satırı (tamamlanan, başarı, en uzun seri, kalan), gün
  * dizisi (yanında niyet ve dönüm noktaları) ve eylemler. Süren turda Bırak / Yeniden başlat / Sil;
  * biten ya da mühürlü turda Bir tur daha / Yeniden başlat / Sil. Aynı soyda daha yeni süren tur varsa ona gidilir.
+ * Düzenle (ad/simge/renk/niyet) her durumda görünür (LOM-62).
  */
 export function HabitDetail({
   habit,
   today,
   onNewRound,
+  onEdit,
   onQuit,
 }: {
   habit: Habit;
   today: string;
   onNewRound: (h: Habit) => void;
+  onEdit: (h: Habit) => void;
   /** Bırakma kaydedildi, ayrıntı kapandı: liste Geçmiş'e geçer (LOM-58). */
   onQuit?: (h: Habit) => void;
 }) {
@@ -173,6 +176,10 @@ export function HabitDetail({
             )}
           </>
         )}
+        <button type="button" className="lo-btn" onClick={() => onEdit(habit)}>
+          <Pencil size={15} strokeWidth={2} aria-hidden />
+          {t("habit.edit")}
+        </button>
         <button type="button" className="lo-btn lo-hab-btn--ghostdanger" onClick={() => setAsk("delete")}>
           <Trash2 size={15} strokeWidth={2} aria-hidden />
           {t("habit.delete")}
