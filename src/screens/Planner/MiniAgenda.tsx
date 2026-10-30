@@ -5,7 +5,7 @@ import { useAppStore, useFocusCounts } from "../../store/useAppStore";
 import type { GroupKind, Task } from "../../data/sampleVault";
 import type { GEvent } from "../../core/google";
 import { StatCards, type TaskFilter } from "./StatCards";
-import { miniAgendaSections } from "../../core/vault/agendaView";
+import { miniAgendaSections, type AgendaSection } from "../../core/vault/agendaView";
 import { QuickAdd } from "./QuickAdd";
 import { PlanDayModal } from "./PlanDayModal";
 
@@ -158,12 +158,12 @@ export function MiniAgenda() {
   );
 
   // Aktif filtreye göre satırları kur (başlık = tarih ya da planlanmamışta kaynak not).
-  // Sıra: geciken günler (kırmızı başlık) → Google Takvim → bugün/yaklaşan (LOM-63).
+  // Sıra: geciken günler (yalnız Geciken süzgecinde) → bugün → Google Takvim → yaklaşan (LOM-74).
   const sections = miniAgendaSections(groups, unplannedTasks, filter);
   const rows: ReactNode[] = [];
-  const sectionRows = (overdue: boolean) => {
+  const sectionRows = (kinds: AgendaSection["kind"][]) => {
     for (const sec of sections) {
-      if ((sec.kind === "overdue") !== overdue) continue;
+      if (!kinds.includes(sec.kind)) continue;
       rows.push(
         sec.kind === "source" ? (
           <div className="lo-mini__date lo-mini__date--src" key={sec.key}>
@@ -180,9 +180,10 @@ export function MiniAgenda() {
     }
   };
 
-  sectionRows(true);
+  sectionRows(["overdue", "source"]);
+  sectionRows(["today"]);
 
-  // Google Takvim etkinlikleri (salt okunur) — yalnızca "yapılacak" görünümünde, gecikenlerin altında.
+  // Google Takvim etkinlikleri (salt okunur) — yalnızca "yapılacak" görünümünde, bugünün işlerinin altında.
   if (filter === "yapilacak" && gcalEvents.length > 0) {
     rows.push(
       <div className="lo-mini__date lo-mini__date--gcal" key="gcal-h">
@@ -201,7 +202,7 @@ export function MiniAgenda() {
     }
   }
 
-  sectionRows(false);
+  sectionRows(["upcoming"]);
 
   return (
     <div className="lo-card lo-mini">

@@ -163,14 +163,14 @@ const all = [...fileTasks, ...other];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-section("(d) Sayaçlar: Geciken düşer, Yapılacak aynı kalır");
+section("(d) Sayaçlar: Geciken düşer, Yapılacak bugüne alınanlar kadar artar");
 {
   const before = focusCounts(fileTasks, TODAY);
   const picked = overdueOpenTasks(fileTasks, TODAY).filter((t) => t.description !== "B");
   const batch = planRescheduleBatches(picked.map((t) => `${t.file}:${t.line}`), fileTasks).get("Yapılacaklar.md")!;
   const after = focusCounts(parseTasks("Yapılacaklar.md", rescheduleTasksInContent(FILE, batch, TODAY).content), TODAY);
-  eq("Önce: geciken 3, yapılacak 4 (gecikenler dahil)", [before.geciken, before.yapilacak], [3, 4]);
-  eq("Sonra: geciken 1 (B seçilmedi), yapılacak 4", [after.geciken, after.yapilacak], [1, 4]);
+  eq("Önce: geciken 3, yapılacak 1 (gecikenler hariç)", [before.geciken, before.yapilacak], [3, 1]);
+  eq("Sonra: geciken 1 (B seçilmedi), yapılacak 3", [after.geciken, after.yapilacak], [1, 3]);
   eq("Planlanmamış değişmez", after.planlanmamis, before.planlanmamis);
 }
 
@@ -195,7 +195,7 @@ section("LOM-47: günlük notta tarihsiz görev o günün tarihini alır");
 
   const all = [...daily, ...other];
   const c = focusCounts(all, TODAY);
-  eq("Sayaçlar: geciken 1, yapılacak 3, planlanmamış 1", [c.geciken, c.yapilacak, c.planlanmamis], [1, 3, 1]);
+  eq("Sayaçlar: geciken 1, yapılacak 2, planlanmamış 1", [c.geciken, c.yapilacak, c.planlanmamis], [1, 2, 1]);
   const g = groupTasks(all, TODAY);
   check("Grup listesinde Planlanmamış yalnız düz not görevi", JSON.stringify(g).includes("Düz not tarihsiz"));
   eq("Geciken listesinde tarihsiz günlük görev", overdueOpenTasks(all, TODAY).map((t) => t.description), ["Tarihsiz"]);

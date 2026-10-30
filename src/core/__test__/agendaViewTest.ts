@@ -1,4 +1,4 @@
-// Planner liste süzgeçleri testi — LOM-63: gecikenler varsayılan mini listede, Pano'da tamamlanan yok.
+// Planner liste süzgeçleri testi — LOM-63/74: gecikenler yalnız Geciken süzgecinde, Pano'da tamamlanan yok.
 // `npm test` ile koşar (scripts/run-tests.mjs). Yalnız saf çekirdek modüllerini çağırır.
 
 import { buildTaskLine, parseTaskLine, parseTasks } from "../markdown/taskParser";
@@ -49,21 +49,16 @@ const counts = focusCounts(tasks, TODAY);
 const texts = (ts: { text: string }[]) => ts.map((t) => t.text);
 
 // ─────────────────────────────────────────────────────────────────────────────
-section("(a) Varsayılan mini liste: gecikenler en üstte");
+section("(a) Yapılacak listesi: bugün önce, geciken yok");
 {
   const secs = miniAgendaSections(groups, unplannedTasks, "yapilacak");
-  eq("Bölüm türleri: geciken günler önce", secs.map((s) => s.kind), ["overdue", "overdue", "today", "upcoming"]);
-  eq(
-    "Satırlar yalnız açık görev",
-    secs.flatMap((s) => texts(s.tasks)),
-    ["Eski fatura", "Dünkü iş", "Bugünkü iş", "Yarınki iş"]
-  );
+  eq("Bölüm türleri: bugün, sonra yaklaşan", secs.map((s) => s.kind), ["today", "upcoming"]);
+  eq("Satırlar yalnız açık görev", secs.flatMap((s) => texts(s.tasks)), ["Bugünkü iş", "Yarınki iş"]);
+  check("Listede geciken bölüm yok", !secs.some((s) => s.kind === "overdue"));
   check("Yalnız tamamlanmış gün bölüm üretmez", !secs.some((s) => s.key === "d2026-10-22"));
-  const overdueRows = secs.filter((s) => s.kind === "overdue").reduce((n, s) => n + s.tasks.length, 0);
-  eq("Varsayılan listedeki geciken sayısı = Geciken sayacı", overdueRows, counts.geciken);
   const rows = secs.reduce((n, s) => n + s.tasks.length, 0);
-  eq("Varsayılan listedeki satır sayısı = Yapılacak sayacı (LOM-67)", rows, counts.yapilacak);
-  eq("Yapılacak sayısı 4 (gecikenler dahil)", counts.yapilacak, 4);
+  eq("Yapılacak listesindeki satır sayısı = Yapılacak sayacı (LOM-74)", rows, counts.yapilacak);
+  eq("Yapılacak sayısı 2 (gecikenler hariç)", counts.yapilacak, 2);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -133,7 +128,8 @@ section("(d) Hızlı eklenen görev gününün en üstünde (LOM-69)");
     ["Günlük nottan iş", "Saatli iş", "Sıradan iş", "Sürüklenmiş iş"].sort()
   );
   const secs = miniAgendaSections(g.groups, g.unplannedTasks, "yapilacak");
-  eq("Gecikenler hâlâ en üstte", secs[0].kind, "overdue");
+  eq("Yapılacak listesi bugünle başlar", secs[0].kind, "today");
+  eq("Yeni görev listenin ilk satırı", secs[0].tasks[0].text, "Yeni iş");
 
   const future = parseTaskLine("Yapılacaklar.md", 0, buildTaskLine("Gelecek iş 📅 2026-11-05", TODAY))!;
   eq("Tarih yazılan görev o güne düşer", future.due, "2026-11-05");

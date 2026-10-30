@@ -19,15 +19,15 @@ export interface AgendaSection {
   tasks: Task[];
 }
 
-/** Süzgecin gösterdiği gün türleri. Varsayılan görünüm gecikenleri de gösterir (sayaçla tutarlı). */
+/** Süzgecin gösterdiği gün türleri. Gecikenler yalnız "geciken" süzgecinde görünür (LOM-74). */
 const FILTER_KINDS: Record<Exclude<AgendaFilter, "planlanmamis">, GroupKind[]> = {
-  yapilacak: ["overdue", "today", "upcoming"],
+  yapilacak: ["today", "upcoming"],
   geciken: ["overdue"],
 };
 
 /**
- * Mini ajandanın bölümleri. Gecikenler en üstte (gruplar tarih sırasında, geciken günler
- * zaten öndedir; yine de türe göre öne alınır). Yalnız tamamlanmış görevi olan gün bölüm üretmez.
+ * Mini ajandanın bölümleri, gün gruplarının tarih sırasında. "yapilacak" bugünle başlar,
+ * yaklaşanlar altında. Yalnız tamamlanmış görevi olan gün bölüm üretmez.
  */
 export function miniAgendaSections(
   groups: TaskGroup[],
@@ -50,11 +50,7 @@ export function miniAgendaSections(
     if (open.length === 0) continue;
     sections.push({ key: "d" + g.id, kind: g.kind, label: g.label, tasks: open });
   }
-  // Kararlı sıralama: geciken bölümler başa, diğerleri kendi (tarih) sırasında.
-  return [
-    ...sections.filter((s) => s.kind === "overdue"),
-    ...sections.filter((s) => s.kind !== "overdue"),
-  ];
+  return sections;
 }
 
 /** Pano sütunları: yalnız açık görevler. Tamamlanan görev hiçbir sütunda yer almaz. */

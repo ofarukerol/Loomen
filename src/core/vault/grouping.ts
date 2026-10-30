@@ -163,9 +163,12 @@ export function groupTasks(
 /** "Bugüne Odaklan" sayaçları (docs 06 §4). */
 export function focusCounts(tasks: ParsedTask[], todayISO: string) {
   const open = tasks.filter((t) => !t.done && (t.indent ?? 0) === 0);
-  // Yapılacak = mini listenin varsayılan görünümündeki satırlar: tarihi olan
-  // bütün açık görevler (gecikenler dahil, LOM-67).
-  const yapilacak = open.filter((t) => planDate(t)).length;
+  // Yapılacak = Yapılacak listesindeki satır sayısıyla aynı: tarihi bugün ya da
+  // sonrası olan açık görevler, gecikenler hariç (LOM-74).
+  const yapilacak = open.filter((t) => {
+    const d = planDate(t);
+    return d && differenceInCalendarDays(parseISO(d), parseISO(todayISO)) >= 0;
+  }).length;
   const geciken = open.filter((t) => {
     const d = planDate(t);
     return d && differenceInCalendarDays(parseISO(d), parseISO(todayISO)) < 0;

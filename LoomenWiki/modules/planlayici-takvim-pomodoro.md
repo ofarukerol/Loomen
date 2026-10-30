@@ -22,11 +22,13 @@ Kod: `src/screens/Planner/`.
 ## Bugüne Odaklan + sayaçlar
 | Sayaç | Hesap (açık görevler) |
 |---|---|
-| Yapılacak | bitiş ya da planlanan tarihi olan bütün açık görevler (gecikenler dahil); mini listenin varsayılan görünümündeki satır sayısıyla aynı (LOM-67) |
+| Yapılacak | bugün ve sonrası tarihli açık görevler (gecikenler hariç); Yapılacak listesindeki satır sayısıyla aynı (LOM-74) |
 | Geciken | bitiş tarihi < bugün |
 | Planlanmamış | bitiş ve planlanan tarih yok |
 
 Karta tıklamak çizelgeyi o kümeye süzer; ikinci tıklama kaldırır. "Bugün" kullanıcının yerel saatine göre.
+
+Liste sırası (LOM-74): Yapılacak'ta önce bugün, altında Google Takvim etkinlikleri, sonra yaklaşan günler. Gecikenler yalnız Geciken süzgecinde listelenir. Hızlı eklenen bugün tarihli görev listenin ilk satırıdır.
 
 ## Hızlı ekleme
 - Tek satır + Enter. Hedef **bugünün günlük notu**; tarih verilirse o günün notu.
