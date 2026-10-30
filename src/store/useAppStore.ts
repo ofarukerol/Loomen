@@ -104,26 +104,22 @@ import {
   avgSeconds,
   balanceDays,
   buildQueue,
-  collectCards,
-  collectListCards,
   decodeList,
   dropListStates,
   futureLoad,
   isoDay,
   isListFile,
-  keepListStates,
-  keepNoteStatesWithoutNotes,
   listIdOf,
   listNewCaps,
   listPath,
   loadLists,
   loadLog,
   loadStates,
-  matchStates,
   migratePath,
   removeList,
   saveList,
   readSettings,
+  rebuildSrs,
   resolveSettingsRead,
   saveSettings,
   saveStates,
@@ -774,6 +770,9 @@ let srsStatesOf: VaultBackend | null = null;
  */
 let srsSettingsOf: VaultBackend | null = null;
 let srsSettingsRaw: string | null | undefined = undefined;
+/** Bu kasanın ayarı diskten en az bir kez benimsendi mi (LOM-73). Benimsenene kadar kartlar
+ *  toplanmaz, durumlar budanmaz ve durum.json yazılmaz: varsayılan ayarla kimlikler değişir. */
+let srsSettingsKnown = false;
 /** Her okuma ve yazma başında/sonunda artar: arada yazım olduysa okuma sonucu bayattır. */
 let srsSettingsSeq = 0;
 let srsSettingsWriting = 0;
@@ -1045,9 +1044,16 @@ export const useAppStore = create<AppState>()(
     }
   }
 
-  /** Bütün kartlar: notlardaki işaretli kartlar + tekrar listelerinin kartları. */
-  function gatherSrsCards(cfg: SrsSettings): SrsCard[] {
-    return [...collectCards(get().noteContents, cfg.syntax, cfg.excluded), ...collectListCards(get().srsLists)];
+  /** Bütün kartları (notlar + tekrar listeleri) topla ve kayıtlı durumlarla eşleştir.
+   *  Bu kasanın ayarı henüz okunmadıysa hiçbir şey yapmaz (`skipped`, LOM-73). */
+  function rebuildSrsCards(cfg: SrsSettings, saved: Record<string, SrsState>, lists: ReviewList[]) {
+    return rebuildSrs({
+      settingsKnown: srsSettingsKnown && srsSettingsOf === backend,
+      cfg,
+      contents: get().noteContents,
+      lists,
+      saved,
+    });
   }
 
   /** Ayar değişince (açma/kapama, işaretleme biçimi, hariç klasör) kartları yeniden çıkar. */
@@ -1055,15 +1061,10 @@ export const useAppStore = create<AppState>()(
     // Kart durumları bu kasa için henüz yüklenmediyse (ayar notlardan önce okunur) toplama:
     // boş durumla diske yazılır ve ilerleme silinirdi. srsLoad kartları güncel ayarla zaten toplar.
     if (!get().srsLoaded || srsStatesOf !== src || backend !== src) return;
-    const cards = gatherSrsCards(cfg);
-    const saved = get().srsStates;
-    const states = keepNoteStatesWithoutNotes(
-      keepListStates(matchStates(cards, saved).states, saved, get().srsLists),
-      saved,
-      cards,
-    );
-    set({ srsCards: cards, srsStates: states });
-    if (cfg.enabled && cards.length > 0 && backend === src) await saveStates(src, states, get().srsDaily);
+    const r = rebuildSrsCards(cfg, get().srsStates, get().srsLists);
+    if (r.skipped) return;
+    set({ srsCards: r.cards, srsStates: r.states });
+    if (cfg.enabled && r.cards.length > 0 && backend === src) await saveStates(src, r.states, get().srsDaily);
   }
 
   /** Kartları etkileyen ayarlar değişti mi. */
@@ -1084,6 +1085,7 @@ export const useAppStore = create<AppState>()(
     if (srsSettingsOf !== backend) {
       srsSettingsOf = backend;
       srsSettingsRaw = undefined;
+      srsSettingsKnown = false;
       srsSettingsSeq++;
       clearSrsSettingsRetry();
       set({ srsSettings: { ...SRS_DEFAULTS }, srsSettingsStatus: "loading", srsSettingsError: null });
@@ -1117,13 +1119,18 @@ export const useAppStore = create<AppState>()(
     }
     clearSrsSettingsRetry();
     if (d.action === "keep") {
+      srsSettingsKnown = true;
       if (get().srsSettingsStatus !== "ready") set({ srsSettingsStatus: "ready", srsSettingsError: null });
       return;
     }
     const prev = get().srsSettings;
+    // İlk benimsemede kartlar her zaman yeniden toplanır: o ana dek ayar bilinmediği için
+    // toplama yapılmamıştı (LOM-73).
+    const first = !srsSettingsKnown;
     srsSettingsRaw = d.raw;
+    srsSettingsKnown = true;
     set({ srsSettings: d.settings, srsSettingsStatus: "ready", srsSettingsError: null });
-    if (srsCardsAffected(prev, d.settings)) await regatherSrsCards(d.settings, src);
+    if (first || srsCardsAffected(prev, d.settings)) await regatherSrsCards(d.settings, src);
   }
 
   /**
@@ -1143,12 +1150,11 @@ export const useAppStore = create<AppState>()(
       await srsReadSettings();
       const cfg = get().srsSettings;
       await reloadSrsLists();
-      const cards = gatherSrsCards(cfg);
-      const saved = get().srsStates;
-      const m = matchStates(cards, saved);
-      const states = keepNoteStatesWithoutNotes(keepListStates(m.states, saved, get().srsLists), saved, cards);
-      set({ srsCards: cards, srsStates: states });
-      if (cfg.enabled && m.changed && cards.length > 0) await saveStates(backend, states, get().srsDaily);
+      // Ayar okunmadıysa kartlara ve durumlara dokunulmaz, diske yazılmaz (LOM-73).
+      const r = rebuildSrsCards(cfg, get().srsStates, get().srsLists);
+      if (r.skipped) return;
+      set({ srsCards: r.cards, srsStates: r.states });
+      if (cfg.enabled && r.changed && r.cards.length > 0) await saveStates(backend, r.states, get().srsDaily);
     } catch (err) {
       console.error("[srs] kartlar tazelenemedi:", err);
     }
@@ -3402,15 +3408,12 @@ export const useAppStore = create<AppState>()(
       const open = get().srsOpenListId;
       if (open && !get().srsLists.some((l) => l.id === open)) set({ srsOpenListId: null });
       const cfg = get().srsSettings;
-      const cards = gatherSrsCards(cfg);
-      const m = matchStates(cards, saved);
+      // Ayar okunmadıysa toplama yapılmaz, kayıtlı durumlar budanmadan kalır; ayar benimsenince
+      // kartlar o ayarla toplanır (LOM-73).
+      const r = rebuildSrsCards(cfg, saved, get().srsLists);
       // Oturum sürerken diskten gelen eski kayıt bellektekini ezmesin: daha yeni olan kazanır.
       const mem = get().srsStates;
-      const merged: Record<string, SrsState> = keepNoteStatesWithoutNotes(
-        keepListStates({ ...m.states }, saved, get().srsLists),
-        saved,
-        cards,
-      );
+      const merged: Record<string, SrsState> = r.skipped ? { ...saved } : { ...r.states };
       for (const [id, st] of Object.entries(mem)) {
         const disk = merged[id];
         if (!disk) continue;
@@ -3419,8 +3422,8 @@ export const useAppStore = create<AppState>()(
         if (a > b || (a === b && st.reps > disk.reps)) merged[id] = st;
       }
       srsStatesOf = src;
-      set({ srsLoaded: true, srsStates: merged, srsDaily: daily, srsCards: cards, srsSecPerCard: sec });
-      if (cfg.enabled && m.changed && cards.length > 0) await saveStates(backend, merged, daily);
+      set({ srsLoaded: true, srsStates: merged, srsDaily: daily, srsCards: r.cards, srsSecPerCard: sec });
+      if (!r.skipped && cfg.enabled && r.changed && r.cards.length > 0) await saveStates(backend, merged, daily);
     },
 
     srsSetSettings: async (patch) => {
@@ -3556,12 +3559,11 @@ export const useAppStore = create<AppState>()(
         : [...get().srsLists, stored];
       set({ srsLists: lists });
       const cfg = get().srsSettings;
-      const cards = gatherSrsCards(cfg);
-      const saved = get().srsStates;
-      const m = matchStates(cards, saved);
-      const states = keepNoteStatesWithoutNotes(keepListStates(m.states, saved, lists), saved, cards);
-      set({ srsCards: cards, srsStates: states });
-      if (cfg.enabled && m.changed) await saveStates(backend, states, get().srsDaily);
+      // Ayar okunmadıysa yalnız liste güncellenir; kartlar ayar benimsenince toplanır (LOM-73).
+      const r = rebuildSrsCards(cfg, get().srsStates, lists);
+      if (r.skipped) return;
+      set({ srsCards: r.cards, srsStates: r.states });
+      if (cfg.enabled && r.changed) await saveStates(backend, r.states, get().srsDaily);
     },
 
     srsListDelete: async (id) => {

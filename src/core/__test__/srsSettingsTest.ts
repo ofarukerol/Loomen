@@ -8,6 +8,7 @@ import {
   SETTINGS_FILE,
   readSettings,
   resolveSettingsRead,
+  sameSettingsText,
   saveSettings,
   type SettingsRead,
   type SrsSettings,
@@ -226,6 +227,63 @@ const OK: SettingsRead = { kind: "ok", settings: { ...DEFAULT_SETTINGS, enabled:
 {
   const d = resolveSettingsRead({ kind: "error", detail: "x" }, undefined);
   check("error + hiç okunmamış → error (varsayılana düşmez)", d.action === "error", d.action);
+}
+
+// ---------------------------------------------------------------- biçim farkı (LOM-73)
+// Senkron ya da düzenleyici satır sonunu, boşluğu, BOM'u, anahtar sırasını değiştirebilir;
+// bu içerik değişikliği sayılmaz. Değer farkı sayılır.
+
+const crlf = (t: string) => t.replace(/\n/g, "\r\n");
+
+{
+  check("sameSettingsText: aynı metin", sameSettingsText(MINE_RAW, MINE_RAW));
+  check("sameSettingsText: CRLF'li kopya aynı", sameSettingsText(crlf(MINE_RAW), MINE_RAW));
+  check("sameSettingsText: sona satır sonu eklenmiş aynı", sameSettingsText(MINE_RAW + "\n", MINE_RAW));
+  check("sameSettingsText: BOM'lu aynı", sameSettingsText("\uFEFF" + MINE_RAW, MINE_RAW));
+  check("sameSettingsText: tek satır (boşluksuz) aynı", sameSettingsText(JSON.stringify(MINE), MINE_RAW));
+  const reordered = JSON.stringify({ desteler: MINE.desteler, newPerDay: 7, enabled: true }, null, 2);
+  check("sameSettingsText: anahtar sırası farklı, değerler aynı", sameSettingsText(reordered, MINE_RAW));
+  check("sameSettingsText: newPerDay farklı → farklı",
+    !sameSettingsText(JSON.stringify({ ...MINE, newPerDay: 8 }, null, 2), MINE_RAW));
+  check("sameSettingsText: deste listesi farklı → farklı",
+    !sameSettingsText(JSON.stringify({ ...MINE, desteler: [] }, null, 2), MINE_RAW));
+  check("sameSettingsText: null ile metin farklı", !sameSettingsText(null, MINE_RAW) && !sameSettingsText(MINE_RAW, null));
+  check("sameSettingsText: null ile null aynı", sameSettingsText(null, null));
+  check("sameSettingsText: bozuk metin + CRLF aynı", sameSettingsText(crlf("{bozuk\nmetin"), "{bozuk\nmetin"));
+  check("sameSettingsText: bozuk metin ile geçerli JSON farklı", !sameSettingsText("{bozuk", MINE_RAW));
+}
+{
+  const v = fakeVault({ [SETTINGS_FILE]: crlf(MINE_RAW) });
+  const err = await throws(() => saveSettings(v.backend, NEXT, MINE_RAW));
+  check("disk yalnız CRLF farklı → yazar, fırlatmaz", err === null && v.files.get(SETTINGS_FILE) === NEXT_RAW, err ?? "");
+}
+{
+  const v = fakeVault({ [SETTINGS_FILE]: MINE_RAW + "\n" });
+  const err = await throws(() => saveSettings(v.backend, NEXT, MINE_RAW));
+  check("disk yalnız sondaki satır sonu farklı → yazar", err === null && v.files.get(SETTINGS_FILE) === NEXT_RAW, err ?? "");
+}
+{
+  const v = fakeVault({ [SETTINGS_FILE]: "\uFEFF" + MINE_RAW });
+  const err = await throws(() => saveSettings(v.backend, NEXT, MINE_RAW));
+  check("disk yalnız BOM farklı → yazar", err === null && v.files.get(SETTINGS_FILE) === NEXT_RAW, err ?? "");
+}
+{
+  const v = fakeVault({ [SETTINGS_FILE]: crlf(NEXT_RAW) });
+  const out = await saveSettings(v.backend, NEXT, crlf(NEXT_RAW));
+  check("bilinen metin içerikçe aynı (CRLF) → diske dokunmaz", out === null && v.writes.length === 0);
+}
+{
+  const v = fakeVault({ [SETTINGS_FILE]: crlf(JSON.stringify({ ...MINE, newPerDay: 3 }, null, 2)) });
+  const err = await throws(() => saveSettings(v.backend, NEXT, MINE_RAW));
+  check("disk gerçekten farklı içerik (CRLF'li) → yine fırlatır", err !== null && v.writes.length === 0, err ?? "");
+}
+{
+  const d = resolveSettingsRead({ ...OK, raw: crlf(MINE_RAW) }, MINE_RAW);
+  check("ok + yalnız CRLF farklı → keep", d.action === "keep", d.action);
+}
+{
+  const d = resolveSettingsRead({ ...OK, raw: JSON.stringify({ ...MINE, newPerDay: 8 }) }, MINE_RAW);
+  check("ok + içerik farklı → adopt", d.action === "adopt", d.action);
 }
 
 // ReviewSettingsGate çizimi (K4): yükleniyorda anahtar yok, hatada Yeniden dene + gizli ayrıntı.

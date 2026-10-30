@@ -105,6 +105,41 @@ export async function readSettings(backend: VaultBackend): Promise<SettingsRead>
   return { kind: "ok", settings: normalizeSettings(parsed as Partial<SrsSettings>), raw };
 }
 
+/** Anahtarları sıralı, kararlı JSON metni: anahtar sırası farkı içerik farkı sayılmaz. */
+function stableJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableJson(o[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(v) ?? "null";
+}
+
+/**
+ * İki ayar metni aynı içeriği mi taşıyor (LOM-73). Satır sonu (CRLF), boşluk, baştaki BOM ve
+ * anahtar sırası farkı değişiklik sayılmaz; değer farkı sayılır. JSON olarak okunamayan metinde
+ * satır sonu ve baş/son boşluk dışında birebir karşılaştırılır. `null` (dosya yok) yalnız `null`a eşittir.
+ */
+export function sameSettingsText(a: string | null, b: string | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  const parse = (t: string): { ok: true; v: unknown } | { ok: false } => {
+    try {
+      return { ok: true, v: JSON.parse(t.replace(/^\uFEFF/, "")) };
+    } catch {
+      return { ok: false };
+    }
+  };
+  const pa = parse(a);
+  const pb = parse(b);
+  if (pa.ok && pb.ok) return stableJson(pa.v) === stableJson(pb.v);
+  const plain = (t: string) => t.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim();
+  return plain(a) === plain(b);
+}
+
 export type SettingsDecision =
   | { action: "keep" }
   | { action: "adopt"; settings: SrsSettings; raw: string | null }
@@ -113,22 +148,24 @@ export type SettingsDecision =
 /**
  * Okuma sonucuna göre ne yapılacağı. `knownRaw`: bu kasada son okunan/yazılan metin;
  * `null` = dosya yok biliniyordu, `undefined` = bu kasa için hiç okunmadı.
- * Değişmeyen dosyaya dokunulmaz; dışarıdan değişen benimsenir; hata belleği değiştirmez.
+ * Değişmeyen dosyaya dokunulmaz (yalnız biçim farkı — satır sonu, boşluk — değişiklik sayılmaz);
+ * içeriği dışarıdan değişen benimsenir; hata belleği değiştirmez.
  */
 export function resolveSettingsRead(read: SettingsRead, knownRaw: string | null | undefined): SettingsDecision {
   if (read.kind === "error") return { action: "error", detail: read.detail };
   if (read.kind === "missing") {
     return knownRaw === null ? { action: "keep" } : { action: "adopt", settings: { ...DEFAULT_SETTINGS }, raw: null };
   }
-  if (read.raw === knownRaw) return { action: "keep" };
+  if (knownRaw !== undefined && sameSettingsText(read.raw, knownRaw)) return { action: "keep" };
   return { action: "adopt", settings: read.settings, raw: read.raw };
 }
 
 /**
  * Ayarları kaydet. `knownRaw`: son okunan/yazılan metin (`null` = dosya yok biliniyordu).
- * Metin aynıysa diske dokunmaz (null döner). Okunmamış bir dosyanın üstüne yazmaz: `knownRaw`
- * null iken dosya diskte varsa, ya da diskteki metin `knownRaw`dan farklıysa fırlatır —
- * kişinin ayarları varsayılanla ya da eski hâliyle ezilmesin.
+ * İçerik aynıysa diske dokunmaz (null döner). Okunmamış bir dosyanın üstüne yazmaz: `knownRaw`
+ * null iken dosya diskte varsa, ya da diskteki içerik `knownRaw`dan farklıysa fırlatır —
+ * kişinin ayarları varsayılanla ya da eski hâliyle ezilmesin. Yalnız biçim farkı (satır sonu,
+ * boşluk, BOM, anahtar sırası) dışarıdan değişiklik sayılmaz (LOM-73).
  * Başarılı yazımda yazılan metni döner.
  */
 export async function saveSettings(
@@ -137,11 +174,11 @@ export async function saveSettings(
   knownRaw: string | null,
 ): Promise<string | null> {
   const text = JSON.stringify(s, null, 2);
-  if (text === knownRaw) return null;
+  if (sameSettingsText(text, knownRaw)) return null;
   if (await backend.exists(SETTINGS_FILE)) {
     if (knownRaw === null) throw new Error(`Okunmamış Tekrar ayar dosyasının üstüne yazılmaz: ${SETTINGS_FILE}`);
     // Son okumadan beri dışarıdan (senkron, başka cihaz) değiştiyse ya da bozulduysa ezme.
-    if ((await backend.readNote(SETTINGS_FILE)) !== knownRaw) {
+    if (!sameSettingsText(await backend.readNote(SETTINGS_FILE), knownRaw)) {
       throw new Error(`Tekrar ayar dosyası dışarıdan değişmiş, üstüne yazılmaz: ${SETTINGS_FILE}`);
     }
   }
