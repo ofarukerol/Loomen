@@ -3,7 +3,7 @@ name: LOM-72 — Planner sağ blok kartlarının sırası ayarlanabilsin
 description: Planner sağ bloğundaki beş kartın sırası yeni varsayılana (Pomodoro, Takvim, Bugüne Odaklan, Tekrar, Alışkanlıklar) çekilir; Ayarlar'a yukarı/aşağı ve sürükleme ile sıralanan, 'Varsayılana dön' düğmeli bir liste eklenir; sıra kalıcı kayda yazılır ve sağ blok bu sırayla çizilir.
 type: project
 proje: loomen
-kaynak: kart LOM-72 · dal fix/LOM-72 · Loomen@52a1dd55cc2eb48bbb5c644b368255ad44215a8e · test koşusu ea96834b-de6f-47e9-a5e9-003e63dcf96b (Excalibur)
+kaynak: kart LOM-72 · dal fix/LOM-72 · Loomen@491e2100fc4b343089970443010a0d442f6b6401 · test koşusu 26dcb426-4f35-4009-8938-b3e08b6ac3a9 (Excalibur)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-10-30
@@ -47,13 +47,13 @@ Planner sağ bloğundaki beş kartın sırası yeni varsayılana (Pomodoro, Takv
 
 Testler geçti.
 
-> Tip denetimi hatasız geçti. Tam test takımı koştu: 32 test dosyasının tümü geçti, kart sırası testi 25/25. Canlı doğrulama insana kaldı.
+> Tip denetimi hatasız geçti. Tam test takımı da geçti: 32 test dosyasının hepsi yeşil. Kart sırası testi 29/29. Canlı doğrulama insana kaldı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-72`
-- Commit: `Loomen@52a1dd55cc2eb48bbb5c644b368255ad44215a8e`
-- Test koşusu: `ea96834b-de6f-47e9-a5e9-003e63dcf96b` (Excalibur)
+- Commit: `Loomen@491e2100fc4b343089970443010a0d442f6b6401`
+- Test koşusu: `26dcb426-4f35-4009-8938-b3e08b6ac3a9` (Excalibur)
 
 ## Durum
 
