@@ -118,12 +118,13 @@ import {
   listPath,
   loadLists,
   loadLog,
-  loadSettings,
   loadStates,
   matchStates,
   migratePath,
   removeList,
   saveList,
+  readSettings,
+  resolveSettingsRead,
   saveSettings,
   saveStates,
   schedule as srsSchedule,
@@ -370,6 +371,11 @@ interface AppState {
   // localStorage'da DEĞİL: cihazlar arası senkron olsun diye.
   srsLoaded: boolean;
   srsSettings: SrsSettings;
+  /** Tekrar ayar dosyasının okunma durumu (LOM-71). `ready` olmadan ayar gösterilmez ve yazılmaz:
+   *  okunmamış ya da okunamayan dosya varsayılanla ezilmesin. */
+  srsSettingsStatus: "loading" | "ready" | "error";
+  /** Okuma hatasının teknik ayrıntısı ("Ayrıntılar" altında gösterilir). */
+  srsSettingsError: string | null;
   /** Kart kimliği → kalıcı durum. */
   srsStates: Record<string, SrsState>;
   /** ISO gün → o gün yapılan iş (tavanlar buradan hesaplanır). */
@@ -595,6 +601,8 @@ interface AppState {
   // Tekrar aksiyonları
   srsLoad: () => Promise<void>;
   srsSetSettings: (patch: Partial<SrsSettings>) => Promise<void>;
+  /** Tekrar ayar dosyasını hemen yeniden oku (uyarıdaki "Yeniden dene"). */
+  srsRetrySettings: () => Promise<void>;
   srsApplyPreset: (name: keyof typeof SRS_PRESETS) => Promise<void>;
   srsStart: (deck?: string | null) => void;
   srsReveal: () => void;
@@ -754,6 +762,26 @@ let unwatch: (() => void) | null = null;
 let srsVault: string | null = null;
 /** Tekrar listelerinin son bilinen dosya metinleri ve okunamayanlar (saveList bununla korur). */
 let srsListVault: ListVault | null = null;
+/** Kart durumları hangi backend için yüklendi (srsLoad). Ayar değişince kartlar yalnız bu
+ *  kasadaysa yeniden toplanır; kasa açılırken eski kasanın kartları yeni kasaya yazılmasın. */
+let srsStatesOf: VaultBackend | null = null;
+
+/**
+ * Tekrar ayar dosyası (LOM-71). Ayar, notlar yüklenmeyi beklemeden kasa açılır açılmaz okunur
+ * ve her kasa yenilemesinde yeniden okunur. `srsSettingsOf`: ayarın okunduğu (sahiplenilen)
+ * backend; `srsSettingsRaw`: bu kasada son okunan/yazılan metin (`null` = dosya yok biliniyor,
+ * `undefined` = henüz okunmadı). Yazım bu metne dayanır: okunmamış dosyanın üstüne yazılmaz.
+ */
+let srsSettingsOf: VaultBackend | null = null;
+let srsSettingsRaw: string | null | undefined = undefined;
+/** Her okuma ve yazma başında/sonunda artar: arada yazım olduysa okuma sonucu bayattır. */
+let srsSettingsSeq = 0;
+let srsSettingsWriting = 0;
+/** Ayar yazımları SIRAYLA: ikinci yazım birincinin yazdığı metni bilinen metin olarak görür. */
+let srsSettingsOps: Promise<unknown> = Promise.resolve();
+/** Okuma hatasında yeniden deneme zamanlayıcısı (tek). */
+let srsSettingsRetry: ReturnType<typeof setTimeout> | null = null;
+const SRS_SETTINGS_RETRY_MS = 10_000;
 
 /**
  * Alışkanlık kasası: hangi backend için okundu ve son bilinen dosya metinleri (saveHabit
@@ -1022,6 +1050,82 @@ export const useAppStore = create<AppState>()(
     return [...collectCards(get().noteContents, cfg.syntax, cfg.excluded), ...collectListCards(get().srsLists)];
   }
 
+  /** Ayar değişince (açma/kapama, işaretleme biçimi, hariç klasör) kartları yeniden çıkar. */
+  async function regatherSrsCards(cfg: SrsSettings, src: VaultBackend): Promise<void> {
+    // Kart durumları bu kasa için henüz yüklenmediyse (ayar notlardan önce okunur) toplama:
+    // boş durumla diske yazılır ve ilerleme silinirdi. srsLoad kartları güncel ayarla zaten toplar.
+    if (!get().srsLoaded || srsStatesOf !== src || backend !== src) return;
+    const cards = gatherSrsCards(cfg);
+    const saved = get().srsStates;
+    const states = keepNoteStatesWithoutNotes(
+      keepListStates(matchStates(cards, saved).states, saved, get().srsLists),
+      saved,
+      cards,
+    );
+    set({ srsCards: cards, srsStates: states });
+    if (cfg.enabled && cards.length > 0 && backend === src) await saveStates(src, states, get().srsDaily);
+  }
+
+  /** Kartları etkileyen ayarlar değişti mi. */
+  const srsCardsAffected = (a: SrsSettings, b: SrsSettings) =>
+    a.enabled !== b.enabled || JSON.stringify(a.syntax) !== JSON.stringify(b.syntax) ||
+    JSON.stringify(a.excluded) !== JSON.stringify(b.excluded);
+
+  function clearSrsSettingsRetry(): void {
+    if (srsSettingsRetry) clearTimeout(srsSettingsRetry);
+    srsSettingsRetry = null;
+  }
+
+  /**
+   * Geçerli backend'in Tekrar ayarını sahiplen: kasa değiştiyse eski kasanın ayarı ekrandan kalkar,
+   * okunana kadar "yükleniyor" görünür. Ardından okuma başlar (beklenmez; notlar paralel yüklenir).
+   */
+  function claimSrsSettings(): void {
+    if (srsSettingsOf !== backend) {
+      srsSettingsOf = backend;
+      srsSettingsRaw = undefined;
+      srsSettingsSeq++;
+      clearSrsSettingsRetry();
+      set({ srsSettings: { ...SRS_DEFAULTS }, srsSettingsStatus: "loading", srsSettingsError: null });
+    }
+    void srsReadSettings();
+  }
+
+  /**
+   * Tekrar ayar dosyasını oku ve sonucu uygula (LOM-71). Değişmeyen dosyaya dokunulmaz, dışarıdan
+   * (senkron, başka cihaz) değişen benimsenir. Okunamazsa bellekteki ayar DEĞİŞMEZ, uyarı görünür
+   * ve zamanlayıcıyla yeniden denenir. Sahiplenilmemiş backend okunmaz (bkz. claimSrsSettings).
+   */
+  async function srsReadSettings(): Promise<void> {
+    const src = backend;
+    if (srsSettingsOf !== src) return;
+    const seq = ++srsSettingsSeq;
+    const read = await readSettings(src);
+    // Kasa değişti, daha yeni okuma başladı ya da arada yazım oldu: bu sonuç bayat.
+    if (backend !== src || srsSettingsOf !== src || seq !== srsSettingsSeq || srsSettingsWriting > 0) return;
+    const d = resolveSettingsRead(read, srsSettingsRaw);
+    if (d.action === "error") {
+      console.error("[srs] Tekrar ayarları okunamadı:", d.detail);
+      set({ srsSettingsStatus: "error", srsSettingsError: d.detail });
+      if (!srsSettingsRetry) {
+        srsSettingsRetry = setTimeout(() => {
+          srsSettingsRetry = null;
+          void srsReadSettings();
+        }, SRS_SETTINGS_RETRY_MS);
+      }
+      return;
+    }
+    clearSrsSettingsRetry();
+    if (d.action === "keep") {
+      if (get().srsSettingsStatus !== "ready") set({ srsSettingsStatus: "ready", srsSettingsError: null });
+      return;
+    }
+    const prev = get().srsSettings;
+    srsSettingsRaw = d.raw;
+    set({ srsSettings: d.settings, srsSettingsStatus: "ready", srsSettingsError: null });
+    if (srsCardsAffected(prev, d.settings)) await regatherSrsCards(d.settings, src);
+  }
+
   /**
    * Kartları notlardan yeniden çıkar ve kayıtlı durumlarla eşleştir.
    * Diske YALNIZCA modül açıkken yazar — kapalıyken kasada Tekrar/ klasörü oluşmaz.
@@ -1034,6 +1138,9 @@ export const useAppStore = create<AppState>()(
         await get().srsLoad();
         return;
       }
+      // Ayar her yenilemede yeniden okunur: senkron dosyayı değiştirdiyse benimsenir, önceki
+      // okuma düştüyse yeniden denenir (LOM-71). Okunamazsa bellekteki ayar kalır.
+      await srsReadSettings();
       const cfg = get().srsSettings;
       await reloadSrsLists();
       const cards = gatherSrsCards(cfg);
@@ -1459,6 +1566,8 @@ export const useAppStore = create<AppState>()(
 
     srsLoaded: false,
     srsSettings: { ...SRS_DEFAULTS },
+    srsSettingsStatus: "loading",
+    srsSettingsError: null,
     srsStates: {},
     srsDaily: {},
     srsCards: [],
@@ -1837,6 +1946,9 @@ export const useAppStore = create<AppState>()(
       // Sample seed (şablonlar) — hata olsa bile akışı durdurma.
       ensureTemplates(backend).catch(() => {});
       await loadFromBackend();
+      // Tekrar ayarı burada örnek kasa için okunmaz: Tauri'de kayıtlı kasa birazdan açılır ve
+      // örnek kasanın (kapalı) ayarı menüdeki Tekrar simgesini bir an kaldırırdı. Kasa
+      // açılmazsa (tarayıcı, örnek kasa, açılamadı) aşağıda sahiplenilir (LOM-71).
       if (isTauri()) {
         const [mobile, os, sandboxed] = await Promise.all([appIsMobile(), appPlatform(), appIsSandboxed()]);
         set({ platformMobile: mobile, platformOs: os, platformSandboxed: sandboxed });
@@ -1872,6 +1984,8 @@ export const useAppStore = create<AppState>()(
           if (saved) await get().reopenVault(saved);
         }
       }
+      // Hiçbir kasa açılmadıysa ayar örnek kasadan okunur; yoksa Ayarlar "yükleniyor"da kalırdı.
+      if (srsSettingsOf !== backend) claimSrsSettings();
     },
 
     // Yeni kasa ekle (klasör seç) ve ona geç. (Explorer/ayarlardaki "Kasa seç/ekle".)
@@ -1932,6 +2046,7 @@ export const useAppStore = create<AppState>()(
         await get().switchVault(vaults[0].path);
       } else {
         backend = createSampleBackend();
+        claimSrsSettings();
         unwatch?.();
         unwatch = null;
         localStorage.removeItem(VAULT_KEY);
@@ -2076,6 +2191,8 @@ export const useAppStore = create<AppState>()(
           // AI arama önbelleği kasaya özeldir — başka kasanın parçaları taşınmasın.
           if (isSwitch) resetIndex();
           backend = next;
+          // Tekrar ayarını notlardan ÖNCE oku (LOM-71): uzun ilk yüklemede Tekrar kapalı görünmesin.
+          claimSrsSettings();
           localStorage.setItem(VAULT_KEY, target);
           // Şablon klasörünü loadFromBackend'den ÖNCE oluştur ki Şablonlar hemen görünsün.
           try {
@@ -3272,7 +3389,10 @@ export const useAppStore = create<AppState>()(
     // (Tekrar/Listeler/<id>.txt, LOM-65).
 
     srsLoad: async () => {
-      const cfg = await loadSettings(backend);
+      // Ayar kasa açılırken zaten okunmaya başladı; burada da okunur (önceki okuma düştüyse
+      // yeniden dener). Okunamazsa bellekteki ayar kalır, dosya varsayılan sayılmaz (LOM-71).
+      await srsReadSettings();
+      const src = backend;
       const { states: saved, daily } = await loadStates(backend);
       const log = await loadLog(backend);
       const sec = avgSeconds(log.slice(-200).map((l) => l.ms));
@@ -3281,6 +3401,7 @@ export const useAppStore = create<AppState>()(
       // Kasa değiştiyse ya da liste başka cihazdan silindiyse açık ayrıntı kapanır.
       const open = get().srsOpenListId;
       if (open && !get().srsLists.some((l) => l.id === open)) set({ srsOpenListId: null });
+      const cfg = get().srsSettings;
       const cards = gatherSrsCards(cfg);
       const m = matchStates(cards, saved);
       // Oturum sürerken diskten gelen eski kayıt bellektekini ezmesin: daha yeni olan kazanır.
@@ -3297,26 +3418,64 @@ export const useAppStore = create<AppState>()(
         const b = disk.last ? Date.parse(disk.last) : 0;
         if (a > b || (a === b && st.reps > disk.reps)) merged[id] = st;
       }
-      set({ srsLoaded: true, srsSettings: cfg, srsStates: merged, srsDaily: daily, srsCards: cards, srsSecPerCard: sec });
+      srsStatesOf = src;
+      set({ srsLoaded: true, srsStates: merged, srsDaily: daily, srsCards: cards, srsSecPerCard: sec });
       if (cfg.enabled && m.changed && cards.length > 0) await saveStates(backend, merged, daily);
     },
 
     srsSetSettings: async (patch) => {
-      const next = { ...get().srsSettings, ...patch };
-      set({ srsSettings: next });
-      await saveSettings(backend, next);
-      // İşaretleme biçimleri değiştiyse kart listesi yeniden çıkarılmalı.
-      if (patch.syntax || patch.excluded || patch.enabled) {
-        const cards = gatherSrsCards(next);
-        const saved = get().srsStates;
-        const states = keepNoteStatesWithoutNotes(
-          keepListStates(matchStates(cards, saved).states, saved, get().srsLists),
-          saved,
-          cards,
-        );
-        set({ srsCards: cards, srsStates: states });
-        if (next.enabled && cards.length > 0) await saveStates(backend, states, get().srsDaily);
+      // Ayar okunmadan yazılmaz (LOM-71): kişinin desteleri ve sınırları varsayılanla ezilmesin.
+      // Ekran bu durumda düğmeleri zaten göstermez.
+      const src = backend;
+      if (get().srsSettingsStatus !== "ready" || srsSettingsOf !== src) {
+        console.warn("[srs] Tekrar ayarları okunmadan kayıt istendi; yazılmadı.");
+        return;
       }
+      const prev = get().srsSettings;
+      const next = { ...prev, ...patch };
+      set({ srsSettings: next });
+      srsSettingsWriting++;
+      srsSettingsSeq++;
+      const op = srsSettingsOps.then(async () => {
+        if (backend !== src || srsSettingsOf !== src) return false; // kasa değişti: eski kasaya yazma
+        const raw = await saveSettings(src, next, srsSettingsRaw ?? null);
+        if (raw !== null && srsSettingsOf === src) srsSettingsRaw = raw;
+        return true;
+      });
+      srsSettingsOps = op.catch(() => {});
+      let saved = false;
+      try {
+        saved = await op;
+      } catch (e) {
+        console.error("[srs] Tekrar ayarları kaydedilemedi:", e);
+        // İyimser değişikliği geri al ve diskteki doğruyu baştan oku: bilinen metin unutulur ki
+        // okuma "değişmedi" deyip bellekte yazılmamış ayarı bırakmasın (art arda iki kayıt).
+        // Okunana kadar ayar yine "yükleniyor"dur, bekleyen yazım da okunmamış dosyaya yazmaz.
+        if (srsSettingsOf === src) {
+          srsSettingsRaw = undefined;
+          set({ srsSettingsStatus: "loading", ...(get().srsSettings === next ? { srsSettings: prev } : {}) });
+        }
+        void notifyError(i18n.t("review.set.saveError", { detail: errText(e) }));
+      } finally {
+        srsSettingsWriting--;
+        srsSettingsSeq++;
+      }
+      // Kayıt düştüyse (bu ya da öncesindeki) ayar diskten yeniden okunur.
+      if (!saved || get().srsSettingsStatus !== "ready") {
+        if (backend === src) await srsReadSettings();
+        if (!saved) return;
+      }
+      // İşaretleme biçimleri değiştiyse kart listesi yeniden çıkarılmalı.
+      if (patch.syntax || patch.excluded || patch.enabled) await regatherSrsCards(next, src);
+    },
+
+    srsRetrySettings: async () => {
+      clearSrsSettingsRetry();
+      if (srsSettingsOf !== backend) {
+        claimSrsSettings();
+        return;
+      }
+      await srsReadSettings();
     },
 
     srsApplyPreset: async (name) => {

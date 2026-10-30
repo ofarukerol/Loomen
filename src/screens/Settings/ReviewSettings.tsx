@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { PRESETS, buildQueue, dailyDemand, type SrsDeck } from "../../core/srs";
+import { ReviewSettingsGate } from "../Review/ReviewSettingsGate";
 
 type Tab = "basic" | "advanced" | "expert";
 
@@ -80,6 +81,23 @@ function Steps({ value, onChange }: { value: number[]; onChange: (v: number[]) =
 }
 
 export function ReviewSettings() {
+  const { t } = useTranslation();
+  const status = useAppStore((s) => s.srsSettingsStatus);
+  const error = useAppStore((s) => s.srsSettingsError);
+  const retry = useAppStore((s) => s.srsRetrySettings);
+  // Ayar okunmadan anahtar ve ayarlar çizilmez (LOM-71): kapalı görünmesin, dokunulunca ezilmesin.
+  if (status !== "ready") {
+    return (
+      <>
+        <div className="lo-set__section">{t("review.set.section")}</div>
+        <ReviewSettingsGate status={status} detail={error} t={t} onRetry={() => void retry()} />
+      </>
+    );
+  }
+  return <ReviewSettingsBody />;
+}
+
+function ReviewSettingsBody() {
   const { t } = useTranslation();
   const cfg = useAppStore((s) => s.srsSettings);
   const set = useAppStore((s) => s.srsSetSettings);

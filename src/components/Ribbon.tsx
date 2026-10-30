@@ -18,6 +18,8 @@ export function Ribbon() {
   const aiEnabled = useAppStore((s) => s.aiEnabled);
   // Tekrar düğmesi yalnızca modül açıkken görünür (varsayılan kapalı).
   const srsEnabled = useAppStore((s) => s.srsSettings.enabled);
+  // Ayar okunurken simgenin yeri ayrılır (görünmez): okununca zıplamasın (LOM-71).
+  const srsLoading = useAppStore((s) => s.srsSettingsStatus === "loading");
   const dayNoteActive = screen === "editor" && activeNote === todayNotePath();
 
   const btn = (target: Screen, title: string, node: React.ReactNode) => (
@@ -54,7 +56,13 @@ export function Ribbon() {
       {btn("graph", t("ribbon.graph"), <Share2 size={ICON} strokeWidth={SW} />)}
       {btn("draw", t("ribbon.draw"), <PencilRuler size={ICON} strokeWidth={SW} />)}
       {btn("habits", t("ribbon.habit"), <Sprout size={ICON} strokeWidth={SW} />)}
-      {srsEnabled && btn("review", t("ribbon.review"), <Repeat2 size={ICON} strokeWidth={SW} />)}
+      {srsEnabled
+        ? btn("review", t("ribbon.review"), <Repeat2 size={ICON} strokeWidth={SW} />)
+        : srsLoading && (
+            <button className="lo-ribbon__btn is-placeholder" disabled aria-hidden="true" tabIndex={-1}>
+              <Repeat2 size={ICON} strokeWidth={SW} />
+            </button>
+          )}
       {btn("reports", t("ribbon.reports"), <BarChart3 size={ICON} strokeWidth={SW} />)}
       {aiEnabled && btn("assistant", t("ribbon.assistant"), <Sparkles size={ICON} strokeWidth={SW} />)}
 

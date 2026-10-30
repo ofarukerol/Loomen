@@ -79,6 +79,8 @@ button { font-family: inherit; }
 }
 .lo-ribbon__btn:hover { background: var(--line-soft); }
 .lo-ribbon__btn.is-active { color: var(--accent); background: var(--accent-soft); }
+/* Tekrar ayarı okunurken simgenin yeri (LOM-71): görünmez, tıklanmaz; okununca zıplamaz. */
+.lo-ribbon__btn.is-placeholder { visibility: hidden; pointer-events: none; }
 .lo-ribbon__spacer { flex: 1; }
 
 /* ---- Explorer (Kasa) ---- */
@@ -2530,6 +2532,13 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   width: 28px; padding: 0; margin-top: -4px; margin-inline-start: auto;
   display: flex; align-items: center; justify-content: center;
 }
+
+/* Tekrar ayarları okunamadı uyarısı (LOM-71): Ayarlar ve Tekrar ekranında anahtarın yerinde. */
+.lo-srsgate { padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
+.lo-srsgate__head { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.lo-srsgate__icon { color: var(--danger); flex-shrink: 0; margin-top: 2px; }
+.lo-srsgate__text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.lo-srsgate__actions { display: flex; flex-wrap: wrap; gap: 6px; padding-inline-start: 23px; }
 
 /* Kasa açılamadı şeridi (LOM-23): açılışta birikmesin diye pencere yerine tek uyarı.
    Yapı .lo-writebar ile aynı: iki satır, dar sütunda X üst satırda kalır. */

@@ -7,6 +7,7 @@ import { ReviewSession } from "./ReviewSession";
 import { ListCard } from "./ListCard";
 import { ListDetail } from "./ListDetail";
 import { ListForm } from "./ListForm";
+import { ReviewSettingsGate } from "./ReviewSettingsGate";
 
 const FORECAST_DAYS = 30;
 
@@ -24,6 +25,9 @@ export function ReviewScreen() {
   const spread = useAppStore((s) => s.srsSpread);
   const setScreen = useAppStore((s) => s.setScreen);
   const setSettings = useAppStore((s) => s.srsSetSettings);
+  const settingsStatus = useAppStore((s) => s.srsSettingsStatus);
+  const settingsError = useAppStore((s) => s.srsSettingsError);
+  const retrySettings = useAppStore((s) => s.srsRetrySettings);
   const openListId = useAppStore((s) => s.srsOpenListId);
   const openList = useAppStore((s) => s.srsOpenList);
   // Sekme seçimi yerel: liste varsa Listelerim, yoksa Notlardan (bugünkü görünüm).
@@ -45,6 +49,24 @@ export function ReviewScreen() {
 
   const fc = useMemo(() => forecast(states, FORECAST_DAYS), [states]);
   const today = daily[isoDay(new Date())] ?? { n: 0, r: 0, ms: 0 };
+
+  // Ayar henüz okunmadı ya da okunamadı (LOM-71): "Tekrarı aç" düğmesi varsayılanı dosyaya
+  // yazardı; onun yerine yükleniyor/uyarı gösterilir.
+  if (!cfg.enabled && settingsStatus !== "ready") {
+    return (
+      <div className="lo-rev lo-scroll">
+        <div className="lo-rev__inner">
+          <h1 className="lo-set__title">{t("review.title")}</h1>
+          <ReviewSettingsGate
+            status={settingsStatus}
+            detail={settingsError}
+            t={t}
+            onRetry={() => void retrySettings()}
+          />
+        </div>
+      </div>
+    );
+  }
 
   // Modül kapalıysa: ne olduğunu anlat, açma düğmesi ver.
   if (!cfg.enabled) {
