@@ -52,8 +52,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 1.0.6
-        CFBundleVersion: "1.0.6"
+        CFBundleShortVersionString: 1.0.7
+        CFBundleVersion: "1.0.7"
     entitlements:
       path: loomen_iOS/loomen_iOS.entitlements
     scheme:
