@@ -162,7 +162,91 @@
       "estHint": "Bu sayı, notlarını bu hızda eklemeye devam edersen ulaşacağın en yüksek yük. Bugünün gerçek sayısı aşağıda."
     },
     "cardEmpty": "Bugünlük bitti.",
-    "cardUnit": "kart · ~{{min}} dk"
+    "cardUnit": "kart · ~{{min}} dk",
+    "lists": {
+      "tabLists": "Listelerim",
+      "tabNotes": "Notlardan",
+      "newList": "Yeni liste",
+      "notesCount": "Notlarında {{n}} kart var.",
+      "emptyTitle": "Kendi listeni oluştur",
+      "emptyBody": "Ezberlemek istediğin kelimeleri ya da bilgileri bir listeye topla, her gün biraz çalış. Her satır bir kart olur: solda soru, sağda cevap. Listeler notlarından ayrı durur, notlarına hiçbir şey yazılmaz.",
+      "emptyExample": "apple :: elma",
+      "emptyCta": "İlk listeni oluştur",
+      "form": {
+        "title": "Yeni liste",
+        "editTitle": "Listeyi düzenle",
+        "name": "Ad",
+        "namePlaceholder": "Örnek: İngilizce 1000 kelime",
+        "nameRequired": "Listeye bir ad ver.",
+        "icon": "Simge",
+        "color": "Renk",
+        "direction": "Hangi yönde sorayım",
+        "dirFront": "Önden arkaya",
+        "dirBack": "Arkadan öne",
+        "dirBoth": "İki yönde",
+        "newPerDay": "Günde kaç yeni kart",
+        "newPerDayGeneral": "Genel ayar",
+        "newPerDayHint": "Genel günlük yeni kart sınırını aşmaz.",
+        "create": "Oluştur",
+        "save": "Kaydet"
+      },
+      "card": {
+        "learned": "Öğrenilen",
+        "learning": "Öğreniliyor",
+        "fresh": "Yeni",
+        "dueToday": "Bugün",
+        "rows": "{{n}} satır",
+        "study": "Çalış",
+        "nothingToday": "Bugünlük bitti",
+        "percent": "%{{pct}} öğrenildi"
+      },
+      "detail": {
+        "backToLists": "Listelerime dön",
+        "search": "Listede ara",
+        "addRow": "Satır ekle",
+        "frontPh": "Ön yüz (soru)",
+        "backPh": "Arka yüz (cevap)",
+        "notePh": "Not ya da örnek cümle (isteğe bağlı)",
+        "add": "Ekle",
+        "paste": "Yapıştır",
+        "importFile": "Dosyadan al",
+        "edit": "Düzenle",
+        "deleteList": "Listeyi sil",
+        "deleteRow": "Satırı sil",
+        "rowExists": "Bu satır listede zaten var.",
+        "noRows": "Liste boş. Satır ekle ya da toplu yapıştır.",
+        "noMatch": "Aramana uyan satır yok.",
+        "showMore": "{{n}} satır daha göster",
+        "hard": "Zor",
+        "hardOnly": "Yalnız zorlar",
+        "count": "{{n}} satır",
+        "deleteTitle": "\"{{name}}\" silinsin mi?",
+        "deleteBody": "Liste ve bütün ilerlemesi silinir. Bu geri alınamaz.",
+        "deleteConfirm": "Sil",
+        "deleteRowTitle": "Satır silinsin mi?",
+        "deleteRowBody": "Bu satırın ilerlemesi de silinir.",
+        "saveError": "Liste kaydedilemedi. Biraz sonra yeniden dene.",
+        "cancel": "Vazgeç"
+      },
+      "paste": {
+        "title": "Toplu yapıştır",
+        "importTitle": "Dosyadan al",
+        "hint": "Her satır bir kart olur. Soru ile cevabı sekme, \" - \", \" = \", \";\" ya da \"::\" ile ayır. Üçüncü parça not olarak eklenir. Ayıracı olmayan satır atlanır.",
+        "placeholder": "apple - elma\nbook - kitap\nwater - su",
+        "recognized": "{{n}} satır tanındı",
+        "skipped": "{{n}} satırda ayıraç yok, atlanacak",
+        "dupInText": "{{n}} satır metinde tekrar ediyor",
+        "dupInList": "{{n}} satır listede zaten var",
+        "skipDup": "Listede olanları atla",
+        "more": "… ve {{n}} satır daha",
+        "add": "{{n}} satırı ekle",
+        "none": "Eklenecek satır bulunamadı.",
+        "fileError": "Dosya okunamadı. Düz metin (.txt) ya da .csv dosyası seç."
+      },
+      "session": {
+        "listLabel": "Liste: {{name}}"
+      }
+    }
   },
   "explorer": {
     "vault": "Kasa",
@@ -620,7 +704,7 @@
         },
         "cards": {
           "h": "Kart nasıl yazılır",
-          "p": "Notuna aşağıdaki gibi satırlar yaz, Loomen kartı kendisi çıkarır. Liste maddesi olarak yazsan da çalışır. Kod bloğunun içindekiler kart sayılmaz. Loomen notuna hiç yazmaz, yalnız okur. Bu biçimleri Ayarlar > Tekrar'dan tek tek açıp kapatabilirsin. Beş biçim var:",
+          "p": "Notuna aşağıdaki gibi satırlar yaz, Loomen kartı kendisi çıkarır. Liste maddesi olarak yazsan da çalışır. Kod bloğunun içindekiler kart sayılmaz. Loomen notuna hiç yazmaz, yalnız okur. Bu biçimleri Ayarlar > Tekrar'dan tek tek açıp kapatabilirsin. Notlara hiç yazmadan kendi listeni de kurabilirsin. Altı biçim var:",
           "labels": {
             "write": "Notuna yaz",
             "card": "Kart olur",
@@ -694,6 +778,25 @@
                 }
               ],
               "file": "Fotosentez.md"
+            },
+            {
+              "name": "Tekrar listesi",
+              "desc": "Notlara yazmadan, kendi listeni kurarsın. Tekrar > Listelerim'de yeni liste aç, satırları tek tek ekle ya da toplu yapıştır. Liste kasada Tekrar/Listeler klasöründe ayrı bir dosyada durur, notlarına hiçbir şey yazılmaz. Seçtiğin yöne göre ileri, geri ya da iki kart çıkar. Üçüncü parça not ya da örnek cümle olur.",
+              "writeLabel": "Listeye yapıştır",
+              "write": "apple :: elma :: I ate an apple.",
+              "cards": [
+                {
+                  "label": "İleri",
+                  "front": "apple",
+                  "back": "elma\nI ate an apple."
+                },
+                {
+                  "label": "Geri",
+                  "front": "elma",
+                  "back": "apple\nI ate an apple."
+                }
+              ],
+              "file": "Tekrar/Listeler"
             }
           ]
         },

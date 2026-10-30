@@ -175,21 +175,40 @@ export interface PasteResult {
 /** Ayıraçlar öncelik sırasıyla: satırda ilk bulunan kullanılır. */
 const SEPARATORS: RegExp[] = [/\s*:{2,}\s*/, /\t+/, /\s+[-–—]\s+/, /\s+=\s+/, /\s*;\s*/];
 
-/** Yapıştırılan metni satırlara çevir (her satır bir kart). Üçüncü parça varsa not olur. */
-export function parsePasted(text: string): PasteResult {
+/** CSV dosyasında virgül de ayıraçtır (en düşük öncelik); düz yapıştırmada değildir. */
+const CSV_SEPARATORS: RegExp[] = [...SEPARATORS, /\s*,\s*/];
+/** CSV alanının başındaki/sonundaki çift tırnağı sıyır; içteki "" tek tırnağa döner. */
+const unquote = (s: string) => {
+  const t = s.trim();
+  return t.length >= 2 && t.startsWith('"') && t.endsWith('"') ? t.slice(1, -1).replace(/""/g, '"') : t;
+};
+const QUOTED_RE = /"(?:[^"]|"")*"/g;
+const SLOT_RE = /\u0000(\d+)\u0000/g;
+
+/** Yapıştırılan metni satırlara çevir (her satır bir kart). Üçüncü parça varsa not olur.
+ *  `csv`: .csv dosyasından alınan metin — virgül de ayıraç sayılır, alanların tırnağı sıyrılır. */
+export function parsePasted(text: string, opts: { csv?: boolean } = {}): PasteResult {
+  const csv = opts.csv === true;
+  const separators = csv ? CSV_SEPARATORS : SEPARATORS;
   const rows: ListRow[] = [];
   const seen = new Set<string>();
   let duplicates = 0;
   let skipped = 0;
   for (const line of text.split(/\r?\n/)) {
-    const body = line.trim();
-    if (!body) continue;
-    const sep = SEPARATORS.find((re) => re.test(body));
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // CSV'de tırnaklı alanlar yer tutucuyla saklanır: içlerindeki ayıraç satırı bölmez.
+    const quoted: string[] = [];
+    const body = csv
+      ? trimmed.replace(QUOTED_RE, (m) => `\u0000${quoted.push(m) - 1}\u0000`)
+      : trimmed;
+    const sep = separators.find((re) => re.test(body));
     if (!sep) {
       skipped++;
       continue;
     }
-    const parts = body.split(new RegExp(sep.source, "g"));
+    const split = body.split(new RegExp(sep.source, "g"));
+    const parts = csv ? split.map((p) => unquote(p.replace(SLOT_RE, (_, i) => quoted[Number(i)]))) : split;
     const row = normalizeRow({ front: parts[0] ?? "", back: parts[1] ?? "", note: parts.slice(2).join(" ") });
     if (!row.front || !row.back) {
       skipped++;

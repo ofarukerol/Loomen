@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Snowflake, Clock, X } from "lucide-react";
+import { FileText, Snowflake, Clock, X, ListChecks } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
-import { humanInterval, schedule, type Grade } from "../../core/srs";
+import { humanInterval, listIdOf, schedule, type Grade } from "../../core/srs";
 import { Markdown } from "../Editor/Markdown";
 
 const GRADES: Grade[] = [1, 2, 3, 4];
@@ -22,9 +22,12 @@ export function ReviewSession() {
   const postpone = useAppStore((s) => s.srsPostpone);
   const end = useAppStore((s) => s.srsEndSession);
   const openNote = useAppStore((s) => s.openNote);
+  const lists = useAppStore((s) => s.srsLists);
 
   const item = queue[index];
   const state = item ? states[item.card.id] ?? item.state : null;
+  // Tekrar listesi kartı (LOM-66): açılacak not yok, "Notu aç" yerine liste adı gösterilir.
+  const listId = item ? listIdOf(item.card.file) : null;
 
   // Her düğmenin altında "buna basarsan ne olur" yazar — Anki'deki en faydalı ayrıntı.
   const previews = useMemo(() => {
@@ -46,7 +49,7 @@ export function ReviewSession() {
         e.preventDefault();
         void answer(Number(e.key) as Grade);
       } else if (e.key.toLowerCase() === "e") {
-        openNote(item.card.file);
+        if (!listIdOf(item.card.file)) openNote(item.card.file);
       } else if (e.key === "Escape") {
         end();
       }
@@ -112,10 +115,20 @@ export function ReviewSession() {
         </div>
 
         <div className="lo-rev__meta">
-          <button className="lo-rev__metabtn" onClick={() => openNote(item.card.file)} title={t("review.openNote")}>
-            <FileText size={13} strokeWidth={2} />
-            {item.card.file.replace(/\.md$/i, "")}
-          </button>
+          {listId ? (
+            <span className="lo-rev__metabtn lo-rev__metalist">
+              <ListChecks size={13} strokeWidth={2} />
+              {(() => {
+                const l = lists.find((x) => x.id === listId);
+                return t("review.lists.session.listLabel", { name: l ? `${l.emoji} ${l.name}` : listId });
+              })()}
+            </span>
+          ) : (
+            <button className="lo-rev__metabtn" onClick={() => openNote(item.card.file)} title={t("review.openNote")}>
+              <FileText size={13} strokeWidth={2} />
+              {item.card.file.replace(/\.md$/i, "")}
+            </button>
+          )}
           <button className="lo-rev__metabtn" onClick={() => void postpone(item.card.id)}>
             <Clock size={13} strokeWidth={2} />
             {t("review.postpone")}

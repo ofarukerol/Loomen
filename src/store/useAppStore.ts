@@ -377,6 +377,8 @@ interface AppState {
   srsShownAt: number;
   /** Seçili deste (null = tüm kasa). */
   srsDeck: string | null;
+  /** Tekrar sayfasında açık liste ayrıntısı (LOM-66); null = liste/not bölümleri. */
+  srsOpenListId: string | null;
 
   // Alışkanlıklar (LOM-55) — veri kasadaki Alışkanlık/<id>.json dosyalarında durur, localStorage'a
   // yalnız Geçmiş süzgeci girer (bkz partialize).
@@ -595,6 +597,8 @@ interface AppState {
   srsListDelete: (id: string) => Promise<void>;
   /** Yalnız bu listeden oturum aç (listenin ve genel günlük sınırla). */
   srsStartList: (id: string) => void;
+  /** Liste ayrıntısını aç ya da kapat (null). */
+  srsOpenList: (id: string | null) => void;
 
   // Alışkanlık aksiyonları (LOM-55). Gün anahtarı yerel YYYY-MM-DD.
   /** Alışkanlık/ klasörünü baştan oku. */
@@ -1448,6 +1452,7 @@ export const useAppStore = create<AppState>()(
     srsAnswered: 0,
     srsShownAt: 0,
     srsDeck: null,
+    srsOpenListId: null,
 
     habits: [],
     habitsLoaded: false,
@@ -3243,6 +3248,9 @@ export const useAppStore = create<AppState>()(
       const sec = avgSeconds(log.slice(-200).map((l) => l.ms));
 
       await reloadSrsLists(true);
+      // Kasa değiştiyse ya da liste başka cihazdan silindiyse açık ayrıntı kapanır.
+      const open = get().srsOpenListId;
+      if (open && !get().srsLists.some((l) => l.id === open)) set({ srsOpenListId: null });
       const cards = gatherSrsCards(cfg);
       const m = matchStates(cards, saved);
       // Oturum sürerken diskten gelen eski kayıt bellektekini ezmesin: daha yeni olan kazanır.
@@ -3314,6 +3322,8 @@ export const useAppStore = create<AppState>()(
         srsDeck: deckId ?? null,
         srsShownAt: Date.now(),
         screen: "review",
+        // Genel oturum ya da deste bitince eski liste ayrıntısına değil sayfanın başına dönülür.
+        srsOpenListId: null,
       });
     },
 
@@ -3336,8 +3346,12 @@ export const useAppStore = create<AppState>()(
         srsDeck: null,
         srsShownAt: Date.now(),
         screen: "review",
+        // Oturum bitince liste ayrıntısına dönülür.
+        srsOpenListId: id,
       });
     },
+
+    srsOpenList: (id) => set({ srsOpenListId: id }),
 
     srsListSave: async (list) => {
       // Durumlar yüklenmeden yazılırsa durum.json yalnız liste kartlarıyla ezilirdi.
@@ -3375,6 +3389,7 @@ export const useAppStore = create<AppState>()(
         srsCards: get().srsCards.filter((c) => c.file !== file),
         srsStates: states,
         srsQueue: get().srsQueue.filter((q, i) => i < get().srsIndex || q.card.file !== file),
+        srsOpenListId: get().srsOpenListId === id ? null : get().srsOpenListId,
       });
       if (get().srsSettings.enabled) await saveStates(backend, states, get().srsDaily);
     },

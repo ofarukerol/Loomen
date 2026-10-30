@@ -159,7 +159,91 @@
       "estHint": "This is the highest load you would reach if you keep adding notes at this pace. Today's real number is below."
     },
     "cardEmpty": "Done for today.",
-    "cardUnit": "cards · ~{{min}} min"
+    "cardUnit": "cards · ~{{min}} min",
+    "lists": {
+      "tabLists": "My lists",
+      "tabNotes": "From notes",
+      "newList": "New list",
+      "notesCount": "Your notes have {{n}} cards.",
+      "emptyTitle": "Make your own list",
+      "emptyBody": "Gather the words or facts you want to memorise in a list and study a little every day. Each line becomes a card: question on the left, answer on the right. Lists are kept apart from your notes, and nothing is written into your notes.",
+      "emptyExample": "apple :: elma",
+      "emptyCta": "Create your first list",
+      "form": {
+        "title": "New list",
+        "editTitle": "Edit list",
+        "name": "Name",
+        "namePlaceholder": "Example: 1000 English words",
+        "nameRequired": "Give the list a name.",
+        "icon": "Icon",
+        "color": "Colour",
+        "direction": "Which way to ask",
+        "dirFront": "Front to back",
+        "dirBack": "Back to front",
+        "dirBoth": "Both ways",
+        "newPerDay": "New cards per day",
+        "newPerDayGeneral": "General setting",
+        "newPerDayHint": "Never goes above the general daily new card limit.",
+        "create": "Create",
+        "save": "Save"
+      },
+      "card": {
+        "learned": "Learned",
+        "learning": "Learning",
+        "fresh": "New",
+        "dueToday": "Today",
+        "rows": "{{n}} lines",
+        "study": "Study",
+        "nothingToday": "Done for today",
+        "percent": "{{pct}}% learned"
+      },
+      "detail": {
+        "backToLists": "Back to my lists",
+        "search": "Search the list",
+        "addRow": "Add a line",
+        "frontPh": "Front (question)",
+        "backPh": "Back (answer)",
+        "notePh": "Note or example sentence (optional)",
+        "add": "Add",
+        "paste": "Paste",
+        "importFile": "From a file",
+        "edit": "Edit",
+        "deleteList": "Delete list",
+        "deleteRow": "Delete line",
+        "rowExists": "This line is already in the list.",
+        "noRows": "The list is empty. Add a line or paste many at once.",
+        "noMatch": "No lines match your search.",
+        "showMore": "Show {{n}} more lines",
+        "hard": "Hard",
+        "hardOnly": "Hard ones only",
+        "count": "{{n}} lines",
+        "deleteTitle": "Delete \"{{name}}\"?",
+        "deleteBody": "The list and all of its progress will be deleted. This cannot be undone.",
+        "deleteConfirm": "Delete",
+        "deleteRowTitle": "Delete this line?",
+        "deleteRowBody": "Its progress will be deleted too.",
+        "saveError": "The list could not be saved. Try again in a moment.",
+        "cancel": "Cancel"
+      },
+      "paste": {
+        "title": "Paste many lines",
+        "importTitle": "From a file",
+        "hint": "Each line becomes a card. Separate the question and answer with a tab, \" - \", \" = \", \";\" or \"::\". A third part is added as a note. Lines without a separator are skipped.",
+        "placeholder": "apple - elma\nbook - kitap\nwater - su",
+        "recognized": "{{n}} lines recognised",
+        "skipped": "{{n}} lines have no separator and will be skipped",
+        "dupInText": "{{n}} lines repeat within the text",
+        "dupInList": "{{n}} lines are already in the list",
+        "skipDup": "Skip the ones already in the list",
+        "more": "… and {{n}} more lines",
+        "add": "Add {{n}} lines",
+        "none": "No lines to add.",
+        "fileError": "The file could not be read. Choose a plain text (.txt) or .csv file."
+      },
+      "session": {
+        "listLabel": "List: {{name}}"
+      }
+    }
   },
   "explorer": {
     "vault": "Vault",
@@ -598,7 +682,7 @@
         },
         "cards": {
           "h": "How to write a card",
-          "p": "Write lines like these in your note and Loomen builds the cards itself. They also work as list items. Anything inside a code block is not a card. Loomen never writes to your note, it only reads. You can turn each of these formats on or off in Settings > Review. There are five formats:",
+          "p": "Write lines like these in your note and Loomen builds the cards itself. They also work as list items. Anything inside a code block is not a card. Loomen never writes to your note, it only reads. You can turn each of these formats on or off in Settings > Review. You can also build your own list without writing in your notes. There are six formats:",
           "labels": {
             "write": "Write in your note",
             "card": "Becomes a card",
@@ -672,6 +756,25 @@
                 }
               ],
               "file": "Photosynthesis.md"
+            },
+            {
+              "name": "Review list",
+              "desc": "Build your own list without writing in your notes. Open a new list under Review > My lists, then add lines one by one or paste many at once. The list lives in its own file in the Tekrar/Listeler folder of your vault; nothing is written into your notes. Depending on the direction you choose, you get a forward card, a backward card or both. A third part becomes a note or example sentence.",
+              "writeLabel": "Paste into the list",
+              "write": "apple :: elma :: I ate an apple.",
+              "cards": [
+                {
+                  "label": "Forward",
+                  "front": "apple",
+                  "back": "elma\nI ate an apple."
+                },
+                {
+                  "label": "Backward",
+                  "front": "elma",
+                  "back": "apple\nI ate an apple."
+                }
+              ],
+              "file": "Tekrar/Listeler"
             }
           ]
         },

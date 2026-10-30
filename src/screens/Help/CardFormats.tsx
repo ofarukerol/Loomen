@@ -10,6 +10,8 @@ export interface FormatCard {
 export interface CardFormat {
   name: string;
   desc: string;
+  /** "Notuna yaz" yerine bu biçime özel etiket (ör. liste için "Listeye yapıştır"). */
+  writeLabel?: string;
   write: string;
   file?: string;
   cards: FormatCard[];
@@ -53,7 +55,7 @@ function FlashCard({ card, labels }: { card: FormatCard; labels: CardFormatsText
   );
 }
 
-/** "Kart nasıl yazılır": beş biçimin her biri için not satırı ve ortaya çıkan kartlar. */
+/** "Kart nasıl yazılır": altı biçimin her biri için not satırı ve ortaya çıkan kartlar. */
 export function CardFormats({ data }: { data: CardFormatsText }) {
   const { labels, formats } = data;
   return (
@@ -67,7 +69,7 @@ export function CardFormats({ data }: { data: CardFormatsText }) {
           <p className="lo-help__fmtdesc">{f.desc}</p>
           <div className="lo-help__fmtrow">
             <div className="lo-help__write">
-              <span className="lo-help__writelabel">{labels.write}</span>
+              <span className="lo-help__writelabel">{f.writeLabel ?? labels.write}</span>
               {f.file && <span className="lo-help__writefile" dir="ltr">{f.file}</span>}
               <div className="lo-help__writecode">
                 {f.write.split("\n").map((line, j) => (

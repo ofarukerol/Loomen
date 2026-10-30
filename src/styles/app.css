@@ -3694,6 +3694,173 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 .lo-revcard__btn { width: 100%; justify-content: center; }
 .lo-revcard__empty { font-size: 12.5px; color: var(--fg3); margin-top: 8px; }
 
+/* — Tekrar listeleri (LOM-66): Listelerim / Notlardan, liste kartı, ayrıntı, yapıştırma —
+   Yalnız mantıksal özellikler: Arapçada düzen kendiliğinden aynalanır. Renk --hab-c ile gelir. */
+.lo-rev__tabs {
+  display: inline-flex; gap: 2px; padding: 3px; margin-block: 8px 14px;
+  background: var(--bg-sunken); border: 1px solid var(--line-soft); border-radius: 11px;
+}
+.lo-rev__notes { padding: 14px 18px; margin-bottom: 4px; }
+.lo-rev__notes p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--fg2); }
+.lo-rev__metalist { cursor: default; }
+.lo-rev__metalist:hover { background: transparent; color: var(--fg3); }
+
+.lo-rlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 12px; margin-bottom: 8px; }
+.lo-rlist-card, .lo-rdet {
+  --hab-ink: color-mix(in srgb, var(--hab-c, var(--accent)) 72%, var(--fg1));
+}
+.lo-rlist-card {
+  display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px 16px;
+  border-inline-start: 3px solid var(--hab-c); cursor: pointer;
+  transition: box-shadow var(--dur-fast), border-color var(--dur-fast);
+}
+.lo-rlist-card:hover { box-shadow: var(--sh2); }
+.lo-rlist-card__head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.lo-rlist-card__emoji {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 40px; height: 40px; font-size: 20px; line-height: 1;
+  background: var(--hab-c-soft); border-radius: 11px;
+}
+.lo-rlist-card__titles { min-width: 0; flex: 1; }
+.lo-rlist-card__name {
+  display: block; max-width: 100%; padding: 0; font-family: inherit; font-size: 15px; font-weight: 600; color: var(--fg1);
+  text-align: start; background: none; border: 0; border-radius: 4px; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lo-rlist-card__name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lo-rlist-card__rows { font-size: 12px; color: var(--fg3); margin-top: 2px; }
+.lo-rlist-card__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.lo-rlist-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0;
+  padding: 7px 4px; background: var(--bg-sunken); border-radius: 9px;
+}
+.lo-rlist-stat__val { font-family: var(--font-mono); font-size: 16px; font-weight: 600; color: var(--fg1); font-variant-numeric: tabular-nums; }
+.lo-rlist-stat__label { font-size: 11px; color: var(--fg3); text-align: center; overflow-wrap: anywhere; }
+.lo-rlist-stat:last-child .lo-rlist-stat__val { color: var(--hab-ink); }
+.lo-rlist-bar { height: 6px; background: var(--bg-sunken); border-radius: 999px; overflow: hidden; }
+.lo-rlist-bar__fill { height: 100%; background: var(--hab-c); border-radius: inherit; transition: width var(--dur-base); }
+.lo-rlist-card__pct { font-size: 11.5px; color: var(--fg3); margin-top: -6px; }
+.lo-rlist-card__study { justify-content: center; }
+.lo-rlist-card .lo-btn--primary,
+.lo-rdet .lo-btn--primary { background: var(--hab-c); border-color: var(--hab-c); color: var(--hab-on); }
+.lo-rlist-card .lo-btn--primary:hover:not(:disabled),
+.lo-rdet .lo-btn--primary:hover:not(:disabled) { background: var(--hab-c); border-color: var(--hab-c); filter: brightness(1.06); }
+.lo-rlist-new {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 180px;
+  font-family: inherit; font-size: 13.5px; font-weight: 500; color: var(--fg2);
+  background: transparent; border: 1.5px dashed var(--line); border-radius: var(--radius-xl); cursor: pointer;
+  transition: color var(--dur-fast), border-color var(--dur-fast), background var(--dur-fast);
+}
+.lo-rlist-new:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.lo-rlist-new:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lo-rlist-empty { padding: 28px; text-align: center; color: var(--accent); margin-bottom: 8px; }
+.lo-rlist-empty .lo-rev__sample { text-align: start; }
+
+/* Ayrıntı */
+.lo-rdet { animation: loFade 0.18s ease both; }
+.lo-rdet__back { margin-bottom: 8px; }
+[dir="rtl"] .lo-rdet__backicon { transform: scaleX(-1); }
+.lo-rdet__head { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; margin-bottom: 14px; border-inline-start: 3px solid var(--hab-c); }
+.lo-rdet__name {
+  margin: 0; font-size: 19px; font-weight: 600; color: var(--fg1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lo-rdet__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lo-rdet__actions .lo-btn { min-height: 38px; }
+.lo-rdet__tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.lo-rdet__search {
+  flex: 1 1 220px; display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 38px; padding-inline: 12px;
+  color: var(--fg3); background: var(--bg-elev); border: 1px solid var(--line); border-radius: 9px;
+}
+.lo-rdet__search:focus-within { border-color: var(--hab-c); box-shadow: 0 0 0 3px var(--hab-c-soft); }
+.lo-rdet__search input {
+  flex: 1; min-width: 0; font-family: inherit; font-size: 14px; color: var(--fg1);
+  background: none; border: 0; outline: none;
+}
+.lo-rdet__toolbtns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lo-rdet__toolbtns .lo-btn { min-height: 38px; }
+.lo-rdet__add { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; margin-bottom: 12px; }
+.lo-rdet__addtitle { font-size: 12px; font-weight: 600; color: var(--fg2); }
+.lo-rdet__fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) auto; gap: 8px; }
+.lo-rdet__addbtn { min-height: 38px; justify-content: center; }
+.lo-rdet__err { margin-bottom: 12px; }
+.lo-rdet__empty { padding: 26px 12px; text-align: center; font-size: 13.5px; color: var(--fg3); }
+.lo-rdet__count { font-size: 12px; color: var(--fg3); margin-block-end: 6px; }
+.lo-rdet__rows { padding: 0; overflow: hidden; }
+.lo-rdet__row {
+  display: flex; align-items: center; gap: 10px; min-width: 0; padding: 9px 12px; padding-inline-start: 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.lo-rdet__row:last-child { border-bottom: 0; }
+.lo-rdet__row.is-editing { flex-direction: column; align-items: stretch; gap: 8px; background: var(--hab-c-soft); }
+.lo-rdet__row.is-editing .lo-rdet__fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr); }
+.lo-rdet__row.is-editing .lo-rdet__rowbtns { justify-content: flex-end; opacity: 1; }
+.lo-rdet__text {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 14px;
+  font-size: 13.5px; line-height: 1.5;
+}
+.lo-rdet__front { color: var(--fg1); font-weight: 500; overflow-wrap: anywhere; text-align: start; }
+.lo-rdet__backtext { color: var(--fg2); overflow-wrap: anywhere; text-align: start; }
+.lo-rdet__notetext { grid-column: 1 / -1; font-size: 12px; color: var(--fg3); overflow-wrap: anywhere; text-align: start; }
+.lo-rdet__hard { flex-shrink: 0; }
+.lo-rdet__rowbtns { display: flex; align-items: center; gap: 4px; flex-shrink: 0; opacity: 0.55; transition: opacity var(--dur-fast); }
+.lo-rdet__row:hover .lo-rdet__rowbtns,
+.lo-rdet__row:focus-within .lo-rdet__rowbtns { opacity: 1; }
+.lo-rdet__del:hover { color: var(--danger); background: var(--danger-bg); }
+.lo-rdet__more { display: flex; margin: 12px auto 0; }
+
+/* Yapıştırma / dosyadan alma penceresi */
+.lo-hab-form.lo-rpaste { width: 620px; }
+.lo-rpaste__hint { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--fg2); }
+.lo-rpaste__area {
+  min-height: 160px; max-height: 38dvh; resize: vertical;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.55; white-space: pre; overflow: auto;
+}
+.lo-rpaste__counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.lo-rpaste__counts li { padding: 3px 10px; font-size: 12px; color: var(--fg2); background: var(--bg-sunken); border-radius: 999px; }
+.lo-rpaste__counts li.is-ok { color: var(--hab-ink); background: var(--hab-c-soft); font-weight: 600; }
+.lo-rpaste__counts li.is-warn { color: var(--danger); background: var(--danger-bg); }
+.lo-rpaste__none { font-size: 13px; color: var(--fg3); }
+.lo-rpaste__preview { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.lo-rpaste__row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px;
+  padding: 6px 12px; font-size: 13px; border-bottom: 1px solid var(--line-soft);
+}
+.lo-rpaste__row:last-child { border-bottom: 0; }
+.lo-rpaste__front { color: var(--fg1); font-weight: 500; overflow-wrap: anywhere; text-align: start; }
+.lo-rpaste__back { color: var(--fg2); overflow-wrap: anywhere; text-align: start; }
+.lo-rpaste__note { display: block; font-size: 11.5px; color: var(--fg3); }
+.lo-rpaste__more { padding: 6px 12px; font-size: 12px; color: var(--fg3); background: var(--bg-sunken); }
+
+/* Telefon */
+.lo-app.is-mobile .lo-rev__tabs { display: flex; }
+.lo-app.is-mobile .lo-rev__tabs .lo-hab-tab { flex: 1; justify-content: center; min-height: 40px; }
+.lo-app.is-mobile .lo-rlist-card__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.lo-app.is-mobile .lo-rlist-card__study,
+.lo-app.is-mobile .lo-rdet__actions .lo-btn,
+.lo-app.is-mobile .lo-rdet__toolbtns .lo-btn,
+.lo-app.is-mobile .lo-rdet__toolbtns .lo-hab-chip,
+.lo-app.is-mobile .lo-rdet__addbtn,
+.lo-app.is-mobile .lo-rdet__more { min-height: 42px; }
+.lo-app.is-mobile .lo-rdet__actions .lo-btn { flex: 1 1 auto; justify-content: center; }
+.lo-app.is-mobile .lo-rdet__actions .lo-hab-btn--ghostdanger { margin-inline-start: 0; }
+.lo-app.is-mobile .lo-rdet__tools { flex-direction: column; align-items: stretch; }
+.lo-app.is-mobile .lo-rdet__search { flex-basis: auto; min-height: 42px; }
+.lo-app.is-mobile .lo-rdet__search input { font-size: 16px; }
+.lo-app.is-mobile .lo-rdet__toolbtns > * { flex: 1 1 auto; justify-content: center; }
+.lo-app.is-mobile .lo-rdet__fields,
+.lo-app.is-mobile .lo-rdet__row.is-editing .lo-rdet__fields { grid-template-columns: minmax(0, 1fr); }
+.lo-app.is-mobile .lo-rdet__fields .lo-hab-input { min-height: 42px; font-size: 16px; }
+.lo-app.is-mobile .lo-rdet__text { grid-template-columns: minmax(0, 1fr); }
+.lo-app.is-mobile .lo-rdet__rowbtns { opacity: 1; }
+.lo-app.is-mobile .lo-rdet__rowbtns .lo-rev__iconbtn { width: 40px; height: 40px; }
+@media (max-width: 768px) {
+  .lo-rpaste__area { font-size: 16px; min-height: 140px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lo-rdet, .lo-rlist-bar__fill, .lo-rlist-card { animation: none; transition: none; }
+}
+
 /* Dış değişiklik çakışması (LOM-5): açık not dışarıda değişti, taslakta yazılmamış değişiklik var. */
 .lo-conflict {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
