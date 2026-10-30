@@ -360,6 +360,26 @@ export function keepListStates(
   return out;
 }
 
+/**
+ * Not kartı hiç yoksa (notlar henüz yüklenmedi ya da okunamadı) kayıtlı not kartı durumlarını
+ * koru. Liste kartları kart sayısını sıfırdan çıkardığı için "kart yoksa yazma" koruması artık
+ * tek başına yetmiyor; bu olmadan matchStates bütün not geçmişini yetim sayıp siler.
+ */
+export function keepNoteStatesWithoutNotes(
+  next: Record<string, SrsState>,
+  saved: Record<string, SrsState>,
+  cards: SrsCard[],
+): Record<string, SrsState> {
+  if (cards.some((c) => !isListFile(c.file))) return next;
+  let out = next;
+  for (const [id, st] of Object.entries(saved)) {
+    if (out[id] || isListFile(st.file)) continue;
+    if (out === next) out = { ...next };
+    out[id] = st;
+  }
+  return out;
+}
+
 /** Her listenin bugün kalan yeni kart hakkı: liste yolu → kalan (en az 0). */
 export function listNewCaps(
   lists: ReviewList[],

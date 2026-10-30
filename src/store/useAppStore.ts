@@ -100,6 +100,7 @@ import {
   isoDay,
   isListFile,
   keepListStates,
+  keepNoteStatesWithoutNotes,
   listIdOf,
   listNewCaps,
   listPath,
@@ -1017,7 +1018,7 @@ export const useAppStore = create<AppState>()(
       const cards = gatherSrsCards(cfg);
       const saved = get().srsStates;
       const m = matchStates(cards, saved);
-      const states = keepListStates(m.states, saved, get().srsLists);
+      const states = keepNoteStatesWithoutNotes(keepListStates(m.states, saved, get().srsLists), saved, cards);
       set({ srsCards: cards, srsStates: states });
       if (cfg.enabled && m.changed && cards.length > 0) await saveStates(backend, states, get().srsDaily);
     } catch (err) {
@@ -3246,7 +3247,11 @@ export const useAppStore = create<AppState>()(
       const m = matchStates(cards, saved);
       // Oturum sürerken diskten gelen eski kayıt bellektekini ezmesin: daha yeni olan kazanır.
       const mem = get().srsStates;
-      const merged: Record<string, SrsState> = keepListStates({ ...m.states }, saved, get().srsLists);
+      const merged: Record<string, SrsState> = keepNoteStatesWithoutNotes(
+        keepListStates({ ...m.states }, saved, get().srsLists),
+        saved,
+        cards,
+      );
       for (const [id, st] of Object.entries(mem)) {
         const disk = merged[id];
         if (!disk) continue;
@@ -3266,7 +3271,11 @@ export const useAppStore = create<AppState>()(
       if (patch.syntax || patch.excluded || patch.enabled) {
         const cards = gatherSrsCards(next);
         const saved = get().srsStates;
-        const states = keepListStates(matchStates(cards, saved).states, saved, get().srsLists);
+        const states = keepNoteStatesWithoutNotes(
+          keepListStates(matchStates(cards, saved).states, saved, get().srsLists),
+          saved,
+          cards,
+        );
         set({ srsCards: cards, srsStates: states });
         if (next.enabled && cards.length > 0) await saveStates(backend, states, get().srsDaily);
       }
@@ -3347,7 +3356,7 @@ export const useAppStore = create<AppState>()(
       const cards = gatherSrsCards(cfg);
       const saved = get().srsStates;
       const m = matchStates(cards, saved);
-      const states = keepListStates(m.states, saved, lists);
+      const states = keepNoteStatesWithoutNotes(keepListStates(m.states, saved, lists), saved, cards);
       set({ srsCards: cards, srsStates: states });
       if (cfg.enabled && m.changed) await saveStates(backend, states, get().srsDaily);
     },

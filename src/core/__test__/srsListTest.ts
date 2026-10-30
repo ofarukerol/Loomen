@@ -15,6 +15,7 @@ import {
   freshState,
   isListFile,
   keepListStates,
+  keepNoteStatesWithoutNotes,
   listCards,
   listIdOf,
   listNewCaps,
@@ -198,6 +199,16 @@ const frontOnly = { ...LIST, direction: "front" as const };
 const afterDir = keepListStates(matchStates(listCards(frontOnly), saved).states, saved, [frontOnly]);
 check("yön değişince öbür yönün geçmişi duruyor", Object.keys(afterDir).length === 8 &&
   Object.values(afterDir).every((s) => s.reps === 5));
+
+// Notlar yüklenmeden yalnız liste kartları varken not geçmişi silinmemeli (inceleme bulgusu).
+const lc = listCards(LIST);
+const onlyLists = keepNoteStatesWithoutNotes(
+  keepListStates(matchStates(lc, withNote).states, withNote, [LIST]), withNote, lc);
+check("not kartı yokken not geçmişi korunuyor", !!onlyLists.n1 && Object.keys(onlyLists).length === 9);
+const noteCard: SrsCard = { ...lc[0], id: "n2", file: "Notlar/b.md" };
+const withNotes = keepNoteStatesWithoutNotes(
+  keepListStates(matchStates([...lc, noteCard], withNote).states, withNote, [LIST]), withNote, [...lc, noteCard]);
+check("notlar yüklüyken silinen notun durumu eskisi gibi düşüyor", !withNotes.n1 && !!withNotes.n2);
 
 // ---------------------------------------------------------------- kasada okuma/yazma
 
