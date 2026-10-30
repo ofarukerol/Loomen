@@ -42,12 +42,32 @@ function timeToMin(t?: string): number | null {
 /**
  * Sıralama değeri: manuel sıra (varsa) > saat (en erken önce) > dosya satırı.
  * Yani saat girilmişse saate göre, manuel sürükleme yapılmışsa ona göre dizilir.
+ * Hızlı eklenen görev de manuel değerle gününün en üstüne konur (orderForNewTask, LOM-69).
  */
 export function taskSortVal(t: ParsedTask, order: Record<string, number>): number {
   const manual = order[taskOrderKey(t.file, t.description)];
   if (manual != null) return manual;
   const tm = timeToMin(t.time);
   return tm != null ? tm : 100000 + t.line;
+}
+
+/**
+ * Hızlı eklenen görevin sıra değeri (LOM-69): aynı plan günündeki açık üst görevlerin en
+ * küçük değerinden bir eksik — yeni görev o günün ilk satırı olur. Kardeş yoksa 0.
+ */
+export function orderForNewTask(
+  all: ParsedTask[],
+  newTask: ParsedTask,
+  order: Record<string, number>
+): Record<string, number> {
+  const day = planDate(newTask);
+  const siblings = all.filter(
+    (t) => !t.done && (t.indent ?? 0) === 0 && planDate(t) === day
+  );
+  const val = siblings.length
+    ? Math.min(...siblings.map((t) => taskSortVal(t, order))) - 1
+    : 0;
+  return { ...order, [taskOrderKey(newTask.file, newTask.description)]: val };
 }
 
 function kindOf(dateISO: string, todayISO: string): GroupKind {

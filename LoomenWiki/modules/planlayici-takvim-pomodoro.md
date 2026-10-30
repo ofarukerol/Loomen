@@ -15,7 +15,7 @@ Kod: `src/screens/Planner/`.
 
 ## Zaman çizelgesi
 - Bütün kasadaki görevler tek akışta, **tarihe göre gruplu**, kronolojik. Boş gün başlığı gösterilmez; bugün vurgulu.
-- Tarih önceliği: bitiş (📅), yoksa planlanan (⏳), ikisi de yoksa **Planlanmamış** bölümü. Aynı gün içinde önce öncelik (🔺 > 🔼 > normal > 🔽), sonra dosya/satır sırası.
+- Tarih önceliği: bitiş (📅), yoksa planlanan (⏳), ikisi de yoksa **Planlanmamış** bölümü. Aynı gün içinde önce manuel sıra (sürükle-bırak ya da hızlı ekleme), sonra öncelik (🔺 > 🔼 > normal > 🔽), sonra dosya/satır sırası.
 - Görev satırı: durum dairesi (tıkla → tamamla, dosyaya yaz) · metin · göreli tarih ("6 gün sonra") · kaynak not (tıkla → notun o satırına git) · `#etiket` (tıkla → süz) · varsa `🍅×N`. Geciken görev kırmızımsı vurgulu.
 - Varsayılan pencere: son 30 gün + bütün gelecek; gecikenler her zaman görünür, eskisi "daha fazla yükle" ile.
 
@@ -33,6 +33,7 @@ Karta tıklamak çizelgeyi o kümeye süzer; ikinci tıklama kaldırır. "Bugün
 - Mobilde ekran klavyesinin onay tuşu (Gönder) da ekler; kutu boşalır, klavye açık kalır. Yazım önerisi sürerken (IME) Enter eklemez.
 - Kısa yazımlar: `📅 2026-06-20`, `@bugün` / `@yarın` / `@pzt`, `#etiket`, `🔼`, `🔁 every week`.
 - Doğal dil tarihi çözülemezse metin olduğu gibi yazılır; veri kaybolmaz.
+- Yeni görev kendi gününün bölümünde ilk sırada görünür: o günün en küçük sıra değerinden küçük bir manuel sıra değeri alır (LOM-69).
 
 ## Takvim
 Aylık ızgara, hafta Pazartesi başlar; görevli günlerde nokta. Güne tıklamak o günün günlük notunu

@@ -48,8 +48,14 @@ import {
   refineOpenErrorCode,
   type VaultOpenError,
 } from "../core/vault/openError";
-import { groupTasks, focusCounts, taskSortVal, taskOrderKey } from "../core/vault/grouping";
-import { parseTasks } from "../core/markdown/taskParser";
+import {
+  groupTasks,
+  focusCounts,
+  taskSortVal,
+  taskOrderKey,
+  orderForNewTask,
+} from "../core/vault/grouping";
+import { parseTasks, parseTaskLine } from "../core/markdown/taskParser";
 import { playChime } from "../core/sound";
 import {
   createBookmark,
@@ -2555,19 +2561,28 @@ export const useAppStore = create<AppState>()(
         // Açık notun yazılmamış hali önce diske: yoksa görev yazması "dış değişiklik"
         // sayılıp çakışma sorulur ya da taslak görev değişikliğini ezer (LOM-5).
         await flushDraft();
+        let line: string;
         try {
           // Görevler günlük nottan ayrı: ayrı "Yapılacaklar.md" dosyasına eklenir.
           // Dosya yoksa başlık bellekte kurulur — iki ayrı yazma (oluştur + ekle) yapılmaz.
           const content = (await backend.exists(TASKS_FILE))
             ? await backend.readNote(TASKS_FILE)
             : "# Yapılacaklar\n";
-          const next = insertTaskUnderHeading(content, TODO_HEADING, buildTaskLine(text, todayISO()));
+          line = buildTaskLine(text, todayISO());
+          const next = insertTaskUnderHeading(content, TODO_HEADING, line);
           await backend.writeNote(TASKS_FILE, next);
         } catch (e) {
           // Yazılamadıysa metni geri ver — kullanıcı yazdığını kaybetmesin.
           set((st) => ({ quickText: st.quickText || text }));
           await notifyError(i18n.t("errors.addTask", { detail: errText(e) }));
           return;
+        }
+        // Yeni görev gününün en üstünde görünsün (LOM-69): anahtar ayrıştırılmış açıklamadan
+        // (tarih/etiket ayıklanmış) üretilir; yeniden yükleme bu sırayla grupları kurar.
+        const parsed = parseTaskLine(TASKS_FILE, 0, line);
+        if (parsed) {
+          const s = get();
+          set({ taskOrder: orderForNewTask([...s.parsedTasks, ...s.gcalTasks], parsed, s.taskOrder) });
         }
         await loadFromBackend();
       });

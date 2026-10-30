@@ -1,8 +1,8 @@
 // Planner liste süzgeçleri testi — LOM-63: gecikenler varsayılan mini listede, Pano'da tamamlanan yok.
 // `npm test` ile koşar (scripts/run-tests.mjs). Yalnız saf çekirdek modüllerini çağırır.
 
-import { parseTasks } from "../markdown/taskParser";
-import { focusCounts, groupTasks } from "../vault/grouping";
+import { buildTaskLine, parseTaskLine, parseTasks } from "../markdown/taskParser";
+import { focusCounts, groupTasks, orderForNewTask, taskOrderKey } from "../vault/grouping";
 import { boardColumns, miniAgendaSections, openTasks, overdueOpenCount } from "../vault/agendaView";
 
 let fails = 0;
@@ -97,6 +97,52 @@ section("(c) Pano: tamamlanan görev hiçbir sütunda yok");
   check("Hiçbir sütunda tamamlanmış görev yok", all.every((t) => !t.done));
   eq("Geciken sütun sayacı = Geciken sayacı", cols.overdue.length, counts.geciken);
   eq("Boş grup listesinde sütunlar boş", boardColumns([]), { overdue: [], today: [], upcoming: [] });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+section("(d) Hızlı eklenen görev gününün en üstünde (LOM-69)");
+{
+  const vault = [
+    ...parseTasks(
+      "Yapılacaklar.md",
+      [
+        "- [ ] Eski fatura 📅 2026-10-20",
+        "- [ ] Saatli iş ⏰ 09:00 📅 2026-10-29",
+        "- [ ] Sürüklenmiş iş 📅 2026-10-29",
+        "- [ ] Sıradan iş 📅 2026-10-29",
+        "- [ ] Gelecekteki eski iş 📅 2026-11-05",
+      ].join("\n") + "\n"
+    ),
+    ...parseTasks("2026-10-29.md", "- [ ] Günlük nottan iş\n"),
+  ];
+  const order = { [taskOrderKey("Yapılacaklar.md", "Sürüklenmiş iş")]: 0 };
+
+  const added = parseTaskLine("Yapılacaklar.md", 0, buildTaskLine("Yeni iş #ev", TODAY))!;
+  const key = taskOrderKey("Yapılacaklar.md", "Yeni iş");
+  const next = orderForNewTask(vault, added, order);
+  check("Anahtar etiket/tarih ayıklanmış açıklamadan", key in next, Object.keys(next).join(", "));
+  check("Yeni değer gündeki en küçük değerden küçük", next[key] < 0, String(next[key]));
+  eq("Eski sıra değerleri korunur", next[taskOrderKey("Yapılacaklar.md", "Sürüklenmiş iş")], 0);
+
+  const g = groupTasks([...vault, { ...added, line: 99 }], TODAY, next);
+  const today = g.groups.find((x) => x.id === TODAY)!;
+  eq("Bugünün ilk satırı yeni görev", today.tasks[0].text, "Yeni iş");
+  eq(
+    "Sürüklenmiş, saatli ve günlük nottan gelen hepsi altında",
+    texts(today.tasks).slice(1).sort(),
+    ["Günlük nottan iş", "Saatli iş", "Sıradan iş", "Sürüklenmiş iş"].sort()
+  );
+  const secs = miniAgendaSections(g.groups, g.unplannedTasks, "yapilacak");
+  eq("Gecikenler hâlâ en üstte", secs[0].kind, "overdue");
+
+  const future = parseTaskLine("Yapılacaklar.md", 0, buildTaskLine("Gelecek iş 📅 2026-11-05", TODAY))!;
+  eq("Tarih yazılan görev o güne düşer", future.due, "2026-11-05");
+  const next2 = orderForNewTask(vault, future, next);
+  const g2 = groupTasks([...vault, { ...future, line: 98 }], TODAY, next2);
+  eq("Tarihli görev o günün ilk satırı", texts(g2.groups.find((x) => x.id === "2026-11-05")!.tasks)[0], "Gelecek iş");
+
+  const lone = parseTaskLine("Yapılacaklar.md", 0, buildTaskLine("Boş gün işi 📅 2026-12-01", TODAY))!;
+  eq("Kardeşi olmayan günde değer 0", orderForNewTask(vault, lone, order)[taskOrderKey("Yapılacaklar.md", "Boş gün işi")], 0);
 }
 
 console.log(`\n${ran - fails}/${ran} geçti`);
