@@ -544,7 +544,8 @@ mod tests {
                 if p.is_dir() {
                     walk(root, &p, out);
                 } else {
-                    let rel = p.strip_prefix(root).unwrap().to_string_lossy().to_string();
+                    // Windows ayracı "\\" testlerde "/" ile karşılaştırılabilsin.
+                    let rel = p.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/");
                     out.push((rel, fs::read_to_string(&p).unwrap_or_default()));
                 }
             }

@@ -189,27 +189,43 @@ fn disk_sha(full: &Path) -> Option<String> {
 
 /// Yerel kasadaki tüm dosyaları oku (rel yol -> içerik). Gizli (.) klasörler atlanır (.git/.trash);
 /// tek istisna `.loomen` (çakışma yedekleri): senkronlanır, ama not listesinde görünmez (LOM-51).
-fn read_local(root: &Path) -> BTreeMap<String, Vec<u8>> {
-    let mut out = BTreeMap::new();
-    fn walk(root: &Path, dir: &Path, out: &mut BTreeMap<String, Vec<u8>>) {
-        let Ok(entries) = std::fs::read_dir(dir) else { return };
-        for e in entries.flatten() {
+/// Okunamayan klasör/dosya HATA döner (LOM-61): eksik yerel liste, o notların "yerelde
+/// silinmiş" sayılıp uzaktan da çıkarılmasına yol açardı. Bilerek atlanan yol hata değildir.
+fn read_local(root: &Path) -> Result<BTreeMap<String, Vec<u8>>, String> {
+    fn rel(root: &Path, p: &Path) -> String {
+        match p.strip_prefix(root) {
+            Ok(r) if !r.as_os_str().is_empty() => r.to_string_lossy().replace('\\', "/"),
+            _ => "kasa klasörü".into(),
+        }
+    }
+    fn dir_err(root: &Path, dir: &Path, e: std::io::Error) -> String {
+        format!("Yerel klasör okunamadı: {} ({e}); senkron durduruldu, notlara dokunulmadı", rel(root, dir))
+    }
+    fn walk(root: &Path, dir: &Path, out: &mut BTreeMap<String, Vec<u8>>) -> Result<(), String> {
+        let entries = std::fs::read_dir(dir).map_err(|e| dir_err(root, dir, e))?;
+        for e in entries {
+            let e = e.map_err(|e| dir_err(root, dir, e))?;
             let name = e.file_name().to_string_lossy().to_string();
             if name.starts_with('.') && !(dir == root && name == ".loomen") {
                 continue;
             }
             let p = e.path();
             if p.is_dir() {
-                walk(root, &p, out);
-            } else if let Ok(bytes) = std::fs::read(&p) {
-                if let Ok(rel) = p.strip_prefix(root) {
-                    out.insert(rel.to_string_lossy().replace('\\', "/"), bytes);
-                }
+                walk(root, &p, out)?;
+            } else {
+                let file_err = |e: String| {
+                    format!("Yerel not okunamadı: {} ({e}); senkron durduruldu, notlara dokunulmadı", rel(root, &p))
+                };
+                let bytes = std::fs::read(&p).map_err(|e| file_err(e.to_string()))?;
+                let r = p.strip_prefix(root).map_err(|e| file_err(e.to_string()))?;
+                out.insert(r.to_string_lossy().replace('\\', "/"), bytes);
             }
         }
+        Ok(())
     }
-    walk(root, root, &mut out);
-    out
+    let mut out = BTreeMap::new();
+    walk(root, root, &mut out)?;
+    Ok(out)
 }
 
 // ---------- GitHub Git Data API yardımcıları ----------
@@ -455,7 +471,14 @@ pub async fn github_api_sync(
     let c = http()?;
     let (o, r, br) = (owner.as_str(), repo.as_str(), branch.as_str());
 
-    // 1) Uzak head + tree dosyaları. Okuma hatası senkronu DURDURUR (LOM-11): eksik
+    // 1) Yerel dosyalar — ağa çıkmadan önce. Okuma hatası senkronu DURDURUR (LOM-61, LOM-11'in
+    //    yerel karşılığı): eksik yerel liste, okunamayan notların uzaktan silinmesine yol açardı.
+    let root = Path::new(&path);
+    let mut local = read_local(root)?;
+    let local_sha: BTreeMap<String, String> =
+        local.iter().map(|(k, v)| (k.clone(), git_blob_sha(v))).collect();
+
+    // 2) Uzak head + tree dosyaları. Okuma hatası senkronu DURDURUR (LOM-11): eksik
     //    uzak liste, yereldeki notların "uzakta silinmiş" sayılıp silinmesine yol açardı.
     let head = head_sha(&c, &token, o, r, br).await?;
     let remote: BTreeMap<String, String> = match &head {
@@ -465,12 +488,6 @@ pub async fn github_api_sync(
         },
         None => BTreeMap::new(),
     };
-
-    // 2) Yerel dosyalar
-    let root = Path::new(&path);
-    let mut local = read_local(root);
-    let local_sha: BTreeMap<String, String> =
-        local.iter().map(|(k, v)| (k.clone(), git_blob_sha(v))).collect();
 
     // 3) Base tree (varsa). Base commit uzakta artık yoksa (geçmiş yeniden yazılmış) boş
     //    base ile devam edilir: silme olmaz, farklar çakışma kopyası olur. Ağ hatası DURDURUR.
@@ -669,10 +686,76 @@ mod tests {
         std::fs::write(dir.join(".loomen/cakisma-gecmisi/S/N.md"), "y").unwrap();
         std::fs::write(dir.join(".trash/x"), "t").unwrap();
         std::fs::write(dir.join("N.md"), "n").unwrap();
-        let files = read_local(&dir);
+        let files = read_local(&dir).unwrap();
         let keys: Vec<&str> = files.keys().map(|k| k.as_str()).collect();
         assert_eq!(keys, vec![".loomen/cakisma-gecmisi/S/N.md", "N.md"]);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn yerel_silinen_not_uzaktan_da_kaldirilir() {
+        // Gerçek yerel silme (LOM-61 sonrası da): okuma başarılıysa listede olmayan not silinmiştir.
+        let base = m(&[("X.md", "1")]);
+        let plan = plan_merge(&m(&[("X.md", "1")]), &m(&[]), &base);
+        assert_eq!(plan.pushed, 1);
+        assert!(plan.writes.is_empty() && plan.deletes.is_empty() && plan.merges.is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn okunamayan_dosya_senkronu_durdurur() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("loomen-lom61-file-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("A.md"), "a").unwrap();
+        std::fs::write(dir.join("B.md"), "b").unwrap();
+        let b = dir.join("B.md");
+        std::fs::set_permissions(&b, std::fs::Permissions::from_mode(0o000)).unwrap();
+        if std::fs::read(&b).is_err() {
+            // Hata ağ çağrısından önce döner: GitHub'a hiçbir istek gitmez.
+            let res = tauri::async_runtime::block_on(github_api_sync(
+                dir.to_string_lossy().to_string(),
+                "o".into(),
+                "r".into(),
+                "main".into(),
+                "tok".into(),
+                Some("base".into()),
+            ));
+            let err = res.err().expect("okunamayan not senkronu durdurmalı");
+            assert!(err.contains("okunamadı") && err.contains("B.md"), "{err}");
+            assert!(err.contains("notlara dokunulmadı"), "{err}");
+            assert_eq!(std::fs::read(dir.join("A.md")).unwrap(), b"a");
+            assert!(!dir.join(".trash").exists() && !dir.join(".loomen").exists());
+        }
+        std::fs::set_permissions(&b, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn okunamayan_klasor_senkronu_durdurur() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("loomen-lom61-dir-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("Alt")).unwrap();
+        std::fs::write(dir.join("Alt/N.md"), "n").unwrap();
+        let alt = dir.join("Alt");
+        std::fs::set_permissions(&alt, std::fs::Permissions::from_mode(0o000)).unwrap();
+        if std::fs::read_dir(&alt).is_err() {
+            let err = read_local(&dir).expect_err("okunamayan klasör hata vermeli");
+            assert!(err.contains("klasör") && err.contains("Alt"), "{err}");
+        }
+        std::fs::set_permissions(&alt, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn okunamayan_kasa_kokunde_yol_yerine_kasa_klasoru_der() {
+        let dir = std::env::temp_dir().join(format!("loomen-lom61-yok-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let err = read_local(&dir).expect_err("olmayan kasa hata vermeli");
+        assert!(err.contains("kasa klasörü"), "{err}");
     }
 
     #[test]
