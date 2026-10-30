@@ -61,7 +61,7 @@ satırını değiştirip Google'a yazar; yeni madde ekleme, silme, tarih değiş
 
 ## Sağ blok kart sırası (LOM-72)
 - Varsayılan sıra: Pomodoro, Takvim, Bugüne Odaklan, Tekrar, Alışkanlıklar (`src/core/layout/sideCards.ts`).
-- Ayarlar → "Sağ blok kartları": beş kart her zaman listelenir; yukarı/aşağı düğmeleri (telefonda da) ve masaüstünde sürükleme sırayı değiştirir; "Varsayılana dön" sıra zaten varsayılansa pasif.
+- Ayarlar → "Sağ blok kartları": beş kart her zaman listelenir; yukarı/aşağı düğmeleri ve tutamaktan sürükleme (fare ve dokunma; işaretçi olaylarıyla, çünkü tarayıcı sürükle-bırakı Windows Tauri penceresinde tetiklenmiyor) sırayı değiştirir; "Varsayılana dön" sıra zaten varsayılansa pasif.
 - Sıra `loomen.settings` kaydında (`sideCardOrder`) kalıcı. Açılışta temizlenir: bilinmeyen/tekrarlı kimlik atılır, eksik kart varsayılan sırayla sona eklenir.
 - Kartlar kendi gizlenme kuralını korur: Tekrar modülü kapalıyken (listede "kapalı" rozeti) ve aktif alışkanlık yokken kart Planner'da çizilmez.
 

@@ -8,6 +8,7 @@ import {
   moveSideCard,
   normalizeSideCardOrder,
   reorderSideCards,
+  sideCardIndexAt,
   type SideCardId,
 } from "../layout/sideCards";
 
@@ -60,6 +61,13 @@ check("İleri taşıma (0 → 3)", eq(reorderSideCards(D, 0, 3), ["calendar", "f
 check("Geri taşıma (4 → 1)", eq(reorderSideCards(D, 4, 1), ["pomodoro", "habits", "calendar", "focus", "review"]));
 check("Aynı yere bırakma değişmez", eq(reorderSideCards(D, 2, 2), D));
 check("Geçersiz sıra numarası değişmez", eq(reorderSideCards(D, -1, 2), D) && eq(reorderSideCards(D, 1, 9), D) && eq(reorderSideCards(D, 0.5, 2), D));
+
+section("Sürüklenen satırın yeri");
+const ROWS = [0, 1, 2, 3, 4].map((i) => ({ top: 100 + i * 50, bottom: 150 + i * 50 }));
+check("Satırın içindeki nokta o satırı verir", sideCardIndexAt(120, ROWS) === 0 && sideCardIndexAt(260, ROWS) === 3);
+check("Sınır çizgisi alttaki satıra düşer", sideCardIndexAt(150, ROWS) === 1);
+check("Listenin üstü ilk, altı son satır", sideCardIndexAt(-40, ROWS) === 0 && sideCardIndexAt(900, ROWS) === 4);
+check("Satır yoksa ya da konum bozuksa -1", sideCardIndexAt(120, []) === -1 && sideCardIndexAt(NaN, ROWS) === -1);
 
 section("Varsayılan mı");
 check("Varsayılan sıra → doğru", isDefaultSideCardOrder(D));

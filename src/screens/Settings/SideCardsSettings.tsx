@@ -1,12 +1,14 @@
-import { useState, type DragEvent } from "react";
+import { useRef, useState, type PointerEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp, GripVertical, RotateCcw } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
-import { isDefaultSideCardOrder, reorderSideCards } from "../../core/layout/sideCards";
+import { isDefaultSideCardOrder, reorderSideCards, sideCardIndexAt } from "../../core/layout/sideCards";
 
 /** Ayarlar → Sağ blok kartları (LOM-72): Planner sağ bloğundaki kartların sırası.
  *  Beş kart her zaman listelenir; kapalı modülün kartı burada durur ama Planner'da çizilmez.
- *  Sürükleme masaüstü içindir; yukarı/aşağı düğmeleri her yerde (telefonda da) çalışır. */
+ *  Sürükleme tutamaktan, işaretçi olaylarıyla yapılır (fare ve dokunma): tarayıcının
+ *  sürükle-bırak olayları Windows'ta Tauri dosya bırakma açıkken tetiklenmiyor.
+ *  Yukarı/aşağı düğmeleri her yerde çalışır. */
 export function SideCardsSettings() {
   const { t } = useTranslation();
   const order = useAppStore((s) => s.sideCardOrder);
@@ -16,15 +18,30 @@ export function SideCardsSettings() {
   const reviewOn = useAppStore((s) => s.srsSettings.enabled);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ id: number; from: number; to: number } | null>(null);
 
-  const endDrag = () => {
+  const endDrag = (commit: boolean) => {
+    const d = drag.current;
+    drag.current = null;
+    if (d && commit && d.to >= 0 && d.to !== d.from) setOrder(reorderSideCards(order, d.from, d.to));
     setDragFrom(null);
     setOver(null);
   };
-  const onDrop = (e: DragEvent, to: number) => {
+  const onDown = (e: PointerEvent<HTMLSpanElement>, i: number) => {
+    if (e.button !== 0) return;
     e.preventDefault();
-    if (dragFrom != null) setOrder(reorderSideCards(order, dragFrom, to));
-    endDrag();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { id: e.pointerId, from: i, to: i };
+    setDragFrom(i);
+    setOver(i);
+  };
+  const onMove = (e: PointerEvent<HTMLSpanElement>) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId || !listRef.current) return;
+    const rows = Array.from(listRef.current.children, (el) => el.getBoundingClientRect());
+    d.to = sideCardIndexAt(e.clientY, rows);
+    setOver(d.to);
   };
 
   return (
@@ -34,7 +51,7 @@ export function SideCardsSettings() {
         <div className="lo-set__row lo-set__row--border">
           <div className="lo-set__rowsub">{t("settings.sideCardsSub")}</div>
         </div>
-        <div className="lo-set__cards">
+        <div className="lo-set__cards" ref={listRef}>
           {order.map((id, i) => (
             <div
               key={id}
@@ -43,22 +60,18 @@ export function SideCardsSettings() {
                 (dragFrom === i ? " is-dragging" : "") +
                 (over === i && dragFrom !== null && dragFrom !== i ? (dragFrom < i ? " is-over-after" : " is-over") : "")
               }
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.effectAllowed = "move";
-                e.dataTransfer.setData("text/plain", id);
-                setDragFrom(i);
-              }}
-              onDragOver={(e) => {
-                if (dragFrom == null) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                if (over !== i) setOver(i);
-              }}
-              onDrop={(e) => onDrop(e, i)}
-              onDragEnd={endDrag}
             >
-              <GripVertical size={16} className="lo-set__cardgrip" aria-hidden />
+              <span
+                className="lo-set__cardgrip"
+                aria-hidden
+                onPointerDown={(e) => onDown(e, i)}
+                onPointerMove={onMove}
+                onPointerUp={(e) => drag.current?.id === e.pointerId && endDrag(true)}
+                onPointerCancel={() => endDrag(false)}
+                onLostPointerCapture={() => drag.current && endDrag(true)}
+              >
+                <GripVertical size={16} />
+              </span>
               <div className="lo-set__cardname">
                 <div className="lo-set__rowtitle">
                   {t(`settings.sideCard.${id}`)}

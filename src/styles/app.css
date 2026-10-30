@@ -1393,7 +1393,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-set__cards { border-bottom: 1px solid var(--line-soft); }
 .lo-set__cardrow {
   position: relative; display: flex; align-items: center; gap: 10px;
-  padding-block: 10px; padding-inline: 14px 12px; cursor: grab; background: var(--bg-elev);
+  padding-block: 10px; padding-inline: 6px 12px; background: var(--bg-elev);
 }
 .lo-set__cardrow + .lo-set__cardrow { border-top: 1px solid var(--line-soft); }
 .lo-set__cardrow.is-dragging { opacity: .45; }
@@ -1403,7 +1403,12 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 }
 .lo-set__cardrow.is-over::before { top: -1px; }
 .lo-set__cardrow.is-over-after::after { bottom: -1px; }
-.lo-set__cardgrip { flex-shrink: 0; color: var(--fg3); }
+/* Tutamak: dokunmada sayfa kaymasın diye touch-action kapalı; parmak için geniş alan */
+.lo-set__cardgrip {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 32px; flex-shrink: 0;
+  color: var(--fg3); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.lo-set__cardrow.is-dragging .lo-set__cardgrip { cursor: grabbing; }
 .lo-set__cardname { flex: 1; min-width: 0; }
 .lo-set__cardbadge {
   display: inline-block; margin-inline-start: 8px; padding: 1px 7px; border-radius: 6px; vertical-align: 1px;
@@ -2923,9 +2928,9 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 /* Pomodoro ayar hücreleri (4 kutu) mobilde tek satıra sığsın */
 .lo-app.is-mobile .lo-set__pomocell { padding: 14px 6px; }
 .lo-app.is-mobile .lo-set__pomoinput { width: 100%; max-width: 58px; font-size: 20px; }
-/* Kart sırası düğmeleri mobilde parmak boyunda; sürükleme yok, imleç el olmasın (LOM-72) */
+/* Kart sırası düğmeleri ve tutamak mobilde parmak boyunda (LOM-72) */
 .lo-app.is-mobile .lo-set__cardbtn { width: 40px; height: 40px; }
-.lo-app.is-mobile .lo-set__cardrow { cursor: default; }
+.lo-app.is-mobile .lo-set__cardgrip { width: 36px; height: 40px; }
 /* Editör: masaüstü yan Backlinks paneli (288px) mobilde editörü daracık sütuna sıkıştırıyordu.
    Mobilde yan panel render edilmez (JSX'te !isMobile); Bağlantılar alttan sheet olarak açılır. */
 .lo-app.is-mobile .lo-editor__body { flex-direction: column; }

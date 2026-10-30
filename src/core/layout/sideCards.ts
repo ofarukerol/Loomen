@@ -47,3 +47,15 @@ export function isDefaultSideCardOrder(order: readonly SideCardId[]): boolean {
     order.length === DEFAULT_SIDE_CARD_ORDER.length && order.every((id, i) => id === DEFAULT_SIDE_CARD_ORDER[i])
   );
 }
+
+/**
+ * Sürüklenen imlecin (y) üstünde durduğu satırın sırası. Satırlar ekrandaki dikey
+ * aralıklarıyla (üst/alt) verilir; listenin üstündeyse ilk, altındaysa son satır döner.
+ * Sürükleme işaretçi olaylarıyla yapılır: tarayıcının sürükle-bırak olayları Windows'ta
+ * (Tauri dosya bırakma açıkken) hiç tetiklenmiyor.
+ */
+export function sideCardIndexAt(y: number, rows: readonly { top: number; bottom: number }[]): number {
+  if (rows.length === 0 || !Number.isFinite(y)) return -1;
+  for (let i = 0; i < rows.length; i++) if (y < rows[i].bottom) return i;
+  return rows.length - 1;
+}
