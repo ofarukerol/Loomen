@@ -3,7 +3,7 @@ name: LOM-61 — Okunamayan yerel not silinmiş sayılıyor
 description: Testler kaldı: GitHub REST eşitlemesinde yerel not/klasör okunamayınca eşitleme hata verip duracak; okunamayan not artık "silinmiş" sayılıp uzaktan çıkarılmayacak.
 type: project
 proje: loomen
-kaynak: kart LOM-61 · dal fix/LOM-61 · commit yok · test koşusu 7f0a9433-4254-4755-8de7-f3509dcdf1a5 (Excalibur)
+kaynak: kart LOM-61 · dal fix/LOM-61 · commit yok · test koşusu da22298c-7232-4418-9a7e-b589524c7025 (Excalibur)
 guven: iddia
 durum: gelistirildi
 ---
@@ -33,12 +33,12 @@ GitHub REST eşitlemesinde yerel not/klasör okunamayınca eşitleme hata verip 
 
 Testler KALDI; iş doğrulanmadı.
 
-> Kartın testleri (github_api) Windows'ta geçti: 13 geçti, 0 kaldı. Tam pakette github_git.rs içindeki 2 test kaldı, tek başına da kalıyor. Bu testler Windows'ta "\" yolunu "/" ile karşılaştırıyor. Kart o dosyaya dokunmuyor, ama kural gereği kırmızı sayıldı. Okunamayan dosya ve klasör testleri yalnız Unix'te koşar, Windows'ta atlandı. Canlı doğrulama insana kaldı.
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-61`
-- Test koşusu: `7f0a9433-4254-4755-8de7-f3509dcdf1a5` (Excalibur)
+- Test koşusu: `da22298c-7232-4418-9a7e-b589524c7025` (Excalibur)
 
 ## Durum
 

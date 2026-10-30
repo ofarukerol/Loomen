@@ -51,7 +51,7 @@ Tekrar listeleri için arka plan: kasada Tekrar/Listeler/<id>.txt düz metin lis
 
 Testler KALDI; iş doğrulanmadı.
 
-> Tip denetimi temiz çıktı. Bütün test paketi geçti: 27 test dosyası, kırmızı yok. Yeni liste testleri de yeşil: dosya yazma/okuma, ayıraçlar, kimlik kararlılığı, günlük sınır ve notlara yazılmaması. Canlı doğrulama bu kartta gerekmiyor, ekranda yeni bir şey yok. Kokpit: `gecti=true` ama özet bir kontrolün koşmadığını söylüyor: "Canlı doğrulama bu kartta gerekmiyor, ekranda yeni bir şey yok". O kont
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
