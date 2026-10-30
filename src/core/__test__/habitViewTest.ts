@@ -15,6 +15,7 @@ import {
   markedToday,
   quitDayNo,
   todayProgress,
+  touchedToday,
   type Habit,
 } from "../habit";
 
@@ -41,6 +42,7 @@ const mk = (o: Partial<Habit> = {}): Habit => {
     status: "active",
     done: [],
     excused: [],
+    half: [],
     createdAt: 1000 + seq,
     ...o,
   };
@@ -73,9 +75,20 @@ check("mühür: bugün eksikse yok", !isSealed({ ...sealed, done: sealed.done.fi
 check("mühür: arada kaçırılan gün varsa yok", !isSealed({ ...sealed, excused: [] }, TODAY));
 check("mühür: son gün bugün değilse yok", !isSealed(mk({ done: allDays }), TODAY));
 check("mühür: bırakılan tur mühürlenmez", !isSealed({ ...sealed, status: "quit" }, TODAY));
+check("mühür: bir gün yarımsa yok", !isSealed({ ...sealed, done: sealed.done.filter((k) => k !== "2026-10-24"), half: ["2026-10-24"] }, TODAY));
+check("mühür: bugün yarımsa yok", !isSealed({ ...sealed, done: sealed.done.filter((k) => k !== TODAY), half: [TODAY] }, TODAY));
 check("mühürlü tur bugün aktif listede", activeHabits([sealed], TODAY).length === 1);
 check("mühürlü tur ertesi gün aktif listeden çıkar", activeHabits([sealed], "2026-10-28").length === 0);
 check("mühürlü tur ertesi gün Geçmiş'te Tamamlandı", historyGroups([sealed], "2026-10-28")[0]?.items[0]?.outcome.kind === "completed");
+
+// Yarım (LOM-70): sıralamada dokunulmuş sayılır, ilerleme ve "hepsi tamam"da sayılmaz.
+const hf = mk({ id: "hf", half: [TODAY] });
+const hfAct = activeHabits([b, hf, a], TODAY);
+check("aktif liste: bugün yarım olan alta iner", hfAct.map((h) => h.id).join(",") === "a,b,hf", hfAct.map((h) => h.id).join(","));
+check("touchedToday: yarım dokunulmuş, markedToday değil", touchedToday(hf, TODAY) && !markedToday(hf, TODAY) && touchedToday(b, TODAY) && touchedToday(c, TODAY) && !touchedToday(a, TODAY));
+check("hepsi tamam: yarım varken hayır", !allDoneToday([b, hf], TODAY));
+const tpHalf = todayProgress([b, hf, c], TODAY);
+check("todayProgress: yarım işaretli sayılmaz", tpHalf.done === 2 && tpHalf.total === 3, JSON.stringify(tpHalf));
 
 // ---------------------------------------------------------------- son 7 gün şeridi
 
@@ -91,6 +104,8 @@ check(
   s1.slice(3).map((x) => x.state).join(",") === "done,excused,done,today",
   s1.slice(3).map((x) => x.state).join(","),
 );
+const sh = lastSevenStrip(mk({ start: "2026-10-24", done: ["2026-10-24"], half: ["2026-10-25", TODAY] }), TODAY);
+check("şerit: yarım günler half", sh.slice(3).map((x) => x.state).join(",") === "done,half,missed,half", sh.slice(3).map((x) => x.state).join(","));
 const s2 = lastSevenStrip(mk({ start: "2026-09-01", days: 21, done: ["2026-09-21"] }), TODAY);
 check("bitmiş turun şeridi son günde biter", s2[6].key === "2026-09-21" && s2[6].state === "done" && s2[5].state === "missed");
 
@@ -147,6 +162,9 @@ const ended17 = all[0]?.items[1]?.outcome;
 check("geçmiş: 17/21 bitti", ended17?.kind === "ended" && ended17.done === 17 && ended17.total === 21);
 check("geçmiş: süren tur Geçmiş'te yok ama soy grubunda kimliği var", all[1]?.items.length === 1 && all[1]?.activeId === "r2");
 check("geçmiş: süren turu olmayan soyda activeId null", all[0]?.activeId === null);
+const mh = { ...m1, id: "mh", lineageId: "mh", done: fullDays("2026-08-01", 21).filter((k) => k !== "2026-08-10"), half: ["2026-08-10"] };
+const mhG = historyGroups([mh], TODAY);
+check("geçmiş: bir günü yarım tur Bitti 20/21, Tamamlanan süzgecinde yok", mhG[0]?.items[0]?.outcome.kind === "ended" && historyGroups([mh], TODAY, "completed").length === 0);
 check("geçmiş: aktif tek turlu alışkanlık Geçmiş'te yok", !all.some((g) => g.lineageId === "a"));
 
 const onlyDone = historyGroups([r2, m2, r1, m1], TODAY, "completed");

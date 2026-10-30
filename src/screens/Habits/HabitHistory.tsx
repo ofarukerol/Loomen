@@ -135,7 +135,7 @@ function RoundRow({ item, today, showRound }: { item: HistoryItem; today: string
   return (
     <li className="lo-hab-round">
       <div className={`lo-hab-round__ring is-${kind}`}>
-        <HabitRing value={(st.completed + st.excused) / h.days} size={36} stroke={3.5}>
+        <HabitRing value={(st.completed + st.excused + st.half / 2) / h.days} size={36} stroke={3.5}>
           {kind === "completed" ? (
             <Check size={15} strokeWidth={2.6} aria-hidden />
           ) : kind === "quit" ? (

@@ -4252,6 +4252,9 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 }
 .lo-hab-today.is-done { background: var(--hab-c-soft); border-color: var(--hab-c); color: var(--hab-ink); }
 .lo-hab-today.is-done .lo-hab-today__box { background: var(--hab-c); animation: loHabPop 0.24s ease both; }
+/* Yarım gün: kutu alttan yarıya dolar (dikey dolum, RTL'de aynı) — LOM-70. */
+.lo-hab-today.is-half { background: var(--hab-c-soft); border-color: var(--hab-c); color: var(--hab-ink); }
+.lo-hab-today.is-half .lo-hab-today__box { background: linear-gradient(to top, var(--hab-c) 50%, transparent 50%); }
 .lo-hab-today.is-excused { color: var(--fg2); border-style: dashed; }
 .lo-hab-today.is-excused .lo-hab-today__box { border-style: dashed; color: var(--hab-ink); }
 .lo-hab-today__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -4293,6 +4296,12 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 .lo-hab-strip__day.is-excused {
   background: repeating-linear-gradient(135deg, var(--hab-c-soft) 0 3px, color-mix(in srgb, var(--hab-c) 45%, transparent) 3px 5px);
 }
+/* Yarım gün: alttan yarısı dolu, ince kenarla boş günden ayrışır (dikey, RTL'den bağımsız). */
+.lo-hab-strip__day.is-half {
+  background: linear-gradient(to top, var(--hab-c, var(--accent)) 50%, var(--hab-c-soft) 50%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hab-c) 55%, transparent);
+}
+[data-theme="dark"] .lo-hab-strip__day.is-half { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hab-c) 80%, transparent); }
 .lo-hab-strip__day.is-missed { background: var(--line-soft); }
 /* Koyu zeminde düz soluk renk kaybolur: ayrıntı dizisindeki gibi ince çapraz çizgi + kenar. */
 [data-theme="dark"] .lo-hab-strip__day.is-missed {
@@ -4410,6 +4419,9 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
 .lo-hab-cell__slash path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 .lo-hab-cell.is-excused { background: var(--hab-c-soft); border-color: color-mix(in srgb, var(--hab-c) 40%, transparent); border-style: dashed; }
 .lo-hab-cell__moon { width: 13px; height: 13px; color: var(--hab-ink); }
+.lo-hab-cell.is-half { background: var(--hab-c-soft); border-color: var(--hab-c); }
+.lo-hab-cell.is-half .lo-hab-cell__no { color: var(--hab-ink); }
+.lo-hab-cell__half { width: 62%; height: 62%; color: var(--hab-c); }
 .lo-hab-cell.is-future { background: transparent; border-style: dashed; cursor: default; }
 .lo-hab-cell.is-future .lo-hab-cell__no { opacity: 0.7; }
 .lo-hab-grid.is-readonly .lo-hab-cell { cursor: default; }
@@ -4417,6 +4429,7 @@ html[lang="ar"] .lo-hab-intent__label { letter-spacing: 0; }
 [data-theme="dark"] .lo-hab-cell.is-future { border-color: color-mix(in srgb, var(--fg3) 45%, transparent); }
 [data-theme="dark"] .lo-hab-cell.is-excused { border-color: color-mix(in srgb, var(--hab-c) 60%, transparent); }
 [data-theme="dark"] .lo-hab-cell.is-excused .lo-hab-cell__moon { color: var(--hab-ink); }
+[data-theme="dark"] .lo-hab-cell.is-half .lo-hab-cell__half { color: color-mix(in srgb, var(--hab-c) 85%, var(--fg1)); }
 [data-theme="dark"] .lo-hab-cell__slash { color: var(--fg2); opacity: 0.85; }
 
 /* Dönüm noktası (7, 14, 21 …) alt kenarda ince hafta çizgisi; son günde biraz kalın. */
@@ -4453,6 +4466,7 @@ html[lang="ar"] .lo-hab-aside__title { letter-spacing: 0; }
 .lo-hab-legend__item { display: inline-flex; align-items: center; gap: 6px; }
 .lo-hab-legend__sw { width: 12px; height: 12px; border-radius: 4px; border: 1.5px solid var(--line); flex-shrink: 0; }
 .lo-hab-legend__sw.is-done { background: var(--hab-c); border-color: var(--hab-c); }
+.lo-hab-legend__sw.is-half { background: linear-gradient(to top, var(--hab-c) 50%, var(--hab-c-soft) 50%); border-color: var(--hab-c); }
 .lo-hab-legend__sw.is-excused { background: var(--hab-c-soft); border-color: color-mix(in srgb, var(--hab-c) 40%, transparent); border-style: dashed; }
 .lo-hab-legend__sw.is-missed { background: linear-gradient(135deg, transparent 44%, var(--fg3) 44% 56%, transparent 56%); opacity: 0.75; }
 .lo-hab-legend__sw.is-future { border-style: dashed; }
@@ -4809,6 +4823,7 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
 .lo-hab-side__check:focus-visible::before { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 4px var(--hab-c); }
 .lo-hab-side__check:active { transform: scale(0.92); }
 .lo-hab-side__check.is-on::before { background: var(--hab-c); border-color: var(--hab-c); animation: loHabPop 0.24s ease both; }
+.lo-hab-side__check.is-half::before { background: linear-gradient(to top, var(--hab-c) 50%, var(--hab-c-soft) 50%); border-color: var(--hab-c); }
 .lo-hab-side__check.is-excused { color: var(--hab-ink); }
 .lo-hab-side__check.is-excused::before { border-style: dashed; }
 

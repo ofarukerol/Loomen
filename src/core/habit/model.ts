@@ -73,6 +73,7 @@ export function cellState(habit: Habit, key: string, today: string): CellState |
   if (!inRound(habit, key)) return null;
   if (habit.excused.includes(key)) return "excused";
   if (habit.done.includes(key)) return "done";
+  if (habit.half.includes(key)) return "half";
   if (key === today) return "today";
   if (key < today) return "missed";
   return "future";
@@ -82,8 +83,10 @@ export function stats(habit: Habit, today: string): HabitStats {
   const days = dayList(habit);
   const done = new Set(habit.done);
   const excused = new Set(habit.excused);
+  const half = new Set(habit.half);
   let completed = 0;
   let exc = 0;
+  let halves = 0;
   let elapsed = 0;
   let remaining = 0;
   let longest = 0;
@@ -91,15 +94,17 @@ export function stats(habit: Habit, today: string): HabitStats {
   for (const k of days) {
     const isDone = done.has(k);
     const isExc = excused.has(k);
+    const isHalf = half.has(k);
     if (isDone) completed++;
     if (isExc) exc++;
-    if (k > today || (k === today && !isDone && !isExc)) {
+    if (isHalf) halves++;
+    if (k > today || (k === today && !isDone && !isExc && !isHalf)) {
       remaining++;
       continue;
     }
-    if (!isExc) elapsed++;
+    if (!isExc) elapsed++; // yarım gün paydaya girer, paya girmez
     if (isDone) run++;
-    else if (!isExc) run = 0; // mazeretli gün seriyi bozmaz, uzatmaz da
+    else if (!isExc && !isHalf) run = 0; // mazeretli ve yarım gün seriyi bozmaz, uzatmaz da
     if (run > longest) longest = run;
   }
 
@@ -107,16 +112,17 @@ export function stats(habit: Habit, today: string): HabitStats {
   let current = 0;
   const end = endKey(habit);
   let k = today > end ? end : today;
-  if (k === today && !done.has(k) && !excused.has(k)) k = addDays(k, -1);
+  if (k === today && !done.has(k) && !excused.has(k) && !half.has(k)) k = addDays(k, -1);
   while (k >= habit.start) {
     if (done.has(k)) current++;
-    else if (!excused.has(k)) break;
+    else if (!excused.has(k) && !half.has(k)) break;
     k = addDays(k, -1);
   }
 
   return {
     completed,
     excused: exc,
+    half: halves,
     elapsed,
     percent: elapsed > 0 ? Math.round((100 * completed) / elapsed) : 0,
     currentStreak: current,
@@ -130,7 +136,7 @@ export function isFinished(habit: Habit, today: string): boolean {
   return habit.status === "quit" || today > endKey(habit);
 }
 
-/** Bitmiş turun sonucu; sürmekteyse null. Mazeretli gün tamamlanmış sayılır. */
+/** Bitmiş turun sonucu; sürmekteyse null. Mazeretli gün tamamlanmış sayılır, yarım gün sayılmaz. */
 export function outcome(habit: Habit, today: string): Outcome | null {
   if (habit.status === "quit") return { kind: "quit" };
   if (!isFinished(habit, today)) return null;
@@ -148,10 +154,16 @@ function editable(habit: Habit, key: string, today: string): boolean {
   return habit.status !== "quit" && inRound(habit, key) && key <= today;
 }
 
-/** Günün çentiğini aç/kapat. Gelecek gün, tur dışı gün ya da bırakılmış turda aynı nesne döner. */
+/**
+ * Günün işaretini döndür: boş → yapıldı → yarım → boş (LOM-70). Mazeretli gün yapıldıya geçer.
+ * Gelecek gün, tur dışı gün ya da bırakılmış turda aynı nesne döner.
+ */
 export function toggleDay(habit: Habit, key: string, today: string): Habit {
   if (!editable(habit, key, today)) return habit;
-  if (habit.done.includes(key)) return { ...habit, done: habit.done.filter((k) => k !== key) };
+  if (habit.done.includes(key)) {
+    return { ...habit, done: habit.done.filter((k) => k !== key), half: sortedUnique([...habit.half, key]) };
+  }
+  if (habit.half.includes(key)) return { ...habit, half: habit.half.filter((k) => k !== key) };
   return {
     ...habit,
     done: sortedUnique([...habit.done, key]),
@@ -159,7 +171,7 @@ export function toggleDay(habit: Habit, key: string, today: string): Habit {
   };
 }
 
-/** Günü mazeretli işaretle ya da işareti kaldır. Mazeretli gün "yapıldı"dan düşer. */
+/** Günü mazeretli işaretle ya da işareti kaldır. Mazeretli gün "yapıldı"dan ve "yarım"dan düşer. */
 export function setExcused(habit: Habit, key: string, excused: boolean, today: string): Habit {
   if (!editable(habit, key, today)) return habit;
   const has = habit.excused.includes(key);
@@ -169,6 +181,7 @@ export function setExcused(habit: Habit, key: string, excused: boolean, today: s
     ...habit,
     excused: sortedUnique([...habit.excused, key]),
     done: habit.done.filter((k) => k !== key),
+    half: habit.half.filter((k) => k !== key),
   };
 }
 
@@ -216,6 +229,7 @@ export function newHabit(input: NewHabitInput, today: string, now: number): Habi
     status: "active",
     done: [],
     excused: [],
+    half: [],
     createdAt: now,
   };
 }
@@ -237,6 +251,7 @@ function successor(prev: Habit, days: number, start: string, round: number, now:
     status: "active",
     done: [],
     excused: [],
+    half: [],
     createdAt: now,
   };
 }

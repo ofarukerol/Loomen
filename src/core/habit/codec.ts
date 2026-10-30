@@ -41,6 +41,9 @@ export function encodeHabit(h: Habit): string {
   habit.status = h.status;
   habit.done = keyList(h.done);
   habit.excused = keyList(h.excused);
+  // Yarım listesi yalnız doluyken yazılır: dokunulmamış eski dosyanın metni değişmez.
+  const half = keyList(h.half).filter((k) => !h.done.includes(k) && !h.excused.includes(k));
+  if (half.length) habit.half = half;
   habit.createdAt = h.createdAt;
   if (h.quitAt !== undefined) habit.quitAt = h.quitAt;
   const file = { v: HABIT_FILE_VERSION, habit };
@@ -75,6 +78,7 @@ export function decodeHabit(raw: string): Habit | null {
   const status = h.status === "quit" ? "quit" : "active";
   const excused = keyList(h.excused);
   const done = keyList(h.done).filter((k) => !excused.includes(k));
+  const half = keyList(h.half).filter((k) => !excused.includes(k) && !done.includes(k));
 
   const out: Habit = {
     id: h.id,
@@ -88,6 +92,7 @@ export function decodeHabit(raw: string): Habit | null {
     status,
     done,
     excused,
+    half,
     createdAt: typeof h.createdAt === "number" && Number.isFinite(h.createdAt) ? h.createdAt : 0,
   };
   if (typeof h.intent === "string" && h.intent.trim()) out.intent = h.intent;

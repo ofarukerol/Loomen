@@ -72,24 +72,35 @@ export function HabitsTodayCard() {
               const dayNo = Math.min(Math.max(dayIndex(h, today), 1), h.days);
               const done = h.done.includes(today);
               const excused = h.excused.includes(today);
+              const half = h.half.includes(today);
               // Mazeretli günde düğme mazereti söyler; basınca gün "yapıldı"ya döner (HabitCard ile aynı).
-              const label = done ? t("habit.uncheck") : excused ? t("habit.todayExcused") : t("habit.todayMark");
+              // Dokunuş sırası: boş → yapıldı → yarım → boş (LOM-70).
+              // Etiket günün durumunu söyler (HabitCard ile aynı); aria-pressed üç durumu ayırır.
+              const label = done
+                ? t("habit.todayDone")
+                : half
+                  ? t("habit.todayHalf")
+                  : excused
+                    ? t("habit.todayExcused")
+                    : t("habit.todayMark");
               return (
                 <li
                   key={h.id}
-                  className={"lo-hab-side__row" + (done || excused ? " is-done" : "")}
+                  className={"lo-hab-side__row" + (done || excused ? " is-done" : "") + (half ? " is-half" : "")}
                   style={colorVars(h.color)}
                 >
                   <span className="lo-hab-side__emoji" aria-hidden>
                     {h.emoji}
                   </span>
                   <span className="lo-hab-side__name">{h.name}</span>
-                  <HabitRing value={(st.completed + st.excused) / h.days} size={20} stroke={3} />
+                  <HabitRing value={(st.completed + st.excused + st.half / 2) / h.days} size={20} stroke={3} />
                   <span className="lo-hab-side__day">{t("habit.dayOf", { day: dayNo, total: h.days })}</span>
                   <button
                     type="button"
-                    className={"lo-hab-side__check" + (done ? " is-on" : "") + (excused ? " is-excused" : "")}
-                    aria-pressed={done}
+                    className={
+                      "lo-hab-side__check" + (done ? " is-on" : "") + (half ? " is-half" : "") + (excused ? " is-excused" : "")
+                    }
+                    aria-pressed={done ? true : half ? "mixed" : false}
                     aria-label={`${h.name}: ${label}`}
                     title={label}
                     onClick={() => void toggleDay(h.id, today)}

@@ -83,7 +83,7 @@ export function HabitDetail({
       </div>
 
       <header className="lo-hab-detail__head">
-        <HabitRing value={marked / habit.days} size={76} stroke={5.5}>
+        <HabitRing value={(marked + st.half / 2) / habit.days} size={76} stroke={5.5}>
           <span className="lo-hab-detail__emoji">{habit.emoji}</span>
         </HabitRing>
         <div className="lo-hab-detail__titles">
@@ -133,6 +133,10 @@ export function HabitDetail({
           <span className="lo-hab-legend__item">
             <span className="lo-hab-legend__sw is-done" />
             {t("habit.state.done")}
+          </span>
+          <span className="lo-hab-legend__item">
+            <span className="lo-hab-legend__sw is-half" />
+            {t("habit.state.half")}
           </span>
           <span className="lo-hab-legend__item">
             <span className="lo-hab-legend__sw is-excused" />

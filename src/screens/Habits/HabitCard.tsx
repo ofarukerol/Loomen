@@ -19,26 +19,29 @@ export function HabitCard({ habit, today }: { habit: Habit; today: string }) {
   const st = stats(habit, today);
   const dayNo = Math.min(Math.max(dayIndex(habit, today), 1), habit.days);
   const marked = st.completed + st.excused;
+  // Halka yarım günü yarım dilim sayar (LOM-70); sayım ve mühür yarımı tam saymaz.
+  const ring = (marked + st.half / 2) / habit.days;
   const sealed = isSealed(habit, today);
   const doneToday = habit.done.includes(today);
   const excusedToday = habit.excused.includes(today);
+  const halfToday = habit.half.includes(today);
 
   const open = () => openDetail(habit.id);
 
   return (
     <article
-      className={"lo-hab-card" + (sealed ? " is-sealed" : "") + (doneToday || excusedToday ? " is-marked" : "")}
+      className={"lo-hab-card" + (sealed ? " is-sealed" : "") + (doneToday || excusedToday || halfToday ? " is-marked" : "")}
       style={colorVars(habit.color)}
       aria-label={habit.name}
     >
       <button type="button" className="lo-hab-card__head" onClick={open} aria-label={t("habit.openDetail", { name: habit.name })}>
-        <HabitRing value={marked / habit.days} size={54}>
+        <HabitRing value={ring} size={54}>
           <span className="lo-hab-card__emoji">{habit.emoji}</span>
         </HabitRing>
         <span className="lo-hab-card__info">
           <span className="lo-hab-card__name">{habit.name}</span>
           <span className="lo-hab-card__meta">
-            <span className={"lo-hab-card__day" + (dayNo === 1 && marked === 0 ? " is-first" : "")}>
+            <span className={"lo-hab-card__day" + (dayNo === 1 && marked === 0 && st.half === 0 ? " is-first" : "")}>
               {t("habit.dayOf", { day: dayNo, total: habit.days })}
             </span>
             {habit.round > 1 && <span className="lo-hab-card__round">{t("habit.round", { n: habit.round })}</span>}
@@ -59,8 +62,10 @@ export function HabitCard({ habit, today }: { habit: Habit; today: string }) {
       ) : (
         <button
           type="button"
-          className={"lo-hab-today" + (doneToday ? " is-done" : "") + (excusedToday ? " is-excused" : "")}
-          aria-pressed={doneToday}
+          className={
+            "lo-hab-today" + (doneToday ? " is-done" : "") + (halfToday ? " is-half" : "") + (excusedToday ? " is-excused" : "")
+          }
+          aria-pressed={doneToday ? true : halfToday ? "mixed" : false}
           onClick={() => void toggleDay(habit.id, today)}
         >
           <span className="lo-hab-today__box" aria-hidden>
@@ -73,7 +78,13 @@ export function HabitCard({ habit, today }: { habit: Habit; today: string }) {
             )}
           </span>
           <span className="lo-hab-today__label">
-            {doneToday ? t("habit.todayDone") : excusedToday ? t("habit.todayExcused") : t("habit.todayMark")}
+            {doneToday
+              ? t("habit.todayDone")
+              : halfToday
+                ? t("habit.todayHalf")
+                : excusedToday
+                  ? t("habit.todayExcused")
+                  : t("habit.todayMark")}
           </span>
         </button>
       )}

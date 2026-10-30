@@ -50,6 +50,12 @@ export interface Habit {
   done: string[];
   /** Mazeretli günler (sıralı, tekil) — seriyi bozmaz, yüzdenin paydasına girmez. */
   excused: string[];
+  /**
+   * Yarım yapılan günler (sıralı, tekil; LOM-70) — tamamlanan sayılmaz, seriyi bozmaz (uzatmaz da),
+   * yüzdenin paydasına girer. Bir gün aynı anda yapıldı ya da mazeretli olamaz. Dosyada yalnız
+   * doluyken yazılır; alanı olmayan eski dosya boş listeyle okunur.
+   */
+  half: string[];
   /** Oluşturulma anı (ms). */
   createdAt: number;
   /** Bırakılma anı (ms). */
@@ -63,7 +69,7 @@ export interface HabitFile {
 }
 
 /** Gün dizisindeki bir hücrenin durumu. */
-export type CellState = "done" | "today" | "missed" | "excused" | "future";
+export type CellState = "done" | "half" | "today" | "missed" | "excused" | "future";
 
 /** Bitmiş turun sonucu: Tamamlandı / Bitti x/y / Bırakıldı. */
 export type Outcome =
@@ -76,13 +82,15 @@ export interface HabitStats {
   completed: number;
   /** Mazeretli gün sayısı. */
   excused: number;
-  /** Yüzdenin paydası: geçmiş mazeretsiz günler (bugün yalnız yapıldıysa sayılır). */
+  /** Yarım yapılan gün sayısı (tamamlanana girmez). */
+  half: number;
+  /** Yüzdenin paydası: geçmiş mazeretsiz günler, yarımlar dahil (bugün yalnız yapıldı ya da yarımsa sayılır). */
   elapsed: number;
   /** Başarı yüzdesi (0-100, tam sayı). */
   percent: number;
   /** Güncel seri — bugün henüz yapılmadıysa dünden geriye sayılır. */
   currentStreak: number;
   longestStreak: number;
-  /** Kalan gün: bugün (yapılmadıysa) ve sonrası. */
+  /** Kalan gün: bugün (işaretsizse) ve sonrası. */
   remaining: number;
 }

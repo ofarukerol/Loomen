@@ -68,6 +68,7 @@ const base = (o: Partial<Habit> = {}): Habit => ({
   status: "active",
   done: [],
   excused: [],
+  half: [],
   createdAt: NOW,
   ...o,
 });
@@ -135,7 +136,7 @@ check("kalan gün (bugün dahil)", s.remaining === 12, String(s.remaining));
 h = toggleDay(h, TODAY, TODAY);
 s = stats(h, TODAY);
 check("bugün yapılınca seri ve payda artıyor", s.currentStreak === 5 && s.elapsed === 9 && s.remaining === 11);
-check("tekrar tıklayınca çentik kalkıyor", !toggleDay(h, TODAY, TODAY).done.includes(TODAY));
+check("tekrar tıklayınca çentik kalkıyor (yarıma geçer)", !toggleDay(h, TODAY, TODAY).done.includes(TODAY));
 check("gelecek güne çentik atılamıyor", toggleDay(h, "2026-10-11", TODAY) === h);
 check("gelecek gün mazeretli yapılamıyor", setExcused(h, "2026-10-11", true, TODAY) === h);
 check("tur dışı güne çentik atılamıyor", toggleDay(h, "2026-09-30", TODAY) === h);
@@ -144,6 +145,70 @@ check("mazeretli işaretlenen gün yapıldıdan düşüyor", ex.excused.includes
 check("mazeretli güne çentik atınca mazeret kalkıyor", toggleDay(ex, TODAY, TODAY).done.includes(TODAY) && !toggleDay(ex, TODAY, TODAY).excused.includes(TODAY));
 check("saf fonksiyon: eski nesne değişmiyor", !h.excused.includes(TODAY));
 check("bırakılmış turda değişiklik yok", toggleDay(quitHabit(h, NOW), "2026-10-04", TODAY).done.length === h.done.length);
+// ---------------------------------------------------------------- yarım gün (LOM-70)
+
+const cyc0 = base();
+const cyc1 = toggleDay(cyc0, TODAY, TODAY);
+const cyc2 = toggleDay(cyc1, TODAY, TODAY);
+const cyc3 = toggleDay(cyc2, TODAY, TODAY);
+check("döngü: boş → yapıldı", cyc1.done.includes(TODAY) && !cyc1.half.includes(TODAY) && cellState(cyc1, TODAY, TODAY) === "done");
+check("döngü: yapıldı → yarım", !cyc2.done.includes(TODAY) && cyc2.half.includes(TODAY) && cellState(cyc2, TODAY, TODAY) === "half");
+check("döngü: yarım → boş", !cyc3.done.includes(TODAY) && !cyc3.half.includes(TODAY) && cellState(cyc3, TODAY, TODAY) === "today");
+check("döngü: geçmiş günde de aynı", cellState(toggleDay(toggleDay(cyc0, "2026-10-04", TODAY), "2026-10-04", TODAY), "2026-10-04", TODAY) === "half");
+check("döngü: saf fonksiyon, eski nesne değişmiyor", cyc1.half.length === 0 && cyc0.done.length === 0);
+const excH = setExcused(cyc2, TODAY, true, TODAY);
+check("yarım gün mazeretli yapılınca yarımdan düşer", excH.excused.includes(TODAY) && !excH.half.includes(TODAY) && !excH.done.includes(TODAY));
+const excT = toggleDay(excH, TODAY, TODAY);
+check("mazeretli güne dokunuş yapıldıya geçer", excT.done.includes(TODAY) && !excT.excused.includes(TODAY) && !excT.half.includes(TODAY));
+check("mazeret kaldırmak yarımı geri getirmez", setExcused(excH, TODAY, false, TODAY).half.length === 0);
+check("gelecek günde döngü yok", toggleDay(cyc1, "2026-10-11", TODAY) === cyc1);
+check("bırakılmış turda yarım değişmez", toggleDay(quitHabit(cyc2, NOW), TODAY, TODAY).half.includes(TODAY));
+
+// 1,2,3 yapıldı · 4 yarım · 5,6 yapıldı · 7 mazeretli · 8 yarım · 9 yapıldı · 10 bugün boş
+let hh = base({
+  done: ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-05", "2026-10-06", "2026-10-09"],
+  excused: ["2026-10-07"],
+  half: ["2026-10-04", "2026-10-08"],
+});
+let hs = stats(hh, TODAY);
+check("yarım: tamamlanana girmiyor", hs.completed === 6 && hs.half === 2, `${hs.completed}/${hs.half}`);
+check("yarım: paydaya giriyor", hs.elapsed === 8 && hs.percent === 75, `${hs.elapsed} %${hs.percent}`);
+check("yarım: seriyi bozmuyor, uzatmıyor (güncel 6 = 9,6,5,3,2,1)", hs.currentStreak === 6, String(hs.currentStreak));
+check("yarım: en uzun seri yarımın iki yanını birleştiriyor (1,2,3,5,6,9 → 6)", hs.longestStreak === 6, String(hs.longestStreak));
+check("yarım: kalan gün bugün dahil", hs.remaining === 12, String(hs.remaining));
+hh = { ...hh, half: [...hh.half, TODAY] };
+hs = stats(hh, TODAY);
+check("bugün yarım: paydaya girer, kalandan düşer, seri bugünden sayılır", hs.elapsed === 9 && hs.remaining === 11 && hs.currentStreak === 6);
+check("yalnız yarımlarla seri 0, yüzde 0", stats(base({ half: ["2026-10-01", "2026-10-02"] }), TODAY).currentStreak === 0 && stats(base({ half: ["2026-10-01"] }), TODAY).percent === 0);
+
+const w7 = base({ days: 7, start: "2026-10-01" });
+let w7full = w7;
+for (const k of dayList(w7)) w7full = toggleDay(w7full, k, "2026-10-07");
+const w7half = toggleDay(w7full, "2026-10-04", "2026-10-07");
+const oh = outcome(w7half, "2026-10-08");
+check("yarım gün varsa tur Tamamlandı değil", oh?.kind === "ended" && oh.done === 6 && oh.total === 7, JSON.stringify(oh));
+
+const hEnc = encodeHabit(w7half);
+const hBack = decodeHabit(hEnc);
+check("yarım dosyaya yazılıyor", hEnc.includes('"half": [\n      "2026-10-04"\n    ]'));
+check("yarım gidiş-dönüş", !!hBack && hBack.half.join() === "2026-10-04" && encodeHabit(hBack) === hEnc);
+check("yarım alan sırası: excused'dan sonra, createdAt'ten önce", hEnc.indexOf('"excused"') < hEnc.indexOf('"half"') && hEnc.indexOf('"half"') < hEnc.indexOf('"createdAt"'));
+check("yarım boşken alan yazılmıyor", !encodeHabit(w7full).includes('"half"'));
+const oldRaw = JSON.stringify(
+  { v: 1, habit: { id: "eski1", name: "Eski", emoji: "🌱", color: "terra", days: 21, start: "2026-10-01", round: 1, lineageId: "eski1", status: "active", done: ["2026-10-01"], excused: [], createdAt: 5 } },
+  null,
+  2,
+) + "\n";
+const oldBack = decodeHabit(oldRaw);
+check("yarım alanı olmayan eski dosya açılıyor, yarım boş", !!oldBack && Array.isArray(oldBack.half) && oldBack.half.length === 0 && oldBack.done.join() === "2026-10-01");
+check("eski dosya yeniden yazılınca metni aynı kalıyor", !!oldBack && encodeHabit(oldBack) === oldRaw);
+const clash = decodeHabit(
+  JSON.stringify({ v: 1, habit: { id: "c1", name: "x", days: 21, start: "2026-10-01", lineageId: "c1", done: ["2026-10-01"], excused: ["2026-10-02"], half: ["2026-10-01", "2026-10-02", "2026-10-03", "bozuk", "2026-10-03"] } }),
+);
+check("okumada yapıldı/mazeretli ile çakışan yarım düşüyor", !!clash && clash.half.join() === "2026-10-03" && clash.done.join() === "2026-10-01" && clash.excused.join() === "2026-10-02", clash?.half.join());
+check("yazımda da çakışan yarım düşüyor", !encodeHabit(base({ done: ["2026-10-01"], half: ["2026-10-01"] })).includes('"half"'));
+check("bozuk yarım alanı boş listeye düşüyor", decodeHabit(JSON.stringify({ v: 1, habit: { id: "c2", name: "x", days: 21, start: "2026-10-01", lineageId: "c2", half: "x" } }))?.half.length === 0);
+
 check("henüz bir şey yokken yüzde 0", stats(base({ start: TODAY }), TODAY).percent === 0);
 
 // ---------------------------------------------------------------- bitiş sonucu
@@ -180,14 +245,16 @@ const r2 = newRound(r1, { days: 41, start: "2026-10-26" }, "2026-10-26", NOW);
 check("yeni tur: numara bir artıyor", r2.round === 2);
 check("yeni tur: önceki tura ve soya bağlı", r2.prevId === r1.id && r2.lineageId === r1.lineageId && r2.id !== r1.id);
 check("yeni tur: ad/simge/renk/niyet aynı, günler boş", r2.name === r1.name && r2.emoji === r1.emoji && r2.color === r1.color && r2.intent === r1.intent && r2.done.length === 0 && r2.days === 41);
+check("yeni alışkanlık ve yeni tur yarımsız başlıyor", nh.half.length === 0 && newRound({ ...r1, half: ["2026-10-24"] }, { days: 21, start: "2026-10-26" }, "2026-10-26", NOW).half.length === 0);
 const r3 = newRound(r2, { days: 21, start: "2026-10-26" }, "2026-10-26", NOW);
 check("üçüncü tur aynı soyda", r3.round === 3 && r3.lineageId === r1.id && r3.prevId === r2.id);
 const rs = restart(quitHabit(r2, NOW), "2026-10-26", NOW);
 check("yeniden başlat: bugünden, aktif, aynı tur, öncekine bağlı", rs.start === "2026-10-26" && rs.status === "active" && rs.quitAt === undefined && rs.round === 2 && rs.prevId === r2.id);
+check("yeniden başlat: yarımsız", restart({ ...r2, half: ["2026-10-26"] }, "2026-10-26", NOW).half.length === 0);
 
 // ---------------------------------------------------------------- düzenleme (LOM-62)
 
-const FIXED = ["id", "days", "start", "round", "prevId", "lineageId", "status", "done", "excused", "createdAt", "quitAt"] as const;
+const FIXED = ["id", "days", "start", "round", "prevId", "lineageId", "status", "done", "excused", "half", "createdAt", "quitAt"] as const;
 const fixedOf = (x: Habit) => JSON.stringify(FIXED.map((k) => [k, x[k] ?? null]));
 const marked = base({
   id: "e2",
@@ -197,6 +264,7 @@ const marked = base({
   intent: "Her gün biraz",
   done: ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"],
   excused: ["2026-10-04"],
+  half: ["2026-10-09"],
 });
 const ed = editHabit(marked, { name: "  Kitap oku ", emoji: "🧠", color: "purple", intent: " Daha sakin olmak " });
 check("düzenle: yeni ad/simge/renk/niyet geliyor", ed.name === "Kitap oku" && ed.emoji === "🧠" && ed.color === "purple" && ed.intent === "Daha sakin olmak");

@@ -13,7 +13,8 @@ interface Cell {
 }
 
 /**
- * Gün dizisi: süre kadar hücre, 7'li satırlarda. Tıklama (ya da boşluk/Enter) çentik açar/kapar;
+ * Gün dizisi: süre kadar hücre, 7'li satırlarda. Tıklama (ya da boşluk/Enter) günü sırayla
+ * yapıldı, yarım ve boş yapar (LOM-70);
  * sağ tık, uzun basış ya da menü tuşu hücre menüsünü açar (mazeret, günün notu). Gelecek günler
  * tıklanmaz. Ok tuşları hücreler arasında gezer (RTL'de sağ/sol yer değiştirir). `readOnly`
  * (bırakılmış tur) yalnız gösterir.
@@ -56,7 +57,8 @@ export function HabitGrid({
 
   const toggle = (c: Cell) => {
     if (!canEdit(c)) return;
-    if (c.state !== "done") setFresh(c.key);
+    // Çizim yalnız boş → yapıldı geçişinde oynar; yapıldı → yarım ve yarım → boş sessiz.
+    if (c.state !== "done" && c.state !== "half") setFresh(c.key);
     void toggleDay(habit.id, c.key);
   };
 
@@ -155,7 +157,7 @@ export function HabitGrid({
                   }
                   tabIndex={idx === focus ? 0 : -1}
                   aria-label={label(c)}
-                  aria-pressed={c.state === "done"}
+                  aria-pressed={c.state === "done" ? true : c.state === "half" ? "mixed" : false}
                   aria-disabled={!canEdit(c)}
                   title={fmtDay(c.key, "d MMMM yyyy, EEEE", i18n.language)}
                   onClick={() => onClick(c, idx)}
@@ -192,8 +194,9 @@ export function HabitGrid({
   );
 }
 
-/** Hücredeki işaret: yapıldı → çizilen çentik, kaçırıldı → soluk eğik çizgi, mazeretli → hilal. */
+/** Hücredeki işaret: yapıldı → çizilen çentik, yarım → alttan yarısı dolu daire, kaçırıldı → soluk eğik çizgi, mazeretli → hilal. */
 function CellMark({ state }: { state: CellState }) {
+  if (state === "half") return <HalfMark className="lo-hab-cell__mark lo-hab-cell__half" />;
   if (state === "excused") return <Moon className="lo-hab-cell__mark lo-hab-cell__moon" size={13} strokeWidth={2.2} aria-hidden />;
   if (state === "done")
     return (
@@ -208,6 +211,16 @@ function CellMark({ state }: { state: CellState }) {
       </svg>
     );
   return null;
+}
+
+/** Yarım dolu daire: alt yarısı dolu, yön (RTL) değişse de aynı görünür. */
+function HalfMark({ className, size }: { className?: string; size?: number }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" width={size} height={size} aria-hidden>
+      <circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M4 10a6 6 0 0 0 12 0z" fill="currentColor" />
+    </svg>
+  );
 }
 
 /**
@@ -283,6 +296,7 @@ function CellMenu({
   };
 
   const done = cell.state === "done";
+  const half = cell.state === "half";
   const excused = cell.state === "excused";
 
   return createPortal(
@@ -307,8 +321,15 @@ function CellMenu({
           onClose();
         }}
       >
-        {done ? <Undo2 size={15} strokeWidth={2} aria-hidden /> : <Check size={15} strokeWidth={2.2} aria-hidden />}
-        {done ? t("habit.menu.undo") : t("habit.menu.done")}
+        {/* İlk madde dokunuşun yapacağını söyler: yapıldı → yarım, yarım → boş, diğerleri → yapıldı. */}
+        {done ? (
+          <HalfMark size={15} />
+        ) : half ? (
+          <Undo2 size={15} strokeWidth={2} aria-hidden />
+        ) : (
+          <Check size={15} strokeWidth={2.2} aria-hidden />
+        )}
+        {done ? t("habit.menu.half") : half ? t("habit.menu.undo") : t("habit.menu.done")}
       </button>
       <button
         type="button"

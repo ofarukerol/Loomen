@@ -21,9 +21,14 @@ export function markedToday(habit: Habit, today: string): boolean {
   return habit.done.includes(today) || habit.excused.includes(today);
 }
 
+/** Bugün herhangi bir işaret var mı (yapıldı, yarım ya da mazeretli) — Aktif liste sırası için. */
+export function touchedToday(habit: Habit, today: string): boolean {
+  return markedToday(habit, today) || habit.half.includes(today);
+}
+
 /**
  * Tur bitti ve bütün günleri işaretli, ama son günü hâlâ bugün: kart mühürle Aktif listede
- * kalır, ertesi gün Geçmiş'e iner. Bırakılmış tur mühürlenmez.
+ * kalır, ertesi gün Geçmiş'e iner. Bırakılmış tur mühürlenmez; yarım gün işaretli sayılmaz.
  */
 export function isSealed(habit: Habit, today: string): boolean {
   if (habit.status !== "active" || endKey(habit) !== today) return false;
@@ -34,22 +39,22 @@ export function isSealed(habit: Habit, today: string): boolean {
 }
 
 /**
- * Aktif listedeki turlar: bırakılmamış ve süresi dolmamış. Bugün henüz işaretlenmemişler
- * üstte; her grubun içinde oluşturulma sırası korunur. Başlangıcı ileride olan tur olmaz
+ * Aktif listedeki turlar: bırakılmamış ve süresi dolmamış. Bugün henüz hiç dokunulmamışlar
+ * üstte (yarım yapılan alta iner); her grubun içinde oluşturulma sırası korunur. Başlangıcı ileride olan tur olmaz
  * (çekirdek ileri tarihi reddeder), yine de gelirse işaretsizler arasında durur.
  */
 export function activeHabits(habits: Habit[], today: string): Habit[] {
   const live = habits.filter((h) => !isFinished(h, today)).sort(byCreated);
-  return [...live.filter((h) => !markedToday(h, today)), ...live.filter((h) => markedToday(h, today))];
+  return [...live.filter((h) => !touchedToday(h, today)), ...live.filter((h) => touchedToday(h, today))];
 }
 
-/** "Bugünün hepsi tamam": en az bir aktif tur var ve hepsi bugün işaretli. */
+/** "Bugünün hepsi tamam": en az bir aktif tur var ve hepsi bugün işaretli (yarım sayılmaz). */
 export function allDoneToday(habits: Habit[], today: string): boolean {
   const live = habits.filter((h) => !isFinished(h, today));
   return live.length > 0 && live.every((h) => markedToday(h, today));
 }
 
-/** Planner kartı özeti: süren turlardan bugün işaretli olanlar (yapıldı ya da mazeretli) / süren tur sayısı. */
+/** Planner kartı özeti: süren turlardan bugün işaretli olanlar (yapıldı ya da mazeretli; yarım değil) / süren tur sayısı. */
 export function todayProgress(habits: Habit[], today: string): { done: number; total: number } {
   const live = habits.filter((h) => !isFinished(h, today));
   return { done: live.filter((h) => markedToday(h, today)).length, total: live.length };
