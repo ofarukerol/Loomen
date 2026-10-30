@@ -1028,6 +1028,20 @@
     "connectGhFirst": "اربط حساب GitHub أولاً",
     "pomoSound": "صوت التنبيه",
     "pomoSoundSub": "تشغيل صوت عند بدء وانتهاء البومودورو",
+    "sideCards": "بطاقات اللوحة الجانبية",
+    "sideCardsSub": "ترتيب البطاقات في اللوحة الجانبية للمخطِّط. غيّره بأزرار الأعلى/الأسفل أو بالسحب.",
+    "sideCard": {
+      "pomodoro": "بومودورو",
+      "calendar": "التقويم",
+      "focus": "ركّز على اليوم",
+      "review": "المراجعة",
+      "habits": "العادات"
+    },
+    "sideCardHabitsSub": "تُخفى إذا لم توجد عادات نشطة",
+    "sideCardOff": "متوقفة",
+    "moveUp": "نقل للأعلى",
+    "moveDown": "نقل للأسفل",
+    "sideCardReset": "العودة إلى الافتراضي",
     "addAppVault": "إنشاء خزنة في تخزين التطبيق"
   },
   "syncStatus": {

@@ -1389,6 +1389,33 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-set__tplitem:hover .lo-set__tplpencil { opacity: 1; }
 .lo-set__tplempty { padding: 16px 18px; color: var(--fg3); font-size: 13px; }
 
+/* Sağ blok kart sırası (LOM-72) — ayarlar listesi; yalnız mantıksal özellikler (Arapçada ayna) */
+.lo-set__cards { border-bottom: 1px solid var(--line-soft); }
+.lo-set__cardrow {
+  position: relative; display: flex; align-items: center; gap: 10px;
+  padding-block: 10px; padding-inline: 14px 12px; cursor: grab; background: var(--bg-elev);
+}
+.lo-set__cardrow + .lo-set__cardrow { border-top: 1px solid var(--line-soft); }
+.lo-set__cardrow.is-dragging { opacity: .45; }
+.lo-set__cardrow.is-over::before,
+.lo-set__cardrow.is-over-after::after {
+  content: ""; position: absolute; inset-inline: 8px; height: 2px; border-radius: 2px; background: var(--accent);
+}
+.lo-set__cardrow.is-over::before { top: -1px; }
+.lo-set__cardrow.is-over-after::after { bottom: -1px; }
+.lo-set__cardgrip { flex-shrink: 0; color: var(--fg3); }
+.lo-set__cardname { flex: 1; min-width: 0; }
+.lo-set__cardbadge {
+  display: inline-block; margin-inline-start: 8px; padding: 1px 7px; border-radius: 6px; vertical-align: 1px;
+  background: var(--bg-sunken); color: var(--fg3); font-size: 11.5px; font-weight: 500;
+}
+.lo-set__cardbtn {
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0;
+  color: var(--fg3); background: none; border: 0; border-radius: 8px; cursor: pointer;
+}
+.lo-set__cardbtn:hover:not(:disabled) { color: var(--fg1); background: var(--bg-sunken); }
+.lo-set__cardbtn:disabled { opacity: .35; cursor: default; }
+
 /* Kasalar (çoklu kasa yöneticisi) */
 .lo-vault { display: block; }
 .lo-vault__head {
@@ -2896,6 +2923,9 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 /* Pomodoro ayar hücreleri (4 kutu) mobilde tek satıra sığsın */
 .lo-app.is-mobile .lo-set__pomocell { padding: 14px 6px; }
 .lo-app.is-mobile .lo-set__pomoinput { width: 100%; max-width: 58px; font-size: 20px; }
+/* Kart sırası düğmeleri mobilde parmak boyunda; sürükleme yok, imleç el olmasın (LOM-72) */
+.lo-app.is-mobile .lo-set__cardbtn { width: 40px; height: 40px; }
+.lo-app.is-mobile .lo-set__cardrow { cursor: default; }
 /* Editör: masaüstü yan Backlinks paneli (288px) mobilde editörü daracık sütuna sıkıştırıyordu.
    Mobilde yan panel render edilmez (JSX'te !isMobile); Bağlantılar alttan sheet olarak açılır. */
 .lo-app.is-mobile .lo-editor__body { flex-direction: column; }

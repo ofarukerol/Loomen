@@ -7,6 +7,7 @@ import { AiSettings } from "./AiSettings";
 import { ReviewSettings } from "./ReviewSettings";
 import { GitHubSync } from "./GitHubSync";
 import { GoogleCalendarSync } from "./GoogleCalendarSync";
+import { SideCardsSettings } from "./SideCardsSettings";
 import { TemplatesSettings } from "./TemplatesSettings";
 import { VaultManager } from "./VaultManager";
 
@@ -206,6 +207,9 @@ export function SettingsScreen() {
 
         {/* Şablonlar */}
         <TemplatesSettings />
+
+        {/* Planner sağ blok kart sırası (LOM-72) */}
+        <SideCardsSettings />
 
         {/* Pomodoro */}
         <div className="lo-set__section">{t("settings.pomodoro")}</div>

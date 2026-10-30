@@ -55,6 +55,7 @@ const suites = [
   ["src/core/__test__/helpTest.ts", []],
   ["src/core/__test__/rightPanelTest.ts", []],
   ["src/core/__test__/agendaViewTest.ts", []],
+  ["src/core/__test__/sideCardsTest.ts", []],
 ];
 
 let failed = 0;

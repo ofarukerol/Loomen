@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { PomodoroCard } from "../screens/Planner/PomodoroCard";
 import { HabitsTodayCard } from "../screens/Planner/HabitsTodayCard";
@@ -14,10 +22,22 @@ import {
   RIGHT_PANEL_MIN,
   rightWidthForKey,
 } from "../core/layout/rightPanel";
+import type { SideCardId } from "../core/layout/sideCards";
+
+/** Kart kimliği → bileşen (LOM-72). Kartlar kendi gizlenme kuralını taşır:
+ *  Tekrar modülü kapalıyken ReviewCard, aktif alışkanlık yokken HabitsTodayCard hiçbir şey çizmez. */
+const SIDE_CARDS: Record<SideCardId, ComponentType> = {
+  pomodoro: PomodoroCard,
+  calendar: CalendarCard,
+  focus: MiniAgenda,
+  review: ReviewCard,
+  habits: HabitsTodayCard,
+};
 
 const isRtl = () => document.documentElement.getAttribute("dir") === "rtl";
 
-/** Global sağ blok — her ekranda kalıcı (Pomodoro + Alışkanlıklar + Takvim + Tekrar + Bugüne Odaklan).
+/** Global sağ blok — her ekranda kalıcı. Kartlar kayıtlı sırayla çizilir (LOM-72; Ayarlar'dan değişir);
+ *  varsayılan: Pomodoro + Takvim + Bugüne Odaklan + Tekrar + Alışkanlıklar.
  *  Masaüstünde iç kenarındaki tutamakla genişliği ayarlanır (LOM-63); çift tık varsayılana döndürür.
  *  Klavye: oklar adım adım, Home en dar, End en geniş, Enter varsayılan (LOM-67).
  *  Mobilde (planner gövdesi) tutamak yok, genişlik CSS'te `auto` kalır. */
@@ -27,6 +47,7 @@ export function RightPanel() {
   const width = useAppStore((s) => s.rightWidth);
   const setWidth = useAppStore((s) => s.setRightWidth);
   const resetWidth = useAppStore((s) => s.resetRightWidth);
+  const order = useAppStore((s) => s.sideCardOrder);
   // Sürükleme sırasında genişlik yalnız burada tutulur; kayda bırakınca bir kez yazılır.
   const [live, setLive] = useState<number | null>(null);
   const drag = useRef<{ id: number; x: number; start: number; rtl: boolean; cur: number } | null>(null);
@@ -85,15 +106,10 @@ export function RightPanel() {
     setWidth(next);
   };
 
-  const cards = (
-    <>
-      <PomodoroCard />
-      <HabitsTodayCard />
-      <CalendarCard />
-      <ReviewCard />
-      <MiniAgenda />
-    </>
-  );
+  const cards = order.map((id) => {
+    const Card = SIDE_CARDS[id];
+    return <Card key={id} />;
+  });
 
   // Mobil: planner gövdesinin içinde, eski düzen (CSS `width: auto`), tutamak yok.
   if (isMobile) return <div className="lo-side lo-scroll">{cards}</div>;

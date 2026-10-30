@@ -91,6 +91,12 @@ import { planRescheduleBatches } from "../core/vault/planDay";
 import { noteDateOf, planDate } from "../core/vault/planDate";
 import { clampRightWidth, RIGHT_PANEL_DEFAULT } from "../core/layout/rightPanel";
 import {
+  DEFAULT_SIDE_CARD_ORDER,
+  moveSideCard,
+  normalizeSideCardOrder,
+  type SideCardId,
+} from "../core/layout/sideCards";
+import {
   DEFAULT_SETTINGS as SRS_DEFAULTS,
   PRESETS as SRS_PRESETS,
   appendLog,
@@ -232,6 +238,8 @@ interface AppState {
   rightCollapsed: boolean;
   /** Masaüstü sağ blok genişliği (px, LOM-63); 260-560 arası, kalıcı. */
   rightWidth: number;
+  /** Sağ blok kart sırası (LOM-72); Ayarlar'dan değişir, kalıcı. */
+  sideCardOrder: SideCardId[];
   focusExpanded: boolean;
 
   // Vault
@@ -452,6 +460,9 @@ interface AppState {
   toggleRight: () => void;
   setRightWidth: (w: number) => void;
   resetRightWidth: () => void;
+  setSideCardOrder: (order: SideCardId[]) => void;
+  moveSideCard: (id: SideCardId, dir: -1 | 1) => void;
+  resetSideCardOrder: () => void;
   setFocusExpanded: (v: boolean) => void;
   goToDayNote: () => Promise<void>;
   goToDate: (date: Date) => Promise<void>;
@@ -1374,6 +1385,7 @@ export const useAppStore = create<AppState>()(
     leftCollapsed: false,
     rightCollapsed: false,
     rightWidth: RIGHT_PANEL_DEFAULT,
+    sideCardOrder: [...DEFAULT_SIDE_CARD_ORDER],
     focusExpanded: false,
 
     vaultPath: null,
@@ -1678,6 +1690,9 @@ export const useAppStore = create<AppState>()(
       if (next !== get().rightWidth) set({ rightWidth: next });
     },
     resetRightWidth: () => set({ rightWidth: RIGHT_PANEL_DEFAULT }),
+    setSideCardOrder: (order) => set({ sideCardOrder: normalizeSideCardOrder(order) }),
+    moveSideCard: (id, dir) => set((s) => ({ sideCardOrder: moveSideCard(s.sideCardOrder, id, dir) })),
+    resetSideCardOrder: () => set({ sideCardOrder: [...DEFAULT_SIDE_CARD_ORDER] }),
     setFocusExpanded: (focusExpanded) => set({ focusExpanded }),
     todayNotePath: () => todayDailyPath(),
     // "Günün Notu" — bugünün notunu (yoksa şablonla oluşturup) sekmede aç.
@@ -3689,6 +3704,9 @@ export const useAppStore = create<AppState>()(
             typeof p.habitTodayCollapsed === "boolean" ? p.habitTodayCollapsed : current.habitTodayCollapsed,
           // Bozuk/aşırı kayıt paneli ekranı yutacak kadar büyütmesin (LOM-63).
           rightWidth: p.rightWidth === undefined ? current.rightWidth : clampRightWidth(p.rightWidth),
+          // Bozuk/eski kayıt temizlenir; eksik kart sona eklenir (LOM-72).
+          sideCardOrder:
+            p.sideCardOrder === undefined ? current.sideCardOrder : normalizeSideCardOrder(p.sideCardOrder),
         };
       },
       onRehydrateStorage: () => (state) => {
@@ -3738,6 +3756,7 @@ export const useAppStore = create<AppState>()(
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
         rightWidth: s.rightWidth,
+        sideCardOrder: s.sideCardOrder,
         backlinksCollapsed: s.backlinksCollapsed,
         onThisDayCollapsed: s.onThisDayCollapsed,
         pomo: s.pomo,

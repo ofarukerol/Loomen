@@ -1023,6 +1023,20 @@
     "connectGhFirst": "Önce GitHub hesabını bağla",
     "pomoSound": "Zil sesi",
     "pomoSoundSub": "Pomodoro başlayınca ve bitince ses çal",
+    "sideCards": "Sağ blok kartları",
+    "sideCardsSub": "Planner'ın sağ bloğundaki kartların sırası. Yukarı/aşağı düğmeleriyle ya da sürükleyerek değiştir.",
+    "sideCard": {
+      "pomodoro": "Pomodoro",
+      "calendar": "Takvim",
+      "focus": "Bugüne Odaklan",
+      "review": "Tekrar",
+      "habits": "Alışkanlıklar"
+    },
+    "sideCardHabitsSub": "Aktif alışkanlık yoksa gizlenir",
+    "sideCardOff": "kapalı",
+    "moveUp": "Yukarı taşı",
+    "moveDown": "Aşağı taşı",
+    "sideCardReset": "Varsayılana dön",
     "addAppVault": "Uygulama depolamasında kasa oluştur"
   },
   "syncStatus": {
