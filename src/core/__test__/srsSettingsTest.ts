@@ -13,6 +13,9 @@ import {
   type SrsSettings,
 } from "../srs";
 import type { VaultBackend } from "../vault/types";
+import { createElement } from "react";
+import { renderToString } from "react-dom/server";
+import { ReviewSettingsGate } from "../../screens/Review/ReviewSettingsGate";
 
 let fails = 0;
 let ran = 0;
@@ -223,6 +226,29 @@ const OK: SettingsRead = { kind: "ok", settings: { ...DEFAULT_SETTINGS, enabled:
 {
   const d = resolveSettingsRead({ kind: "error", detail: "x" }, undefined);
   check("error + hiç okunmamış → error (varsayılana düşmez)", d.action === "error", d.action);
+}
+
+// ReviewSettingsGate çizimi (K4): yükleniyorda anahtar yok, hatada Yeniden dene + gizli ayrıntı.
+{
+  const t = (k: string) => k;
+  const loading = renderToString(createElement(ReviewSettingsGate, { status: "loading", detail: null, t, onRetry: () => {} }));
+  check("gate yükleniyor: anahtar (lo-switch) yok", !loading.includes("lo-switch"));
+  check("gate yükleniyor: yükleniyor metni var", loading.includes("review.set.loading"));
+  check("gate yükleniyor: aria-busy", loading.includes('aria-busy="true"'));
+  check("gate yükleniyor: Yeniden dene yok", !loading.includes("review.set.retry"));
+
+  const err = renderToString(createElement(ReviewSettingsGate, { status: "error", detail: "EBUSY: kilitli", t, onRetry: () => {} }));
+  check("gate hata: role=alert", err.includes('role="alert"'));
+  check("gate hata: başlık ve alt metin", err.includes("review.set.readErrorTitle") && err.includes("review.set.readErrorSub"));
+  check("gate hata: anahtar (lo-switch) yok", !err.includes("lo-switch"));
+  check("gate hata: Yeniden dene düğmesi", /<button[^>]*>review\.set\.retry<\/button>/.test(err));
+  check("gate hata: Ayrıntılar düğmesi aria-expanded=false", /<button[^>]*aria-expanded="false"[^>]*>review\.set\.details/.test(err));
+  check("gate hata: ayrıntı gizli ve ltr", /<code[^>]*dir="ltr"[^>]*hidden/.test(err) || /<code[^>]*hidden[^>]*dir="ltr"/.test(err));
+  check("gate hata: ham metin yalnız gizli ayrıntıda",
+    !err.replace(/<code[^>]*hidden[^>]*>[\s\S]*?<\/code>/, "").includes("EBUSY"));
+
+  const noDetail = renderToString(createElement(ReviewSettingsGate, { status: "error", detail: null, t, onRetry: () => {} }));
+  check("gate hata, ayrıntı yok: Ayrıntılar düğmesi çizilmez", !noDetail.includes("review.set.details") && noDetail.includes("review.set.retry"));
 }
 
 console.log(fails === 0 ? `\n✅ ${ran} kontrolün tümü geçti` : `\n❌ ${fails}/${ran} kontrol başarısız`);

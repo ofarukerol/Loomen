@@ -19,7 +19,7 @@ export function Ribbon() {
   // Tekrar düğmesi yalnızca modül açıkken görünür (varsayılan kapalı).
   const srsEnabled = useAppStore((s) => s.srsSettings.enabled);
   // Ayar okunurken simgenin yeri ayrılır (görünmez): okununca zıplamasın (LOM-71).
-  const srsLoading = useAppStore((s) => s.srsSettingsStatus === "loading");
+  const srsStatus = useAppStore((s) => s.srsSettingsStatus);
   const dayNoteActive = screen === "editor" && activeNote === todayNotePath();
 
   const btn = (target: Screen, title: string, node: React.ReactNode) => (
@@ -56,9 +56,14 @@ export function Ribbon() {
       {btn("graph", t("ribbon.graph"), <Share2 size={ICON} strokeWidth={SW} />)}
       {btn("draw", t("ribbon.draw"), <PencilRuler size={ICON} strokeWidth={SW} />)}
       {btn("habits", t("ribbon.habit"), <Sprout size={ICON} strokeWidth={SW} />)}
-      {srsEnabled
-        ? btn("review", t("ribbon.review"), <Repeat2 size={ICON} strokeWidth={SW} />)
-        : srsLoading && (
+      {/* Okunamadıysa da görünür: Tekrar ekranı uyarıyı ve Yeniden dene'yi gösterir. */}
+      {srsEnabled || srsStatus === "error"
+        ? btn(
+            "review",
+            srsEnabled ? t("ribbon.review") : t("review.set.readErrorTitle"),
+            <Repeat2 size={ICON} strokeWidth={SW} />
+          )
+        : srsStatus === "loading" && (
             <button className="lo-ribbon__btn is-placeholder" disabled aria-hidden="true" tabIndex={-1}>
               <Repeat2 size={ICON} strokeWidth={SW} />
             </button>
