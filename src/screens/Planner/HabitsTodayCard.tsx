@@ -18,9 +18,11 @@ export function HabitsTodayCard() {
   const collapsed = useAppStore((s) => s.habitTodayCollapsed);
   const toggle = useAppStore((s) => s.toggleHabitToday);
   const today = useToday();
+  // Alışkanlık Takibi kapalıysa kart çizilmez; kasadaki dosyalara dokunulmaz (LOM-82).
+  const on = useAppStore((s) => s.features.habits);
 
   const list = loaded ? activeHabits(habits, today) : [];
-  if (list.length === 0) return null;
+  if (!on || list.length === 0) return null;
 
   const open = () => {
     openDetail(null);

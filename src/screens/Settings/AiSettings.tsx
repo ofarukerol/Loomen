@@ -5,7 +5,7 @@
 // zaman boş açılır; kayıtlı olup olmadığı yalnızca "kayıtlı" rozetiyle gösterilir.
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Sparkles, Plus, Trash2, Check, KeyRound, Loader2, X } from "lucide-react";
+import { Plus, Trash2, Check, KeyRound, Loader2, X } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
@@ -324,8 +324,6 @@ function ExcludedFolders() {
 
 export function AiSettings() {
   const { t } = useTranslation();
-  const enabled = useAppStore((s) => s.aiEnabled);
-  const setEnabled = useAppStore((s) => s.aiSetEnabled);
   const providers = useAppStore((s) => s.aiProviders);
   const activeId = useAppStore((s) => s.aiActiveProviderId);
   const setActive = useAppStore((s) => s.aiSetActiveProvider);
@@ -341,25 +339,19 @@ export function AiSettings() {
   return (
     <>
       <div className="lo-set__section">{t("ai.title")}</div>
+      {/* Açma/kapama Ayarlar üstündeki özellik kartında (LOM-82); bölüm yalnız açıkken çizilir. */}
       <div className="lo-card lo-set__card">
-        <div className={"lo-set__row" + (enabled ? " lo-set__row--border" : "")}>
-          <div>
-            <div className="lo-set__rowtitle">
-              <Sparkles size={14} strokeWidth={2} className="lo-ai__titleicon" />
-              {t("ai.enable")}
-            </div>
-            <div className="lo-set__rowsub">{t("ai.consent")}</div>
-          </div>
-          <Toggle on={enabled} onClick={() => setEnabled(!enabled)} />
+        {/* Gizlilik notu kalır: açıkken soru ve açık notun içeriği sağlayıcıya gider. */}
+        <div className="lo-set__row lo-set__row--border">
+          <div className="lo-set__rowsub">{t("ai.consent")}</div>
         </div>
-
-        {enabled && !isTauri() && (
+        {!isTauri() && (
           <div className="lo-set__row">
             <div className="lo-set__rowsub">{t("ai.appOnly")}</div>
           </div>
         )}
 
-        {enabled && isTauri() && (
+        {isTauri() && (
           <>
             {providers.length > 1 && (
               <div className="lo-set__row lo-set__row--border">

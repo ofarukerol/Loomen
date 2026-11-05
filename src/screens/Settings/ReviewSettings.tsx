@@ -141,18 +141,9 @@ function ReviewSettingsBody() {
     <>
       <div className="lo-set__section">{t("review.set.section")}</div>
 
-      <div className="lo-card lo-set__card">
-        <Row title={t("review.set.enable")} sub={t("review.set.enableSub")} border={cfg.enabled}>
-          <Toggle on={cfg.enabled} onClick={() => void set({ enabled: !cfg.enabled })} />
-        </Row>
-        {cfg.enabled && (
-          <div className="lo-set__row">
-            <div className="lo-set__rowsub">{t("review.set.cardCount", { n: cards.length })}</div>
-          </div>
-        )}
-      </div>
-
-      {!cfg.enabled ? null : (
+      {/* Açma/kapama ve kart sayısı Ayarlar üstündeki özellik kartında (LOM-82); bölüm yalnız
+          Tekrar açıkken çizilir. */}
+      {(
         <>
           <div className="lo-set__tabs">
             {(["basic", "advanced", "expert"] as Tab[]).map((x) => (

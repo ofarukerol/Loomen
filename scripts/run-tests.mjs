@@ -59,6 +59,7 @@ const suites = [
   ["src/core/__test__/leftPanelTest.ts", []],
   ["src/core/__test__/agendaViewTest.ts", []],
   ["src/core/__test__/sideCardsTest.ts", []],
+  ["src/core/__test__/featuresTest.ts", []],
   ["src/core/__test__/tableWrapTest.ts", []],
   ["src/core/__test__/tableMoveTest.ts", []],
   ["src/core/__test__/autoTitleTest.ts", []],

@@ -20,6 +20,8 @@ export function Ribbon() {
   const srsEnabled = useAppStore((s) => s.srsSettings.enabled);
   // Ayar okunurken simgenin yeri ayrılır (görünmez): okununca zıplamasın (LOM-71).
   const srsStatus = useAppStore((s) => s.srsSettingsStatus);
+  // Alışkanlık düğmesi yalnız özellik açıkken (LOM-82; varsayılan açık).
+  const habitsOn = useAppStore((s) => s.features.habits);
   const dayNoteActive = screen === "editor" && activeNote === todayNotePath();
 
   const btn = (target: Screen, title: string, node: React.ReactNode) => (
@@ -55,7 +57,7 @@ export function Ribbon() {
       </button>
       {btn("graph", t("ribbon.graph"), <Share2 size={ICON} strokeWidth={SW} />)}
       {btn("draw", t("ribbon.draw"), <PencilRuler size={ICON} strokeWidth={SW} />)}
-      {btn("habits", t("ribbon.habit"), <Sprout size={ICON} strokeWidth={SW} />)}
+      {habitsOn && btn("habits", t("ribbon.habit"), <Sprout size={ICON} strokeWidth={SW} />)}
       {/* Okunamadıysa da görünür: Tekrar ekranı uyarıyı ve Yeniden dene'yi gösterir. */}
       {srsEnabled || srsStatus === "error"
         ? btn(

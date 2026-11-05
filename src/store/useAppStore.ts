@@ -98,6 +98,7 @@ import {
   normalizeSideCardOrder,
   type SideCardId,
 } from "../core/layout/sideCards";
+import { DEFAULT_FEATURES, normalizeFeatures, type FeatureFlags, type FeatureId } from "../core/settings/features";
 import {
   DEFAULT_SETTINGS as SRS_DEFAULTS,
   PRESETS as SRS_PRESETS,
@@ -241,6 +242,9 @@ interface AppState {
   leftWidth: number;
   /** Sağ blok kart sırası (LOM-72); Ayarlar'dan değişir, kalıcı. */
   sideCardOrder: SideCardId[];
+  /** Ayarlar üstündeki özellik kartları (LOM-82): Yedekleme, Takvim, Alışkanlık açık mı; kalıcı.
+   *  Tekrar `srsSettings.enabled`, Asistan `aiEnabled` olarak ayrıca tutulur. */
+  features: FeatureFlags;
   focusExpanded: boolean;
 
   // Vault
@@ -471,6 +475,8 @@ interface AppState {
   setSideCardOrder: (order: SideCardId[]) => void;
   moveSideCard: (id: SideCardId, dir: -1 | 1) => void;
   resetSideCardOrder: () => void;
+  /** Özellik kartının düğmesi (LOM-82). Kapatmak veri/bağlantı silmez. */
+  setFeatureOn: (id: FeatureId, on: boolean) => void;
   setFocusExpanded: (v: boolean) => void;
   goToDayNote: () => Promise<void>;
   goToDate: (date: Date) => Promise<void>;
@@ -1533,6 +1539,7 @@ export const useAppStore = create<AppState>()(
     rightWidth: RIGHT_PANEL_DEFAULT,
     leftWidth: LEFT_PANEL_DEFAULT,
     sideCardOrder: [...DEFAULT_SIDE_CARD_ORDER],
+    features: { ...DEFAULT_FEATURES },
     focusExpanded: false,
 
     vaultPath: null,
@@ -1847,6 +1854,24 @@ export const useAppStore = create<AppState>()(
     setSideCardOrder: (order) => set({ sideCardOrder: normalizeSideCardOrder(order) }),
     moveSideCard: (id, dir) => set((s) => ({ sideCardOrder: moveSideCard(s.sideCardOrder, id, dir) })),
     resetSideCardOrder: () => set({ sideCardOrder: [...DEFAULT_SIDE_CARD_ORDER] }),
+    // Özellik kartı (LOM-82): yalnız bayrak değişir; bağlantı, hesap, kasa dosyaları yerinde kalır.
+    setFeatureOn: (id, on) => {
+      const s = get();
+      if (id === "review") {
+        // Ayar okunmadan yazılmaz (LOM-71): kart bu durumda düğmeyi zaten kilitler.
+        if (s.srsSettingsStatus !== "ready") return;
+        void s.srsSetSettings({ enabled: on });
+      } else if (id === "assistant") {
+        s.aiSetEnabled(on);
+      } else {
+        set({ features: { ...s.features, [id]: on } });
+        // Kapatılınca açık alışkanlık detayı kalmasın; yeniden açınca liste görünsün.
+        if (id === "habits" && !on) set({ habitDetailId: null });
+      }
+      // Kapatılan özelliğin ekranı o an açıksa Planner'a dön.
+      const screenOf: Partial<Record<FeatureId, Screen>> = { habits: "habits", assistant: "assistant", review: "review" };
+      if (!on && screenOf[id] && get().screen === screenOf[id]) set({ screen: "planner" });
+    },
     setFocusExpanded: (focusExpanded) => set({ focusExpanded }),
     todayNotePath: () => todayDailyPath(),
     // "Günün Notu" — bugünün notunu (yoksa şablonla oluşturup) sekmede aç.
@@ -4014,6 +4039,8 @@ export const useAppStore = create<AppState>()(
           // Bozuk/eski kayıt temizlenir; eksik kart sona eklenir (LOM-72).
           sideCardOrder:
             p.sideCardOrder === undefined ? current.sideCardOrder : normalizeSideCardOrder(p.sideCardOrder),
+          // Özellik bayrakları (LOM-82): bozuk/eksik alan varsayılana (açık) döner.
+          features: p.features === undefined ? current.features : normalizeFeatures(p.features),
         };
       },
       onRehydrateStorage: () => (state) => {
@@ -4065,6 +4092,7 @@ export const useAppStore = create<AppState>()(
         rightWidth: s.rightWidth,
         leftWidth: s.leftWidth,
         sideCardOrder: s.sideCardOrder,
+        features: s.features,
         backlinksCollapsed: s.backlinksCollapsed,
         onThisDayCollapsed: s.onThisDayCollapsed,
         pomo: s.pomo,

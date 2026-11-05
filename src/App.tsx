@@ -62,6 +62,9 @@ export default function App() {
   const ghRepo = useAppStore((s) => s.ghRepo);
   const ghSync = useAppStore((s) => s.ghSync);
   const gcalAutoSync = useAppStore((s) => s.gcalAutoSync);
+  // Özellik kartı kapalıysa otomatik eşitleme kurulmaz; bağlantı yerinde kalır (LOM-82).
+  const ghOn = useAppStore((s) => s.features.github);
+  const gcalOn = useAppStore((s) => s.features.calendar);
   const gcalTokens = useAppStore((s) => s.gcalTokens);
   const gcalSync = useAppStore((s) => s.gcalSync);
   const pomoRunning = useAppStore((s) => s.pomoRunning);
@@ -129,18 +132,18 @@ export default function App() {
 
   // Otomatik senkron: bağlıyken ve açıkken periyodik push/pull (3 dk).
   useEffect(() => {
-    if (!ghAutoSync || !ghToken || !ghRepo) return;
+    if (!ghOn || !ghAutoSync || !ghToken || !ghRepo) return;
     const id = setInterval(() => void ghSync(), 3 * 60 * 1000);
     return () => clearInterval(id);
-  }, [ghAutoSync, ghToken, ghRepo, ghSync]);
+  }, [ghOn, ghAutoSync, ghToken, ghRepo, ghSync]);
 
   // Google Takvim otomatik senkron: bağlıyken açılışta hemen bir kez, sonra her 5 dk push/pull.
   useEffect(() => {
-    if (!gcalAutoSync || !gcalTokens) return;
+    if (!gcalOn || !gcalAutoSync || !gcalTokens) return;
     void gcalSync();
     const id = setInterval(() => void gcalSync(), 5 * 60 * 1000);
     return () => clearInterval(id);
-  }, [gcalAutoSync, gcalTokens, gcalSync]);
+  }, [gcalOn, gcalAutoSync, gcalTokens, gcalSync]);
 
   // Dil değişince i18next + <html dir> güncelle (RTL).
   useEffect(() => {

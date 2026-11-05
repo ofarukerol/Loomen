@@ -50,3 +50,11 @@ Hedef: kodun %85'ten fazlası masaüstü ve mobilde ortak.
 ## Plandan sapma (2026-09-13)
 - Plan SQLite + FTS5 dizini öngörüyordu; kodda SQLite eklentisi yok, arama JavaScript tarafında (`src/core/search/search.ts`). Arama tire, boşluk, aksan ve büyük-küçük harf farkına ve küçük yazım hatasına dayanıklıdır; kelimeler ayrı yerde olsa da bulunur, en iyi eşleşme üstte sıralanır (LOM-81).
 - Plan "ağ yok" diyordu; isteğe bağlı GitHub eşitleme ve Google Takvim bağlantısı eklendi. Çekirdek yine ağsız çalışır; bağlantılar kullanıcı açarsa devreye girer.
+
+## Ayarlar: özellik kartları (LOM-82)
+- Ayarlar'ın en üstünde beş kart: Yedekleme (GitHub), Takvim, Tekrar, Asistan, Alışkanlık Takibi (`src/screens/Settings/FeatureCards.tsx`, kimlik ve kural `src/core/settings/features.ts`). Her kartta ad, açıklama, durum (bağlı mı, kaç kart/sağlayıcı/alışkanlık) ve açma/kapama düğmesi.
+- Bayraklar: Yedekleme, Takvim, Alışkanlık `features` olarak `loomen.settings` kaydında (varsayılan hepsi açık; bozuk/eksik alan açığa döner). Tekrar kasadaki ayar dosyasındaki `enabled`, Asistan `aiEnabled` — ikinci kopya tutulmaz.
+- Kapalıyken: o özelliğin Ayarlar bölümü çizilmez. Yedekleme/Takvim kapalıysa otomatik eşitleme kurulmaz, gezgin alt şeridi yerel kasa gibi görünür. Alışkanlık kapalıysa şerit düğmesi, telefon menüsü maddesi ve sağ blok kartı gizlenir. Kapatılan özelliğin ekranı açıksa Planner'a dönülür.
+- Kapatmak veri silmez: GitHub/Google bağlantısı, anahtar zinciri, kasadaki alışkanlık ve tekrar dosyaları yerinde kalır.
+- Tekrar ayarı okunmadan (yükleniyor/okunamadı) kartın düğmesi kilitlidir, okunamadıysa kartta Yeniden dene çıkar (LOM-71 koruması).
+- Testi: `src/core/__test__/featuresTest.ts`.

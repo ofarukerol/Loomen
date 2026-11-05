@@ -4,6 +4,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { isChecking, progressPercent, runUpdateCheck, runUpdateInstall, updateStore, updateSupported } from "../../core/updater";
 import { useAppStore, ACCENTS, type Lang, type EditorSettings } from "../../store/useAppStore";
 import { AiSettings } from "./AiSettings";
+import { FeatureCards } from "./FeatureCards";
 import { ReviewSettings } from "./ReviewSettings";
 import { GitHubSync } from "./GitHubSync";
 import { GoogleCalendarSync } from "./GoogleCalendarSync";
@@ -113,6 +114,11 @@ export function SettingsScreen() {
   const setPomo = useAppStore((s) => s.setPomo);
   const pomoSound = useAppStore((s) => s.pomoSound);
   const setPomoSound = useAppStore((s) => s.setPomoSound);
+  // Özellik kartları (LOM-82): kapalı özelliğin ayar bölümü aşağıda çizilmez.
+  const features = useAppStore((s) => s.features);
+  const aiEnabled = useAppStore((s) => s.aiEnabled);
+  const srsReady = useAppStore((s) => s.srsSettingsStatus === "ready");
+  const srsEnabled = useAppStore((s) => s.srsSettings.enabled);
 
   const editorRows: { key: keyof EditorSettings; label: string }[] = [
     { key: "livePreview", label: t("settings.livePreview") },
@@ -131,6 +137,9 @@ export function SettingsScreen() {
     <div className="lo-set lo-scroll">
       <div className="lo-set__inner">
         <h1 className="lo-set__title">{t("settings.title")}</h1>
+
+        {/* Özellikleri açıp kapatma — en üstte, görsel kartlarla (LOM-82). */}
+        <FeatureCards />
 
         {/* Görünüm */}
         <Section label={t("settings.appearance")}>
@@ -240,7 +249,7 @@ export function SettingsScreen() {
         </div>
 
         {/* Tekrar (aralıklı tekrar) — kendi bölümü, üç kademeli (Basit/Gelişmiş/Uzman). */}
-        <ReviewSettings />
+        {srsReady && srsEnabled && <ReviewSettings />}
 
         {/* Kasa yönetimi — mobilde de var: kasa app-data altında adla oluşturulur (klasör
             seçici yerine); konum değiştirme yalnız masaüstü. */}
@@ -248,12 +257,12 @@ export function SettingsScreen() {
             hemen altta. GitHub: mobilde REST API senkronuyla çalışır (git2 yerine). */}
         <div className="lo-set__group">
           <VaultManager />
-          <GitHubSync />
+          {features.github && <GitHubSync />}
         </div>
-        <AiSettings />
+        {aiEnabled && <AiSettings />}
 
         {/* Google Takvim: mobilde deep-link OAuth (iOS client id gerekir). */}
-        <GoogleCalendarSync />
+        {features.calendar && <GoogleCalendarSync />}
         <UpdateSettings />
       </div>
     </div>

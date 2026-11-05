@@ -16,6 +16,8 @@ export function SideCardsSettings() {
   const move = useAppStore((s) => s.moveSideCard);
   const reset = useAppStore((s) => s.resetSideCardOrder);
   const reviewOn = useAppStore((s) => s.srsSettings.enabled);
+  // Alışkanlık Takibi kapalıyken kart Planner'da çizilmez (LOM-82).
+  const habitsOn = useAppStore((s) => s.features.habits);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -75,7 +77,9 @@ export function SideCardsSettings() {
               <div className="lo-set__cardname">
                 <div className="lo-set__rowtitle">
                   {t(`settings.sideCard.${id}`)}
-                  {id === "review" && !reviewOn && <span className="lo-set__cardbadge">{t("settings.sideCardOff")}</span>}
+                  {((id === "review" && !reviewOn) || (id === "habits" && !habitsOn)) && (
+                    <span className="lo-set__cardbadge">{t("settings.sideCardOff")}</span>
+                  )}
                 </div>
                 {id === "habits" && <div className="lo-set__rowsub">{t("settings.sideCardHabitsSub")}</div>}
               </div>

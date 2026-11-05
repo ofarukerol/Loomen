@@ -1347,6 +1347,67 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-switch.is-on { background: var(--accent); }
 .lo-switch__knob { width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: var(--sh1); transition: transform 0.18s; }
 .lo-switch.is-on .lo-switch__knob { transform: translateX(18px); }
+.lo-switch:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* Ayarlar üstündeki özellik kartları (LOM-82) */
+.lo-set__featsub { margin: -8px 0 14px; font-size: 12.5px; color: var(--fg3); }
+.lo-set__feats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 28px; }
+.lo-feat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 16px 14px;
+  min-width: 0;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.lo-feat:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.lo-feat__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.lo-feat__icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  transition: background 0.15s, color 0.15s;
+}
+.lo-feat__name { font-size: 14.5px; font-weight: 600; color: var(--fg1); }
+.lo-feat__desc { font-size: 12.5px; line-height: 1.45; color: var(--fg3); flex: 1; }
+.lo-feat__status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 12px;
+  color: var(--fg2);
+}
+.lo-feat__dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); }
+.lo-feat.is-off .lo-feat__icon { background: var(--bg-sunken); color: var(--fg3); }
+.lo-feat.is-off .lo-feat__name { color: var(--fg2); }
+.lo-feat.is-off .lo-feat__dot { background: var(--line); }
+.lo-feat__status.is-err { color: var(--accent); }
+.lo-feat__status.is-err .lo-feat__dot { background: var(--accent); }
+.lo-feat__retry {
+  margin-inline-start: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 3px 9px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg1);
+  background: var(--bg-sunken);
+  cursor: pointer;
+}
+.lo-feat__retry:hover { border-color: var(--accent); }
+@media (max-width: 560px) {
+  .lo-set__feats { grid-template-columns: 1fr; }
+}
 .lo-set__pomo { display: flex; margin-bottom: 28px; }
 .lo-set__pomocell { flex: 1; padding: 16px 18px; text-align: center; border-inline-end: 1px solid var(--line-soft); }
 .lo-set__pomocell:last-child { border-inline-end: none; }

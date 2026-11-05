@@ -331,6 +331,8 @@ export function Explorer() {
   const trashCount = useAppStore((s) => s.trash.length);
   const toggleLeft = useAppStore((s) => s.toggleLeft);
   const ghToken = useAppStore((s) => s.ghToken);
+  // Yedekleme kartı kapalıysa alt şerit yerel kasa gibi görünür (LOM-82).
+  const ghOn = useAppStore((s) => s.features.github);
   const ghRepo = useAppStore((s) => s.ghRepo);
   const ghSyncing = useAppStore((s) => s.ghSyncing);
   const ghLastSync = useAppStore((s) => s.ghLastSync);
@@ -696,7 +698,7 @@ export function Explorer() {
       )}
 
       <div className="lo-explorer__foot">
-        {!ghToken ? (
+        {!ghToken || !ghOn ? (
           <span className="lo-foot__label">
             <Clock size={13} strokeWidth={2} />
             {t("explorer.localNoSync")}

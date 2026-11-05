@@ -1077,7 +1077,43 @@
     "vault": "Vault",
     "vaultLocation": "Vault location",
     "change": "Change",
-    "addAppVault": "Create vault in app storage"
+    "addAppVault": "Create vault in app storage",
+    "features": {
+      "title": "Features",
+      "sub": "Turn on what you use, turn off what you don't. Turning off never deletes your data.",
+      "github": {
+        "name": "Backup (GitHub)",
+        "desc": "Backs up your vault to a GitHub repository and syncs it across devices."
+      },
+      "calendar": {
+        "name": "Calendar",
+        "desc": "Brings Google Calendar events into the planner and writes tasks to your calendar."
+      },
+      "review": {
+        "name": "Review",
+        "desc": "Turns questions and answers in your notes into cards and asks before you forget."
+      },
+      "assistant": {
+        "name": "Assistant",
+        "desc": "Ask questions about your notes, request summaries and drafts."
+      },
+      "habits": {
+        "name": "Habit Tracking",
+        "desc": "Check off daily habits and see your streaks and progress."
+      },
+      "notConnected": "Not connected",
+      "connected": "Connected",
+      "connectedAs": "Connected as {{name}}",
+      "loading": "Reading settings…",
+      "readError": "Couldn't read settings",
+      "retry": "Try again",
+      "cards": "{{n}} cards",
+      "providers": "{{n}} providers",
+      "appOnly": "Works only in the app",
+      "habitsCount": "{{n}} active habits",
+      "on": "On",
+      "off": "Off"
+    }
   },
   "mobile": {
     "search": "Search",

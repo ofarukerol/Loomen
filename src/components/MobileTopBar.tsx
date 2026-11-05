@@ -23,6 +23,9 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
   // Ekran bazlı toggle: planner'dayken günlük notu aç; başka her yerdeyken planner'a (ana sayfa) dön.
   const isPlanner = screen === "planner";
   const inEditor = screen === "editor";
+  // Alışkanlık Takibi kapalıysa menüde Alışkanlıklar yok (LOM-82); menü boş kalırsa ⋮ de gizlenir.
+  const habitsOn = useAppStore((s) => s.features.habits);
+  const hasMenu = inEditor || habitsOn;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -75,6 +78,7 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
           )}
         </button>
 
+        {hasMenu && (
         <div className="lo-mtop__menu" ref={menuRef}>
           <button
             className={"lo-mtop__btn" + (menuOpen ? " is-active" : "")}
@@ -94,13 +98,16 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
                   <span>{editing ? t("editor.reading") : t("editor.edit")}</span>
                 </button>
               )}
-              <button className="lo-mtop__item" onClick={onHabits} role="menuitem">
-                <Sprout size={16} strokeWidth={1.9} />
-                <span>{t("ribbon.habit")}</span>
-              </button>
+              {habitsOn && (
+                <button className="lo-mtop__item" onClick={onHabits} role="menuitem">
+                  <Sprout size={16} strokeWidth={1.9} />
+                  <span>{t("ribbon.habit")}</span>
+                </button>
+              )}
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );

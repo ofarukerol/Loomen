@@ -1044,7 +1044,43 @@
     "moveUp": "Yukarı taşı",
     "moveDown": "Aşağı taşı",
     "sideCardReset": "Varsayılana dön",
-    "addAppVault": "Uygulama depolamasında kasa oluştur"
+    "addAppVault": "Uygulama depolamasında kasa oluştur",
+    "features": {
+      "title": "Özellikler",
+      "sub": "Kullanmak istediklerini aç, istemediklerini kapat. Kapatınca verilerin silinmez.",
+      "github": {
+        "name": "Yedekleme (GitHub)",
+        "desc": "Kasanı GitHub'daki bir depoya yedekler ve cihazlar arasında eşitler."
+      },
+      "calendar": {
+        "name": "Takvim",
+        "desc": "Google Takvim etkinliklerini planlayıcıya getirir, görevleri takvime yazar."
+      },
+      "review": {
+        "name": "Tekrar",
+        "desc": "Notlarındaki soru-cevaplardan kart çıkarır, unutmadan önce sorar."
+      },
+      "assistant": {
+        "name": "Asistan",
+        "desc": "Notların hakkında soru sor, özet ve taslak iste."
+      },
+      "habits": {
+        "name": "Alışkanlık Takibi",
+        "desc": "Günlük alışkanlıklarını işaretle, serini ve ilerlemeni gör."
+      },
+      "notConnected": "Bağlı değil",
+      "connected": "Bağlı",
+      "connectedAs": "{{name}} ile bağlı",
+      "loading": "Ayar okunuyor…",
+      "readError": "Ayar okunamadı",
+      "retry": "Yeniden dene",
+      "cards": "{{n}} kart",
+      "providers": "{{n}} sağlayıcı",
+      "appOnly": "Yalnız uygulamada çalışır",
+      "habitsCount": "{{n}} aktif alışkanlık",
+      "on": "Açık",
+      "off": "Kapalı"
+    }
   },
   "syncStatus": {
     "error": "Senkron hatası"
