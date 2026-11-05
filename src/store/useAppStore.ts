@@ -887,6 +887,13 @@ function gcalTextPatch(patch: TaskPatch): { text: string } | null {
 const autoNamed = new Set<string>();
 /** Şu an otomatik adlandırılan not yolları (eşzamanlı ikinci deneme atlanır). */
 const autoNaming = new Set<string>();
+/**
+ * Kasa değişimi sürerken true; her değişimde `vaultSwitchGen` artar. Otomatik adlandırma
+ * bu sırada başlamaz, sürmekteyse diske yazmadan durur: aktif not boşalınca tetiklenen
+ * deneme, backend yeni kasaya geçtikten sonra eski kasanın yollarını yeni kasaya yazmasın.
+ */
+let vaultSwitching = false;
+let vaultSwitchGen = 0;
 
 /** Nesnenin anahtarlarını yeni yollara taşır (`to` undefined dönerse anahtar aynı kalır). */
 function moveKeys<T>(obj: Record<string, T>, to: (p: string) => string | undefined): Record<string, T> {
@@ -2191,7 +2198,11 @@ export const useAppStore = create<AppState>()(
           if (isSwitch) {
             // Eski kasanın kayıt hatası yeni kasada görünmesin.
             lastFailedWrite = null;
-            autoNamed.clear(); // otomatik adlandırma takibi eski kasaya aitti (LOM-76)
+            // Otomatik adlandırma durdurulur ve takibi eski kasaya aitti (LOM-76). Bayrak
+            // aktif not boşaltılmadan ÖNCE kalkar: boşaltma ayrılış denemesini tetikler.
+            vaultSwitching = true;
+            vaultSwitchGen++;
+            autoNamed.clear();
             set({ draft: "", draftPath: null, draftConflict: null, activeNote: null, activeDraw: null, writeError: null });
           }
 
@@ -2308,6 +2319,8 @@ export const useAppStore = create<AppState>()(
           let code = classifyOpenError(detail);
           if (code !== "missing") code = refineOpenErrorCode(code, await vaultPathState(target));
           set({ vaultOpenError: recordOpenError(get().vaultOpenError, { path, code, detail }) });
+        } finally {
+          vaultSwitching = false;
         }
       }),
 
@@ -2499,6 +2512,10 @@ export const useAppStore = create<AppState>()(
     // Bir notu yeniden adlandır (aynı klasörde). Açık sekme/aktif not referansları güncellenir.
     renameNote: async (path, newName, opts) => {
       const auto = opts?.auto === true;
+      // Otomatik adlandırmada kasa değişimi her beklemeden sonra yeniden denetlenir (LOM-76).
+      const startGen = vaultSwitchGen;
+      const startBackend = backend;
+      const vaultMoved = () => vaultSwitching || vaultSwitchGen !== startGen || backend !== startBackend;
       // Gezginden elle ad verildi: not artık başlığı izlemez (LOM-76).
       if (!auto) autoNamed.delete(path);
       const s = get();
@@ -2528,12 +2545,18 @@ export const useAppStore = create<AppState>()(
       // silinmiş yolu yeniden yaratır (aynı notun iki kopyası) ya da yazma hata verir.
       // Yazılamazsa yeniden adlandırma yapılmaz (taslak eski yolda kalır, kaybolmaz).
       if (!(await leaveDraft())) return null;
+      if (auto && vaultMoved()) return null;
       try {
         await backend.rename(path, to);
       } catch (e) {
-        await notifyError(i18n.t("errors.renameNote", { detail: errText(e) }));
+        // Otomatik adlandırmada sessiz: not bu arada silinmiş/taşınmış olabilir (LOM-76).
+        if (!auto) await notifyError(i18n.t("errors.renameNote", { detail: errText(e) }));
+        else console.warn("[otomatik ad] yeniden adlandırılamadı:", path, e);
         return null;
       }
+      // Ad değişirken kasa değiştiyse: dosya eski kasada yeni adını aldı (disk kazanır);
+      // yeni kasanın durumuna eski yollar taşınmaz, takibe de eklenmez.
+      if (auto && vaultMoved()) return null;
       // Otomatik adlandırılan not yeni yolunda da başlığı izlemeye devam eder.
       if (autoNamed.delete(path) || auto) autoNamed.add(to);
       const cur = get();
@@ -2573,7 +2596,15 @@ export const useAppStore = create<AppState>()(
       // kısmı güncellenmiş, kalanı kırık kalmış oluyor ve kullanıcı
       // hangilerinin bozulduğunu asla öğrenmiyordu.
       const bozuklar: string[] = [];
-      for (const [p, c] of Object.entries(cur.noteContents)) {
+      // Otomatik adlandırmada bağlantılar yalnız ad kasada tekse yeniden yazılır: başka
+      // klasörde de "Adsız" varsa [[Adsız]] hangisini gösterdiği belli değildir, öbür
+      // notun bağlantıları yanlışlıkla bu nota çevrilmesin (LOM-76).
+      const relink =
+        !auto ||
+        cur.notes.filter((n) => n.path !== path && n.name.toLocaleLowerCase("tr") === note.name.toLocaleLowerCase("tr"))
+          .length === 0;
+      for (const [p, c] of relink ? Object.entries(cur.noteContents) : []) {
+        if (auto && vaultMoved()) break; // kasa değişti: eski kasanın içeriği yeni kasaya yazılmaz
         if (p === path || !isMd(p)) continue; // taşındı; içeriği yeni yolda okunacak
         const nextC = rewriteWikiLinks(c, note.name, clean);
         if (nextC === c) continue;
@@ -2587,7 +2618,7 @@ export const useAppStore = create<AppState>()(
       // DİSKTEN okunur: bellekteki kopya bayatsa dış değişikliği ezerdi
       // (openNote'ta aynı özen gösteriliyor, burada gösterilmemişti).
       // Çizimin JSON'una dokunulmaz: metin kutusundaki "[[...]]" yazısı değişip sahne bozulurdu.
-      if (note.kind === "note") {
+      if (note.kind === "note" && relink && !(auto && vaultMoved())) {
         try {
           const diskten = await backend.readNote(to);
           const own = rewriteWikiLinks(diskten, note.name, clean);
@@ -2618,6 +2649,8 @@ export const useAppStore = create<AppState>()(
       // Kasa bu sırada değişirse (backend yenilenir) eski yol yeni kasada başka nota denk
       // gelebilir: adlandırma yapılmaz.
       const startBackend = backend;
+      const startGen = vaultSwitchGen;
+      if (vaultSwitching) return null; // kasa değişiyor: aktif notun boşalması da buraya düşer
       const note = s.notes.find((n) => n.path === path);
       if (!note || note.kind !== "note") return null;
       // Şablonlar ve günlük notlar kapsam dışı.
@@ -2652,7 +2685,16 @@ export const useAppStore = create<AppState>()(
         break;
       }
       if (!name || name === note.name) return null;
-      if (backend !== startBackend || get().vaultPath !== s.vaultPath) return null;
+      // Not bu arada silinmiş (çöpe taşınıp aktif not değişince ayrılış denemesi gelir) ya da
+      // dışarıdan taşınmışsa adlandırılacak bir şey yok; hata penceresi açılmaz.
+      if (!(await backend.exists(path))) return null;
+      if (
+        vaultSwitching ||
+        vaultSwitchGen !== startGen ||
+        backend !== startBackend ||
+        get().vaultPath !== s.vaultPath
+      )
+        return null;
       // Aynı not için üst üste gelen denemeler (zamanlayıcı + nottan ayrılış) tek kez çalışır;
       // ikincisi eski yolu yeniden adlandırmaya kalkıp hata penceresi açmasın.
       if (autoNaming.has(path)) return null;

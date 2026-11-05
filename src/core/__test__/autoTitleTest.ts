@@ -106,6 +106,27 @@ check("autoNameNote auto ile adlandırır", autoName.includes("renameNote(path, 
 check("autoNameNote şablonlara dokunmaz", autoName.includes("TEMPLATES_DIR"));
 check("kasa değişince takip temizlenir", store.includes("autoNamed.clear()"));
 const renameFolder = block(store, "renameFolder: async (folderPath, newName) => {", "\n    },");
+check(
+  "renameNote auto'da rename hatası pencere açmaz (silinmiş not)",
+  /if \(!auto\) await notifyError\(i18n\.t\("errors\.renameNote"/.test(rename),
+);
+check("autoNameNote kaynak dosya yoksa durur", autoName.includes("if (!(await backend.exists(path))) return null;"));
+check("autoNameNote kasa değişirken başlamaz", autoName.includes("if (vaultSwitching) return null;"));
+check(
+  "autoNameNote kasa değişimini beklemelerden sonra yeniden denetler",
+  /vaultSwitching \|\|\s*vaultSwitchGen !== startGen/.test(autoName),
+);
+check("renameNote auto'da rename öncesi ve sonrası kasa denetimi", rename.split("if (auto && vaultMoved()) return null;").length === 3);
+check("renameNote auto'da bağlantı yazımı kasa değişince durur", rename.includes("if (auto && vaultMoved()) break;"));
+check("renameNote auto'da bağlantılar yalnız ad tekse yazılır", /const relink =\s*!auto \|\|/.test(rename));
+const reopen = block(store, "reopenVault: (rawPath, guard) =>", "\n      }),");
+check("reopenVault değişimde bayrağı kaldırır", /vaultSwitching = true;\s*vaultSwitchGen\+\+;/.test(reopen));
+check(
+  "bayrak aktif not boşaltılmadan önce kalkar",
+  reopen.indexOf("vaultSwitching = true;") > 0 &&
+    reopen.indexOf("vaultSwitching = true;") < reopen.indexOf('set({ draft: "", draftPath: null, draftConflict: null, activeNote: null'),
+);
+check("reopenVault sonunda bayrağı indirir", /finally \{\s*vaultSwitching = false;/.test(reopen));
 check("renameFolder takibi taşır", /if \(autoNamed\.delete\(n\.path\)\) autoNamed\.add\(np\)/.test(renameFolder));
 
 // ── Editör ──
