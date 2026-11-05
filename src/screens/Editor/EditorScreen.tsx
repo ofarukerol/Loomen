@@ -15,6 +15,7 @@ import { DailyHeader } from "./DailyHeader";
 import { OnThisDay } from "./OnThisDay";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { firstSectionCaret } from "./noteCaret";
+import { firstHeading } from "../../core/markdown/autoTitle";
 
 function breadcrumb(path: string): string[] {
   const segs = path.split("/");
@@ -43,6 +44,7 @@ export function EditorScreen() {
   const saveNote = useAppStore((s) => s.saveNote);
   const openNote = useAppStore((s) => s.openNote);
   const toggleTask = useAppStore((s) => s.toggleTask);
+  const autoNameNote = useAppStore((s) => s.autoNameNote);
   const backlinksCollapsed = useAppStore((s) => s.backlinksCollapsed);
   const toggleBacklinks = useAppStore((s) => s.toggleBacklinks);
 
@@ -68,6 +70,60 @@ export function EditorScreen() {
     };
   }, [draft, editing, activeNote, saveNote]);
 
+  // Başlıktan otomatik ad (LOM-76): elle ad verilmemiş not, yazma durunca ilk başlığına göre
+  // yeniden adlandırılır. Yeniden adlandırma editörü (key) yeniden kurar; imleç ve odak
+  // `caretRestore` ile aynı yere geri verilir. Başlık satırında yazılırken (yarım ad) ve
+  // mobilde odaklıyken (klavye kapanmasın) beklenir; nottan ayrılınca ya da okuma moduna
+  // geçince yeniden denenir.
+  const caretRestore = useRef<{ path: string; pos: number; focus: boolean; live?: boolean } | null>(null);
+  const autoNameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!editing || !activeNote) return;
+    if (autoNameTimer.current) clearTimeout(autoNameTimer.current);
+    autoNameTimer.current = setTimeout(() => {
+      const view = viewRef.current;
+      const h = firstHeading(draft);
+      if (!h) return;
+      if (view && view.hasFocus) {
+        if (isMobile) return;
+        const head = view.state.selection.main.head;
+        if (view.state.doc.lineAt(head).number - 1 === h.line) return;
+      }
+      const pos = view ? view.state.selection.main.head : 0;
+      const hadFocus = view ? view.hasFocus : false;
+      // Kayıt yeniden adlandırmadan ÖNCE kurulur: yeni yol activeNote olunca editör hemen
+      // yeniden kurulur, sonuç dönmesini beklemek imleci kaybettirirdi.
+      void autoNameNote(activeNote, (to) => {
+        caretRestore.current = { path: to, pos, focus: hadFocus };
+      }).then((to) => {
+        if (!to) caretRestore.current = null; // adlandırılamadı → kayıt geçersiz
+      });
+    }, 1500);
+    return () => {
+      if (autoNameTimer.current) clearTimeout(autoNameTimer.current);
+    };
+  }, [draft, editing, activeNote, autoNameNote, isMobile]);
+
+  // Nottan ayrılınca (sekme/not değişimi) eski not için son kez dene. Taslak zaten
+  // leaveDraft ile yazılmıştır; aktif olmayan notta editör yeniden kurulmaz. Kasa değiştiyse
+  // eski yol yeni kasada başka bir nota denk gelebilir — denenmez.
+  const vaultPath = useAppStore((s) => s.vaultPath);
+  useEffect(() => {
+    // Restore kaydı yalnız yeniden adlandırmadan hemen sonraki kurulum için geçerli: editör
+    // (alt bileşen) bu effect'ten önce kuruldu ve kaydı kullandı; sonraki kurulumlar
+    // (satır numarası, taslak yenileme) eski konuma atlamasın.
+    caretRestore.current = null;
+    if (!activeNote) return;
+    const left = activeNote;
+    const leftVault = vaultPath;
+    return () => {
+      if (useAppStore.getState().vaultPath !== leftVault) return;
+      // Yeniden adlandırmanın kendisi de activeNote'u değiştirir: o sırada aynı not için
+      // ikinci deneme depoda atlanır (sürmekte olan adlandırma / not artık listede yok).
+      void useAppStore.getState().autoNameNote(left);
+    };
+  }, [activeNote, vaultPath]);
+
   // Editörden çıkarken / kapanışta bekleyen kaydı boşalt (bkz. useFlushOnExit).
   useFlushOnExit(isMobile);
 
@@ -85,11 +141,27 @@ export function EditorScreen() {
 
   // Günlük not (2026-07-19-Pazar gibi) açılınca imleç ilk bölüme — "Ephemeral Notlar" — gitsin.
   const isDaily = /^\d{4}-\d{2}-\d{2}/.test(crumbs[crumbs.length - 1] ?? "");
-  const initialCaret = isDaily ? firstSectionCaret(draft) : undefined;
+  // Otomatik adlandırmadan sonra editör aynı imleç konumu ve odakla yeniden kurulur (LOM-76).
+  // Konum ve odak, kurulumdan hemen önce eski editörden CANLI okunur (bu render'da viewRef
+  // hâlâ eski editörü gösterir): adlandırma sürerken yazılanlar imleci kaydırmış olabilir.
+  const restore = caretRestore.current?.path === activeNote ? caretRestore.current : null;
+  if (restore && !restore.live && viewRef.current) {
+    const old = viewRef.current;
+    restore.pos = old.state.selection.main.head;
+    restore.focus = old.hasFocus;
+    restore.live = true;
+  }
+  const initialCaret = restore ? restore.pos : isDaily ? firstSectionCaret(draft) : undefined;
 
   // Okuma moduna geçerken son hâli kaydet (okuma güncel içeriği göstersin).
   const toggleMode = async () => {
-    if (editing) await saveNote();
+    if (editing) {
+      await saveNote();
+      toggleEditing();
+      // Okuma moduna geçince başlıktan otomatik ad (LOM-76); editör kapalı, imleç gerekmez.
+      void autoNameNote(activeNote);
+      return;
+    }
     toggleEditing();
   };
 
@@ -201,6 +273,7 @@ export function EditorScreen() {
                 onView={(v) => (viewRef.current = v)}
                 onContextMenu={(x, y, via) => setCtxMenu({ x, y, via })}
                 initialCaret={initialCaret}
+                focusOnMount={restore ? restore.focus : true}
               />
             </div>
           ) : (

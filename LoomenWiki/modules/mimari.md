@@ -31,6 +31,7 @@ Hedef: kodun %85'ten fazlası masaüstü ve mobilde ortak.
 - Kasa içinde `.loomen/` (önbellek, çalışma alanı, kasaya özel ayar) ve `.trash/` bulunur. İkisinin eşitlemeden hariç tutulması önerilir.
 - **Görev bir satırdır.** Ayrıştırılıp nesneye çevrilir; değişince **aynı satıra, kayıpsız** geri yazılır. Tanınmayan emoji ve alanlar korunur. Kodda karşılığı `src/core/markdown/taskParser.ts`.
 - Pomodoro geçmişi doğal olarak Markdown'da durmadığı için özeti günlük nota yazılır (taşınabilir kaynak), ayrıntısı hızlı istatistik için yerel kayıtta tutulur.
+- **Başlıktan otomatik ad (LOM-76).** Elle ad verilmemiş not ("Adsız", "Adsız 2" deseni ya da bu oturumda oluşturulmuş not) yazma durunca ilk başlığına göre yeniden adlandırılır; içerik değişmez, ad doluysa "Ad 2" seçilir. Gezginden elle ad verilince izleme biter. Kodda `src/core/markdown/autoTitle.ts`.
 
 ## Dışarıdan gelen değişiklik ve çakışma
 - Uygulama kapalıyken değişen dosya açılışta yakalanır.

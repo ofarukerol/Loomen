@@ -29,6 +29,7 @@ import {
 } from "../core/vault";
 import { migrateMobileVaults, rebaseMobileVaultPath, joinPath } from "../core/vault/mobileVaultPath";
 import { rewriteWikiLinks } from "../core/markdown/links";
+import { AUTO_NAME_BASE, autoNameTarget, freeName, isAutoName } from "../core/markdown/autoTitle";
 import { reconcileDraft, conflictCopyPath, conflictStamp } from "../core/vault/draftSync";
 import {
   classifyWriteError,
@@ -539,7 +540,18 @@ interface AppState {
   /** Ses kaydını sil (çöp kutusuna taşır) + embed satırlarını notlardan kaldır. */
   deleteAudioNote: (path: string) => Promise<void>;
   toggleFavorite: (path: string) => void;
-  renameNote: (path: string, newName: string) => Promise<void>;
+  /**
+   * Notu yeniden adlandırır; başarıda yeni yolu, aksi halde null döndürür.
+   * `auto`: başlıktan otomatik adlandırma (LOM-76) — çakışmada hata penceresi açılmaz,
+   * not otomatik adlandırılabilir olarak kalır. Elle adlandırmada (auto yok) bu takip biter.
+   */
+  renameNote: (path: string, newName: string, opts?: { auto?: boolean }) => Promise<string | null>;
+  /**
+   * Elle ad verilmemiş notu ilk başlığına göre yeniden adlandırır (LOM-76). Kaydedilmemiş
+   * taslak ya da çakışma varsa beklenir (null). Başarıda yeni yol döner. `onBeforeRename`
+   * yeni yolu adlandırmadan hemen önce bildirir (editör imleci geri verebilsin).
+   */
+  autoNameNote: (path: string, onBeforeRename?: (to: string) => void) => Promise<string | null>;
   renameFolder: (folderPath: string, newName: string) => Promise<void>;
   // — Çöp kutusu —
   deleteNote: (path: string) => Promise<void>;
@@ -866,6 +878,15 @@ let gcalEventsGen = 0;
 function gcalTextPatch(patch: TaskPatch): { text: string } | null {
   return patch.description?.trim() ? { text: patch.description } : null;
 }
+
+/**
+ * Bu oturumda oluşturulmuş ve elle ad verilmemiş notların yolları (LOM-76). Bu kümedeki ya da
+ * adı "Adsız" desenine uyan not, ilk başlığına göre otomatik adlandırılır. Gezginden elle ad
+ * verilince kümeden çıkar. Kasa değişince temizlenir (başka kasanın yolları karışmasın).
+ */
+const autoNamed = new Set<string>();
+/** Şu an otomatik adlandırılan not yolları (eşzamanlı ikinci deneme atlanır). */
+const autoNaming = new Set<string>();
 
 /** Nesnenin anahtarlarını yeni yollara taşır (`to` undefined dönerse anahtar aynı kalır). */
 function moveKeys<T>(obj: Record<string, T>, to: (p: string) => string | undefined): Record<string, T> {
@@ -2170,6 +2191,7 @@ export const useAppStore = create<AppState>()(
           if (isSwitch) {
             // Eski kasanın kayıt hatası yeni kasada görünmesin.
             lastFailedWrite = null;
+            autoNamed.clear(); // otomatik adlandırma takibi eski kasaya aitti (LOM-76)
             set({ draft: "", draftPath: null, draftConflict: null, activeNote: null, activeDraw: null, writeError: null });
           }
 
@@ -2297,13 +2319,14 @@ export const useAppStore = create<AppState>()(
     newNote: async (folder) => {
       const s = get();
       const dir = folder ? `${folder}/` : "";
-      const base = "Adsız";
+      const base = AUTO_NAME_BASE;
       let name = base;
       let i = 2;
       const taken = (n: string) => s.notes.some((x) => x.path === `${dir}${n}.md`);
       while (taken(name)) name = `${base} ${i++}`;
       if (folder) await backend.ensureDir(folder);
       await backend.writeNote(`${dir}${name}.md`, `# ${name}\n\n`);
+      autoNamed.add(`${dir}${name}.md`); // elle ad verilene kadar başlığı izler (LOM-76)
       await loadFromBackend();
       get().openNote(`${dir}${name}.md`, true);
     },
@@ -2468,22 +2491,26 @@ export const useAppStore = create<AppState>()(
       while (folders.has(name)) name = `${base} ${i++}`;
       await backend.ensureDir(name);
       await backend.writeNote(`${name}/Adsız.md`, `# Adsız\n\n`);
+      autoNamed.add(`${name}/Adsız.md`); // elle ad verilene kadar başlığı izler (LOM-76)
       await loadFromBackend();
       get().openNote(`${name}/Adsız.md`, true);
     },
 
     // Bir notu yeniden adlandır (aynı klasörde). Açık sekme/aktif not referansları güncellenir.
-    renameNote: async (path, newName) => {
+    renameNote: async (path, newName, opts) => {
+      const auto = opts?.auto === true;
+      // Gezginden elle ad verildi: not artık başlığı izlemez (LOM-76).
+      if (!auto) autoNamed.delete(path);
       const s = get();
       const note = s.notes.find((n) => n.path === path);
-      if (!note) return;
+      if (!note) return null;
       // Uzantı dosya türüne göre korunur: çizim ".md" olarak yeniden adlandırılırsa
       // sahnesi nota dönüşür, çizim ekranı onu artık açamaz (LOM-6).
       const ext = note.kind === "draw" ? ".excalidraw" : ".md";
       const clean = newName.trim().replace(/[/\\]/g, "").replace(/\.(md|excalidraw)$/i, "");
-      if (!clean) return;
+      if (!clean) return null;
       const to = note.folder ? `${note.folder}/${clean}${ext}` : `${clean}${ext}`;
-      if (to === path) return; // değişmedi
+      if (to === path) return null; // değişmedi
       // Yalnız büyük/küçük harf değişimi (toplanti → Toplanti): macOS/Windows dosya adları
       // harf duyarsız olduğu için hedef "zaten var" görünür — bulunan şey notun KENDİSİdir.
       // Bu durumda çakışma kontrolü atlanır, aksi halde kullanıcı notun harfini düzeltemez.
@@ -2493,22 +2520,51 @@ export const useAppStore = create<AppState>()(
       // (Harf duyarlı sistemlerde gerçekten ayrı bir not "Toplanti.md" olarak durabilir;
       // tam yol eşleşmesi her hâlükârda çakışmadır, yalnız disk kontrolü atlanır.)
       if (s.notes.some((n) => n.path === to) || (!caseOnly && (await backend.exists(to)))) {
-        await notifyError(i18n.t("errors.noteExists", { name: clean }));
-        return;
+        // Otomatik adlandırmada pencere açılmaz; çağıran başka boş ad seçer (LOM-76).
+        if (!auto) await notifyError(i18n.t("errors.noteExists", { name: clean }));
+        return null;
       }
       // Bekleyen taslağı önce ESKİ yola yaz; yoksa autosave rename'den sonra ateşleyip
       // silinmiş yolu yeniden yaratır (aynı notun iki kopyası) ya da yazma hata verir.
       // Yazılamazsa yeniden adlandırma yapılmaz (taslak eski yolda kalır, kaybolmaz).
-      if (!(await leaveDraft())) return;
+      if (!(await leaveDraft())) return null;
       try {
         await backend.rename(path, to);
       } catch (e) {
         await notifyError(i18n.t("errors.renameNote", { detail: errText(e) }));
-        return;
+        return null;
       }
+      // Otomatik adlandırılan not yeni yolunda da başlığı izlemeye devam eder.
+      if (autoNamed.delete(path) || auto) autoNamed.add(to);
+      const cur = get();
+      // Durum, disk taşındıktan HEMEN sonra yeni yola geçer (bağlantı yeniden yazımından
+      // önce): o sırada süren otomatik kayıt eski yola yazıp silinmiş notu yeniden
+      // yaratmasın (LOM-76: otomatik adlandırma yazarken tetiklenebilir).
+      // Yola göre anahtarlanan her şey taşınır — aksi halde sabitlenen sekme, favori ve
+      // manuel görev sırası yeniden adlandırmada sessizce düşerdi.
+      const moveOrderKey = (key: string) =>
+        key.startsWith(`${path}::`) ? `${to}::${key.slice(path.length + 2)}` : key;
+      set((st) => ({
+        openTabs: st.openTabs.map((p) => (p === path ? to : p)),
+        pinnedTabs: st.pinnedTabs.map((p) => (p === path ? to : p)),
+        favorites: st.favorites.map((p) => (p === path ? to : p)),
+        taskOrder: Object.fromEntries(
+          Object.entries(st.taskOrder).map(([k, v]) => [moveOrderKey(k), v]),
+        ),
+        activeNote: st.activeNote === path ? to : st.activeNote,
+        draftPath: st.draftPath === path ? to : st.draftPath, // taslak ↔ dosya bağı korunur
+        // Açık çizim yeni yola geçer. İçerik de AYNI anda taşınır: çizim ekranı yeni yolda
+        // boş içerik görürse boş tuval açar ve ilk kayıt çizimi boş sahneyle ezer (LOM-6).
+        activeDraw: st.activeDraw === path ? to : st.activeDraw,
+        noteContents: moveKeys(st.noteContents, (p) => (p === path ? to : undefined)),
+        // Liste de hemen güncellenir: otomatik kayıt yalnız listedeki nota yazar; liste
+        // loadFromBackend'e kadar eski yolu gösterirse bu arada yazılanlar bekletilirdi.
+        notes: st.notes.map((n) => (n.path === path ? { ...n, path: to, name: clean } : n)),
+        // Tekrar kartlarının geçmişi yeni yola taşınır (kimlik yolu içerdiği için yeniden hesaplanır).
+        srsStates: migratePath(st.srsStates, path, to),
+      }));
       // [[bağlantı]]ları güncelle: eski ada işaret eden her not yeni ada çevrilir, yoksa
       // yeniden adlandırma tüm gelen bağlantıları kırardı.
-      const cur = get();
       // Yalnız markdown notları: noteContents .excalidraw sahnelerini de tutar, onların
       // JSON'unu bağlantı yeniden yazımıyla ellemek çizimi bozardı.
       const isMd = (p: string) => cur.notes.some((n) => n.path === p && n.kind === "note");
@@ -2548,31 +2604,65 @@ export const useAppStore = create<AppState>()(
           }),
         );
       }
-      // Yola göre anahtarlanan her şey taşınır — aksi halde sabitlenen sekme, favori ve
-      // manuel görev sırası yeniden adlandırmada sessizce düşerdi.
-      const moveOrderKey = (key: string) =>
-        key.startsWith(`${path}::`) ? `${to}::${key.slice(path.length + 2)}` : key;
-      set((st) => ({
-        openTabs: st.openTabs.map((p) => (p === path ? to : p)),
-        pinnedTabs: st.pinnedTabs.map((p) => (p === path ? to : p)),
-        favorites: st.favorites.map((p) => (p === path ? to : p)),
-        taskOrder: Object.fromEntries(
-          Object.entries(st.taskOrder).map(([k, v]) => [moveOrderKey(k), v]),
-        ),
-        activeNote: st.activeNote === path ? to : st.activeNote,
-        draftPath: st.draftPath === path ? to : st.draftPath, // taslak ↔ dosya bağı korunur
-        // Açık çizim yeni yola geçer. İçerik de AYNI anda taşınır: çizim ekranı yeni yolda
-        // boş içerik görürse boş tuval açar ve ilk kayıt çizimi boş sahneyle ezer (LOM-6).
-        activeDraw: st.activeDraw === path ? to : st.activeDraw,
-        noteContents: moveKeys(st.noteContents, (p) => (p === path ? to : undefined)),
-        // Tekrar kartlarının geçmişi yeni yola taşınır (kimlik yolu içerdiği için yeniden hesaplanır).
-        srsStates: migratePath(st.srsStates, path, to),
-      }));
       const srsAfter = get();
       if (srsAfter.srsSettings.enabled && srsAfter.srsStates !== cur.srsStates) {
         await saveStates(backend, srsAfter.srsStates, srsAfter.srsDaily);
       }
       await loadFromBackend();
+      return to;
+    },
+
+    // Elle ad verilmemiş notu ilk başlığına göre adlandır (LOM-76). İçeriğe dokunmaz.
+    autoNameNote: async (path, onBeforeRename) => {
+      const s = get();
+      // Kasa bu sırada değişirse (backend yenilenir) eski yol yeni kasada başka nota denk
+      // gelebilir: adlandırma yapılmaz.
+      const startBackend = backend;
+      const note = s.notes.find((n) => n.path === path);
+      if (!note || note.kind !== "note") return null;
+      // Şablonlar ve günlük notlar kapsam dışı.
+      if (path.startsWith(`${TEMPLATES_DIR}/`)) return null;
+      if (!autoNamed.has(path) && !isAutoName(note.name)) return null;
+      // Kaydedilmemiş taslak ya da dış değişiklik çakışması varken beklenir: ad, diskteki
+      // içerikten türetilir ve yeniden adlandırma çakışmayı başka yola taşımamalı.
+      if (s.draftConflict?.path === path) return null;
+      if (s.draftPath === path && s.draft !== s.noteContents[path]) return null;
+      const content = s.noteContents[path];
+      if (content == null) return null;
+      const target = autoNameTarget(note.name, content);
+      if (!target) return null;
+      const dir = note.folder ? `${note.folder}/` : "";
+      const lower = (p: string) => p.toLocaleLowerCase("tr");
+      const excluded = new Set<string>();
+      let name: string | null = null;
+      for (let tries = 0; tries < 50; tries++) {
+        const cand = freeName(
+          target,
+          (n) =>
+            excluded.has(n) ||
+            s.notes.some((x) => x.path !== path && lower(x.path) === lower(`${dir}${n}.md`)),
+        );
+        const candPath = `${dir}${cand}.md`;
+        const caseOnly = lower(candPath) === lower(path);
+        if (!caseOnly && (await backend.exists(candPath))) {
+          excluded.add(cand);
+          continue;
+        }
+        name = cand;
+        break;
+      }
+      if (!name || name === note.name) return null;
+      if (backend !== startBackend || get().vaultPath !== s.vaultPath) return null;
+      // Aynı not için üst üste gelen denemeler (zamanlayıcı + nottan ayrılış) tek kez çalışır;
+      // ikincisi eski yolu yeniden adlandırmaya kalkıp hata penceresi açmasın.
+      if (autoNaming.has(path)) return null;
+      autoNaming.add(path);
+      try {
+        onBeforeRename?.(`${dir}${name}.md`);
+        return await get().renameNote(path, name, { auto: true });
+      } finally {
+        autoNaming.delete(path);
+      }
     },
 
     // Bir klasörü (ve altındaki tüm notları) yeniden adlandır.
@@ -2616,6 +2706,7 @@ export const useAppStore = create<AppState>()(
           return;
         }
         map.set(n.path, np);
+        if (autoNamed.delete(n.path)) autoNamed.add(np); // otomatik adlandırma takibi (LOM-76)
       }
       // Not adları değişmedi → [[bağlantı]]lar hâlâ çözülür; yalnız yola göre anahtarlanan
       // durum taşınır (sabitlenen sekme, favori, manuel görev sırası).

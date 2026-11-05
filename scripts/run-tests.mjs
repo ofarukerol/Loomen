@@ -60,6 +60,7 @@ const suites = [
   ["src/core/__test__/agendaViewTest.ts", []],
   ["src/core/__test__/sideCardsTest.ts", []],
   ["src/core/__test__/tableWrapTest.ts", []],
+  ["src/core/__test__/autoTitleTest.ts", []],
 ];
 
 let failed = 0;

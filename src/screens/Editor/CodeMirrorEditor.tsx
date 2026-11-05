@@ -20,6 +20,9 @@ interface Props {
   onContextMenu?: (x: number, y: number, via: "mouse" | "touch") => void;
   /** Açılışta imlecin gideceği konum (günlük notta "Ephemeral Notlar" bölümü). */
   initialCaret?: number;
+  /** Kurulunca odak alsın mı (varsayılan evet; mobilde zaten almaz). Otomatik adlandırma
+   *  sonrası yeniden kurulumda önceki odak durumu korunur (LOM-76). */
+  focusOnMount?: boolean;
 }
 
 // Token'larımıza dayalı sözdizimi vurgusu (light/dark otomatik — var() kullanır).
@@ -165,7 +168,15 @@ const trailingBlankLine = EditorState.transactionFilter.of((tr) => {
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_SLOP = 10;
 
-export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onContextMenu, initialCaret }: Props) {
+export function CodeMirrorEditor({
+  value,
+  onChange,
+  lineNumbers,
+  onView,
+  onContextMenu,
+  initialCaret,
+  focusOnMount = true,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const platformMobile = useAppStore((s) => s.platformMobile);
   const isMobile = useIsMobile() || platformMobile;
@@ -270,7 +281,7 @@ export function CodeMirrorEditor({ value, onChange, lineNumbers, onView, onConte
     // Mobilde otomatik odaklanma YOK: her not açılışında klavye fırlıyor, ekranın yarısını
     // kaplıyor ve yalnız okumak isteyen kullanıcı her notta klavyeyi kapatmak zorunda kalıyordu.
     // Yazmak için nota dokunmak yeterli.
-    if (!mobileRef.current) view.focus();
+    if (!mobileRef.current && focusOnMount) view.focus();
     if (caret != null) view.dispatch({ effects: EditorView.scrollIntoView(caret, { y: "center" }) });
     onViewRef.current?.(view);
     return () => {
