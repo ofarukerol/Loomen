@@ -31,7 +31,7 @@ import {
   excerptForLink,
   sameTarget,
 } from "../markdown/links";
-import { foldTr, searchNotes } from "../search/search";
+import { foldTr, foldSearch, searchNotes } from "../search/search";
 import { addDaysISO, localDateTime, taskToEventPayload } from "../google";
 import { encodeTrashName, toTrashEntry, isExpired, daysLeft } from "../vault/trash";
 import type { VaultNote } from "../vault/types";
@@ -215,6 +215,38 @@ eq("Arama: noktasız I ile dotlu İ eşleşir", searchNotes(notes, contents, "is
 eq("Arama: başlık eşleşmesi önce gelir", searchNotes(notes, contents, "istanbul")[0].inTitle, true);
 eq("Arama: büyük harfli sorgu da bulur", searchNotes(notes, contents, "ŞARKI").map((h) => h.name), ["Şarkılar"]);
 eq("Arama: boş sorgu sonuç vermez", searchNotes(notes, contents, "   "), []);
+
+// Yazım farklarına dayanıklı arama (LOM-81)
+eq("foldSearch aksanları atar", foldSearch("Çağrı"), "cagri");
+eq("foldTr aksanları korur", foldTr("Çağrı"), "çağri");
+const sNotes: VaultNote[] = [
+  { path: "İş/Fatura.md", name: "Fatura", folder: "İş", kind: "note" },
+  { path: "İş/Liste.md", name: "Liste", folder: "İş", kind: "note" },
+  { path: "İş/Yakın.md", name: "Yakın", folder: "İş", kind: "note" },
+  { path: "İş/Dönüştür.md", name: "Dönüştür", folder: "İş", kind: "note" },
+  { path: "İş/Gövde.md", name: "Gövde", folder: "İş", kind: "note" },
+];
+const sContents: Record<string, string> = {
+  "İş/Fatura.md": "# Notlar\nE-Dönüştür hesabı açıldı.",
+  "İş/Liste.md": "fatura kesilecek\n\nsonra donustur",
+  "İş/Yakın.md": "Belge donustir edildi.",
+  "İş/Dönüştür.md": "Boş not.",
+  "İş/Gövde.md": "Burada dönüştür geçiyor.",
+};
+const paths = (q: string) => searchNotes(sNotes, sContents, q).map((h) => h.path);
+for (const q of ["E dönüştür", "edönüştür", "e-donustur", "E-DÖNÜŞTÜR"]) {
+  check(`Arama: '${q}' E-Dönüştür notunu bulur`, paths(q).includes("İş/Fatura.md"), paths(q));
+}
+eq("Arama: birleşik eşleşme alıntıyı o satırdan alır", searchNotes(sNotes, sContents, "e donustur").find((h) => h.path === "İş/Fatura.md")?.snippet, "E-Dönüştür hesabı açıldı.");
+check("Arama: kelimeler ayrı yerde olsa da bulunur", paths("fatura dönüştür").includes("İş/Liste.md"), paths("fatura dönüştür"));
+check("Arama: yazım hatası yakın notu bulur", paths("donustir").includes("İş/Fatura.md"), paths("donustir"));
+const fuzzyHits = searchNotes(sNotes, sContents, "donustur");
+const rank = (p: string) => fuzzyHits.findIndex((h) => h.path === p);
+check("Arama: birebir eşleşme yaklaşık eşleşmeden üstte", rank("İş/Gövde.md") >= 0 && rank("İş/Yakın.md") > rank("İş/Gövde.md"), fuzzyHits.map((h) => h.path));
+eq("Arama: başlık eşleşmesi gövde eşleşmesinden üstte", fuzzyHits[0].path, "İş/Dönüştür.md");
+check("Arama: puan azalan sıralı", fuzzyHits.every((h, i) => i === 0 || fuzzyHits[i - 1].score >= h.score), fuzzyHits.map((h) => h.score));
+eq("Arama: yalnız noktalama sonuç vermez", searchNotes(sNotes, sContents, " - "), []);
+eq("Arama: kısa kelimede yaklaşık eşleşme yok", paths("xyz"), []);
 
 // ─────────────────────────────────────────────────────────────────────────────
 section("Wiki bağlantıları");

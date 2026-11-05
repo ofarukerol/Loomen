@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { formatDistanceToNow } from "date-fns";
@@ -352,7 +352,7 @@ export function Explorer() {
   const [renaming, setRenaming] = useState<Renaming>(null);
   const [vaultMenu, setVaultMenu] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
-  const hits = searchNotes(notes, contents, query);
+  const hits = useMemo(() => searchNotes(notes, contents, query), [notes, contents, query]);
 
   const toggle = (path: string) =>
     setCollapsed((prev) => {
