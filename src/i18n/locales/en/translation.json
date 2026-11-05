@@ -1012,6 +1012,8 @@
     "selectAll": "Select all",
     "addColumn": "Add column",
     "addRow": "Add row",
+    "moveColumn": "Move column",
+    "moveRow": "Move row",
     "more": "More",
     "pasteUnavailable": "Couldn't access the clipboard. Use your keyboard's paste command instead.",
     "copyUnavailable": "Couldn't write to the clipboard. Use your keyboard's copy command instead."

@@ -4,8 +4,13 @@ import {
   cellLineIndex,
   cellRange,
   cellSourceText,
+  dropIndex,
   findTables,
+  moveItem,
+  moveTableColumn,
+  moveTableRow,
   newColCellText,
+  slotToIndex,
   newRowText,
   tableBlockAt,
   type TableBlock,
@@ -224,6 +229,11 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
   else bindClose();
 }
 
+/** Sürüklemenin başlaması için gereken en az kayma (px); altı tıklama sayılır. */
+const DRAG_THRESHOLD_PX = 4;
+
+const DROP_CLASSES = ["is-drag-source", "is-drop-before", "is-drop-after"];
+
 class TableWidget extends WidgetType {
   constructor(
     readonly from: number,
@@ -263,6 +273,113 @@ class TableWidget extends WidgetType {
       changes.push({ from: line.to, to: line.to, insert: newColCellText(kind) });
     }
     view.dispatch({ changes });
+  }
+
+  // Satır ya da sütunu kaynak metinde yeni sırasına yazar (tek dispatch). LOM-78.
+  private applyMove(view: EditorView, axis: "row" | "col", from: number, to: number): void {
+    if (!isLive(view) || from === to) return;
+    const range = tableBlockRange(view.state, this.from);
+    if (!range) return;
+    const oldText = view.state.sliceDoc(range.from, range.to);
+    const lines = oldText.split("\n");
+    const next = axis === "col" ? moveTableColumn(lines, from, to) : moveTableRow(lines, from, to);
+    const newText = next.join("\n");
+    if (newText === oldText) return;
+    if (axis === "col") {
+      // Saklı sütun genişlikleri taşınan sütunla birlikte yer değiştirir.
+      const arr = colWidths.get(this.from);
+      if (arr) {
+        const full = this.header.map((_, i) => arr[i] ?? 0);
+        colWidths.set(this.from, moveItem(full, from, to));
+      }
+    }
+    view.dispatch({ changes: { from: range.from, to: range.to, insert: newText } });
+  }
+
+  /**
+   * Tutma yeri: basılı tutup sürükleyince satır/sütun taşınır. Pointer olayları fare ve
+   * dokunmada aynı çalışır; setPointerCapture ile parmak tutma yerinden çıksa da olaylar gelir.
+   * Tutma yerine basmak hücre düzenleme kutusunu açmaz (stopPropagation).
+   */
+  private makeGrip(view: EditorView, table: HTMLTableElement, axis: "row" | "col", index: number): HTMLElement {
+    const grip = document.createElement("div");
+    grip.className = axis === "col" ? "cm-table__colgrip" : "cm-table__rowgrip";
+    const title = i18n.t(axis === "col" ? "ctx.moveColumn" : "ctx.moveRow");
+    grip.title = title;
+    grip.setAttribute("aria-label", title);
+    grip.setAttribute("role", "button");
+
+    // Eksen boyunca öğeler: sütunda başlık hücreleri, satırda gövde satırları.
+    const items = (): HTMLElement[] =>
+      axis === "col"
+        ? Array.from(table.querySelectorAll<HTMLElement>("thead th"))
+        : Array.from(table.querySelectorAll<HTMLElement>("tbody tr"));
+    // Bir öğenin (sütun ya da satır) hücreleri.
+    const cellsOf = (i: number): HTMLElement[] =>
+      axis === "col"
+        ? Array.from(table.querySelectorAll<HTMLElement>(`[data-col="${i}"]`))
+        : Array.from(table.querySelectorAll<HTMLElement>(`tbody [data-row="${i}"]`));
+    // Tablodaki eksen sınıfı göstergenin yönünü seçer (sütunda sol/sağ, satırda üst/alt).
+    const axisClass = axis === "col" ? "is-dragging-col" : "is-dragging-row";
+    const clear = () => {
+      table.classList.remove(axisClass);
+      table.querySelectorAll<HTMLElement>(".is-drag-source, .is-drop-before, .is-drop-after").forEach((el) => {
+        el.classList.remove(...DROP_CLASSES);
+      });
+    };
+
+    grip.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.button !== undefined && e.button > 0) return;
+      const id = e.pointerId;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      let dragging = false;
+      let target = index;
+      try {
+        grip.setPointerCapture(id);
+      } catch {
+        /* yakalama desteklenmiyorsa olaylar yine tutma yerine gelir */
+      }
+
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== id) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (!dragging) {
+          if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD_PX) return;
+          dragging = true;
+        }
+        const list = items();
+        const edges = list.map((el) => {
+          const r = el.getBoundingClientRect();
+          return axis === "col" ? { start: r.left, end: r.right } : { start: r.top, end: r.bottom };
+        });
+        const slot = dropIndex(edges, axis === "col" ? ev.clientX : ev.clientY);
+        target = slotToIndex(index, slot);
+        clear();
+        table.classList.add(axisClass);
+        cellsOf(index).forEach((c) => c.classList.add("is-drag-source"));
+        if (target === index) return;
+        // Göstergede yuva: son öğeden sonrası "after", diğerleri hedef öğenin "before"u.
+        if (slot >= list.length) cellsOf(list.length - 1).forEach((c) => c.classList.add("is-drop-after"));
+        else cellsOf(slot).forEach((c) => c.classList.add("is-drop-before"));
+      };
+      const onEnd = (ev: PointerEvent) => {
+        if (ev.pointerId !== id) return;
+        ev.stopPropagation();
+        grip.removeEventListener("pointermove", onMove);
+        grip.removeEventListener("pointerup", onEnd);
+        grip.removeEventListener("pointercancel", onEnd);
+        clear();
+        if (ev.type === "pointerup" && dragging && target !== index) this.applyMove(view, axis, index, target);
+      };
+      grip.addEventListener("pointermove", onMove);
+      grip.addEventListener("pointerup", onEnd);
+      grip.addEventListener("pointercancel", onEnd);
+    });
+    return grip;
   }
 
   private addBtn(cls: string, title: string, onClick: () => void): HTMLButtonElement {
@@ -373,6 +490,8 @@ class TableWidget extends WidgetType {
         handle.addEventListener("pointercancel", onUp);
       });
       th.appendChild(handle);
+      // Üst kenarda sütun taşıma tutma yeri (LOM-78).
+      th.appendChild(this.makeGrip(view, table, "col", i));
       htr.appendChild(th);
     });
     thead.appendChild(htr);
@@ -381,7 +500,12 @@ class TableWidget extends WidgetType {
     const tbody = document.createElement("tbody");
     this.rows.forEach((r, ri) => {
       const tr = document.createElement("tr");
-      for (let i = 0; i < this.header.length; i++) tr.appendChild(mkCell("td", r[i] ?? "", ri, i));
+      for (let i = 0; i < this.header.length; i++) {
+        const td = mkCell("td", r[i] ?? "", ri, i);
+        // İlk hücrenin sol kenarında satır taşıma tutma yeri (LOM-78).
+        if (i === 0) td.appendChild(this.makeGrip(view, table, "row", ri));
+        tr.appendChild(td);
+      }
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);

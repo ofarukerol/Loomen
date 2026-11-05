@@ -1095,6 +1095,8 @@
     "selectAll": "Tümünü seç",
     "addColumn": "Sütun ekle",
     "addRow": "Satır ekle",
+    "moveColumn": "Sütunu taşı",
+    "moveRow": "Satırı taşı",
     "more": "Daha fazla",
     "pasteUnavailable": "Panoya erişilemedi. Yapıştırmak için klavyenin yapıştır komutunu kullan.",
     "copyUnavailable": "Panoya yazılamadı. Kopyalamak için klavyenin kopyala komutunu kullan."

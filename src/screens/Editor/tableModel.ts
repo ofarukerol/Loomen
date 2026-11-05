@@ -199,3 +199,88 @@ export function needsTrailingBlankLine(lines: string[]): boolean {
 export function ensureTrailingBlankLine(text: string): string {
   return needsTrailingBlankLine(text.split("\n")) ? text + "\n" : text;
 }
+
+// ---------------------------------------------------------------------------
+// Satır / sütun taşıma (LOM-78). Kaynak metin yeniden yazılır; hücre içerikleri ve
+// ham boşlukları olduğu gibi korunur, yalnız sıraları değişir.
+// ---------------------------------------------------------------------------
+
+/**
+ * Satırı kaçışsız borulardan ham parçalara böler (boşluklar ve `\|` kaçışları korunur).
+ * Satır başı/sonu boruyla başlıyor/bitiyorsa uçtaki boş parçalar atılır.
+ */
+export function rawTableCells(line: string): string[] {
+  const t = line.trim();
+  const pipes = pipePositions(t);
+  const parts: string[] = [];
+  let start = 0;
+  for (const p of pipes) {
+    parts.push(t.slice(start, p));
+    start = p + 1;
+  }
+  parts.push(t.slice(start));
+  if (pipes.length && pipes[0] === 0) parts.shift();
+  if (pipes.length && pipes[pipes.length - 1] === t.length - 1 && t.length > 1) parts.pop();
+  return parts;
+}
+
+/** Ham hücreleri tablo satırına çevirir: `|a|b|`. */
+export function joinTableCells(cells: string[]): string {
+  return "|" + cells.join("|") + "|";
+}
+
+function leadingIndent(line: string): string {
+  return line.match(/^\s*/)?.[0] ?? "";
+}
+
+/** Dizide bir öğeyi `from`dan `to`ya taşır (splice anlamı: sonuçta öğe `to` indeksinde). */
+export function moveItem<T>(arr: readonly T[], from: number, to: number): T[] {
+  const out = arr.slice();
+  const [item] = out.splice(from, 1);
+  out.splice(to, 0, item);
+  return out;
+}
+
+/**
+ * Tablo bloğunda (başlık, ayraç, gövde satırları) `from` sütununu `to` konumuna taşır.
+ * Eksik hücreli satır başlık sayısına tamamlanır (ayraçta `---`, gövdede boş hücre);
+ * başlıktan fazla hücre varsa onlara dokunulmaz. Sınır dışı / aynı indeks → girdi aynen.
+ */
+export function moveTableColumn(blockLines: string[], from: number, to: number): string[] {
+  if (blockLines.length < 2) return blockLines;
+  const cols = rawTableCells(blockLines[0]).length;
+  if (from === to || from < 0 || to < 0 || from >= cols || to >= cols) return blockLines;
+  return blockLines.map((line, idx) => {
+    const cells = rawTableCells(line);
+    while (cells.length < cols) cells.push(idx === 1 ? " --- " : "  ");
+    const moved = moveItem(cells.slice(0, cols), from, to).concat(cells.slice(cols));
+    return leadingIndent(line) + joinTableCells(moved);
+  });
+}
+
+/**
+ * Tablo bloğunda `from` gövde satırını (0-tabanlı gövde sırası) `to` konumuna taşır.
+ * Başlık ve ayraç yerinde kalır. Sınır dışı / aynı indeks → girdi aynen.
+ */
+export function moveTableRow(blockLines: string[], from: number, to: number): string[] {
+  const body = blockLines.slice(2);
+  if (from === to || from < 0 || to < 0 || from >= body.length || to >= body.length) return blockLines;
+  return blockLines.slice(0, 2).concat(moveItem(body, from, to));
+}
+
+/**
+ * Bir eksen boyunca öğe aralıkları ve işaretçi konumundan bırakma YUVASI (0..n):
+ * işaretçi bir öğenin orta noktasından önceyse o öğenin önü, sonraysa bir sonrakinin önü.
+ * Baştan önce → 0, sondan sonra → n.
+ */
+export function dropIndex(edges: { start: number; end: number }[], pos: number): number {
+  for (let i = 0; i < edges.length; i++) {
+    if (pos < (edges[i].start + edges[i].end) / 2) return i;
+  }
+  return edges.length;
+}
+
+/** Bırakma yuvasını, taşınan öğenin sonuçtaki indeksine çevirir (moveItem/moveTable* için). */
+export function slotToIndex(from: number, slot: number): number {
+  return slot > from ? slot - 1 : slot;
+}

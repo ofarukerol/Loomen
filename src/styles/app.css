@@ -4021,6 +4021,9 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 .lo-app.is-mobile .cm-table__resize { width: 18px; right: -9px; }
 .lo-app.is-mobile .cm-table__add--col { width: 34px; }
 .lo-app.is-mobile .cm-table__add--row { height: 34px; }
+/* Taşıma tutma yerleri (LOM-78): parmakla tutulacak kadar geniş ve hep görünür. */
+.lo-app.is-mobile .cm-table__colgrip { height: 14px; opacity: 0.6; }
+.lo-app.is-mobile .cm-table__rowgrip { width: 18px; opacity: 0.6; }
 
 /* ---- Satır sonundaki "⋯" (mobil): uzun basmanın görünür karşılığı ----
    İç içe <button> geçersiz HTML olduğu için düğme satırın kardeşi; satırın üstüne bindirilir. */
