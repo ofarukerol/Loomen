@@ -62,6 +62,7 @@ const suites = [
   ["src/core/__test__/tableWrapTest.ts", []],
   ["src/core/__test__/tableMoveTest.ts", []],
   ["src/core/__test__/autoTitleTest.ts", []],
+  ["src/core/__test__/tableFormulaTest.ts", []],
 ];
 
 let failed = 0;

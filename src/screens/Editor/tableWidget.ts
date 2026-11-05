@@ -16,6 +16,7 @@ import {
   type TableBlock,
 } from "./tableModel";
 import i18n from "../../i18n";
+import { evaluateTable, formatFormulaResult, type CellResult } from "../../core/markdown/tableFormula";
 import { createTapTracker, isTapInput } from "./tapGesture";
 
 /**
@@ -410,12 +411,26 @@ class TableWidget extends WidgetType {
     table.className = "cm-table";
 
     const widths = colWidths.get(this.from);
-    const mkCell = (tag: "th" | "td", text: string, row: number, col: number): HTMLElement => {
+    // Formül hücreleri (LOM-79): ekranda sonuç, düzenleme kutusunda (dataset.raw) formül.
+    // Widget her belge değişiminde yeniden kurulduğu için sonuç kendiliğinden güncellenir.
+    const results = evaluateTable(this.header, this.rows);
+    const mkCell = (tag: "th" | "td", text: string, row: number, col: number, result?: CellResult): HTMLElement => {
       const el = document.createElement(tag);
       el.textContent = text;
       el.dataset.col = String(col);
       el.dataset.row = String(row);
       el.dataset.raw = text;
+      if (result?.formula) {
+        el.classList.add("cm-table__formula");
+        if (result.error) {
+          el.classList.add("is-error");
+          el.textContent = i18n.t("tableFormula.errorLabel");
+          el.title = `${result.formula} — ${i18n.t(`tableFormula.${result.error}`)}`;
+        } else {
+          el.textContent = formatFormulaResult(result.value ?? 0, i18n.language);
+          el.title = result.formula;
+        }
+      }
       el.dataset.tableFrom = String(this.from);
       // Saklı sütun genişliği (oturum) hem width hem min-width olarak uygulanır: width
       // sütunu daraltır (yazı alt satıra sarılır), min-width genişletmeyi korur (LOM-77).
@@ -501,7 +516,7 @@ class TableWidget extends WidgetType {
     this.rows.forEach((r, ri) => {
       const tr = document.createElement("tr");
       for (let i = 0; i < this.header.length; i++) {
-        const td = mkCell("td", r[i] ?? "", ri, i);
+        const td = mkCell("td", r[i] ?? "", ri, i, results[ri]?.[i]);
         // İlk hücrenin sol kenarında satır taşıma tutma yeri (LOM-78).
         if (i === 0) td.appendChild(this.makeGrip(view, table, "row", ri));
         tr.appendChild(td);

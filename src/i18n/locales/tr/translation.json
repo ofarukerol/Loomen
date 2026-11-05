@@ -1430,5 +1430,13 @@
     "edit": "Düzenle",
     "openScreen": "Alışkanlıklar ekranını aç",
     "todayProgress": "Bugün {{done}} / {{total}} yapıldı"
+  },
+  "tableFormula": {
+    "errorLabel": "#HATA",
+    "syntax": "Formül anlaşılamadı",
+    "ref": "Tabloda olmayan hücreye başvuru",
+    "cycle": "Formül kendine dönüyor",
+    "div0": "Sıfıra bölme",
+    "value": "Başvurulan hücre sayı değil"
   }
 }

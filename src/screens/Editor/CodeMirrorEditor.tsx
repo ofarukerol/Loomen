@@ -174,6 +174,18 @@ const cmTheme = EditorView.theme({
   ".cm-table.is-dragging-row .is-drop-after": { boxShadow: "inset 0 -3px 0 var(--accent)" },
   ".cm-table th": { background: "var(--bg-sunken)", fontWeight: "600", color: "var(--fg2)" },
   ".cm-table tbody tr:nth-child(even) td": { background: "var(--line-soft)" },
+  // Formül hücresi (LOM-79): sonuç gösterilir; hafif noktalı alt çizgiyle ayırt edilir.
+  ".cm-table td.cm-table__formula": {
+    fontVariantNumeric: "tabular-nums",
+    color: "var(--fg1)",
+    textDecoration: "underline dotted",
+    textDecorationColor: "var(--fg3)",
+    textUnderlineOffset: "3px",
+  },
+  ".cm-table td.cm-table__formula.is-error, .cm-table tbody tr:nth-child(even) td.cm-table__formula.is-error": {
+    color: "var(--danger)",
+    background: "var(--danger-bg)",
+  },
   ".cm-gutters": { backgroundColor: "transparent", color: "var(--fg3)", border: "none" },
   ".cm-activeLine": { backgroundColor: "var(--line-soft)" },
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--fg2)" },

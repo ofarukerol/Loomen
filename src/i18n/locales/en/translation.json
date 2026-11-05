@@ -1430,5 +1430,13 @@
     "edit": "Edit",
     "openScreen": "Open habits screen",
     "todayProgress": "{{done}} of {{total}} done today"
+  },
+  "tableFormula": {
+    "errorLabel": "#ERROR",
+    "syntax": "Formula could not be understood",
+    "ref": "Reference to a cell outside the table",
+    "cycle": "Formula refers back to itself",
+    "div0": "Division by zero",
+    "value": "Referenced cell is not a number"
   }
 }

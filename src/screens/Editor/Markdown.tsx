@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { AudioEmbedPlayer } from "./AudioEmbedPlayer";
 import { ImageEmbed, parseImageLine } from "./ImageEmbed";
+import i18n from "../../i18n";
+import { evaluateTable, formatFormulaResult } from "../../core/markdown/tableFormula";
 
 interface Props {
   content: string;
@@ -146,6 +148,8 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
         rows.push(cells.slice(0, cols));
         i++;
       }
+      // Formül hücreleri (LOM-79): okuma modunda da sonuç gösterilir; dosyada formül kalır.
+      const results = evaluateTable(header, rows);
       blocks.push(
         <div className="lo-tablewrap lo-scroll" key={k()}>
           <table className="lo-table">
@@ -159,9 +163,21 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
             <tbody>
               {rows.map((r, ri) => (
                 <tr key={ri}>
-                  {r.map((c, ci) => (
-                    <td key={ci}>{inlineNodes(c, onLink, k())}</td>
-                  ))}
+                  {r.map((c, ci) => {
+                    const res = results[ri]?.[ci];
+                    if (res?.formula) {
+                      return (
+                        <td
+                          key={ci}
+                          className={"lo-table__formula" + (res.error ? " is-error" : "")}
+                          title={res.error ? `${res.formula} — ${i18n.t(`tableFormula.${res.error}`)}` : res.formula}
+                        >
+                          {res.error ? i18n.t("tableFormula.errorLabel") : formatFormulaResult(res.value ?? 0, i18n.language)}
+                        </td>
+                      );
+                    }
+                    return <td key={ci}>{inlineNodes(c, onLink, k())}</td>;
+                  })}
                 </tr>
               ))}
             </tbody>

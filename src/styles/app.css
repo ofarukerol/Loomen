@@ -920,6 +920,16 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
 }
 .lo-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-sunken) 45%, transparent); }
+/* Formül hücresi (okuma modu, LOM-79). */
+.lo-table td.lo-table__formula {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg1);
+  text-decoration: underline dotted;
+  text-decoration-color: var(--fg3);
+  text-underline-offset: 3px;
+}
+.lo-table td.lo-table__formula.is-error,
+.lo-table tbody tr:nth-child(even) td.lo-table__formula.is-error { color: var(--danger); background: var(--danger-bg); }
 .lo-prose ul { margin: 0 0 18px; padding-inline-start: 22px; font-size: 15px; line-height: 1.75; color: var(--fg1); }
 .lo-wiki {
   color: var(--accent);
