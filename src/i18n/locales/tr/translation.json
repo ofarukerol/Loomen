@@ -296,6 +296,7 @@
   "planner": {
     "focusToday": "Bugüne Odaklan",
     "resizeRight": "Sağ bloğun genişliği — sürükle ya da ok tuşlarını kullan; Home en dar, End en geniş, çift tık ya da Enter varsayılana döndürür",
+    "resizeLeft": "Sol panelin genişliği — sürükle ya da ok tuşlarını kullan; Home en dar, End en geniş, çift tık ya da Enter varsayılana döndürür",
     "timeline": "Zaman Çizelgesi",
     "board": "Pano",
     "todo": "Yapılacak",

@@ -5,7 +5,7 @@ import { applyDir } from "./i18n";
 import { useIsMobile } from "./hooks/useIsMobile";
 import { Ribbon } from "./components/Ribbon";
 import { TopBar } from "./components/TopBar";
-import { Explorer } from "./components/Explorer";
+import { LeftPanel } from "./components/LeftPanel";
 import { RightPanel } from "./components/RightPanel";
 import { MobileBar } from "./components/MobileBar";
 import { MobileTopBar } from "./components/MobileTopBar";
@@ -36,6 +36,7 @@ export default function App() {
   const accent = useAppStore((s) => s.accent);
   const leftCollapsed = useAppStore((s) => s.leftCollapsed);
   const rightCollapsed = useAppStore((s) => s.rightCollapsed);
+  const leftWidth = useAppStore((s) => s.leftWidth);
   const activeNote = useAppStore((s) => s.activeNote);
   const activeDraw = useAppStore((s) => s.activeDraw);
   const setScreen = useAppStore((s) => s.setScreen);
@@ -280,16 +281,18 @@ export default function App() {
   const showRight = rightEligible && !rightCollapsed;
 
   // Vurgu rengini kök seviyede override et (varsayılan dışı seçilirse).
-  const accentVars =
-    accent === ACCENTS[0]
-      ? undefined
-      : ({ "--accent": accent, "--accent-soft": accent + "22" } as React.CSSProperties);
+  // --left-w (LOM-80): açık sol panelin kayıtlı genişliği; sağ panelin dar pencere formülü
+  // orta sütuna yer bırakmak için bunu düşer. Panel kapalıysa ya da mobilde 0.
+  const appVars = {
+    ...(accent === ACCENTS[0] ? {} : { "--accent": accent, "--accent-soft": accent + "22" }),
+    "--left-w": !isMobile && showExplorer ? `${leftWidth}px` : "0px",
+  } as React.CSSProperties;
 
   return (
-    <div className={"lo-app" + (isMobile ? " is-mobile" : "")} data-theme={theme} style={accentVars}>
+    <div className={"lo-app" + (isMobile ? " is-mobile" : "")} data-theme={theme} style={appVars}>
       {/* Masaüstü sol menü — mobilde gizli (yerine alt bar + drawer). */}
       {!isMobile && <Ribbon />}
-      {!isMobile && showExplorer && <Explorer />}
+      {!isMobile && showExplorer && <LeftPanel />}
       {/* Ana sütun: sekme çubuğu (masaüstü) + ekran */}
       <div className="lo-maincol">
         {!isMobile && <TopBar />}

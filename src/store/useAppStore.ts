@@ -90,6 +90,7 @@ import { toggleTaskInContent, buildTaskLine, insertTaskUnderHeading, applyTaskPa
 import { planRescheduleBatches } from "../core/vault/planDay";
 import { noteDateOf, planDate } from "../core/vault/planDate";
 import { clampRightWidth, RIGHT_PANEL_DEFAULT } from "../core/layout/rightPanel";
+import { clampLeftWidth, LEFT_PANEL_DEFAULT } from "../core/layout/leftPanel";
 import {
   DEFAULT_SIDE_CARD_ORDER,
   moveSideCard,
@@ -233,8 +234,10 @@ interface AppState {
   // Panel görünürlüğü + odak genişletme
   leftCollapsed: boolean;
   rightCollapsed: boolean;
-  /** Masaüstü sağ blok genişliği (px, LOM-63); 260-560 arası, kalıcı. */
+  /** Masaüstü sağ blok genişliği (px, LOM-63); 300-560 arası (LOM-80), kalıcı. */
   rightWidth: number;
+  /** Masaüstü sol panel (gezgin) genişliği (px, LOM-80); 200-480 arası, kalıcı. */
+  leftWidth: number;
   /** Sağ blok kart sırası (LOM-72); Ayarlar'dan değişir, kalıcı. */
   sideCardOrder: SideCardId[];
   focusExpanded: boolean;
@@ -462,6 +465,8 @@ interface AppState {
   toggleRight: () => void;
   setRightWidth: (w: number) => void;
   resetRightWidth: () => void;
+  setLeftWidth: (w: number) => void;
+  resetLeftWidth: () => void;
   setSideCardOrder: (order: SideCardId[]) => void;
   moveSideCard: (id: SideCardId, dir: -1 | 1) => void;
   resetSideCardOrder: () => void;
@@ -1498,6 +1503,7 @@ export const useAppStore = create<AppState>()(
     leftCollapsed: false,
     rightCollapsed: false,
     rightWidth: RIGHT_PANEL_DEFAULT,
+    leftWidth: LEFT_PANEL_DEFAULT,
     sideCardOrder: [...DEFAULT_SIDE_CARD_ORDER],
     focusExpanded: false,
 
@@ -1805,6 +1811,11 @@ export const useAppStore = create<AppState>()(
       if (next !== get().rightWidth) set({ rightWidth: next });
     },
     resetRightWidth: () => set({ rightWidth: RIGHT_PANEL_DEFAULT }),
+    setLeftWidth: (w) => {
+      const next = clampLeftWidth(w);
+      if (next !== get().leftWidth) set({ leftWidth: next });
+    },
+    resetLeftWidth: () => set({ leftWidth: LEFT_PANEL_DEFAULT }),
     setSideCardOrder: (order) => set({ sideCardOrder: normalizeSideCardOrder(order) }),
     moveSideCard: (id, dir) => set((s) => ({ sideCardOrder: moveSideCard(s.sideCardOrder, id, dir) })),
     resetSideCardOrder: () => set({ sideCardOrder: [...DEFAULT_SIDE_CARD_ORDER] }),
@@ -3865,6 +3876,8 @@ export const useAppStore = create<AppState>()(
             typeof p.habitTodayCollapsed === "boolean" ? p.habitTodayCollapsed : current.habitTodayCollapsed,
           // Bozuk/aşırı kayıt paneli ekranı yutacak kadar büyütmesin (LOM-63).
           rightWidth: p.rightWidth === undefined ? current.rightWidth : clampRightWidth(p.rightWidth),
+          // Sol panel aynı kural (LOM-80): bozuk/aşırı kayıt sınıra ya da varsayılana çekilir.
+          leftWidth: p.leftWidth === undefined ? current.leftWidth : clampLeftWidth(p.leftWidth),
           // Bozuk/eski kayıt temizlenir; eksik kart sona eklenir (LOM-72).
           sideCardOrder:
             p.sideCardOrder === undefined ? current.sideCardOrder : normalizeSideCardOrder(p.sideCardOrder),
@@ -3917,6 +3930,7 @@ export const useAppStore = create<AppState>()(
         leftCollapsed: s.leftCollapsed,
         rightCollapsed: s.rightCollapsed,
         rightWidth: s.rightWidth,
+        leftWidth: s.leftWidth,
         sideCardOrder: s.sideCardOrder,
         backlinksCollapsed: s.backlinksCollapsed,
         onThisDayCollapsed: s.onThisDayCollapsed,

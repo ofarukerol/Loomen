@@ -67,6 +67,14 @@ satırını değiştirip Google'a yazar; yeni madde ekleme, silme, tarih değiş
 - Sıra `loomen.settings` kaydında (`sideCardOrder`) kalıcı. Açılışta temizlenir: bilinmeyen/tekrarlı kimlik atılır, eksik kart varsayılan sırayla sona eklenir.
 - Kartlar kendi gizlenme kuralını korur: Tekrar modülü kapalıyken (listede "kapalı" rozeti) ve aktif alışkanlık yokken kart Planner'da çizilmez.
 
+## Yan panel genişlikleri (LOM-63, 67, 80)
+- Sağ blok 300-560 px (varsayılan 312), sol panel (gezgin) 200-480 px (varsayılan 248). Hesap `src/core/layout/rightPanel.ts` ve `leftPanel.ts`; alt sınırlar CSS formülleriyle aynı tutulur, testler denetler.
+- Her panelin iç kenarında tutamak: sürükle, oklar (Shift ile dört adım), Home en dar, End en geniş, Enter ya da çift tık varsayılan. Sağdan sola düzende (Arapça) panellerin yeri ve tutamak yönü ters döner.
+- Genişlikler `loomen.settings` kaydında (`rightWidth`, `leftWidth`); bozuk ya da sınır dışı kayıt açılışta sınıra/varsayılana çekilir (eski 260-299 arası sağ kayıt 300'e çıkar).
+- Dar pencerede kayıtlı genişlik ne olursa olsun orta sütuna en az ~336 px kalır: sağ `min(--side-w, max(300px, 100vw - 392px - --left-w))`, sol `min(--left-w, max(200px, 100vw - 692px))`. Sürükleme ekranda görünen genişlikten başlar.
+- En dar halde içerik taşmaz: sayaç kartları sığmazsa alt satıra geçer, başlıklar ve görev adları kısalır (…), takvim sütunları daralır; gezginde uzun adlar alt satıra sarılır.
+- Telefon düzeninde ve mobil çekmecede tutamak yok, çekmece kendi genişliğini korur.
+
 ## Kodla plan arasındaki fark (2026-09-13)
 Planın ötesinde bir **pano** görünümü (Geciken / Bugün / Yaklaşan sütunları), görev detayı (alt görev,
 tekrar, not), mini ajanda ve istatistik kartları var. Pomodoro bildirimi için Tauri bildirim eklentisi

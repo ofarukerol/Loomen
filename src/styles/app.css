@@ -85,7 +85,10 @@ button { font-family: inherit; }
 
 /* ---- Explorer (Kasa) ---- */
 .lo-explorer {
-  width: 248px;
+  /* Masaüstü genişliği --left-w (LeftPanel, LOM-80); dar pencerede orta sütuna (≥336) ve sağ
+     panelin alt sınırına (300) yer kalsın diye 100vw - 692px (56 şerit + 336 + 300) ile kısılır. */
+  width: min(var(--left-w, 248px), max(200px, 100vw - 692px));
+  min-width: 0;
   flex-shrink: 0;
   background: var(--bg-sunken);
   border-inline-end: 1px solid var(--line);
@@ -105,15 +108,19 @@ button { font-family: inherit; }
   gap: 1px;
   position: relative;
 }
-.lo-explorer__title { font-weight: 600; font-size: 14px; letter-spacing: 0.02em; color: var(--fg1); }
+.lo-explorer__title {
+  font-weight: 600; font-size: 14px; letter-spacing: 0.02em; color: var(--fg1);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 /* Kasa seçici (ana ekran başlığı) */
 .lo-explorer__vaultbtn {
   display: flex; align-items: center; gap: 6px; align-self: flex-start;
+  max-width: 100%; min-width: 0;
   background: none; border: none; padding: 0; cursor: default; font-family: inherit; border-radius: 6px;
 }
 .lo-explorer__vaultbtn.is-switchable { cursor: pointer; }
 .lo-explorer__vaultbtn.is-switchable:hover .lo-explorer__title { color: var(--accent); }
-.lo-explorer__vchev { color: var(--fg3); transition: transform 0.15s; }
+.lo-explorer__vchev { color: var(--fg3); transition: transform 0.15s; flex-shrink: 0; }
 .lo-vaultmenu {
   position: absolute; top: 100%; left: 14px; right: 14px; z-index: 50; margin-top: 4px; padding: 5px;
   background: var(--bg); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
@@ -243,6 +250,11 @@ button { font-family: inherit; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Dar sol panelde (LOM-80) uzun not/klasör adı dışarı taşmaz, alt satıra sarılır. */
+.lo-tree__file,
+.lo-tree__group,
+.lo-fav__item,
+.lo-search__hitname { min-width: 0; overflow-wrap: anywhere; }
 .lo-tree { flex: 1; overflow-y: auto; padding: 4px 8px 16px; font-size: 13px; }
 .lo-tree__group {
   display: flex;
@@ -563,8 +575,10 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   min-height: 0;
 }
 .lo-side {
-  /* Dar pencerede orta gövdeye yer kalsın: kayıtlı genişlik ne olursa olsun pencereye göre kısılır. */
-  width: min(var(--side-w, 312px), max(260px, 100vw - 640px));
+  /* Dar pencerede orta gövdeye yer kalsın: kayıtlı genişlik ne olursa olsun pencereye göre kısılır.
+     392 = 56 şerit + 336 orta sütun; --left-w açık sol panelin genişliği (App). Alt sınır 300
+     (LOM-80) RIGHT_PANEL_MIN ile aynı: daha darda sayaçlar ve görev satırları sığmıyor. */
+  width: min(var(--side-w, 312px), max(300px, 100vw - 392px - var(--left-w, 0px)));
   flex-shrink: 0;
   border-inline-start: 1px solid var(--line);
   background: var(--bg-sunken);
@@ -574,18 +588,28 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   gap: 16px;
   overflow-y: auto;
 }
+/* Sol panel sarmalayıcısı (LOM-80): genişlik --left-w; tutamak gezginin iç (bitiş) kenarında. */
+.lo-leftwrap {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  min-height: 0;
+}
+.lo-left__grip { inset-inline-end: -3px; }
 /* Genişlik tutamağı: bloğun iç kenarı (RTL'de mantıksal konumla sağ kenar). */
-.lo-side__grip {
+.lo-side__grip { inset-inline-start: -3px; }
+.lo-side__grip,
+.lo-left__grip {
   position: absolute;
   top: 0;
   bottom: 0;
-  inset-inline-start: -3px;
   width: 7px;
   z-index: 5;
   cursor: col-resize;
   touch-action: none;
 }
-.lo-side__grip::after {
+.lo-side__grip::after,
+.lo-left__grip::after {
   content: "";
   position: absolute;
   top: 0;
@@ -598,9 +622,13 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   transition: opacity 0.12s;
 }
 .lo-side__grip:hover::after,
-.lo-side__grip.is-active::after { opacity: 0.55; }
-.lo-side__grip:focus-visible { outline: none; }
-.lo-side__grip:focus-visible::after { opacity: 0.9; }
+.lo-side__grip.is-active::after,
+.lo-left__grip:hover::after,
+.lo-left__grip.is-active::after { opacity: 0.55; }
+.lo-side__grip:focus-visible,
+.lo-left__grip:focus-visible { outline: none; }
+.lo-side__grip:focus-visible::after,
+.lo-left__grip:focus-visible::after { opacity: 0.9; }
 /* Sürüklerken metin seçilmesin, imleç her yerde aynı kalsın. */
 .lo-app.is-resizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 .lo-app.is-resizing * { cursor: col-resize !important; }
@@ -613,8 +641,9 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 
 /* takvim */
 .lo-cal { padding: 16px; }
-.lo-cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.lo-cal__head { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 14px; }
 .lo-cal__nav {
+  flex-shrink: 0;
   width: 26px;
   height: 26px;
   border: none;
@@ -630,13 +659,14 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-cal__month {
   font-family: inherit; font-weight: 600; font-size: 14px; color: var(--fg1);
   border: none; background: transparent; cursor: pointer; border-radius: 7px; padding: 4px 10px;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .lo-cal__month:hover { background: var(--line-soft); color: var(--accent); }
 .lo-cal__day:hover:not(.is-selected) { background: var(--line-soft); }
 .lo-cal__pad { aspect-ratio: 1; }
-.lo-cal__weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 6px; }
-.lo-cal__wd { text-align: center; font-size: 10.5px; font-weight: 600; color: var(--fg3); padding: 4px 0; }
-.lo-cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.lo-cal__weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; margin-bottom: 6px; }
+.lo-cal__wd { text-align: center; font-size: 10.5px; font-weight: 600; color: var(--fg3); padding: 4px 0; min-width: 0; overflow: hidden; text-overflow: clip; white-space: nowrap; }
+.lo-cal__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
 .lo-cal__day {
   aspect-ratio: 1;
   border: none;
@@ -1698,7 +1728,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 
 /* "Günü planla" düğmesi (LOM-40) — başlıkta hayalet, göze batmayan. Sağ panel dar (~260px):
    metin taşarsa kısalır, başlık satırını itmez. */
-.lo-mini__actions { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.lo-mini__actions { display: flex; align-items: center; gap: 2px; min-width: 0; flex-shrink: 0; max-width: 60%; }
 .lo-mini__plan {
   display: inline-flex; align-items: center; gap: 4px; min-width: 0; height: 24px;
   padding-inline: 7px; border: none; border-radius: 6px; background: transparent;
@@ -1797,6 +1827,7 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-pomoc__dot.is-on { background: var(--accent); }
 .lo-pomoc__controls { display: flex; align-items: center; gap: 6px; }
 .lo-pomoc__start {
+  flex-shrink: 0;
   width: 34px; height: 34px; border: none; border-radius: 50%;
   background: var(--accent); color: #fff; cursor: pointer;
   display: flex; align-items: center; justify-content: center; box-shadow: var(--sh1);
@@ -1841,8 +1872,9 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 .lo-pomoc__break-skip:hover { background: var(--line-soft); color: var(--fg1); }
 
 /* kompakt sayaç kartları (sağ blok) */
-.lo-stats--compact { padding: 0; gap: 6px; margin-bottom: 8px; }
-.lo-stat--sm { padding: 8px 10px; border-radius: 10px; }
+/* En dar sağ panelde (LOM-80) kart, içeriğinin altına sıkışmaz: sığmazsa son kart alt satıra geçer. */
+.lo-stats--compact { padding: 0; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.lo-stat--sm { padding: 8px 10px; border-radius: 10px; flex: 1 1 0; min-width: min-content; }
 .lo-stat--sm .lo-stat__num { font-size: 19px; }
 .lo-stat--sm .lo-stat__label { font-size: 10px; margin-top: 2px; }
 
@@ -1854,8 +1886,11 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 
 /* mini ajanda (takvim altı, kompakt) */
 .lo-mini { padding: 12px 12px 10px; }
-.lo-mini__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.lo-mini__title { font-size: 13.5px; font-weight: 700; color: var(--fg1); letter-spacing: -0.01em; }
+.lo-mini__head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; }
+.lo-mini__title {
+  font-size: 13.5px; font-weight: 700; color: var(--fg1); letter-spacing: -0.01em;
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .lo-mini__list { display: flex; flex-direction: column; }
 .lo-mini__list--scroll { max-height: 320px; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
 .lo-mini__date { font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; margin: 13px 0 4px; }
@@ -3741,6 +3776,11 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
   border: none;
   padding: 0;
   cursor: pointer;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .lo-revcard__head:hover { color: var(--accent); }
 .lo-revcard__num { font-family: var(--font-mono); font-size: 26px; font-weight: 600; color: var(--fg1); margin: 8px 0 12px; }

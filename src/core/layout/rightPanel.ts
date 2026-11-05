@@ -1,7 +1,9 @@
 // Sağ blok genişliği (LOM-63) — saf hesap; tutamak (RightPanel) ve kayıt (store) bunu kullanır.
 
 export const RIGHT_PANEL_DEFAULT = 312;
-export const RIGHT_PANEL_MIN = 260;
+/** Alt sınır (LOM-80): 260 px'te sayaç kartları ve görev satırları sığmıyor, taşıyordu.
+ *  CSS'teki `.lo-side` formülündeki `max(300px, …)` ile aynı tutulur (rightPanelTest denetler). */
+export const RIGHT_PANEL_MIN = 300;
 export const RIGHT_PANEL_MAX = 560;
 /** Ok tuşuyla bir adım (Shift ile dört katı). */
 export const RIGHT_PANEL_STEP = 16;
