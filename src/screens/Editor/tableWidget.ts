@@ -100,7 +100,7 @@ function caretBelowTable(view: EditorView, headerFrom: number): void {
 }
 
 /**
- * Hücreye tıklayınca üstünde yüzen bir input açar (CM'den bağımsız, body'de).
+ * Hücreye tıklayınca üstünde yüzen çok satırlı bir düzenleme kutusu açar (CM'den bağımsız, body'de).
  * Hücre elemanının data-* alanlarından konumunu okur; böylece Tab ile komşu hücreye
  * geçerken (dispatch sonrası DOM yenilenir) taze eleman üzerinden devam edilebilir.
  */
@@ -112,15 +112,25 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
   if (!Number.isFinite(headerFrom) || !Number.isFinite(row) || !Number.isFinite(col)) return;
 
   const rect = cellEl.getBoundingClientRect();
-  const input = document.createElement("input");
-  input.type = "text";
+  // Çok satırlı kutu: uzun yazı kutuda da sarılır ve kutu yazıyla büyür (LOM-77).
+  // Kaynakta hücre tek satırdır; Enter kaydeder, satır sonu kaynağa yazılmaz.
+  const input = document.createElement("textarea");
+  input.rows = 1;
   input.value = orig;
   input.className = "cm-table-editor";
+  input.enterKeyHint = "done";
   input.style.left = `${rect.left}px`;
   input.style.top = `${rect.top}px`;
   input.style.width = `${rect.width}px`;
   input.style.height = `${rect.height}px`;
   document.body.appendChild(input);
+  // Yükseklik: hücre yüksekliği ile içerik yüksekliğinin (kenarlık dahil) büyüğü.
+  const fitHeight = () => {
+    input.style.height = "auto";
+    const border = input.offsetHeight - input.clientHeight;
+    input.style.height = `${Math.max(rect.height, input.scrollHeight + border)}px`;
+  };
+  fitHeight();
   input.focus();
   input.select();
 
@@ -190,6 +200,15 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
       }
       moveTo(r, c);
     }
+  });
+  input.addEventListener("input", () => {
+    // Mobil klavye Enter'ı satır sonu olarak gönderebilir: kaydetme sayılır.
+    if (input.value.includes("\n")) {
+      input.value = input.value.replace(/\r?\n/g, " ");
+      finish(true);
+      return;
+    }
+    fitHeight();
   });
   input.addEventListener("blur", () => finish(true, false));
   const bindClose = () => {
@@ -281,9 +300,12 @@ class TableWidget extends WidgetType {
       el.dataset.row = String(row);
       el.dataset.raw = text;
       el.dataset.tableFrom = String(this.from);
-      // Saklı sütun genişliği (oturum) min-width olarak uygulanır — border-collapse'ta
-      // width tutmaz ama min-width tutar.
-      if (widths && widths[col]) el.style.minWidth = `${widths[col]}px`;
+      // Saklı sütun genişliği (oturum) hem width hem min-width olarak uygulanır: width
+      // sütunu daraltır (yazı alt satıra sarılır), min-width genişletmeyi korur (LOM-77).
+      if (widths && widths[col]) {
+        el.style.width = `${widths[col]}px`;
+        el.style.minWidth = `${widths[col]}px`;
+      }
       // pointerdown: dokunmatikte "mousedown" taklit edilir ve gecikir; hücreye dokunmak
       // düzenleme kutusunu açmıyordu. Fare basıldığı anda açar. Dokunmatikte ise pointerdown'da
       // hemen açmak tablonun üstünden sayfayı kaydırmayı bozuyordu (parmak değer değmez kutu
@@ -315,7 +337,7 @@ class TableWidget extends WidgetType {
     const htr = document.createElement("tr");
     this.header.forEach((c, i) => {
       const th = mkCell("th", c, -1, i);
-      // Sağ kenara sürükleme tutamacı → sütun genişliğini ayarla (min-width ile).
+      // Sağ kenara sürükleme tutamacı → sütun genişliğini ayarla (width + min-width ile).
       const handle = document.createElement("div");
       handle.className = "cm-table__resize";
       // Pointer olayları: sütun genişletme yalnız fareyle çalışıyordu (mousedown/mousemove/
@@ -333,6 +355,7 @@ class TableWidget extends WidgetType {
           if (ev.pointerId !== id) return;
           w = Math.max(60, startW + (ev.clientX - startX));
           table.querySelectorAll<HTMLElement>(`[data-col="${i}"]`).forEach((c2) => {
+            c2.style.width = `${w}px`;
             c2.style.minWidth = `${w}px`;
           });
         };

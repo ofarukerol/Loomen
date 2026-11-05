@@ -109,7 +109,10 @@ const cmTheme = EditorView.theme({
     boxSizing: "border-box",
     textAlign: "start",
     verticalAlign: "middle",
-    whiteSpace: "nowrap",
+    // Uzun yazı hücre içinde alt satıra sarılır, satır kendiliğinden yükselir (LOM-77).
+    // height tabloda en az yükseklik gibi davranır.
+    whiteSpace: "normal",
+    overflowWrap: "break-word",
     color: "var(--fg1)",
     cursor: "text",
     position: "relative",

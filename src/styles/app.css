@@ -860,12 +860,22 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   box-sizing: border-box;
   text-align: start;
   vertical-align: middle;
-  white-space: nowrap;
+  /* Uzun yazı hücre içinde alt satıra sarılır (LOM-77). */
+  white-space: normal;
+  overflow-wrap: break-word;
   color: var(--fg1);
 }
 .lo-table th { background: var(--bg-sunken); font-weight: 600; color: var(--fg2); }
-/* Tablo hücresi düzenleme input'u (canlı önizlemede hücreye tıklayınca) */
+/* Tablo hücresi düzenleme kutusu (canlı önizlemede hücreye tıklayınca). Çok satırlı:
+   uzun yazı kutuda da sarılır, kutu yazıyla büyür (LOM-77). */
 .cm-table-editor {
+  display: block;
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  resize: none;
+  overflow: hidden;
   position: fixed;
   z-index: 1000;
   box-sizing: border-box;
