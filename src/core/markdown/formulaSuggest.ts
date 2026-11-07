@@ -131,6 +131,10 @@ export function suggestFormula(
   // Parantez/aralık içinde sütun başvurusu daha olası.
   const columnsFirst = prev === "(" || prev === ":" || prev === ";";
   const items = columnsFirst ? [...cols, ...fns] : [...fns, ...cols];
+  // Kelime tam bir sütun harfiyse (=B*C'deki C) o sütun başa gelir: Enter yeni bir şey
+  // yazmaz, hücreyi kaydeder (aynı satır kısaltması, LOM-79).
+  const exact = q ? items.findIndex((i) => i.kind === "column" && i.insert === q) : -1;
+  if (exact > 0) items.unshift(...items.splice(exact, 1));
   if (!items.length) return null;
   return { items, replaceFrom: start, replaceTo: pos };
 }

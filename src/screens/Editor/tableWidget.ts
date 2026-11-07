@@ -204,7 +204,9 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
   // Aktif öneri metni değiştirir mi? Kelime zaten öneriyle aynıysa Enter kaydetmeye bırakılır.
   const activeChanges = () => {
     const it = current?.items[active];
-    return !!current && !!it && input.value.slice(current.replaceFrom, current.replaceTo) !== it.insert;
+    if (!current || !it) return false;
+    // Büyük/küçük harf farkı (=b → B) değişiklik sayılmaz; motor ikisini de okur.
+    return input.value.slice(current.replaceFrom, current.replaceTo).toUpperCase() !== it.insert.toUpperCase();
   };
   const applyActive = () => {
     if (!current) return;
@@ -252,13 +254,34 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
       ex.className = "cm-table-suggest__example";
       ex.textContent = it.example;
       item.append(name, desc, ex);
-      // Dokunma/tıklama odağı textarea'dan almasın (blur → finish kapatırdı).
+      // Dokunma/tıklama odağı textarea'dan almasın (blur → finish kapatırdı): pointerdown'da
+      // preventDefault. Fare basıldığı anda seçer; dokunmatikte listeyi kaydırmak öneriyi
+      // seçmesin diye yalnız kısa ve yerinde dokunuşta, parmak kalkınca seçer (LOM-35 kalıbı).
+      const tap = createTapTracker();
       item.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        active = k;
-        applyActive();
+        if (!isTapInput(e.pointerType)) {
+          active = k;
+          applyActive();
+          return;
+        }
+        tap.down(e.pointerId, e.clientX, e.clientY, e.timeStamp);
       });
+      item.addEventListener("mousedown", (e) => e.preventDefault());
+      item.addEventListener("pointermove", (e) => {
+        if (isTapInput(e.pointerType)) tap.move(e.pointerId, e.clientX, e.clientY);
+      });
+      item.addEventListener("pointerup", (e) => {
+        if (!isTapInput(e.pointerType)) return;
+        e.preventDefault();
+        if (tap.up(e.pointerId, e.clientX, e.clientY, e.timeStamp)) {
+          active = k;
+          applyActive();
+        }
+      });
+      // Tarayıcı kaydırmayı devraldı: bu bir dokunuş değil.
+      item.addEventListener("pointercancel", (e) => tap.cancel(e.pointerId));
       suggest.appendChild(item);
     });
     suggest.hidden = false;
@@ -381,6 +404,10 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
     refreshSuggest();
   });
   input.addEventListener("click", () => refreshSuggest());
+  // Ok/Home/End ile imleç kayınca liste imlecin yeni yerine göre yenilensin.
+  input.addEventListener("keyup", (e) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Home" || e.key === "End") refreshSuggest();
+  });
   input.addEventListener("blur", () => finish(true, false));
   const bindClose = () => {
     bindTimer = undefined;
