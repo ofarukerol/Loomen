@@ -6,6 +6,7 @@ import {
   bookFileName,
   bookIdFromHash,
   compareAnchor,
+  comparePosition,
   decodeAnchor,
   decodePosition,
   encodeAnchor,
@@ -21,16 +22,19 @@ import {
   locateBookNote,
   markOpened,
   newBook,
+  newerPosition,
   newHighlightId,
   normalizeReaderPrefs,
   positionOfAnchor,
   removeBook,
+  remotePositionAhead,
   removeHighlight,
   safeNoteName,
   saveBook,
   setPosition,
   setStatus,
   sha256Hex,
+  shouldKeepPendingPosition,
   shelfBooks,
   shelfCounts,
   titleFromFileName,
@@ -106,6 +110,47 @@ const p1 = setPosition(b0, { kind: "pdf", page: 3, offset: 0.25 }, 0.1, NOW + 1)
 check("konum yazılır", p1.position?.kind === "pdf" && p1.progress === 0.1);
 check("aynı konum aynı nesne", setPosition(p1, { kind: "pdf", page: 3, offset: 0.25 }, 0.1, NOW + 2) === p1);
 check("ilerleme 0..1'e kırpılır", setPosition(b0, { kind: "pdf", page: 1, offset: 0 }, 7, NOW).progress === 1);
+check("konumun kayıt anı yazılır (LOM-92)", p1.positionSavedAt === NOW + 1);
+
+// ─── Cihazlar arası kalınan yer (LOM-92) ───
+{
+  const pdf = (page: number, offset = 0) => ({ kind: "pdf" as const, page, offset });
+  const epub = (spine: number, offset: number) => ({ kind: "epub" as const, spine, href: `c${spine}.xhtml`, offset });
+  check("pdf ileri sayfa > 0", comparePosition(pdf(4), pdf(3, 0.9)) > 0);
+  check("pdf aynı sayfa ileri oran > 0", comparePosition(pdf(3, 0.6), pdf(3, 0.2)) > 0);
+  check("pdf geri < 0", comparePosition(pdf(2, 0.9), pdf(3)) < 0);
+  check("pdf eşit 0", comparePosition(pdf(3, 0.25), pdf(3, 0.25)) === 0);
+  check("epub ileri bölüm > 0", comparePosition(epub(2, 0), epub(1, 900)) > 0);
+  check("epub aynı bölüm geri < 0", comparePosition(epub(1, 10), epub(1, 50)) < 0);
+  check("epub eşit 0", comparePosition(epub(1, 50), epub(1, 50)) === 0);
+  check("farklı tür 0", comparePosition(pdf(9), epub(1, 0)) === 0);
+
+  const hl = addHighlight(b0, { text: "yerel çizim", anchor: { kind: "pdf", page: 1, rects: [{ x: 0, y: 0, w: 0.5, h: 0.1 }] }, color: "yellow" }, NOW, "h_mem").book;
+  const mem = setPosition(hl, pdf(5), 0.2, NOW + 100);
+  const diskNewer: Book = { ...b0, position: pdf(9, 0.5), progress: 0.4, positionSavedAt: NOW + 200 };
+  const merged = newerPosition(mem, diskNewer);
+  check(
+    "disk yeniyse konum diskten gelir",
+    merged.position?.kind === "pdf" && merged.position.page === 9 && merged.progress === 0.4 && merged.positionSavedAt === NOW + 200
+  );
+  check("birleşmede çizimler bellekten kalır", merged.highlights.length === 1 && merged.highlights[0].id === "h_mem");
+  const diskOlder: Book = { ...b0, position: pdf(2), progress: 0.05, positionSavedAt: NOW + 50 };
+  check("bellek yeniyse aynı nesne döner", newerPosition(mem, diskOlder) === mem);
+  check("zamansız eski disk kaydı belleği ezmez", newerPosition(mem, { ...b0, position: pdf(1) }) === mem);
+
+  check("disk yeniyse bekleyen konum yazılmaz", shouldKeepPendingPosition(diskNewer, NOW + 150) === false);
+  check("disk eskiyse bekleyen konum yazılır", shouldKeepPendingPosition(diskOlder, NOW + 150) === true);
+  check("zamansız kayıtta bekleyen konum yazılır", shouldKeepPendingPosition(b0, NOW) === true);
+
+  const remote: Book = { ...b0, position: pdf(9), positionSavedAt: NOW + 500 };
+  check("aynı konum → şerit yok", remotePositionAhead(remote, { pos: pdf(9), at: NOW }) === null);
+  check("geride konum → şerit yok", remotePositionAhead(remote, { pos: pdf(12), at: NOW }) === null);
+  check("ileri ama eski zaman → şerit yok", remotePositionAhead(remote, { pos: pdf(3), at: NOW + 600 }) === null);
+  const ahead = remotePositionAhead(remote, { pos: pdf(3), at: NOW + 400 });
+  check("ileri ve yeni → konum döner", ahead?.kind === "pdf" && ahead.page === 9);
+  check("yerel konum yokken ileri sayılır", remotePositionAhead(remote, { at: NOW }) !== null);
+  check("kayıtta konum yoksa şerit yok", remotePositionAhead(b0, { at: 0 }) === null);
+}
 
 // ─── Bilgi ───
 const m1 = applyMeta(b0, { title: "Dune: Çöl Gezegeni", author: "Frank Herbert", pages: 600 }, NOW + 1);
@@ -184,6 +229,13 @@ check("yaz-oku aynı metni üretir", !!back && encodeBook(back) === text);
 check("konum 5 haneye yuvarlanır", text.includes('"offset": 0.12346'));
 check("sürüm alanı başta", text.startsWith('{\n  "v": 1,'));
 check("EPUB kayıt yaz-oku", encodeBook(decodeBook(encodeBook(e2))!) === encodeBook(e2));
+check("konum kayıt anı yaz-oku korunur (LOM-92)", back?.positionSavedAt === NOW + 10 && text.includes(`"positionSavedAt": ${NOW + 10}`));
+{
+  const legacy = text.replace(`,\n    "positionSavedAt": ${NOW + 10}`, "");
+  const old = decodeBook(legacy);
+  check("konum zamanı olmayan eski kayıt bozuk sayılmaz", !legacy.includes("positionSavedAt") && !!old && old.position?.kind === "pdf");
+  check("eski kayıtta konum zamanı tanımsız", !!old && old.positionSavedAt === undefined && encodeBook(old) === legacy);
+}
 check("bozuk JSON null", decodeBook("{ yarım") === null);
 check("bilinmeyen sürüm null", decodeBook(text.replace('"v": 1', '"v": 2')) === null);
 check("bozuk özet null", decodeBook(text.replace(hash, "zz")) === null);

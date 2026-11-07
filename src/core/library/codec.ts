@@ -148,6 +148,7 @@ export function encodeBook(b: Book): string {
   if (b.pages !== undefined) book.pages = b.pages;
   if (b.progress !== undefined) book.progress = r5(unit(b.progress));
   if (b.position) book.position = encodePosition(b.position);
+  if (b.positionSavedAt !== undefined) book.positionSavedAt = b.positionSavedAt;
   book.highlights = b.highlights.map(encodeHighlight);
   return JSON.stringify({ v: BOOK_FILE_VERSION, book }, null, 2) + "\n";
 }
@@ -198,5 +199,6 @@ export function decodeBook(raw: string): Book | null {
   if (isNum(b.progress)) book.progress = unit(b.progress);
   const pos = decodePosition(b.position);
   if (pos) book.position = pos;
+  if (isNum(b.positionSavedAt)) book.positionSavedAt = b.positionSavedAt;
   return book;
 }

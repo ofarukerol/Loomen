@@ -1,7 +1,19 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, FileQuestion, Loader2 } from "lucide-react";
-import { bookListId, clampFontScale, positionOfAnchor, quoteInList, type BookFormat, type Highlight, type HighlightColor, type NoteLabels } from "../../core/library";
+import {
+  bookListId,
+  clampFontScale,
+  comparePosition,
+  positionOfAnchor,
+  quoteInList,
+  remotePositionAhead,
+  type BookFormat,
+  type BookPosition,
+  type Highlight,
+  type HighlightColor,
+  type NoteLabels,
+} from "../../core/library";
 import { useAppStore } from "../../store/useAppStore";
 import { HighlightMenu, type ReviewButtonState } from "./HighlightMenu";
 import { HighlightNoteDialog } from "./HighlightNoteDialog";
@@ -133,7 +145,35 @@ export function ReaderScreen() {
 
   // İlk açılıştaki kalınan yer: kitap açıldığı andaki konum (okurken değişen kayıt görüntüleyiciyi sıfırlamasın).
   const initialRef = useRef<{ id: string | null; pos: ReaderViewProps["initialPosition"] }>({ id: null, pos: undefined });
-  if (book && initialRef.current.id !== book.id) initialRef.current = { id: book.id, pos: book.position };
+  // Okuyucunun bildiği son yer ve o an (LOM-92): kendi yazdığımız konumu "başka cihazdan" sanmamak için.
+  const localRef = useRef<{ id: string | null; pos?: BookPosition; at: number }>({ id: null, at: 0 });
+  if (book && initialRef.current.id !== book.id) {
+    initialRef.current = { id: book.id, pos: book.position };
+    localRef.current = { id: book.id, pos: book.position, at: Date.now() };
+  }
+  const [remoteHint, setRemoteHint] = useState<{ id: string; pos: BookPosition; savedAt: number } | null>(null);
+  const dismissedAt = useRef<number | null>(null);
+
+  const onPosition = useCallback(
+    (pos: BookPosition, progress: number) => {
+      localRef.current = { id: localRef.current.id, pos, at: Date.now() };
+      // Okur o yere kendisi vardıysa şerit gereksiz.
+      setRemoteHint((h) => (h && h.pos.kind === pos.kind && comparePosition(pos, h.pos) >= 0 ? null : h));
+      savePosition(pos, progress);
+    },
+    [savePosition]
+  );
+
+  // Kitap açıkken başka cihazdan ileri bir yer gelirse şerit çıkar; sayfa kendiliğinden atlamaz.
+  const bookPos = book?.position;
+  const bookSavedAt = book?.positionSavedAt;
+  useEffect(() => {
+    if (!book || localRef.current.id !== book.id) return;
+    const ahead = remotePositionAhead(book, localRef.current);
+    const savedAt = book.positionSavedAt ?? 0;
+    if (ahead && savedAt !== dismissedAt.current) setRemoteHint({ id: book.id, pos: ahead, savedAt });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book?.id, bookPos, bookSavedAt]);
 
   const labels: NoteLabels = useMemo(
     () => ({
@@ -254,6 +294,13 @@ export function ReaderScreen() {
   };
 
   const View = format ? viewFor(format) : null;
+  const hint = remoteHint && remoteHint.id === book.id && load.state === "ready" ? remoteHint : null;
+  const hintWhere = (pos: BookPosition): string =>
+    pos.kind === "pdf"
+      ? t("library.note.page", { n: pos.page })
+      : pos.kind === "epub"
+        ? t("library.note.section", { n: pos.spine + 1 })
+        : String(pos.location);
   const errorBox = (detail: string) => (
     <div className="lo-reader__state" role="alert">
       <AlertTriangle size={28} strokeWidth={1.7} aria-hidden />
@@ -308,7 +355,7 @@ export function ReaderScreen() {
             highlights={book.highlights}
             initialPosition={initialRef.current.pos}
             target={target}
-            onPosition={savePosition}
+            onPosition={onPosition}
             onSelection={onSelection}
             onHighlightClick={onHighlightClick}
             onMeta={onMeta}
@@ -335,6 +382,34 @@ export function ReaderScreen() {
       />
       <div className="lo-reader__main">
         <div className="lo-reader__view">{body}</div>
+        {hint && (
+          <div className="lo-reader__hint" role="status">
+            <span>{t("library.reader.remotePos", { where: hintWhere(hint.pos) })}</span>
+            <div className="lo-reader__hint-actions">
+              <button
+                type="button"
+                className="lo-btn lo-btn--primary"
+                onClick={() => {
+                  localRef.current = { id: book.id, pos: hint.pos, at: Date.now() };
+                  setRemoteHint(null);
+                  jump({ position: hint.pos });
+                }}
+              >
+                {t("library.reader.goThere")}
+              </button>
+              <button
+                type="button"
+                className="lo-btn"
+                onClick={() => {
+                  dismissedAt.current = hint.savedAt;
+                  setRemoteHint(null);
+                }}
+              >
+                {t("library.reader.dismiss")}
+              </button>
+            </div>
+          </div>
+        )}
         {panel && (
           <HighlightsPanel
             highlights={book.highlights}

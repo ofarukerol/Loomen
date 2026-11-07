@@ -158,18 +158,76 @@ export function markOpened(b: Book, now: number): Book {
   return b.status === "toread" ? setStatus(b, "reading", now) : b;
 }
 
-const samePosition = (a: BookPosition | undefined, b: BookPosition): boolean => {
+/** İki kalınan yer aynı mı? (PDF ofseti küçük farkları yok sayar.) */
+export const samePosition = (a: BookPosition | undefined, b: BookPosition): boolean => {
   if (!a || a.kind !== b.kind) return false;
   if (a.kind === "pdf") return b.kind === "pdf" && a.page === b.page && Math.abs(a.offset - b.offset) < 1e-4;
   if (a.kind === "kindle") return b.kind === "kindle" && a.location === b.location;
   return b.kind === "epub" && a.spine === b.spine && a.href === b.href && a.offset === b.offset;
 };
 
+/**
+ * Kitap sırasına göre karşılaştır: a ilerideyse > 0, gerideyse < 0, aynı yerse 0 (LOM-92).
+ * PDF: sayfa sonra sayfa içi oran; EPUB: bölüm sonra karakter; Kindle: konum. Farklı tür → 0.
+ */
+export function comparePosition(a: BookPosition, b: BookPosition): number {
+  if (a.kind === "pdf" && b.kind === "pdf") {
+    if (a.page !== b.page) return a.page - b.page;
+    return Math.abs(a.offset - b.offset) < 1e-4 ? 0 : a.offset - b.offset;
+  }
+  if (a.kind === "epub" && b.kind === "epub") {
+    if (a.spine !== b.spine) return a.spine - b.spine;
+    return a.offset - b.offset;
+  }
+  if (a.kind === "kindle" && b.kind === "kindle") return a.location - b.location;
+  return 0;
+}
+
 /** Kalınan yeri yaz. Aynı yer ve ilerlemeyse aynı nesne döner (yazım olmaz). */
 export function setPosition(b: Book, pos: BookPosition, progress: number, now: number): Book {
   const p = Math.min(1, Math.max(0, Number.isFinite(progress) ? progress : 0));
   if (samePosition(b.position, pos) && Math.abs((b.progress ?? -1) - p) < 1e-4) return b;
-  return { ...b, position: pos, progress: p, updatedAt: now };
+  return { ...b, position: pos, progress: p, positionSavedAt: now, updatedAt: Math.max(b.updatedAt, now) };
+}
+
+/**
+ * Eşitlemeden sonra bellekteki kaydı diskten gelenle birleştir (LOM-92): diskteki kalınan yer
+ * daha yeni kaydedildiyse konum/ilerleme/zaman diskten alınır; geri kalan (çizimler, durum)
+ * bellekte kalır. Diskteki daha yeni değilse bellekteki kayıt aynen döner.
+ */
+export function newerPosition(mem: Book, disk: Book): Book {
+  if ((disk.positionSavedAt ?? 0) <= (mem.positionSavedAt ?? 0)) return mem;
+  const next: Book = { ...mem, positionSavedAt: disk.positionSavedAt };
+  if (disk.position) next.position = disk.position;
+  else delete next.position;
+  if (disk.progress !== undefined) next.progress = disk.progress;
+  else delete next.progress;
+  return next;
+}
+
+/**
+ * Bekleyen konum (pendingAt anında okunan) yazılsın mı? Diskteki kaydın konumu ondan sonra
+ * kaydedildiyse (başka cihazdan gelen daha yeni yer) false: eski konum yenisini ezmez (LOM-92).
+ */
+export function shouldKeepPendingPosition(book: Book, pendingAt: number): boolean {
+  return (book.positionSavedAt ?? 0) <= pendingAt;
+}
+
+/**
+ * Kitap açıkken başka cihazdan ileri bir yer geldi mi? (LOM-92) Kayıttaki konum okuyucunun
+ * bildiği son yerden (local.pos, local.at anında) farklı, ondan SONRA kaydedilmiş ve kitapta
+ * daha ileriyse o konum döner; değilse null. local.pos yoksa her konum ileri sayılır.
+ */
+export function remotePositionAhead(
+  book: Book,
+  local: { pos?: BookPosition; at: number },
+): BookPosition | null {
+  const pos = book.position;
+  if (!pos) return null;
+  if (local.pos && samePosition(local.pos, pos)) return null;
+  if ((book.positionSavedAt ?? 0) <= local.at) return null;
+  if (local.pos && comparePosition(pos, local.pos) <= 0) return null;
+  return pos;
 }
 
 export interface MetaPatch {

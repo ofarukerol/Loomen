@@ -1544,6 +1544,9 @@
       "pink": "Pink"
     },
     "reader": {
+      "remotePos": "On another device you read up to {{where}}.",
+      "goThere": "Go there",
+      "dismiss": "Dismiss",
       "smaller": "Smaller text",
       "larger": "Larger text",
       "theme": "Appearance: {{name}}",

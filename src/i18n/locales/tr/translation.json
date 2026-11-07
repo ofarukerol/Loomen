@@ -1544,6 +1544,9 @@
       "pink": "Pembe"
     },
     "reader": {
+      "remotePos": "Başka cihazda {{where}} konumuna kadar okumuşsun.",
+      "goThere": "Oraya git",
+      "dismiss": "Kapat",
       "smaller": "Yazıyı küçült",
       "larger": "Yazıyı büyüt",
       "theme": "Görünüm: {{name}}",

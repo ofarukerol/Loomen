@@ -185,6 +185,7 @@ import {
   locateBookNote,
   markOpened as bookMarkOpened,
   newBook,
+  newerPosition,
   newHighlightId,
   normalizeReaderPrefs,
   parseBookLink,
@@ -199,6 +200,7 @@ import {
   addHighlightRow,
   bookListId,
   newBookReviewList,
+  shouldKeepPendingPosition,
   updateHighlight as bookUpdateHighlight,
   updateHighlightBlock,
   type Book,
@@ -967,8 +969,8 @@ let libraryGen = 0;
 class LibraryVaultChanged extends Error {}
 let bookFiles: BookFileStore | null = null;
 const getBookFiles = (): BookFileStore => (bookFiles ??= isTauri() ? createTauriBookFiles() : createMemoryBookFiles());
-/** Kalınan yer: son bildirilen değer ve gecikmeli kayıt zamanlayıcısı. */
-let pendingPosition: { id: string; pos: BookPosition; progress: number } | null = null;
+/** Kalınan yer: son bildirilen değer (at: okunduğu an) ve gecikmeli kayıt zamanlayıcısı. */
+let pendingPosition: { id: string; pos: BookPosition; progress: number; at: number } | null = null;
 let positionTimer: ReturnType<typeof setTimeout> | null = null;
 const POSITION_SAVE_MS = 2000;
 let readerSeq = 0;
@@ -3536,6 +3538,9 @@ export const useAppStore = create<AppState>()(
       set({ ghSyncing: true, ghStatus: null });
       // Açık notun son yazılanları önce diske: senkron diski okur, yazılmamış metin gönderilmez.
       await flushDraft();
+      // Bekleyen kalınan yer de önce kitap kaydına (LOM-92): senkron diski okur, 2 sn gecikmeyle
+      // bekleyen konum yazılmamışsa gönderilmez ve son saniyelerin ilerlemesi kaybolurdu.
+      await get().libraryFlushPosition();
       try {
         if (s.platformMobile) {
           // Mobil: git2 yok → GitHub REST (Git Data API) ile senkron.
@@ -4241,7 +4246,9 @@ export const useAppStore = create<AppState>()(
         if (gen !== libraryGen) {
           if (libraryVaultOf === src && libraryVault) return; // okuma sürerken değişiklik oldu: bayat
           const mem = new Map(get().books.map((b) => [b.id, b]));
-          books = [...disk.map((b) => mem.get(b.id) ?? b), ...[...mem.values()].filter((b) => !disk.some((d) => d.id === b.id))];
+          // Bellekteki kayıt korunur (okurken yapılan değişiklik), ama diskten gelen daha yeni
+          // kalınan yer (başka cihazdan eşitlenen) kaybolmaz (LOM-92).
+          books = [...disk.map((b) => { const m = mem.get(b.id); return m ? newerPosition(m, b) : b; }), ...[...mem.values()].filter((b) => !disk.some((d) => d.id === b.id))];
         }
         libraryVault = vault;
         libraryVaultOf = src;
@@ -4664,7 +4671,7 @@ export const useAppStore = create<AppState>()(
       const id = get().readerBookId;
       if (!id) return;
       if (pendingPosition && pendingPosition.id !== id) void get().libraryFlushPosition();
-      pendingPosition = { id, pos, progress };
+      pendingPosition = { id, pos, progress, at: Date.now() };
       if (positionTimer) clearTimeout(positionTimer);
       positionTimer = setTimeout(() => void get().libraryFlushPosition(), POSITION_SAVE_MS);
     },
@@ -4677,7 +4684,12 @@ export const useAppStore = create<AppState>()(
       if (!p) return;
       const book = bookById(p.id);
       if (!book) return;
-      const next = bookSetPosition(book, p.pos, p.progress, Date.now());
+      // Kayıttaki konum bu konum okunduktan SONRA kaydedildiyse (başka cihazdan eşitlenen daha
+      // yeni yer) eski bekleyen konum onu ezmez (LOM-92).
+      if (!shouldKeepPendingPosition(book, p.at)) return;
+      // Kayıt anı konumun OKUNDUĞU an: yazım sürerken okuyucu başka yere geçerse bu konum
+      // okuyucunun son bildirdiğinden eski kalır ve "başka cihazdan" sanılmaz.
+      const next = bookSetPosition(book, p.pos, p.progress, p.at);
       if (next !== book) await bookCommit(next, true);
     },
 

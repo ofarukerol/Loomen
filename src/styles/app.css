@@ -5212,6 +5212,16 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
 .lo-reader__state h2 { margin: 0; font-size: 17px; font-weight: 600; color: var(--fg1); }
 .lo-reader__state p { margin: 0; max-width: 440px; line-height: 1.6; }
 .lo-reader__state small { max-width: 520px; color: var(--fg3); font-family: var(--font-mono); font-size: 11.5px; overflow-wrap: anywhere; }
+/* LOM-92: başka cihazdan ileri kalınan yer şeridi — görüntüleyicinin üstünde, alt ortada yüzer. */
+.lo-reader__hint {
+  position: absolute; inset-inline: 0; bottom: 16px; margin: 0 auto; z-index: 5;
+  width: calc(100% - 24px); max-width: 420px; box-sizing: border-box;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px;
+  background: var(--bg-elev); color: var(--fg1); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.14); font-size: 13px; line-height: 1.45;
+}
+.lo-reader__hint > span { flex: 1 1 200px; min-width: 0; }
+.lo-reader__hint-actions { display: flex; gap: 6px; margin-inline-start: auto; }
 
 /* — Çizim menüsü — */
 .lo-hlmenu {

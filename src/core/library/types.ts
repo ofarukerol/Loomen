@@ -138,6 +138,12 @@ export interface Book {
   /** Okuma ilerlemesi 0..1. */
   progress?: number;
   position?: BookPosition;
+  /**
+   * Kalınan yerin kaydedildiği an (ms, LOM-92). Cihazlar arası "yeni olan kazanır" kuralı bu
+   * alana dayanır: eşitlemeden gelen kayıt bellektekinden yeniyse konumu o alır, bekleyen eski
+   * konum daha yeni kaydın üstüne yazılmaz. Eski kayıtlarda yoktur (0 sayılır); dosya sürümü v:1 kalır.
+   */
+  positionSavedAt?: number;
   /** Kitap sırasına göre çizimler. */
   highlights: Highlight[];
 }
