@@ -18,6 +18,7 @@ import {
 import i18n from "../../i18n";
 import { evaluateTable, formatFormulaResult, type CellResult } from "../../core/markdown/tableFormula";
 import { createTapTracker, isTapInput } from "./tapGesture";
+import { applySuggestion, suggestFormula, type FormulaSuggestResult } from "../../core/markdown/formulaSuggest";
 
 /**
  * Canlı önizlemede (düzenleme modu) GFM tablolarını gerçek tablo olarak gösterir ve
@@ -140,15 +141,145 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
   input.focus();
   input.select();
 
+  // Formül öneri listesi (LOM-88): "=" ve harf yazınca fonksiyon ve sütun harfi önerir.
+  const suggest = document.createElement("div");
+  suggest.className = "cm-table-suggest";
+  suggest.setAttribute("role", "listbox");
+  suggest.setAttribute("aria-label", i18n.t("tableFormula.suggestLabel"));
+  suggest.hidden = true;
+  document.body.appendChild(suggest);
+  const headerTexts = (): string[] => {
+    const wrap = cellEl.closest(".cm-tablewrap");
+    if (!wrap) return [];
+    const out: string[] = [];
+    wrap.querySelectorAll<HTMLElement>('[data-row="-1"]').forEach((h) => {
+      const c = Number(h.dataset.col);
+      if (Number.isFinite(c) && c >= 0) out[c] = h.dataset.raw ?? "";
+    });
+    return Array.from(out, (t) => t ?? "");
+  };
+  const header = headerTexts();
+  let current: FormulaSuggestResult | null = null;
+  let active = 0;
+  // Esc ile kapatılan metin: aynı metinde liste yeniden açılmaz, yeni harf yazılınca açılır.
+  let dismissedText: string | null = null;
+  const suggestOpen = () => !suggest.hidden && current !== null && current.items.length > 0;
+  const hideSuggest = () => {
+    suggest.hidden = true;
+    current = null;
+    input.removeAttribute("aria-activedescendant");
+  };
+  const placeSuggest = () => {
+    const box = input.getBoundingClientRect();
+    const vw = window.visualViewport?.width ?? window.innerWidth;
+    const vh = window.visualViewport?.height ?? window.innerHeight;
+    const width = Math.min(Math.max(box.width, 280), vw - 8);
+    suggest.style.width = `${width}px`;
+    suggest.style.left = `${Math.max(4, Math.min(box.left, vw - width - 4))}px`;
+    if (vh - box.bottom < 200 && box.top > vh - box.bottom) {
+      suggest.style.top = "";
+      suggest.style.bottom = `${window.innerHeight - box.top + 2}px`;
+      suggest.style.maxHeight = `${Math.max(80, Math.min(220, box.top - 8))}px`;
+    } else {
+      suggest.style.bottom = "";
+      suggest.style.top = `${box.bottom + 2}px`;
+      suggest.style.maxHeight = `${Math.max(80, Math.min(220, vh - box.bottom - 8))}px`;
+    }
+  };
+  const setActive = (i: number) => {
+    const items = suggest.querySelectorAll<HTMLElement>(".cm-table-suggest__item");
+    if (!items.length) return;
+    active = (i + items.length) % items.length;
+    items.forEach((el, k) => {
+      el.classList.toggle("is-active", k === active);
+      el.setAttribute("aria-selected", String(k === active));
+    });
+    const el = items[active];
+    input.setAttribute("aria-activedescendant", el.id);
+    // scrollIntoView yerine elle: sayfa kaymasın (kayma kutuyu kapatırdı).
+    if (el.offsetTop < suggest.scrollTop) suggest.scrollTop = el.offsetTop;
+    else if (el.offsetTop + el.offsetHeight > suggest.scrollTop + suggest.clientHeight)
+      suggest.scrollTop = el.offsetTop + el.offsetHeight - suggest.clientHeight;
+  };
+  // Aktif öneri metni değiştirir mi? Kelime zaten öneriyle aynıysa Enter kaydetmeye bırakılır.
+  const activeChanges = () => {
+    const it = current?.items[active];
+    return !!current && !!it && input.value.slice(current.replaceFrom, current.replaceTo) !== it.insert;
+  };
+  const applyActive = () => {
+    if (!current) return;
+    const it = current.items[active];
+    if (!it) return;
+    const res = applySuggestion(input.value, current.replaceFrom, current.replaceTo, it.insert);
+    input.value = res.text;
+    input.setSelectionRange(res.caret, res.caret);
+    fitHeight();
+    refreshSuggest();
+  };
+  function refreshSuggest(): void {
+    if (dismissedText !== null) {
+      if (input.value === dismissedText) {
+        hideSuggest();
+        return;
+      }
+      dismissedText = null;
+    }
+    const res = suggestFormula(input.value, input.selectionStart ?? input.value.length, header, i18n.language);
+    if (!res) {
+      hideSuggest();
+      return;
+    }
+    current = res;
+    suggest.replaceChildren();
+    res.items.forEach((it, k) => {
+      const item = document.createElement("div");
+      item.className = "cm-table-suggest__item";
+      item.id = `cm-table-suggest-${k}`;
+      item.setAttribute("role", "option");
+      const name = document.createElement("span");
+      name.className = "cm-table-suggest__name";
+      name.textContent = it.label;
+      if (it.alias) {
+        const alias = document.createElement("small");
+        alias.className = "cm-table-suggest__alias";
+        alias.textContent = ` ${it.alias}`;
+        name.appendChild(alias);
+      }
+      const desc = document.createElement("span");
+      desc.className = "cm-table-suggest__desc";
+      desc.textContent = i18n.t(it.descKey, { name: it.descParam });
+      const ex = document.createElement("span");
+      ex.className = "cm-table-suggest__example";
+      ex.textContent = it.example;
+      item.append(name, desc, ex);
+      // Dokunma/tıklama odağı textarea'dan almasın (blur → finish kapatırdı).
+      item.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        active = k;
+        applyActive();
+      });
+      suggest.appendChild(item);
+    });
+    suggest.hidden = false;
+    placeSuggest();
+    setActive(0);
+  }
+
   let done = false;
   // Kaydırma/yeniden boyutlandırmada yüzen input yanlış yerde kalmasın: kaydet ve kapat.
-  const onScroll = () => finish(true, false);
+  // Öneri listesinin kendi içindeki kaydırma sayılmaz.
+  const onScroll = (e?: Event) => {
+    if (e && e.target instanceof Node && suggest.contains(e.target)) return;
+    finish(true, false);
+  };
   let bindTimer: ReturnType<typeof setTimeout> | undefined;
   const cleanup = () => {
     if (bindTimer !== undefined) clearTimeout(bindTimer);
     view.scrollDOM.removeEventListener("scroll", onScroll);
     window.removeEventListener("resize", onScroll);
     window.removeEventListener("scroll", onScroll, true);
+    suggest.remove();
   };
 
   function finish(save: boolean, refocus = true): void {
@@ -178,6 +309,23 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
     });
   };
 
+  // Öneri listesi açıkken tuşları önce bu dinleyici alır; kapalıyken hiçbir şey yapmaz.
+  input.addEventListener("keydown", (e) => {
+    if (!suggestOpen() || e.isComposing) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      setActive(active + (e.key === "ArrowDown" ? 1 : -1));
+    } else if ((e.key === "Enter" || e.key === "Tab") && !e.shiftKey) {
+      if (!activeChanges()) return;
+      applyActive();
+    } else if (e.key === "Escape") {
+      dismissedText = input.value;
+      hideSuggest();
+    } else {
+      return;
+    }
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  });
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -210,12 +358,29 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
   input.addEventListener("input", () => {
     // Mobil klavye Enter'ı satır sonu olarak gönderebilir: kaydetme sayılır.
     if (input.value.includes("\n")) {
+      // Öneri açıksa satır sonu kaydetmez, seçili öneriyi uygular (LOM-88).
+      if (suggestOpen()) {
+        const keep = active;
+        const at = input.value.search(/\r?\n/);
+        input.value = input.value.replace(/\r?\n/g, "");
+        input.setSelectionRange(at, at);
+        refreshSuggest();
+        if (suggestOpen()) {
+          if (current && keep < current.items.length) setActive(keep);
+        }
+        if (suggestOpen() && activeChanges()) {
+          applyActive();
+          return;
+        }
+      }
       input.value = input.value.replace(/\r?\n/g, " ");
       finish(true);
       return;
     }
     fitHeight();
+    refreshSuggest();
   });
+  input.addEventListener("click", () => refreshSuggest());
   input.addEventListener("blur", () => finish(true, false));
   const bindClose = () => {
     bindTimer = undefined;
@@ -228,6 +393,8 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
   // dinleyiciler hemen bağlanırsa kutu açılır açılmaz kapanıyordu. Biraz sonra bağla.
   if (opts.viaTouch) bindTimer = setTimeout(bindClose, 500);
   else bindClose();
+  // Hücrede zaten formül varsa bir kez dene (tümü seçiliyken liste açılmaz, seçim korunur).
+  if (orig.trim().startsWith("=")) refreshSuggest();
 }
 
 /** Sürüklemenin başlaması için gereken en az kayma (px); altı tıklama sayılır. */

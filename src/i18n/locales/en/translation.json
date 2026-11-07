@@ -1473,6 +1473,15 @@
     "ref": "Reference to a cell outside the table",
     "cycle": "Formula refers back to itself",
     "div0": "Division by zero",
-    "value": "Referenced cell is not a number"
+    "value": "Referenced cell is not a number",
+    "suggestLabel": "Formula suggestions",
+    "fnSum": "Adds up numbers",
+    "fnAverage": "Takes the average",
+    "fnMin": "Finds the smallest",
+    "fnMax": "Finds the largest",
+    "fnCount": "Counts cells with numbers",
+    "fnRound": "Rounds to the given digits",
+    "fnAbs": "Drops the sign, absolute value",
+    "column": "{{name}} column"
   }
 }

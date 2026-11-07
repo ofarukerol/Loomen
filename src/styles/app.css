@@ -919,6 +919,51 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   outline: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
 }
+/* Formül öneri listesi (LOM-88): düzenleme kutusunun altında/üstünde yüzer. */
+.cm-table-suggest {
+  position: fixed;
+  z-index: 1001;
+  box-sizing: border-box;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--sh3);
+  padding: 5px;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 13px;
+  color: var(--fg1);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.cm-table-suggest[hidden] { display: none; }
+.cm-table-suggest__item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  min-height: 36px;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cm-table-suggest__item.is-active { background: var(--line-soft); color: var(--accent); }
+@media (hover: hover) {
+  .cm-table-suggest__item:hover { background: var(--line-soft); }
+}
+.cm-table-suggest__name { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cm-table-suggest__alias { font-weight: 400; font-size: 11px; }
+.cm-table-suggest__alias,
+.cm-table-suggest__desc { color: var(--fg2); }
+.cm-table-suggest__desc { overflow: hidden; text-overflow: ellipsis; }
+.cm-table-suggest__example {
+  margin-inline-start: auto;
+  color: var(--fg3);
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+}
 .lo-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--bg-sunken) 45%, transparent); }
 /* Formül hücresi (okuma modu, LOM-79). */
 .lo-table td.lo-table__formula {

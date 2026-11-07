@@ -1473,6 +1473,15 @@
     "ref": "Tabloda olmayan hücreye başvuru",
     "cycle": "Formül kendine dönüyor",
     "div0": "Sıfıra bölme",
-    "value": "Başvurulan hücre sayı değil"
+    "value": "Başvurulan hücre sayı değil",
+    "suggestLabel": "Formül önerileri",
+    "fnSum": "Sayıları toplar",
+    "fnAverage": "Ortalamasını alır",
+    "fnMin": "En küçüğünü bulur",
+    "fnMax": "En büyüğünü bulur",
+    "fnCount": "Sayı olan hücreleri sayar",
+    "fnRound": "Verilen basamağa yuvarlar",
+    "fnAbs": "İşareti atar, mutlak değer",
+    "column": "{{name}} sütunu"
   }
 }
