@@ -66,6 +66,11 @@ const colon = at("=TOPLA(B:B");
 check("'=TOPLA(B:B' → B önerisi", colon?.items.some((i) => i.label === "B") === true, JSON.stringify(colon?.items.map((i) => i.label)));
 check("'=TOPLA(B:B' → aralık 9..10", colon?.replaceFrom === 9 && colon?.replaceTo === 10);
 
+check("'=B*C' → tam sütun C ilk sırada (COUNT değil)", labels("=B*C", 4, "en")[0] === "C", JSON.stringify(labels("=B*C", 4, "en")));
+check("'=A' → tam sütun A ilk sırada (ABS değil)", labels("=A")[0] === "A");
+check("'=b' küçük harf → B ilk sırada", labels("=b")[0] === "B");
+check("'=TO' tam sütun yok → TOPLA ilk", labels("=TO")[0] === "TOPLA");
+
 // ─── Öneri çıkmayan durumlar ────────────────────────────────────────────────
 check("'=1+2' → null", at("=1+2") === null);
 check("'=B2' → null", at("=B2") === null);
@@ -99,6 +104,11 @@ check(
   "öneri öğesinde pointerdown + preventDefault",
   /cm-table-suggest__item[\s\S]*addEventListener\("pointerdown", \(e\) => \{\s*e\.preventDefault\(\)/.test(tw),
 );
+const itemBlock = tw.slice(tw.indexOf("cm-table-suggest__item\""), tw.indexOf("suggest.appendChild(item)"));
+check("öneri öğesi dokunmatikte createTapTracker kullanıyor", itemBlock.includes("createTapTracker()") && itemBlock.includes("isTapInput(e.pointerType)"));
+check("öneri öğesi dokunmatikte pointerup'ta seçiyor", /addEventListener\("pointerup"[\s\S]*tap\.up\(/.test(itemBlock));
+check("öneri öğesi pointercancel'da sayacı bırakıyor", itemBlock.includes("tap.cancel(e.pointerId)"));
+check("ok tuşuyla imleç kayınca liste yenileniyor", /addEventListener\("keyup"[\s\S]{0,200}ArrowLeft[\s\S]{0,120}refreshSuggest\(\)/.test(tw));
 check("tüketilen tuşta stopImmediatePropagation", tw.includes("stopImmediatePropagation"));
 check("ArrowDown işleniyor", tw.includes('"ArrowDown"'));
 check("öneri kutusu temizlikte kaldırılıyor", tw.includes("suggest.remove()"));
