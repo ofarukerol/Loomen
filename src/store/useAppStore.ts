@@ -4403,13 +4403,14 @@ export const useAppStore = create<AppState>()(
     libraryUpdateHighlight: async (hlId, patch) => {
       const book = bookById(get().readerBookId);
       if (!book) return;
+      const prev = book.highlights.find((x) => x.id === hlId);
       const next = bookUpdateHighlight(book, hlId, patch, Date.now());
       if (next === book || !(await bookCommit(next))) return;
       const h = next.highlights.find((x) => x.id === hlId);
       if (!h) return;
       const order = next.highlights.map((x) => x.id);
       try {
-        await syncBookNote(book.id, (text, b) => updateHighlightBlock(text, b, h, order, libraryNoteLabels()));
+        await syncBookNote(book.id, (text, b) => updateHighlightBlock(text, b, h, order, libraryNoteLabels(), prev));
       } catch (e) {
         await noteSyncFailed(e);
       }
@@ -4418,10 +4419,13 @@ export const useAppStore = create<AppState>()(
     libraryRemoveHighlight: async (hlId) => {
       const book = bookById(get().readerBookId);
       if (!book) return;
+      const prev = book.highlights.find((x) => x.id === hlId);
       const next = bookRemoveHighlight(book, hlId, Date.now());
       if (next === book || !(await bookCommit(next))) return;
       try {
-        await syncBookNote(book.id, (text) => removeHighlightBlock(text, hlId));
+        await syncBookNote(book.id, (text, b) =>
+          removeHighlightBlock(text, hlId, prev ? { book: b, h: prev, labels: libraryNoteLabels() } : undefined),
+        );
       } catch (e) {
         await noteSyncFailed(e);
       }

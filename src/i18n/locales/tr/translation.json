@@ -1583,6 +1583,18 @@
     "featureOff": "Kütüphane kapalı. Ayarlar › Özellikler'den açabilirsin.",
     "saveError": "Kitap kaydı kasaya yazılamadı: {{detail}}",
     "noteDraftError": "Açık notun kaydedilemedi; kitabın notuna dokunulmadı.",
-    "noteError": "Kitabın notu güncellenemedi: {{detail}}"
+    "noteError": "Kitabın notu güncellenemedi: {{detail}}",
+    "epub": {
+      "drm": "Bu kitap DRM ile korunuyor; açılamıyor.",
+      "notEpub": "Bu dosya geçerli bir EPUB değil.",
+      "chapterError": "Bu bölüm açılamadı.",
+      "toc": "İçindekiler",
+      "prev": "Önceki bölüm",
+      "next": "Sonraki bölüm"
+    },
+    "pdf": {
+      "missingLib": "PDF okuyucu bu sürümde kurulu değil.",
+      "password": "Bu PDF parolalı; açılamıyor."
+    }
   }
 }

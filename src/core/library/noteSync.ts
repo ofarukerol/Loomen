@@ -168,11 +168,17 @@ export function insertHighlightBlock(
   h: Highlight,
   order: string[],
   labels: NoteLabels = DEFAULT_NOTE_LABELS,
+  prev?: Highlight,
 ): string {
   const { lines, eol } = split(text);
   const blocks = scanBlocks(lines);
   const have = blocks.get(h.id);
-  if (have) return have.end < 0 ? text : replaceAt(lines, eol, have, highlightBlockLines(book, h, labels));
+  if (have) {
+    if (have.end < 0) return text;
+    // Kullanıcı bloğun içine yazdıysa üstüne yazma: blok son yazdığımız hâlde değilse dokunulmaz.
+    if (prev && !blockMatches(lines, have, highlightBlockLines(book, prev, labels))) return text;
+    return replaceAt(lines, eol, have, highlightBlockLines(book, h, labels));
+  }
   const block = highlightBlockLines(book, h, labels);
   const idx = order.indexOf(h.id);
   const valid = (id: string) => {
@@ -201,27 +207,49 @@ export function insertHighlightBlock(
   return join(lines, eol);
 }
 
+/** Blok, verilen satırlarla birebir aynı mı (baştaki/sondaki boşluklar sayılmaz). */
+function blockMatches(lines: string[], b: Block, expected: string[]): boolean {
+  const cur = lines.slice(b.start, b.end + 1);
+  return cur.length === expected.length && cur.every((l, i) => l.trimEnd() === expected[i].trimEnd());
+}
+
 function replaceAt(lines: string[], eol: string, b: Block, block: string[]): string {
   lines.splice(b.start, b.end - b.start + 1, ...block);
   return join(lines, eol);
 }
 
-/** Çizim bloğunu yeniden yaz (renk, not değişti). Blok yoksa eklenir; bozuksa dokunulmaz. */
+/**
+ * Çizim bloğunu yeniden yaz (renk, not değişti). Blok yoksa eklenir; bozuksa dokunulmaz.
+ * `prev` verilirse blok yalnız hâlâ `prev`'den üretilmiş hâldeyse yazılır; kullanıcı bloğu
+ * elle değiştirdiyse metin aynı kalır (yazdığı silinmez).
+ */
 export function updateHighlightBlock(
   text: string,
   book: Pick<Book, "id">,
   h: Highlight,
   order: string[],
   labels: NoteLabels = DEFAULT_NOTE_LABELS,
+  prev?: Highlight,
 ): string {
-  return insertHighlightBlock(text, book, h, order, labels);
+  return insertHighlightBlock(text, book, h, order, labels, prev);
 }
 
-/** Çizim bloğunu kaldır: yalnız işaretler arası ve bir boş satır gider. Bozuk ya da yoksa metin aynı kalır. */
-export function removeHighlightBlock(text: string, hlId: string): string {
+/**
+ * Çizim bloğunu kaldır: yalnız işaretler arası ve bir boş satır gider. Bozuk ya da yoksa metin aynı kalır.
+ * `expected` verilirse blok yalnız hâlâ o çizimden üretilmiş hâldeyse silinir; kullanıcı bloğa
+ * yazdıysa metin aynı kalır.
+ */
+export function removeHighlightBlock(
+  text: string,
+  hlId: string,
+  expected?: { book: Pick<Book, "id">; h: Highlight; labels?: NoteLabels },
+): string {
   const { lines, eol } = split(text);
   const b = scanBlocks(lines).get(hlId);
   if (!b || b.end < 0) return text;
+  if (expected && !blockMatches(lines, b, highlightBlockLines(expected.book, expected.h, expected.labels ?? DEFAULT_NOTE_LABELS))) {
+    return text;
+  }
   let from = b.start;
   let count = b.end - b.start + 1;
   if (isBlank(lines[b.end + 1])) count++;

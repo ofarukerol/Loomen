@@ -103,6 +103,21 @@ check("bölüm adı yoksa sıra", insertHighlightBlock(bookNoteTemplate(e0), eh2
 const tpl = bookNoteTemplate(b);
 check("şablon bütün çizimleri sırayla içerir", blockIds(tpl).join(",") === order().join(","));
 
+// Kullanıcı bloğun içine yazdıysa güncelleme/silme üstüne yazmaz (inceleme bulgusu)
+{
+  const g0 = newBook({ hash: "c".repeat(64), size: 1, fileName: "G.pdf", format: "pdf", notePath: "Kütüphane/G.md" }, NOW);
+  const r = addHighlight(g0, { text: "alıntı", anchor: pdfAt(1), color: "yellow" }, NOW, "g1");
+  const base = insertHighlightBlock(bookNoteTemplate(g0), r.book, r.highlight, ["g1"]);
+  const up = updateHighlight(r.book, "g1", { color: "pink" }, NOW);
+  const h2 = up.highlights.find((h) => h.id === "g1")!;
+  const recolored = updateHighlightBlock(base, up, h2, ["g1"], undefined, r.highlight);
+  check("dokunulmamış blok renk değişince yazılır", recolored !== base && recolored.includes("🩷"));
+  const edited = base.replace("<!-- /loomen:hl g1 -->", "Benim yorumum\n<!-- /loomen:hl g1 -->");
+  check("elle değişmiş blok güncellenmez", updateHighlightBlock(edited, up, h2, ["g1"], undefined, r.highlight) === edited);
+  check("elle değişmiş blok silinmez", removeHighlightBlock(edited, "g1", { book: r.book, h: r.highlight }) === edited);
+  check("dokunulmamış blok silinir", blockState(removeHighlightBlock(base, "g1", { book: r.book, h: r.highlight }), "g1") === "missing");
+}
+
 if (fails) {
   console.error(`\n${fails} kontrol başarısız`);
   process.exit(1);

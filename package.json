@@ -29,6 +29,7 @@
     "i18next": "^24.2.0",
     "libflacjs": "^5.4.0",
     "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^5.7.284",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^15.4.0",

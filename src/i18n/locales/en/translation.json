@@ -1583,6 +1583,18 @@
     "featureOff": "Library is turned off. You can turn it on in Settings › Features.",
     "saveError": "Could not write the book record to the vault: {{detail}}",
     "noteDraftError": "Your open note could not be saved; the book's note was not changed.",
-    "noteError": "Could not update the book's note: {{detail}}"
+    "noteError": "Could not update the book's note: {{detail}}",
+    "epub": {
+      "drm": "This book is DRM-protected and can't be opened.",
+      "notEpub": "This file isn't a valid EPUB.",
+      "chapterError": "This chapter couldn't be opened.",
+      "toc": "Contents",
+      "prev": "Previous chapter",
+      "next": "Next chapter"
+    },
+    "pdf": {
+      "missingLib": "The PDF reader isn't included in this version.",
+      "password": "This PDF is password-protected and can't be opened."
+    }
   }
 }

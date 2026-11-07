@@ -21,7 +21,7 @@ not penceresini ve kayıtları yönetir; bu parça yalnız sayfaları gösterir,
   ile `node_modules/pdfjs-dist/legacy/build/pdf.min.mjs` aranır. Paket kurulu değilse glob boş
   döner; tip denetimi ve derleme bozulmaz, okuyucu "PDF okuyucu bu sürümde kurulu değil" der.
   `exhaustive: true` şart: Vite glob'u yoksa `node_modules`'u atlar.
-- **Kurulum (onay gerekir):** `npm install pdfjs-dist@^5`. Kod değişmeden devreye girer.
+- **Kurulu:** `pdfjs-dist@^5.7` package.json'da (LOM-83 incelemesinden sonra eklendi).
   5.x paketi Node 22.13+ ister (yalnız kurulum/derleme makinesi için).
 - `legacy` derlemesi seçildi: macOS 11 ve eski Android WebView'da yeni JS özellikleri yok.
 - Çalışan (worker) `?url` ile ayrı varlık olarak paketlenir (`assets/pdf.worker.min-*.mjs`) ve
