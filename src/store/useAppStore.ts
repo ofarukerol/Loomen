@@ -4464,15 +4464,19 @@ export const useAppStore = create<AppState>()(
             if (!(await bookCommit(res.book))) break;
             touched++;
             try {
-              if (res.created) {
-                // Not henüz yok: şablon bütün çizimleriyle oluşur.
-                await syncBookNote(id, (t) => t);
-              } else {
+              {
+                // Not yoksa şablon bütün çizimleriyle oluşur. Not zaten varsa (ör. raftan kaldırılıp
+                // yeniden alınan kitap) yalnız notta OLMAYAN bloklar eklenir; var olan bloğa —
+                // kullanıcı içine yazmış olabilir — dokunulmaz.
                 const labels = libraryNoteLabels();
                 const order = res.book.highlights.map((h) => h.id);
+                const toInsert = res.created ? res.book.highlights : res.added;
                 await syncBookNote(id, (t, b) => {
                   let out = t;
-                  for (const h of res.added) out = insertHighlightBlock(out, b, h, order, labels);
+                  for (const h of toInsert) {
+                    if (blockState(out, h.id) === "missing") out = insertHighlightBlock(out, b, h, order, labels);
+                  }
+                  if (res.created) return out;
                   for (const u of res.updated) {
                     const next = updateHighlightBlock(out, b, u.next, order, labels, u.prev);
                     if (next === out && blockState(out, u.next.id) === "ok") edited = true;

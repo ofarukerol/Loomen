@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Masaüstü ana pencere izinleri. Mobil için ayrı dosya: mobile.json (orada $HOME yok). Kindle (LOM-84): /Volumes, /media, /run/media yalnız okunur (metin, klasör, var mı); yazma izni yok.",
+  "description": "Masaüstü ana pencere izinleri. Mobil için ayrı dosya: mobile.json (orada $HOME yok). Kindle (LOM-84): dış disklerde yalnız disk adları listelenir ve yalnız documents/My Clippings.txt okunur; yazma izni yok.",
   "platforms": ["macOS", "windows", "linux"],
   "windows": ["main"],
   "permissions": [
@@ -18,9 +18,10 @@
       "allow": [
         { "path": "$HOME/**" },
         { "path": "$APPDATA/**" },
-        { "path": "/Volumes/**" },
-        { "path": "/media/**" },
-        { "path": "/run/media/**" }
+        { "path": "/Volumes/*/documents/My Clippings.txt" },
+        { "path": "/media/*/documents/My Clippings.txt" },
+        { "path": "/media/*/*/documents/My Clippings.txt" },
+        { "path": "/run/media/*/*/documents/My Clippings.txt" }
       ]
     },
     {
@@ -46,10 +47,9 @@
         { "path": "$APPDATA/**/.trash/**" },
         { "path": "/Volumes" },
         { "path": "/media" },
+        { "path": "/media/*" },
         { "path": "/run/media" },
-        { "path": "/Volumes/**" },
-        { "path": "/media/**" },
-        { "path": "/run/media/**" }
+        { "path": "/run/media/*" }
       ]
     },
     {
@@ -61,9 +61,10 @@
         { "path": "$APPDATA/**" },
         { "path": "$APPDATA/**/.trash" },
         { "path": "$APPDATA/**/.trash/**" },
-        { "path": "/Volumes/**" },
-        { "path": "/media/**" },
-        { "path": "/run/media/**" }
+        { "path": "/Volumes/*/documents/My Clippings.txt" },
+        { "path": "/media/*/documents/My Clippings.txt" },
+        { "path": "/media/*/*/documents/My Clippings.txt" },
+        { "path": "/run/media/*/*/documents/My Clippings.txt" }
       ]
     },
     {

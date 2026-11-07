@@ -189,6 +189,9 @@ function parseMeta(line: string): Meta {
   return out;
 }
 
+/** Kindle'ın kırpma sınırı uyarısı (alıntı metninin yerine yazılır). */
+const CLIP_LIMIT_RE = /^<[^<>\n]*(clipping limit|limite|sınır)[^<>\n]*>$/i;
+
 /**
  * Kindle "My Clippings.txt" metnini girdilere ayır. Baştaki (ve girdi başlarındaki) görünmez
  * BOM işareti ile Windows satır sonları temizlenir. Bilinmeyen dilde konum ve metni olan girdi
@@ -213,6 +216,8 @@ export function parseClippings(text: string): KindleClipping[] {
       type = "highlight";
     }
     if (type !== "bookmark" && !body) return;
+    // Kindle sınır dolunca alıntı yerine "<You have reached the clipping limit…>" yazar: alıntı değil.
+    if (type === "highlight" && CLIP_LIMIT_RE.test(body)) return;
     const c: KindleClipping = { title, type, text: type === "bookmark" ? "" : body };
     if (author) c.author = author;
     if (meta.page !== undefined) c.page = meta.page;

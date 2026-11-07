@@ -253,6 +253,14 @@ check("büyümüş dosya tekrar alınınca da çoğalmaz", fourth.added === 0 &&
   check("yeni kayıt özetsiz oluşmaz", threw);
 }
 
+// Kırpma sınırı uyarısı alıntı sayılmaz (inceleme bulgusu)
+{
+  const lim = entry("Dune (Frank Herbert)", "- Your Highlight on page 99 | Location 900-901 | Added on Monday, 3 April 2023 10:15:22", "<You have reached the clipping limit for this item>");
+  const real = entry("Dune (Frank Herbert)", "- Your Highlight on page 98 | Location 890-891 | Added on Monday, 3 April 2023 10:15:22", "<b>gerçek</b> metin");
+  const got = parseClippings([lim, real].join("\n"));
+  check("kırpma sınırı uyarısı atılır, gerçek alıntı kalır", got.length === 1 && got[0].text.includes("gerçek"));
+}
+
 if (fails) {
   console.error(`\n${fails} kontrol başarısız`);
   process.exit(1);

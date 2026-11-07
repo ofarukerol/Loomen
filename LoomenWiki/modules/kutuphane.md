@@ -102,6 +102,9 @@ kullanıcının notu (varsa)
   kartta "KINDLE" rozeti, ilerleme ve "Oku" yok. Raftan kaldırınca yalnız kayıt çöpe gider (dosya yok).
 - **Kapsam dışı:** Kindle kitabını aynı PDF/EPUB kaydıyla eşleştirme, metnini gösterme, yer imleri,
   Kindle'da silinen çizimin Loomen'dan silinmesi, Amazon bulutu, kapak indirme, mobilde USB tanıma.
+- **Bilinen sınırlar:** Kindle'da uzatılıp kısaltılan çizim yeni aralıkla yeni girdi olarak gelir; eski de kalır (kimlik = aralık + metin). Kitabın başlık/yazar yazımı değişirse ayrı kitap olur. Kindle'daki not, Loomen'de değiştirilen notun üstüne yazar (blok elle değiştirildiyse blok korunur). "Clipping limit" uyarısı alıntı sayılmaz.
+- **Not tamamlama:** raftan kaldırılıp yeniden alınan kitapta not zaten varsa yalnız notta olmayan bloklar eklenir; var olan bloğa dokunulmaz.
+- **İzin:** dış disklerde yalnız disk adları listelenir, yalnız `documents/My Clippings.txt` okunur; yazma yok.
 
 ## Kod
 - Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`, `kindle`).
