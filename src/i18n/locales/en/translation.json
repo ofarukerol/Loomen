@@ -1595,6 +1595,7 @@
     "pdf": {
       "missingLib": "The PDF reader isn't included in this version.",
       "password": "This PDF is password-protected and can't be opened."
-    }
+    },
+    "blockEdited": "You edited this quote in the note, so the note was left unchanged."
   }
 }

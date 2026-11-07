@@ -115,6 +115,9 @@ check("şablon bütün çizimleri sırayla içerir", blockIds(tpl).join(",") ===
   const edited = base.replace("<!-- /loomen:hl g1 -->", "Benim yorumum\n<!-- /loomen:hl g1 -->");
   check("elle değişmiş blok güncellenmez", updateHighlightBlock(edited, up, h2, ["g1"], undefined, r.highlight) === edited);
   check("elle değişmiş blok silinmez", removeHighlightBlock(edited, "g1", { book: r.book, h: r.highlight }) === edited);
+  const EN = { page: "p. {n}", section: "Section {n}", openBook: "Open book", quotes: "Highlights" };
+  check("dil değişse de dokunulmamış blok silinir", blockState(removeHighlightBlock(base, "g1", { book: r.book, h: r.highlight, labels: EN }), "g1") === "missing");
+  check("dil değişse de dokunulmamış blok güncellenir", updateHighlightBlock(base, up, h2, ["g1"], EN, r.highlight) !== base);
   check("dokunulmamış blok silinir", blockState(removeHighlightBlock(base, "g1", { book: r.book, h: r.highlight }), "g1") === "missing");
 }
 

@@ -173,6 +173,7 @@ import {
   createTauriBookFiles,
   detectFormat,
   freeNotePath,
+  blockState,
   insertHighlightBlock,
   isShelfFilter,
   loadBooks,
@@ -4410,7 +4411,13 @@ export const useAppStore = create<AppState>()(
       if (!h) return;
       const order = next.highlights.map((x) => x.id);
       try {
-        await syncBookNote(book.id, (text, b) => updateHighlightBlock(text, b, h, order, libraryNoteLabels(), prev));
+        let skipped = false;
+        await syncBookNote(book.id, (text, b) => {
+          const out = updateHighlightBlock(text, b, h, order, libraryNoteLabels(), prev);
+          skipped = out === text && blockState(text, hlId) === "ok";
+          return out;
+        });
+        if (skipped) await notifyError(i18n.t("library.blockEdited"), "info");
       } catch (e) {
         await noteSyncFailed(e);
       }
@@ -4423,9 +4430,13 @@ export const useAppStore = create<AppState>()(
       const next = bookRemoveHighlight(book, hlId, Date.now());
       if (next === book || !(await bookCommit(next))) return;
       try {
-        await syncBookNote(book.id, (text, b) =>
-          removeHighlightBlock(text, hlId, prev ? { book: b, h: prev, labels: libraryNoteLabels() } : undefined),
-        );
+        let skipped = false;
+        await syncBookNote(book.id, (text, b) => {
+          const out = removeHighlightBlock(text, hlId, prev ? { book: b, h: prev, labels: libraryNoteLabels() } : undefined);
+          skipped = out === text && blockState(text, hlId) === "ok";
+          return out;
+        });
+        if (skipped) await notifyError(i18n.t("library.blockEdited"), "info");
       } catch (e) {
         await noteSyncFailed(e);
       }

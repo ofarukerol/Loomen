@@ -1595,6 +1595,7 @@
     "pdf": {
       "missingLib": "PDF okuyucu bu sürümde kurulu değil.",
       "password": "Bu PDF parolalı; açılamıyor."
-    }
+    },
+    "blockEdited": "Bu alıntıyı notta elle değiştirmişsin; notuna dokunmadım."
   }
 }

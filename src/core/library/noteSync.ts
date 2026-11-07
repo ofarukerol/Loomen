@@ -207,10 +207,18 @@ export function insertHighlightBlock(
   return join(lines, eol);
 }
 
-/** Blok, verilen satırlarla birebir aynı mı (baştaki/sondaki boşluklar sayılmaz). */
+/**
+ * Karşılaştırma için satırı düzle: sondaki boşluk gider; kitap bağlantısının etiketi
+ * ("s. 12" / "p. 12") maskelenir — arayüz dili değişince blok "elle değişmiş" sayılmasın.
+ */
+function normLine(l: string): string {
+  return l.trimEnd().replace(/^(\S+) \[(?:\\.|[^\]\\])*\]\((loomen:\/\/book\/[^)\s]*)\)$/, "$1 []($2)");
+}
+
+/** Blok, verilen satırlarla aynı mı (sondaki boşluk ve bağlantı etiketi sayılmaz). */
 function blockMatches(lines: string[], b: Block, expected: string[]): boolean {
   const cur = lines.slice(b.start, b.end + 1);
-  return cur.length === expected.length && cur.every((l, i) => l.trimEnd() === expected[i].trimEnd());
+  return cur.length === expected.length && cur.every((l, i) => normLine(l) === normLine(expected[i]));
 }
 
 function replaceAt(lines: string[], eol: string, b: Block, block: string[]): string {
