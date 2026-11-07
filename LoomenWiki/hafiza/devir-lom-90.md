@@ -1,12 +1,11 @@
 ---
 name: LOM-90 — Geniş ekranda not ve tablo bütün genişliği kullansın
-description: Not editöründe düzenleme ve okuma modundaki 760/680 px genişlik sınırı, Ayarlar → Editör'e eklenen "Tam genişlik" anahtarıyla (varsayılan açık) kaldırılır; tablolar geniş ekranda sütunun tamamını kullanır.
+description: Testler kaldı: Not editöründe düzenleme ve okuma modundaki 760/680 px genişlik sınırı, Ayarlar → Editör'e eklenen "Tam genişlik" anahtarıyla (varsayılan açık) kaldırılır; tablolar geniş ekranda sütunun tamamını kullanır.
 type: project
 proje: loomen
-kaynak: kart LOM-90 · dal fix/LOM-90 · Loomen@3000969aed259d3cd8565a0dde96d2d2d75c87c8 · test koşusu fafcbbb7-0273-48a5-99f4-425aaa408fd7 (Excalibur)
-guven: dogrulandi
-durum: test_gecti
-dogrulama_tarihi: 2026-11-07
+kaynak: kart LOM-90 · dal fix/LOM-90 · commit yok · test koşusu 93e98491-8d49-419f-86e5-7de15e926460 (Excalibur)
+guven: iddia
+durum: gelistirildi
 ---
 
 # LOM-90 — Geniş ekranda not ve tablo bütün genişliği kullansın
@@ -43,16 +42,15 @@ Not editöründe düzenleme ve okuma modundaki 760/680 px genişlik sınırı, A
 
 ## Test
 
-Testler geçti.
+Testler KALDI; iş doğrulanmadı.
 
-> npm test koşuldu: 43 test dosyasının tümü geçti, yeni tam genişlik testi 24/24. Tip denetimi hatasız bitti. Canlı doğrulama insana kaldı.
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-90`
-- Commit: `Loomen@3000969aed259d3cd8565a0dde96d2d2d75c87c8`
-- Test koşusu: `fafcbbb7-0273-48a5-99f4-425aaa408fd7` (Excalibur)
+- Test koşusu: `93e98491-8d49-419f-86e5-7de15e926460` (Excalibur)
 
 ## Durum
 
-Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.
+Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
