@@ -160,9 +160,54 @@ import {
   type NewHabitInput,
   type EditHabitInput,
 } from "../core/habit";
+import {
+  LARGE_BOOK_BYTES,
+  addHighlight as bookAddHighlight,
+  applyMeta as bookApplyMeta,
+  baseName as bookBaseName,
+  bookFileName,
+  bookIdFromHash,
+  bookNoteTemplate,
+  coverFileName,
+  createMemoryBookFiles,
+  createTauriBookFiles,
+  detectFormat,
+  freeNotePath,
+  insertHighlightBlock,
+  isShelfFilter,
+  loadBooks,
+  locateBookNote,
+  markOpened as bookMarkOpened,
+  newBook,
+  newHighlightId,
+  normalizeReaderPrefs,
+  parseBookLink,
+  positionOfAnchor,
+  removeBook,
+  removeHighlight as bookRemoveHighlight,
+  removeHighlightBlock,
+  saveBook,
+  setPosition as bookSetPosition,
+  setStatus as bookSetStatus,
+  sha256Hex,
+  updateHighlight as bookUpdateHighlight,
+  updateHighlightBlock,
+  type Book,
+  type BookFileStore,
+  type BookPosition,
+  type BookStatus,
+  type Highlight,
+  type HighlightPatch,
+  type LibraryVault,
+  type NewHighlightInput,
+  type NoteLabels,
+  type ReaderPrefs,
+  type ShelfFilter,
+} from "../core/library";
+import type { BookMeta, ReaderTarget } from "../screens/Library/readerTypes";
 
 export type Theme = "light" | "dark";
-export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help" | "assistant" | "review" | "habits";
+export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help" | "assistant" | "review" | "habits" | "library" | "reader";
 export type PlannerLayout = "timeline" | "board";
 export type Lang = "tr" | "en" | "ar";
 export type EditorTab = "daily" | "proje" | "fikirler";
@@ -417,6 +462,25 @@ interface AppState {
   /** Planner'daki "Bugünün alışkanlıkları" kartı daraltılmış mı (LOM-62). */
   habitTodayCollapsed: boolean;
 
+  // Kütüphane (LOM-83) — kayıtlar kasadaki Kütüphane/<id>.json dosyalarında, kitap dosyaları
+  // uygulama klasöründe. localStorage'a yalnız raf süzgeci ve okuyucu tercihleri girer.
+  books: Book[];
+  booksLoaded: boolean;
+  /** Okunamayan kayıt dosyaları — üstlerine yazılmaz. */
+  libraryBroken: string[];
+  libraryFilter: ShelfFilter;
+  /** İçe aktarma sürüyor. */
+  libraryBusy: boolean;
+  /** Kitap kimliği → kapak resminin geçici adresi (blob URL). */
+  libraryCovers: Record<string, string>;
+  /** Okuyucuda açık kitap. */
+  readerBookId: string | null;
+  /** Okuyucuya atlama isteği (bağlantı, çizim listesi). */
+  readerTarget: ReaderTarget | null;
+  /** Okuyucu kapanınca dönülecek ekran. */
+  readerReturn: Screen;
+  readerPrefs: ReaderPrefs;
+
   // Pomodoro
   pomo: PomodoroSettings;
   /** Pomodoro başlayınca/bitince ses çal. */
@@ -669,6 +733,42 @@ interface AppState {
    *  Boş ad / geçersiz renk hata atar; kayıt hatası HabitSaveError atar; değişiklik yoksa ya da kasa değiştiyse null döner. */
   habitEdit: (id: string, input: EditHabitInput) => Promise<Habit | null>;
   toggleHabitToday: () => void;
+
+  // Kütüphane aksiyonları (LOM-83).
+  /** Kütüphane/ klasörünü baştan oku. */
+  libraryLoad: () => Promise<void>;
+  /** Dosya seçtir ve kitapları rafa ekle (kopya uygulama klasörüne, kayıt + not kasaya). */
+  libraryImport: () => Promise<void>;
+  /** Bu cihazda dosyası olmayan kitabın dosyasını yeniden seçtir (özet tutmalı). */
+  libraryRelink: (id: string) => Promise<boolean>;
+  librarySetStatus: (id: string, status: BookStatus) => Promise<void>;
+  /** Kitabı raftan kaldır: kayıt çöpe, cihazdaki kopya ve kapak silinir; not kasada kalır. */
+  libraryRemove: (id: string) => Promise<void>;
+  librarySetFilter: (f: ShelfFilter) => void;
+  /** Kapakları (varsa) yükle. */
+  libraryLoadCovers: () => Promise<void>;
+  /** Kitabı okuyucuda aç; `target` verilirse o çizime/sayfaya gider. */
+  libraryOpenReader: (id: string, target?: { highlightId?: string; page?: number }) => void;
+  libraryCloseReader: () => void;
+  /** Kitap dosyasının baytları; bu cihazda yoksa hata atar. */
+  libraryReadFile: (id: string) => Promise<Uint8Array>;
+  /** Çizim ekle (kayıt + not bloğu). Kaydedilemezse null. */
+  libraryAddHighlight: (input: NewHighlightInput) => Promise<Highlight | null>;
+  libraryUpdateHighlight: (hlId: string, patch: HighlightPatch) => Promise<void>;
+  libraryRemoveHighlight: (hlId: string) => Promise<void>;
+  /** Okuyucuyu bir çizime/konuma götür. */
+  libraryJump: (target: Omit<ReaderTarget, "seq">) => void;
+  /** Kalınan yer (gecikmeli yazılır). */
+  librarySavePosition: (pos: BookPosition, progress: number) => void;
+  /** Bekleyen konum kaydını hemen yaz. */
+  libraryFlushPosition: () => Promise<void>;
+  /** Okuyucunun bildirdiği başlık/yazar/sayfa ve kapak. */
+  librarySetMeta: (meta: BookMeta) => Promise<void>;
+  /** `loomen://book/...` bağlantısını aç; tanınmazsa false. */
+  libraryOpenLink: (href: string) => boolean;
+  /** Kitabın notunu aç (yoksa oluşturur). */
+  libraryOpenNote: (id: string) => Promise<void>;
+  readerSetPrefs: (patch: Partial<ReaderPrefs>) => void;
 }
 
 /** Boş Excalidraw sahnesi (yeni çizim oluştururken). */
@@ -824,6 +924,38 @@ let habitGen = 0;
 class HabitVaultChanged extends Error {}
 /** Pencereden yapılan alışkanlık kaydı yazılamadı (LOM-63): pencere açık kalır, ileti orada görünür. */
 export class HabitSaveError extends Error {}
+
+/**
+ * Kütüphane kasası (LOM-83): hangi backend için okundu, son bilinen kayıt metinleri. Okuma ve
+ * yazmalar alışkanlıktaki gibi SIRAYLA. Kitap dosyaları kasa dışında, uygulama klasöründe.
+ */
+let libraryVault: LibraryVault | null = null;
+let libraryVaultOf: VaultBackend | null = null;
+let libraryOps: Promise<unknown> = Promise.resolve();
+function queueLibraryOp<T>(fn: () => Promise<T>): Promise<T> {
+  const next = libraryOps.then(fn, fn);
+  libraryOps = next.catch(() => {});
+  return next;
+}
+let libraryGen = 0;
+class LibraryVaultChanged extends Error {}
+let bookFiles: BookFileStore | null = null;
+const getBookFiles = (): BookFileStore => (bookFiles ??= isTauri() ? createTauriBookFiles() : createMemoryBookFiles());
+/** Kalınan yer: son bildirilen değer ve gecikmeli kayıt zamanlayıcısı. */
+let pendingPosition: { id: string; pos: BookPosition; progress: number } | null = null;
+let positionTimer: ReturnType<typeof setTimeout> | null = null;
+const POSITION_SAVE_MS = 2000;
+let readerSeq = 0;
+
+/** Notta görünen yazılar etkin dilden. */
+function libraryNoteLabels(): NoteLabels {
+  return {
+    quotes: i18n.t("library.note.quotes"),
+    openBook: i18n.t("library.note.openBook"),
+    page: i18n.t("library.note.page", { n: "{n}" }),
+    section: i18n.t("library.note.section", { n: "{n}" }),
+  };
+}
 
 /**
  * Kasa açma/değiştirme işlemleri SIRAYLA çalışır. bootstrap() ile persist rehydrate'i
@@ -983,6 +1115,149 @@ export const useAppStore = create<AppState>()(
     void refreshTrash();
     void refreshSrs();
     void refreshHabits();
+    void refreshLibrary();
+  }
+
+  /** Kütüphaneyi kasadan yeniden oku. Kasa değiştiyse eski kasanın kitapları önce kalkar. */
+  async function refreshLibrary(): Promise<void> {
+    if (libraryVaultOf !== backend) {
+      libraryGen++;
+      libraryVault = null;
+      libraryVaultOf = null;
+      if (pendingPosition) {
+        // Eski kasanın bekleyen konumu yeni kasaya yazılmasın.
+        pendingPosition = null;
+        if (positionTimer) clearTimeout(positionTimer);
+        positionTimer = null;
+      }
+      const st = get();
+      set({
+        books: [],
+        booksLoaded: false,
+        libraryBroken: [],
+        readerBookId: null,
+        readerTarget: null,
+        screen: st.screen === "reader" ? "library" : st.screen,
+      });
+    }
+    try {
+      await get().libraryLoad();
+    } catch (err) {
+      console.error("[library] kitaplar okunamadı:", err);
+    }
+  }
+
+  /** Kitap kaydını bellekte hemen güncelle, sonra sırayla yaz. Hata olursa diske döner, bildirir. */
+  async function bookCommit(next: Book, quiet = false): Promise<boolean> {
+    const src = backend;
+    libraryGen++;
+    const prev = get().books.find((b) => b.id === next.id);
+    set((st) => ({ books: prev ? st.books.map((b) => (b.id === next.id ? next : b)) : [...st.books, next] }));
+    try {
+      await queueLibraryOp(async () => {
+        if (backend !== src || libraryVaultOf !== src || !libraryVault) throw new LibraryVaultChanged("Kasa değişti");
+        await saveBook(src, next, libraryVault);
+      });
+      return true;
+    } catch (e) {
+      set((st) => ({
+        books: st.books.flatMap((b) => (b === next ? (prev ? [prev] : []) : [b])),
+      }));
+      if (e instanceof LibraryVaultChanged) return false;
+      console.error("[library] kaydedilemedi:", e);
+      libraryGen++;
+      void get().libraryLoad().catch(() => {});
+      if (!quiet) await notifyError(i18n.t("library.saveError", { detail: errText(e) }));
+      return false;
+    }
+  }
+
+  const bookById = (id: string | null) => (id ? (get().books.find((b) => b.id === id) ?? null) : null);
+
+  /**
+   * Kitabın notunu değiştir (çizim bloğu ekle/güncelle/sil). Aktif notun taslağı önce yazılır,
+   * metin DİSKTEN okunur, değişmişse yazılır ve kasa yeniden okunur (aiApplyProposal emsali).
+   * Not bulunamazsa (silinmiş) kitabın bütün çizimleriyle yeniden oluşturulur. Not taşındıysa
+   * kayıttaki yol güncellenir.
+   */
+  async function syncBookNote(bookId: string, edit: (text: string, book: Book) => string): Promise<void> {
+    const src = backend;
+    await queueFileOp(async () => {
+      if (!(await flushDraft())) throw new Error(i18n.t("library.noteDraftError"));
+      const book = bookById(bookId);
+      if (!book || backend !== src) return;
+      const labels = libraryNoteLabels();
+      let path = locateBookNote(get().noteContents, book);
+      if (path && !(await src.exists(path))) path = null;
+      if (path) {
+        const cur = await src.readNote(path);
+        const next = edit(cur, book);
+        if (next !== cur) await src.writeNote(path, next);
+      } else {
+        const taken = new Set(get().notes.map((n) => n.path));
+        let target = freeNotePath(book.title, (p) => taken.has(p));
+        while (await src.exists(target)) {
+          taken.add(target);
+          target = freeNotePath(book.title, (p) => taken.has(p));
+        }
+        const dir = target.slice(0, target.lastIndexOf("/"));
+        await src.ensureDir(dir);
+        await src.writeNote(target, bookNoteTemplate(book, labels));
+        path = target;
+      }
+      await loadFromBackend();
+      if (path !== book.notePath) {
+        const now = bookById(bookId);
+        if (now) await bookCommit({ ...now, notePath: path, updatedAt: Date.now() }, true);
+      }
+    });
+  }
+
+  async function noteSyncFailed(e: unknown): Promise<void> {
+    console.error("[library] not güncellenemedi:", e);
+    await notifyError(i18n.t("library.noteError", { detail: errText(e) }));
+  }
+
+  /** Seçilen dosyanın baytları (masaüstü yol; Android içerik adresi de plugin-fs ile okunur). */
+  async function readPickedFile(path: string): Promise<Uint8Array> {
+    const fs = await import("@tauri-apps/plugin-fs");
+    return fs.readFile(path);
+  }
+
+  async function pickBookFiles(multiple: boolean): Promise<string[]> {
+    if (!isTauri()) return [];
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const sel = await open({
+      multiple,
+      directory: false,
+      title: i18n.t("library.pickTitle"),
+      filters: [{ name: i18n.t("library.pickFilter"), extensions: ["pdf", "epub"] }],
+    });
+    if (!sel) return [];
+    return Array.isArray(sel) ? sel : [sel];
+  }
+
+  /**
+   * Kapak adresini kaydet. Aynı kitap için iki yükleme yarışırsa (içe aktarma sonrası + raf
+   * açılışı) ilk adres kalır, yenisi hemen bırakılır: sahipsiz blob adresi birikmesin.
+   */
+  function putCover(id: string, url: string): void {
+    if (get().libraryCovers[id]) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+    set((st) => ({ libraryCovers: { ...st.libraryCovers, [id]: url } }));
+  }
+
+  async function revokeCover(id: string): Promise<void> {
+    const url = get().libraryCovers[id];
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    set((st) => {
+      const next = { ...st.libraryCovers };
+      delete next[id];
+      return { libraryCovers: next };
+    });
   }
 
   /**
@@ -1635,6 +1910,17 @@ export const useAppStore = create<AppState>()(
     habitHistoryFilter: "all",
     habitTodayCollapsed: false,
 
+    books: [],
+    booksLoaded: false,
+    libraryBroken: [],
+    libraryFilter: "all",
+    libraryBusy: false,
+    libraryCovers: {},
+    readerBookId: null,
+    readerTarget: null,
+    readerReturn: "library",
+    readerPrefs: normalizeReaderPrefs(undefined),
+
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoSound: true,
     pomoRemaining: FOCUS_MIN * 60,
@@ -1869,8 +2155,16 @@ export const useAppStore = create<AppState>()(
         if (id === "habits" && !on) set({ habitDetailId: null });
       }
       // Kapatılan özelliğin ekranı o an açıksa Planner'a dön.
-      const screenOf: Partial<Record<FeatureId, Screen>> = { habits: "habits", assistant: "assistant", review: "review" };
-      if (!on && screenOf[id] && get().screen === screenOf[id]) set({ screen: "planner" });
+      const screenOf: Partial<Record<FeatureId, Screen[]>> = {
+        habits: ["habits"],
+        assistant: ["assistant"],
+        review: ["review"],
+        library: ["library", "reader"],
+      };
+      if (!on && screenOf[id]?.includes(get().screen)) {
+        if (id === "library") get().libraryCloseReader();
+        set({ screen: "planner" });
+      }
     },
     setFocusExpanded: (focusExpanded) => set({ focusExpanded }),
     todayNotePath: () => todayDailyPath(),
@@ -3870,6 +4164,344 @@ export const useAppStore = create<AppState>()(
 
     toggleHabitToday: () => set((s) => ({ habitTodayCollapsed: !s.habitTodayCollapsed })),
 
+    // ——— Kütüphane (LOM-83) ———
+    // NOTE_SAFETY: kitap notunda yalnız `<!-- loomen:hl … -->` işaretleri arasına dokunulur.
+    libraryLoad: async () => {
+      const src = backend;
+      const gen = libraryGen;
+      await queueLibraryOp(async () => {
+        const loaded = await loadBooks(src);
+        if (backend !== src) return;
+        const { books: disk, ...vault } = loaded;
+        let books = disk;
+        if (gen !== libraryGen) {
+          if (libraryVaultOf === src && libraryVault) return; // okuma sürerken değişiklik oldu: bayat
+          const mem = new Map(get().books.map((b) => [b.id, b]));
+          books = [...disk.map((b) => mem.get(b.id) ?? b), ...[...mem.values()].filter((b) => !disk.some((d) => d.id === b.id))];
+        }
+        libraryVault = vault;
+        libraryVaultOf = src;
+        const open = get().readerBookId;
+        const gone = !!open && !books.some((b) => b.id === open);
+        set({
+          books,
+          booksLoaded: true,
+          libraryBroken: vault.broken,
+          ...(gone ? { readerBookId: null, readerTarget: null, screen: get().screen === "reader" ? "library" : get().screen } : {}),
+        });
+      });
+    },
+
+    libraryImport: async () => {
+      if (get().libraryBusy) return;
+      if (!isTauri()) {
+        await notifyError(i18n.t("library.appOnly"), "info");
+        return;
+      }
+      let paths: string[];
+      try {
+        paths = await pickBookFiles(true);
+      } catch (e) {
+        await notifyError(i18n.t("library.pickError", { detail: errText(e) }));
+        return;
+      }
+      if (paths.length === 0) return;
+      set({ libraryBusy: true });
+      const src = backend;
+      const skipped: string[] = [];
+      try {
+        if (libraryVaultOf !== src) await get().libraryLoad();
+        for (const path of paths) {
+          const name = bookBaseName(path);
+          try {
+            const data = await readPickedFile(path);
+            const format = detectFormat(name, data);
+            if (!format) {
+              skipped.push(i18n.t("library.notBook", { name }));
+              continue;
+            }
+            if (data.length > LARGE_BOOK_BYTES) {
+              const { ask } = await import("@tauri-apps/plugin-dialog");
+              const mb = Math.round(data.length / (1024 * 1024));
+              if (!(await ask(i18n.t("library.largeAsk", { name, mb }), { title: "Loomen", kind: "warning" }))) continue;
+            }
+            const hash = await sha256Hex(data);
+            const id = bookIdFromHash(hash);
+            const existing = bookById(id);
+            const files = getBookFiles();
+            const fileName = bookFileName({ hash, format });
+            // Kayıt başka cihazdan gelmiş, dosya bu cihazda yoksa: yalnız dosya kopyalanır.
+            if (!(await files.exists(fileName))) await files.write(fileName, data);
+            if (existing) {
+              skipped.push(i18n.t("library.already", { name: existing.title }));
+              continue;
+            }
+            if (get().libraryBroken.includes(`${id}.json`)) {
+              skipped.push(i18n.t("library.brokenRecord", { name }));
+              continue;
+            }
+            // Not yolu başlıktan; syncBookNote diskte doluysa yine boş ada geçer.
+            const taken = new Set(get().notes.map((n) => n.path));
+            const draft = newBook({ hash, size: data.length, fileName: name, format, notePath: "_.md" }, Date.now());
+            const book: Book = { ...draft, notePath: freeNotePath(draft.title, (p) => taken.has(p)) };
+            if (!(await bookCommit(book))) break;
+            try {
+              // Not henüz yok: kitabın notu oluşturulur.
+              await syncBookNote(book.id, (text) => text);
+            } catch (e) {
+              await noteSyncFailed(e);
+            }
+          } catch (e) {
+            console.error("[library] içe aktarılamadı:", e);
+            skipped.push(i18n.t("library.importError", { name, detail: errText(e) }));
+          }
+        }
+      } finally {
+        set({ libraryBusy: false });
+      }
+      if (skipped.length) await notifyError(skipped.join("\n"), "info");
+      void get().libraryLoadCovers();
+    },
+
+    libraryRelink: async (id) => {
+      const book = bookById(id);
+      if (!book || !isTauri()) return false;
+      const [path] = await pickBookFiles(false);
+      if (!path) return false;
+      try {
+        const data = await readPickedFile(path);
+        const hash = await sha256Hex(data);
+        if (hash !== book.hash) {
+          await notifyError(i18n.t("library.relinkMismatch", { name: book.title }));
+          return false;
+        }
+        await getBookFiles().write(bookFileName(book), data);
+        return true;
+      } catch (e) {
+        await notifyError(i18n.t("library.importError", { name: bookBaseName(path), detail: errText(e) }));
+        return false;
+      }
+    },
+
+    librarySetStatus: async (id, status) => {
+      const book = bookById(id);
+      if (!book) return;
+      const next = bookSetStatus(book, status, Date.now());
+      if (next !== book) await bookCommit(next);
+    },
+
+    libraryRemove: async (id) => {
+      const book = bookById(id);
+      if (!book) return;
+      if (get().readerBookId === id) get().libraryCloseReader();
+      const src = backend;
+      libraryGen++;
+      try {
+        await queueLibraryOp(async () => {
+          if (backend !== src || libraryVaultOf !== src || !libraryVault) throw new LibraryVaultChanged("Kasa değişti");
+          await removeBook(src, id, libraryVault);
+        });
+      } catch (e) {
+        if (e instanceof LibraryVaultChanged) return;
+        console.error("[library] kaldırılamadı:", e);
+        await notifyError(i18n.t("library.saveError", { detail: errText(e) }));
+        void get().libraryLoad().catch(() => {});
+        return;
+      }
+      set((st) => ({ books: st.books.filter((b) => b.id !== id) }));
+      // Cihazdaki kopya ve kapak: yeniden üretilebilir, kasada değil.
+      const files = getBookFiles();
+      for (const name of [bookFileName(book), coverFileName(id, "image/png"), coverFileName(id, "image/jpeg")]) {
+        await files.remove(name).catch((e) => console.warn("[library] dosya silinemedi:", name, e));
+      }
+      await revokeCover(id);
+      await loadFromBackend();
+    },
+
+    librarySetFilter: (f) => set({ libraryFilter: isShelfFilter(f) ? f : "all" }),
+
+    libraryLoadCovers: async () => {
+      const files = getBookFiles();
+      for (const b of get().books) {
+        if (get().libraryCovers[b.id]) continue;
+        for (const mime of ["image/jpeg", "image/png"]) {
+          const name = coverFileName(b.id, mime);
+          try {
+            if (!(await files.exists(name))) continue;
+            const data = await files.read(name);
+            const url = URL.createObjectURL(new Blob([data as BlobPart], { type: mime }));
+            putCover(b.id, url);
+            break;
+          } catch (e) {
+            console.warn("[library] kapak okunamadı:", name, e);
+          }
+        }
+      }
+    },
+
+    libraryOpenReader: (id, target) => {
+      const s = get();
+      const book = bookById(id);
+      if (!book) {
+        void notifyError(i18n.t("library.missingBook"), "info");
+        return;
+      }
+      if (s.readerBookId && s.readerBookId !== id) void get().libraryFlushPosition();
+      let readerTarget: ReaderTarget | null = null;
+      if (target?.highlightId) {
+        const h = book.highlights.find((x) => x.id === target.highlightId);
+        if (h) readerTarget = { seq: ++readerSeq, anchor: h.anchor, position: positionOfAnchor(h.anchor), highlightId: h.id };
+      }
+      if (!readerTarget && target?.page && book.format === "pdf") {
+        readerTarget = { seq: ++readerSeq, position: { kind: "pdf", page: target.page, offset: 0 } };
+      }
+      set({
+        readerBookId: id,
+        readerTarget,
+        readerReturn: s.screen === "reader" ? s.readerReturn : s.screen,
+        screen: "reader",
+      });
+      const opened = bookMarkOpened(book, Date.now());
+      if (opened !== book) void bookCommit(opened);
+    },
+
+    libraryCloseReader: () => {
+      void get().libraryFlushPosition();
+      const s = get();
+      if (!s.readerBookId) return;
+      const back = s.readerReturn === "reader" ? "library" : s.readerReturn;
+      set({ readerBookId: null, readerTarget: null, ...(s.screen === "reader" ? { screen: back } : {}) });
+    },
+
+    libraryReadFile: async (id) => {
+      const book = bookById(id);
+      if (!book) throw new Error(i18n.t("library.missingBook"));
+      return getBookFiles().read(bookFileName(book));
+    },
+
+    libraryAddHighlight: async (input) => {
+      const book = bookById(get().readerBookId);
+      if (!book) return null;
+      let res: { book: Book; highlight: Highlight };
+      try {
+        const id = newHighlightId(book.highlights.map((h) => h.id));
+        res = bookAddHighlight(book, input, Date.now(), id);
+      } catch (e) {
+        console.warn("[library] çizim eklenemedi:", e);
+        return null;
+      }
+      if (!(await bookCommit(res.book))) return null;
+      const order = res.book.highlights.map((h) => h.id);
+      try {
+        await syncBookNote(book.id, (text, b) => insertHighlightBlock(text, b, res.highlight, order, libraryNoteLabels()));
+      } catch (e) {
+        await noteSyncFailed(e);
+      }
+      return res.highlight;
+    },
+
+    libraryUpdateHighlight: async (hlId, patch) => {
+      const book = bookById(get().readerBookId);
+      if (!book) return;
+      const next = bookUpdateHighlight(book, hlId, patch, Date.now());
+      if (next === book || !(await bookCommit(next))) return;
+      const h = next.highlights.find((x) => x.id === hlId);
+      if (!h) return;
+      const order = next.highlights.map((x) => x.id);
+      try {
+        await syncBookNote(book.id, (text, b) => updateHighlightBlock(text, b, h, order, libraryNoteLabels()));
+      } catch (e) {
+        await noteSyncFailed(e);
+      }
+    },
+
+    libraryRemoveHighlight: async (hlId) => {
+      const book = bookById(get().readerBookId);
+      if (!book) return;
+      const next = bookRemoveHighlight(book, hlId, Date.now());
+      if (next === book || !(await bookCommit(next))) return;
+      try {
+        await syncBookNote(book.id, (text) => removeHighlightBlock(text, hlId));
+      } catch (e) {
+        await noteSyncFailed(e);
+      }
+    },
+
+    libraryJump: (target) => set({ readerTarget: { ...target, seq: ++readerSeq } }),
+
+    librarySavePosition: (pos, progress) => {
+      const id = get().readerBookId;
+      if (!id) return;
+      if (pendingPosition && pendingPosition.id !== id) void get().libraryFlushPosition();
+      pendingPosition = { id, pos, progress };
+      if (positionTimer) clearTimeout(positionTimer);
+      positionTimer = setTimeout(() => void get().libraryFlushPosition(), POSITION_SAVE_MS);
+    },
+
+    libraryFlushPosition: async () => {
+      if (positionTimer) clearTimeout(positionTimer);
+      positionTimer = null;
+      const p = pendingPosition;
+      pendingPosition = null;
+      if (!p) return;
+      const book = bookById(p.id);
+      if (!book) return;
+      const next = bookSetPosition(book, p.pos, p.progress, Date.now());
+      if (next !== book) await bookCommit(next, true);
+    },
+
+    librarySetMeta: async (meta) => {
+      const book = bookById(get().readerBookId);
+      if (!book) return;
+      const next = bookApplyMeta(book, meta, Date.now());
+      if (next !== book) await bookCommit(next, true);
+      if (meta.cover && !get().libraryCovers[book.id]) {
+        try {
+          const mime = meta.cover.type || "image/png";
+          const name = coverFileName(book.id, mime);
+          const files = getBookFiles();
+          if (!(await files.exists(name))) {
+            await files.write(name, new Uint8Array(await meta.cover.arrayBuffer()));
+          }
+          const url = URL.createObjectURL(meta.cover);
+          putCover(book.id, url);
+        } catch (e) {
+          console.warn("[library] kapak yazılamadı:", e);
+        }
+      }
+    },
+
+    libraryOpenLink: (href) => {
+      const link = parseBookLink(href);
+      if (!link) return false;
+      if (!get().features.library) {
+        void notifyError(i18n.t("library.featureOff"), "info");
+        return true;
+      }
+      void (async () => {
+        // Kasa yeni açıldıysa kayıtlar henüz okunmamış olabilir.
+        if (!bookById(link.bookId) && !get().booksLoaded) await get().libraryLoad().catch(() => {});
+        get().libraryOpenReader(link.bookId, { highlightId: link.highlightId, page: link.page });
+      })();
+      return true;
+    },
+
+    libraryOpenNote: async (id) => {
+      const book = bookById(id);
+      if (!book) return;
+      try {
+        // Yoksa (silinmiş) çizimleriyle yeniden oluşturulur; varsa dokunulmaz.
+        await syncBookNote(id, (text) => text);
+      } catch (e) {
+        await noteSyncFailed(e);
+        return;
+      }
+      const now = bookById(id);
+      if (now) await get().openNote(now.notePath, false);
+    },
+
+    readerSetPrefs: (patch) => set((s) => ({ readerPrefs: normalizeReaderPrefs({ ...s.readerPrefs, ...patch }) })),
+
     srsAnswer: async (g) => {
       const s = get();
       const item = s.srsQueue[s.srsIndex];
@@ -4030,6 +4662,9 @@ export const useAppStore = create<AppState>()(
           pomoHistory: p.pomoHistory ?? current.pomoHistory,
           gcalMap: p.gcalMap ?? current.gcalMap,
           habitHistoryFilter: isHistoryFilter(p.habitHistoryFilter) ? p.habitHistoryFilter : current.habitHistoryFilter,
+          // Kütüphane (LOM-83): bozuk kayıt varsayılana döner.
+          libraryFilter: isShelfFilter(p.libraryFilter) ? p.libraryFilter : current.libraryFilter,
+          readerPrefs: p.readerPrefs === undefined ? current.readerPrefs : normalizeReaderPrefs(p.readerPrefs),
           habitTodayCollapsed:
             typeof p.habitTodayCollapsed === "boolean" ? p.habitTodayCollapsed : current.habitTodayCollapsed,
           // Bozuk/aşırı kayıt paneli ekranı yutacak kadar büyütmesin (LOM-63).
@@ -4140,6 +4775,9 @@ export const useAppStore = create<AppState>()(
         // Alışkanlıklar: yalnız Geçmiş süzgeci ve Planner kartının daraltması. Alışkanlık verisi BURAYA EKLENMEZ — kasada durur.
         habitHistoryFilter: s.habitHistoryFilter,
         habitTodayCollapsed: s.habitTodayCollapsed,
+        // Kütüphane: yalnız raf süzgeci ve okuyucu tercihleri. Kitap kayıtları kasada durur.
+        libraryFilter: s.libraryFilter,
+        readerPrefs: s.readerPrefs,
       }),
     }
   )

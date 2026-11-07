@@ -12,7 +12,8 @@
     "help": "Help",
     "assistant": "Assistant",
     "review": "Review",
-    "habit": "Habits"
+    "habit": "Habits",
+    "library": "Library"
   },
   "reports": {
     "title": "Reports",
@@ -1112,7 +1113,12 @@
       "appOnly": "Works only in the app",
       "habitsCount": "{{n}} active habits",
       "on": "On",
-      "off": "Off"
+      "off": "Off",
+      "library": {
+        "name": "Library",
+        "desc": "Read PDF and EPUB books; your highlights land in the book's note."
+      },
+      "booksCount": "{{n}} books on the shelf"
     }
   },
   "mobile": {
@@ -1493,5 +1499,90 @@
     "USD": "US dollar",
     "EUR": "Euro",
     "GBP": "British pound"
+  },
+  "library": {
+    "title": "Library",
+    "add": "Add book",
+    "importing": "Adding…",
+    "loading": "Reading books…",
+    "emptyTitle": "Your shelf is empty",
+    "emptyBody": "Add a PDF or EPUB. The book stays on this device; only its record and your note go into the vault.",
+    "appOnly": "Adding books only works in the app.",
+    "filterEmpty": "No books on this shelf.",
+    "broken_one": "{{count}} book record could not be read and is hidden. The file was not touched:",
+    "broken_other": "{{count}} book records could not be read and are hidden. The files were not touched:",
+    "filter": {
+      "all": "All",
+      "reading": "Reading",
+      "toread": "To read",
+      "done": "Finished"
+    },
+    "status": {
+      "toread": "To read",
+      "reading": "Reading",
+      "done": "Finished"
+    },
+    "statusLabel": "Reading status",
+    "highlightsCount_one": "{{count}} highlight",
+    "highlightsCount_other": "{{count}} highlights",
+    "open": "Open {{name}}",
+    "read": "Read",
+    "openNote": "Open the book's note",
+    "more": "More",
+    "remove": "Remove from shelf",
+    "removeTitle": "Remove “{{name}}” from the shelf?",
+    "removeBody": "The book's record goes to the trash and the copy on this device is deleted. The book's note stays in the vault.",
+    "back": "Back to shelf",
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save",
+    "colors": {
+      "yellow": "Yellow",
+      "green": "Green",
+      "blue": "Blue",
+      "pink": "Pink"
+    },
+    "reader": {
+      "smaller": "Smaller text",
+      "larger": "Larger text",
+      "theme": "Appearance: {{name}}",
+      "themes": {
+        "light": "Light",
+        "dark": "Dark",
+        "sepia": "Sepia"
+      },
+      "highlights": "Highlights",
+      "noHighlights": "No highlights yet. Select a passage and pick a colour.",
+      "highlightMenu": "Highlight",
+      "addNote": "Add note",
+      "editNote": "Edit note",
+      "notePlaceholder": "What do you think about this passage?",
+      "deleteHighlight": "Delete highlight",
+      "missingTitle": "This book isn't on this device",
+      "missingBody": "The file “{{name}}” hasn't been added on this device. Pick the same file and the book opens where you left off.",
+      "relink": "Choose file",
+      "noViewer": "The {{format}} reader isn't in this version yet.",
+      "openError": "The book could not be opened."
+    },
+    "note": {
+      "quotes": "Highlights",
+      "openBook": "Open book",
+      "page": "p. {{n}}",
+      "section": "Section {{n}}"
+    },
+    "pickTitle": "Choose a book",
+    "pickFilter": "Books (PDF, EPUB)",
+    "pickError": "Could not choose a file: {{detail}}",
+    "importError": "Could not add “{{name}}”: {{detail}}",
+    "notBook": "“{{name}}” is not a PDF or EPUB.",
+    "largeAsk": "“{{name}}” is very large ({{mb}} MB). Add it anyway?",
+    "already": "“{{name}}” is already on the shelf.",
+    "brokenRecord": "The vault record for “{{name}}” is damaged; it was not overwritten.",
+    "relinkMismatch": "The chosen file is not the same as “{{name}}”.",
+    "missingBook": "The book was not found on the shelf.",
+    "featureOff": "Library is turned off. You can turn it on in Settings › Features.",
+    "saveError": "Could not write the book record to the vault: {{detail}}",
+    "noteDraftError": "Your open note could not be saved; the book's note was not changed.",
+    "noteError": "Could not update the book's note: {{detail}}"
   }
 }

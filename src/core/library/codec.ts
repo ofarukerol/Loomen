@@ -1,0 +1,180 @@
+// Kitap kaydının (Kütüphane/<id>.json) okunması/yazılması — saf (LOM-83).
+//
+// Yazma deterministiktir: alanlar sabit sırayla, girintili, sonda tek satır sonu. Aynı kayıt
+// her zaman aynı metni üretir; store değişmeyen dosyayı yeniden yazmaz, git farkı okunur kalır.
+// Okuma şüphecidir: bozuk JSON, bilinmeyen sürüm ya da zorunlu alanı eksik/yanlış dosya null
+// döner (store onu "bozuk" sayar ve ASLA üstüne yazmaz). Tek tek bozuk çizimler atılmaz:
+// okunamayan çizim varsa bütün dosya bozuk sayılır — yoksa ilk kayıtta sessizce silinirdi.
+
+import {
+  BOOK_FILE_VERSION,
+  BOOK_FORMATS,
+  BOOK_STATUSES,
+  DEFAULT_HIGHLIGHT_COLOR,
+  HIGHLIGHT_COLORS,
+  type Anchor,
+  type Book,
+  type BookFormat,
+  type BookPosition,
+  type BookStatus,
+  type Highlight,
+  type HighlightColor,
+  type PdfRect,
+} from "./types";
+
+/** Dosya adı olarak güvenli kimlik (yol ayırıcısı, nokta, boşluk yok). */
+export const BOOK_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+/** Çizim kimliği (bağlantıda geçer). */
+export const HIGHLIGHT_ID_RE = /^[A-Za-z0-9_-]{1,32}$/;
+const HASH_RE = /^[0-9a-f]{64}$/;
+
+const isObj = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const isInt = (v: unknown, min = 0): v is number => isNum(v) && Number.isInteger(v) && v >= min;
+const unit = (v: number) => Math.min(1, Math.max(0, v));
+/** Yuvarlama: dosya kısa kalsın, aynı değer aynı metni üretsin (0..1 aralığında 5 hane ≈ 0,01 px). */
+const r5 = (v: number) => Math.round(v * 1e5) / 1e5;
+
+function encodeRect(r: PdfRect): PdfRect {
+  return { x: r5(unit(r.x)), y: r5(unit(r.y)), w: r5(unit(r.w)), h: r5(unit(r.h)) };
+}
+
+export function encodeAnchor(a: Anchor): Anchor {
+  if (a.kind === "pdf") return { kind: "pdf", page: a.page, rects: a.rects.map(encodeRect) };
+  return { kind: "epub", spine: a.spine, href: a.href, start: a.start, end: a.end };
+}
+
+export function decodeAnchor(v: unknown): Anchor | null {
+  if (!isObj(v)) return null;
+  if (v.kind === "pdf") {
+    if (!isInt(v.page, 1) || !Array.isArray(v.rects)) return null;
+    const rects: PdfRect[] = [];
+    for (const r of v.rects) {
+      if (!isObj(r) || !isNum(r.x) || !isNum(r.y) || !isNum(r.w) || !isNum(r.h)) return null;
+      rects.push({ x: unit(r.x), y: unit(r.y), w: unit(r.w), h: unit(r.h) });
+    }
+    return { kind: "pdf", page: v.page, rects };
+  }
+  if (v.kind === "epub") {
+    if (!isInt(v.spine) || typeof v.href !== "string" || !isInt(v.start) || !isInt(v.end) || v.end < v.start) return null;
+    return { kind: "epub", spine: v.spine, href: v.href, start: v.start, end: v.end };
+  }
+  return null;
+}
+
+export function encodePosition(p: BookPosition): BookPosition {
+  if (p.kind === "pdf") return { kind: "pdf", page: p.page, offset: r5(unit(p.offset)) };
+  return { kind: "epub", spine: p.spine, href: p.href, offset: Math.max(0, Math.round(p.offset)) };
+}
+
+export function decodePosition(v: unknown): BookPosition | undefined {
+  if (!isObj(v)) return undefined;
+  if (v.kind === "pdf" && isInt(v.page, 1) && isNum(v.offset)) return { kind: "pdf", page: v.page, offset: unit(v.offset) };
+  if (v.kind === "epub" && isInt(v.spine) && typeof v.href === "string" && isNum(v.offset)) {
+    return { kind: "epub", spine: v.spine, href: v.href, offset: Math.max(0, Math.round(v.offset)) };
+  }
+  return undefined;
+}
+
+function encodeHighlight(h: Highlight): Record<string, unknown> {
+  const out: Record<string, unknown> = { id: h.id, color: h.color, text: h.text };
+  if (h.note) out.note = h.note;
+  if (h.chapter) out.chapter = h.chapter;
+  out.anchor = encodeAnchor(h.anchor);
+  out.createdAt = h.createdAt;
+  out.updatedAt = h.updatedAt;
+  return out;
+}
+
+function decodeHighlight(v: unknown): Highlight | null {
+  if (!isObj(v)) return null;
+  if (typeof v.id !== "string" || !HIGHLIGHT_ID_RE.test(v.id)) return null;
+  if (typeof v.text !== "string") return null;
+  const anchor = decodeAnchor(v.anchor);
+  if (!anchor) return null;
+  const color: HighlightColor = HIGHLIGHT_COLORS.includes(v.color as HighlightColor)
+    ? (v.color as HighlightColor)
+    : DEFAULT_HIGHLIGHT_COLOR;
+  const createdAt = isNum(v.createdAt) ? v.createdAt : 0;
+  const h: Highlight = {
+    id: v.id,
+    color,
+    text: v.text,
+    anchor,
+    createdAt,
+    updatedAt: isNum(v.updatedAt) ? v.updatedAt : createdAt,
+  };
+  if (typeof v.note === "string" && v.note) h.note = v.note;
+  if (typeof v.chapter === "string" && v.chapter) h.chapter = v.chapter;
+  return h;
+}
+
+/** Kaydı dosya metnine çevir. */
+export function encodeBook(b: Book): string {
+  const book: Record<string, unknown> = { id: b.id, title: b.title };
+  if (b.author) book.author = b.author;
+  book.format = b.format;
+  book.hash = b.hash;
+  book.size = b.size;
+  book.fileName = b.fileName;
+  book.status = b.status;
+  book.notePath = b.notePath;
+  book.addedAt = b.addedAt;
+  book.updatedAt = b.updatedAt;
+  if (b.finishedAt !== undefined) book.finishedAt = b.finishedAt;
+  if (b.pages !== undefined) book.pages = b.pages;
+  if (b.progress !== undefined) book.progress = r5(unit(b.progress));
+  if (b.position) book.position = encodePosition(b.position);
+  book.highlights = b.highlights.map(encodeHighlight);
+  return JSON.stringify({ v: BOOK_FILE_VERSION, book }, null, 2) + "\n";
+}
+
+/** Dosya metnini kayda çevir; okunamıyorsa null. */
+export function decodeBook(raw: string): Book | null {
+  let file: unknown;
+  try {
+    file = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isObj(file) || file.v !== BOOK_FILE_VERSION || !isObj(file.book)) return null;
+  const b = file.book;
+
+  if (typeof b.id !== "string" || !BOOK_ID_RE.test(b.id)) return null;
+  if (typeof b.title !== "string" || !b.title.trim()) return null;
+  if (!BOOK_FORMATS.includes(b.format as BookFormat)) return null;
+  if (typeof b.hash !== "string" || !HASH_RE.test(b.hash)) return null;
+  if (typeof b.notePath !== "string" || !b.notePath.endsWith(".md")) return null;
+
+  const highlights: Highlight[] = [];
+  if (b.highlights !== undefined) {
+    if (!Array.isArray(b.highlights)) return null;
+    for (const x of b.highlights) {
+      const h = decodeHighlight(x);
+      if (!h) return null; // tek bozuk çizim → dosya bozuk (sessizce silinmesin)
+      highlights.push(h);
+    }
+  }
+  const addedAt = isNum(b.addedAt) ? b.addedAt : 0;
+  const book: Book = {
+    id: b.id,
+    title: b.title,
+    format: b.format as BookFormat,
+    hash: b.hash,
+    size: isInt(b.size) ? b.size : 0,
+    fileName: typeof b.fileName === "string" ? b.fileName : "",
+    status: BOOK_STATUSES.includes(b.status as BookStatus) ? (b.status as BookStatus) : "toread",
+    notePath: b.notePath,
+    addedAt,
+    updatedAt: isNum(b.updatedAt) ? b.updatedAt : addedAt,
+    highlights,
+  };
+  if (typeof b.author === "string" && b.author.trim()) book.author = b.author;
+  if (isNum(b.finishedAt)) book.finishedAt = b.finishedAt;
+  if (isInt(b.pages, 1)) book.pages = b.pages;
+  if (isNum(b.progress)) book.progress = unit(b.progress);
+  const pos = decodePosition(b.position);
+  if (pos) book.position = pos;
+  return book;
+}

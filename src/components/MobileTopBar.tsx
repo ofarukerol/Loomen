@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PanelLeft, BookOpen, CalendarDays, MoreVertical, SquarePen, Sprout } from "lucide-react";
+import { PanelLeft, BookOpen, CalendarDays, MoreVertical, SquarePen, Sprout, BookMarked } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 
 /**
@@ -25,7 +25,9 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
   const inEditor = screen === "editor";
   // Alışkanlık Takibi kapalıysa menüde Alışkanlıklar yok (LOM-82); menü boş kalırsa ⋮ de gizlenir.
   const habitsOn = useAppStore((s) => s.features.habits);
-  const hasMenu = inEditor || habitsOn;
+  // Kütüphane de aynı kural (LOM-83).
+  const libraryOn = useAppStore((s) => s.features.library);
+  const hasMenu = inEditor || habitsOn || libraryOn;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -53,6 +55,10 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
 
   const onHabits = () => {
     setScreen("habits");
+    setMenuOpen(false);
+  };
+  const onLibrary = () => {
+    setScreen("library");
     setMenuOpen(false);
   };
 
@@ -102,6 +108,12 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
                 <button className="lo-mtop__item" onClick={onHabits} role="menuitem">
                   <Sprout size={16} strokeWidth={1.9} />
                   <span>{t("ribbon.habit")}</span>
+                </button>
+              )}
+              {libraryOn && (
+                <button className="lo-mtop__item" onClick={onLibrary} role="menuitem">
+                  <BookMarked size={16} strokeWidth={1.9} />
+                  <span>{t("ribbon.library")}</span>
                 </button>
               )}
             </div>

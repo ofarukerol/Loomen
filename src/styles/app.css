@@ -5104,3 +5104,182 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
   .lo-hab-side, .lo-hab-side *, .lo-hab-side *::before { animation: none !important; transition: none !important; }
   .lo-hab-side__check:active { transform: none; }
 }
+
+/* ══════════════ Kütüphane (LOM-83) ══════════════ */
+.lo-lib { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.lo-lib__inner { max-width: 1040px; width: 100%; margin: 0 auto; padding: 32px 36px 64px; }
+.lo-lib-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.lo-lib-head__title { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--fg1); }
+.lo-lib-add { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+.lo-lib-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  padding: 72px 20px; color: var(--fg3); font-size: 14px;
+}
+.lo-lib-empty h2 { margin: 6px 0 0; font-size: 17px; font-weight: 600; color: var(--fg1); }
+.lo-lib-empty p { margin: 0 0 8px; max-width: 420px; line-height: 1.6; color: var(--fg2); }
+.lo-lib-empty.is-small { padding: 40px 20px; }
+.lo-lib-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 26px 20px; margin-top: 18px;
+}
+.lo-lib-iconbtn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0;
+  color: var(--fg3); background: none; border: 0; border-radius: 8px; cursor: pointer;
+}
+.lo-lib-iconbtn:hover:not(:disabled) { color: var(--fg1); background: var(--bg-sunken); }
+.lo-lib-iconbtn:disabled { opacity: 0.4; cursor: default; }
+.lo-lib-iconbtn.is-on { color: var(--accent); background: var(--accent-soft); }
+.lo-lib-iconbtn.is-danger:hover { color: var(--danger); background: var(--danger-bg); }
+
+/* — Kitap kartı — */
+.lo-book { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.lo-book__cover {
+  position: relative; display: block; width: 100%; aspect-ratio: 2 / 3; padding: 0; overflow: hidden; cursor: pointer;
+  background: var(--bg-sunken); border: 1px solid var(--line-soft); border-radius: var(--radius-md); box-shadow: var(--sh2);
+  transition: transform var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
+@media (hover: hover) {
+  .lo-book__cover:hover { transform: translateY(-2px); box-shadow: var(--sh3); }
+}
+.lo-book__cover:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lo-book__cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lo-book__blank {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 14px 12px;
+  text-align: start; color: #fff;
+  background: linear-gradient(160deg, hsl(var(--book-h) 42% 46%), hsl(calc(var(--book-h) + 30) 46% 30%));
+}
+.lo-book__blank-title {
+  font-size: 15px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
+}
+.lo-book__fmt { align-self: flex-start; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; opacity: 0.8; }
+.lo-book__bar { position: absolute; inset-inline: 0; bottom: 0; height: 4px; background: rgba(0, 0, 0, 0.25); }
+.lo-book__bar > span { display: block; height: 100%; background: var(--accent); }
+.lo-book__meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.lo-book__title {
+  font-size: 13.5px; font-weight: 600; color: var(--fg1); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+}
+.lo-book__author { font-size: 12px; color: var(--fg3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-book__row { display: flex; align-items: center; gap: 6px; margin-top: 3px; min-width: 0; }
+.lo-book__status {
+  min-width: 0; flex: 0 1 auto; height: 26px; padding: 0 6px; font: inherit; font-size: 11.5px; color: var(--fg2);
+  background: var(--bg-sunken); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); cursor: pointer;
+}
+.lo-book.is-reading .lo-book__status { color: var(--accent); }
+.lo-book.is-done .lo-book__status { color: var(--success); }
+.lo-book__count, .lo-book__pct { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; color: var(--fg3); white-space: nowrap; }
+.lo-book__menu { position: relative; margin-inline-start: auto; }
+.lo-book__dropdown {
+  position: absolute; inset-inline-end: 0; top: calc(100% + 4px); z-index: 20; min-width: 190px; padding: 5px;
+  display: flex; flex-direction: column; background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--sh3);
+}
+.lo-book__dropdown button {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; text-align: start;
+  font: inherit; font-size: 13px; color: var(--fg1); background: none; border: 0; border-radius: var(--radius-sm); cursor: pointer;
+}
+.lo-book__dropdown button:hover { background: var(--bg-sunken); }
+.lo-book__dropdown button.is-danger { color: var(--danger); }
+
+/* — Okuyucu — */
+.lo-reader { --rd-bg: #fbfaf7; --rd-fg: #1f1b16; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+.lo-reader.is-theme-dark { --rd-bg: #1c1b19; --rd-fg: #e9e4da; }
+.lo-reader.is-theme-sepia { --rd-bg: #f4ecd8; --rd-fg: #3b2f20; }
+.lo-reader-bar {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px; flex-shrink: 0;
+  border-bottom: 1px solid var(--line); background: var(--bg-elev);
+}
+.lo-reader-bar__title { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.lo-reader-bar__title span { font-size: 14px; font-weight: 600; color: var(--fg1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-reader-bar__title small { font-size: 11.5px; color: var(--fg3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-reader-bar__tools { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.lo-reader-bar__scale { min-width: 40px; text-align: center; font-size: 11.5px; color: var(--fg3); font-variant-numeric: tabular-nums; }
+.lo-reader-bar__badge {
+  position: absolute; top: 2px; inset-inline-end: 1px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px;
+  font-size: 9.5px; font-weight: 700; line-height: 15px; color: #fff; background: var(--accent);
+}
+.lo-reader__main { flex: 1; min-height: 0; display: flex; position: relative; }
+.lo-reader__view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--rd-bg); color: var(--rd-fg); }
+.lo-reader__state {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 40px 24px; text-align: center; color: var(--fg2); font-size: 14px; background: var(--bg);
+}
+.lo-reader__state h2 { margin: 0; font-size: 17px; font-weight: 600; color: var(--fg1); }
+.lo-reader__state p { margin: 0; max-width: 440px; line-height: 1.6; }
+.lo-reader__state small { max-width: 520px; color: var(--fg3); font-family: var(--font-mono); font-size: 11.5px; overflow-wrap: anywhere; }
+
+/* — Çizim menüsü — */
+.lo-hlmenu {
+  position: fixed; z-index: 95; display: flex; align-items: center; gap: 4px; padding: 5px;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--sh3);
+}
+.lo-hlmenu__color {
+  display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0;
+  color: var(--fg1); border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 50%; cursor: pointer;
+}
+.lo-hlmenu__color.is-on { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 3.5px var(--accent); }
+.lo-hlmenu__sep { width: 1px; height: 20px; margin: 0 2px; background: var(--line); }
+
+/* — Çizim notu penceresi — */
+.lo-hlnote {
+  width: 460px; max-width: 100%; padding: 20px 20px 16px; display: flex; flex-direction: column; gap: 12px;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--sh3);
+}
+.lo-hlnote__title { margin: 0; font-size: 16px; font-weight: 600; color: var(--fg1); }
+.lo-hlnote__quote {
+  margin: 0; padding: 8px 12px; max-height: 140px; overflow-y: auto; font-size: 13.5px; line-height: 1.55; color: var(--fg2);
+  border-inline-start: 3px solid var(--accent); background: var(--bg-sunken); border-radius: var(--radius-sm); white-space: pre-wrap;
+}
+.lo-hlnote__area {
+  width: 100%; min-height: 110px; resize: vertical; padding: 10px 12px; font: inherit; font-size: 14px; line-height: 1.55; color: var(--fg1);
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-md);
+}
+.lo-hlnote__area:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.lo-hlnote__actions { display: flex; justify-content: flex-end; gap: 8px; }
+.lo-hlnote__actions .lo-btn { min-height: 38px; }
+
+/* — Çizimler paneli — */
+.lo-hlpanel {
+  width: 320px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0;
+  background: var(--bg-elev); border-inline-start: 1px solid var(--line);
+}
+.lo-hlpanel__head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 8px 16px;
+  font-size: 13px; font-weight: 600; color: var(--fg1); border-bottom: 1px solid var(--line-soft);
+}
+.lo-hlpanel__empty { margin: 0; padding: 20px 16px; font-size: 13px; line-height: 1.6; color: var(--fg3); }
+.lo-hlpanel__list { list-style: none; margin: 0; padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.lo-hlpanel__item {
+  width: 100%; display: flex; flex-direction: column; gap: 5px; padding: 9px 11px; text-align: start; cursor: pointer;
+  font: inherit; color: var(--fg1); background: none; border: 1px solid transparent; border-radius: var(--radius-md);
+  border-inline-start: 4px solid var(--hl);
+}
+.lo-hlpanel__item:hover { background: var(--bg-sunken); }
+.lo-hlpanel__item.is-on { border-color: var(--line); border-inline-start-color: var(--hl); background: var(--bg-sunken); }
+.lo-hlpanel__quote {
+  font-size: 13px; line-height: 1.5; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.lo-hlpanel__note { font-size: 12.5px; line-height: 1.5; color: var(--fg2); font-style: italic; overflow-wrap: anywhere; }
+.lo-hlpanel__loc { font-size: 11px; color: var(--fg3); }
+
+/* — Nottaki kitap bağlantısı (okuma modu) — */
+.lo-booklink {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; vertical-align: baseline;
+  font: inherit; font-size: 0.92em; font-weight: 500; color: var(--accent); background: var(--accent-soft);
+  border: none; border-radius: 5px; cursor: pointer;
+}
+.lo-booklink:hover { filter: brightness(0.94); }
+
+@media (max-width: 768px) {
+  .lo-lib__inner { padding: 20px 16px 96px; }
+  .lo-lib-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 20px 14px; }
+  .lo-reader-bar { padding: 6px 6px; gap: 4px; }
+  .lo-reader-bar__scale { display: none; }
+  .lo-hlpanel {
+    position: absolute; inset-inline-end: 0; top: 0; bottom: 0; width: min(88vw, 340px); z-index: 30; box-shadow: var(--sh3);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lo-book__cover { transition: none; }
+  .lo-book__cover:hover { transform: none; }
+}

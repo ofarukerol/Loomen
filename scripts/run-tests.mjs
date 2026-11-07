@@ -66,6 +66,13 @@ const suites = [
   ["src/core/__test__/tableFormulaTest.ts", []],
   ["src/core/__test__/formulaSuggestTest.ts", []],
   ["src/core/__test__/tableCurrencyTest.ts", []],
+  ["src/core/__test__/libraryTest.ts", []],
+  ["src/core/__test__/libraryNoteTest.ts", []],
+  ["src/core/__test__/libraryLinkTest.ts", []],
+  // LOM-83 görüntüleyici parçaları (kaynağı gelince koşar).
+  ["src/core/__test__/pdfAnchorTest.ts", []],
+  ["src/core/__test__/zipTest.ts", []],
+  ["src/core/__test__/epubTest.ts", []],
 ];
 
 let failed = 0;

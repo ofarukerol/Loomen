@@ -25,13 +25,18 @@ function section(title: string): void {
   console.log(`\n=== ${title} ===`);
 }
 const same = (a: FeatureFlags, b: FeatureFlags) =>
-  Object.keys(a).length === 3 && Object.keys(b).length === 3 && a.github === b.github && a.calendar === b.calendar && a.habits === b.habits;
-const ALL_ON: FeatureFlags = { github: true, calendar: true, habits: true };
+  Object.keys(a).length === 4 &&
+  Object.keys(b).length === 4 &&
+  a.github === b.github &&
+  a.calendar === b.calendar &&
+  a.habits === b.habits &&
+  a.library === b.library;
+const ALL_ON: FeatureFlags = { github: true, calendar: true, habits: true, library: true };
 
 section("Kart sırası ve varsayılan");
 check(
-  "Kart sırası: Yedekleme, Takvim, Tekrar, Asistan, Alışkanlık",
-  FEATURE_IDS.join(",") === "github,calendar,review,assistant,habits",
+  "Kart sırası: Yedekleme, Takvim, Tekrar, Asistan, Alışkanlık, Kütüphane",
+  FEATURE_IDS.join(",") === "github,calendar,review,assistant,habits,library",
 );
 check("Varsayılanlar açık", same(DEFAULT_FEATURES, ALL_ON));
 check("Kimlik denetimi", isFeatureId("habits") && !isFeatureId("pomodoro") && !isFeatureId(3));
@@ -41,22 +46,34 @@ check(
   "Bozuk kayıt varsayılana döner",
   [null, undefined, "x", 42, true, [], [false]].every((v) => same(normalizeFeatures(v), ALL_ON)),
 );
-check("Eksik alan varsayılan (açık)", same(normalizeFeatures({ github: false }), { github: false, calendar: true, habits: true }));
+check(
+  "Eksik alan varsayılan (açık)",
+  same(normalizeFeatures({ github: false }), { github: false, calendar: true, habits: true, library: true }),
+);
+check(
+  "Eski kayıtta Kütüphane alanı yok → açık",
+  normalizeFeatures({ github: true, calendar: true, habits: false }).library === true,
+);
 check(
   "Boolean olmayan alan varsayılan",
-  same(normalizeFeatures({ github: "false", calendar: 0, habits: null }), ALL_ON),
+  same(normalizeFeatures({ github: "false", calendar: 0, habits: null, library: "no" }), ALL_ON),
 );
 check(
   "Kayıtlı seçim korunur",
-  same(normalizeFeatures({ github: false, calendar: false, habits: false }), { github: false, calendar: false, habits: false }),
+  same(normalizeFeatures({ github: false, calendar: false, habits: false, library: false }), {
+    github: false,
+    calendar: false,
+    habits: false,
+    library: false,
+  }),
 );
 const extra = normalizeFeatures({ habits: false, review: false, weather: true }) as unknown as Record<string, unknown>;
-check("Fazla alan atılır", Object.keys(extra).sort().join(",") === "calendar,github,habits" && extra.habits === false);
+check("Fazla alan atılır", Object.keys(extra).sort().join(",") === "calendar,github,habits,library" && extra.habits === false);
 check("Normalize yeni nesne döner (varsayılanı değiştirmez)", normalizeFeatures(null) !== DEFAULT_FEATURES);
 
 section("Kaynak çözümü");
-const off: FeatureFlags = { github: false, calendar: false, habits: false };
-check("Yedekleme/Takvim/Alışkanlık bayraktan okunur", ["github", "calendar", "habits"].every(
+const off: FeatureFlags = { github: false, calendar: false, habits: false, library: false };
+check("Yedekleme/Takvim/Alışkanlık/Kütüphane bayraktan okunur", ["github", "calendar", "habits", "library"].every(
   (id) => isFeatureOn(id as "github", { features: ALL_ON, srsEnabled: false, aiEnabled: false }) &&
     !isFeatureOn(id as "github", { features: off, srsEnabled: true, aiEnabled: true }),
 ));
@@ -80,7 +97,7 @@ function flatten(v: unknown, prefix = "", out: Record<string, string> = {}): Rec
 }
 const KEYS = [
   "title", "sub", "notConnected", "connected", "connectedAs", "loading", "readError", "retry",
-  "cards", "providers", "appOnly", "habitsCount", "on", "off",
+  "cards", "providers", "appOnly", "habitsCount", "booksCount", "on", "off",
   ...FEATURE_IDS.flatMap((id) => [`${id}.name`, `${id}.desc`]),
 ].sort();
 const locales = { tr, en, ar } as unknown as Record<string, { settings: { features?: unknown } }>;
@@ -91,7 +108,7 @@ for (const lang of ["tr", "en", "ar"]) {
   check(`${lang}: anahtar seti beklenenle aynı`, keys.join(",") === KEYS.join(","), keys.filter((k) => !KEYS.includes(k)).concat(KEYS.filter((k) => !keys.includes(k))).join(", "));
   const empty = KEYS.filter((k) => typeof flat[k] !== "string" || flat[k].trim() === "");
   check(`${lang}: boş metin yok`, empty.length === 0, empty.join(", "));
-  for (const k of ["connectedAs", "cards", "providers", "habitsCount"]) {
+  for (const k of ["connectedAs", "cards", "providers", "habitsCount", "booksCount"]) {
     const v = k === "connectedAs" ? "{{name}}" : "{{n}}";
     if (!(flat[k] ?? "").includes(v)) check(`${lang}: ${k} ${v} içerir`, false);
   }
@@ -130,6 +147,9 @@ check("Yedekleme kapalıyken otomatik eşitleme yok", /if \(!ghOn \|\| !ghAutoSy
 check("Takvim kapalıyken otomatik eşitleme yok", /if \(!gcalOn \|\| !gcalAutoSync/.test(app));
 check("Şerit: alışkanlık düğmesi yalnız açıkken", /habitsOn && btn\("habits"/.test(src("src/components/Ribbon.tsx")));
 check("Telefon menüsü: Alışkanlıklar yalnız açıkken", /habitsOn && \(\s*<button className="lo-mtop__item" onClick=\{onHabits\}/.test(src("src/components/MobileTopBar.tsx")));
+check("Şerit: kütüphane düğmesi yalnız açıkken", /libraryOn && btn\("library"/.test(src("src/components/Ribbon.tsx")));
+check("Telefon menüsü: Kütüphane yalnız açıkken", /libraryOn && \(\s*<button className="lo-mtop__item" onClick=\{onLibrary\}/.test(src("src/components/MobileTopBar.tsx")));
+check("Kütüphane kapanınca ekranından çıkılır", /library: \["library", "reader"\]/.test(store));
 check("Sağ blok: alışkanlık kartı kapalıyken çizilmez", /if \(!on \|\| list\.length === 0\) return null;/.test(src("src/screens/Planner/HabitsTodayCard.tsx")));
 
 console.log(`\n${ran - fails}/${ran} geçti`);

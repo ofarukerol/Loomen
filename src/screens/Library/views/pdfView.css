@@ -1,0 +1,99 @@
+/* PDF görüntüleyici (LOM-83). Metin katmanı kuralları pdf.js görüntüleyicisinin
+   text_layer_builder.css dosyasının özüdür (paketin CSS'i içe alınmaz; isteğe bağlı yüklenir). */
+
+.lo-pdf {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  /* Sayfa ölçüleri sonradan gelince tarayıcı kendi kaydırma çapasıyla konumu oynatmasın. */
+  overflow-anchor: none;
+}
+.lo-pdf__inner { position: relative; margin: 0 auto; }
+
+.lo-pdf__page {
+  position: absolute;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 4px 14px rgba(0, 0, 0, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+  contain: strict;
+}
+.lo-pdf__canvas-host,
+.lo-pdf__hl { position: absolute; inset: 0; }
+.lo-pdf__canvas { display: block; width: 100%; height: 100%; }
+.lo-pdf__hl { pointer-events: none; z-index: 1; mix-blend-mode: multiply; }
+
+/* Çizimler: açık/sepya temada çarpma kipi, metin koyu kalır. */
+.lo-pdf__mark { position: absolute; border-radius: 2px; transition: box-shadow 0.2s ease; }
+.lo-pdf__mark.has-note { box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.28); }
+.lo-pdf__mark.is-flash { animation: lo-pdf-flash 0.6s ease-in-out 3; }
+@keyframes lo-pdf-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(250, 160, 20, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(250, 160, 20, 0.85); }
+}
+
+/* Temalar: sayfa resmi filtrelenir, çizim katmanı ayrı kaldığı için renkler bozulmaz. */
+.lo-pdf.is-dark .lo-pdf__page { background: #1c1b19; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+.lo-pdf.is-dark .lo-pdf__canvas { filter: invert(0.9) hue-rotate(180deg) brightness(0.95); }
+.lo-pdf.is-dark .lo-pdf__hl { mix-blend-mode: screen; opacity: 0.75; }
+.lo-pdf.is-dark .lo-pdf__mark.has-note { box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.35); }
+.lo-pdf.is-sepia .lo-pdf__page { background: #f4ecd8; }
+.lo-pdf.is-sepia .lo-pdf__canvas { filter: sepia(0.45) saturate(1.1) brightness(0.97); }
+
+/* ── Metin katmanı (pdf.js) ── */
+.lo-pdf .textLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  /* pdf.js boyutu değişkenlerle yazar; sayfa kutusuyla aynı olsun diye sabitlenir. */
+  width: 100% !important;
+  height: 100% !important;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 2;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor, var(--scale-factor)) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+.lo-pdf .textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+.lo-pdf .textLayer > :not(.markedContent),
+.lo-pdf .textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.lo-pdf .textLayer .markedContent { display: contents; }
+.lo-pdf .textLayer span[role="img"] { -webkit-user-select: none; user-select: none; cursor: default; }
+.lo-pdf .textLayer ::selection { background: rgba(37, 99, 235, 0.28); }
+.lo-pdf .textLayer br::selection { background: transparent; }
+.lo-pdf .textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: 0;
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.lo-pdf .textLayer.selecting .endOfContent { top: 0; }

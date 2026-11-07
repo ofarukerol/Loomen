@@ -15,7 +15,8 @@
     "help": "Yardım",
     "assistant": "Asistan",
     "review": "Tekrar",
-    "habit": "Alışkanlıklar"
+    "habit": "Alışkanlıklar",
+    "library": "Kütüphane"
   },
   "reports": {
     "title": "Raporlar",
@@ -1079,7 +1080,12 @@
       "appOnly": "Yalnız uygulamada çalışır",
       "habitsCount": "{{n}} aktif alışkanlık",
       "on": "Açık",
-      "off": "Kapalı"
+      "off": "Kapalı",
+      "library": {
+        "name": "Kütüphane",
+        "desc": "PDF ve EPUB kitaplarını oku, çizdiğin yerler kitabın notuna düşsün."
+      },
+      "booksCount": "Rafta {{n}} kitap"
     }
   },
   "syncStatus": {
@@ -1493,5 +1499,90 @@
     "USD": "ABD doları",
     "EUR": "Euro",
     "GBP": "İngiliz sterlini"
+  },
+  "library": {
+    "title": "Kütüphane",
+    "add": "Kitap ekle",
+    "importing": "Ekleniyor…",
+    "loading": "Kitaplar okunuyor…",
+    "emptyTitle": "Rafın boş",
+    "emptyBody": "Bir PDF ya da EPUB ekle. Kitap bu cihazda saklanır; kasaya yalnız kaydı ve notun girer.",
+    "appOnly": "Kitap eklemek yalnız uygulamada çalışır.",
+    "filterEmpty": "Bu rafta kitap yok.",
+    "broken_one": "{{count}} kitap kaydı okunamadı, rafta gösterilmiyor. Dosyaya dokunulmadı:",
+    "broken_other": "{{count}} kitap kaydı okunamadı, rafta gösterilmiyor. Dosyalara dokunulmadı:",
+    "filter": {
+      "all": "Hepsi",
+      "reading": "Okunuyor",
+      "toread": "Okunacak",
+      "done": "Bitti"
+    },
+    "status": {
+      "toread": "Okunacak",
+      "reading": "Okunuyor",
+      "done": "Bitti"
+    },
+    "statusLabel": "Okuma durumu",
+    "highlightsCount_one": "{{count}} çizim",
+    "highlightsCount_other": "{{count}} çizim",
+    "open": "{{name}} kitabını aç",
+    "read": "Oku",
+    "openNote": "Kitabın notunu aç",
+    "more": "Diğer",
+    "remove": "Raftan kaldır",
+    "removeTitle": "“{{name}}” raftan kaldırılsın mı?",
+    "removeBody": "Kitabın kaydı çöpe gider, bu cihazdaki kopyası silinir. Kitabın notu kasada kalır.",
+    "back": "Rafa dön",
+    "close": "Kapat",
+    "cancel": "Vazgeç",
+    "save": "Kaydet",
+    "colors": {
+      "yellow": "Sarı",
+      "green": "Yeşil",
+      "blue": "Mavi",
+      "pink": "Pembe"
+    },
+    "reader": {
+      "smaller": "Yazıyı küçült",
+      "larger": "Yazıyı büyüt",
+      "theme": "Görünüm: {{name}}",
+      "themes": {
+        "light": "Açık",
+        "dark": "Koyu",
+        "sepia": "Sepya"
+      },
+      "highlights": "Çizimler",
+      "noHighlights": "Henüz çizim yok. Bir yeri seçip renk ver.",
+      "highlightMenu": "Çizim",
+      "addNote": "Not ekle",
+      "editNote": "Notu düzenle",
+      "notePlaceholder": "Bu alıntı hakkında ne düşünüyorsun?",
+      "deleteHighlight": "Çizimi sil",
+      "missingTitle": "Kitap bu cihazda yok",
+      "missingBody": "“{{name}}” dosyası bu cihaza eklenmemiş. Aynı dosyayı seçersen kitap kaldığın yerden açılır.",
+      "relink": "Dosyayı seç",
+      "noViewer": "{{format}} okuyucusu bu sürümde yok.",
+      "openError": "Kitap açılamadı."
+    },
+    "note": {
+      "quotes": "Alıntılar",
+      "openBook": "Kitabı aç",
+      "page": "s. {{n}}",
+      "section": "Bölüm {{n}}"
+    },
+    "pickTitle": "Kitap seç",
+    "pickFilter": "Kitaplar (PDF, EPUB)",
+    "pickError": "Dosya seçilemedi: {{detail}}",
+    "importError": "“{{name}}” eklenemedi: {{detail}}",
+    "notBook": "“{{name}}” bir PDF ya da EPUB değil.",
+    "largeAsk": "“{{name}}” çok büyük ({{mb}} MB). Yine de eklensin mi?",
+    "already": "“{{name}}” zaten rafta.",
+    "brokenRecord": "“{{name}}” için kasadaki kayıt bozuk; üstüne yazılmadı.",
+    "relinkMismatch": "Seçilen dosya “{{name}}” kitabıyla aynı değil.",
+    "missingBook": "Kitap rafta bulunamadı.",
+    "featureOff": "Kütüphane kapalı. Ayarlar › Özellikler'den açabilirsin.",
+    "saveError": "Kitap kaydı kasaya yazılamadı: {{detail}}",
+    "noteDraftError": "Açık notun kaydedilemedi; kitabın notuna dokunulmadı.",
+    "noteError": "Kitabın notu güncellenemedi: {{detail}}"
   }
 }

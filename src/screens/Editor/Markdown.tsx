@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
-import { Check } from "lucide-react";
+import { BookOpen, Check } from "lucide-react";
+import { isHighlightMarkerLine, parseBookLink } from "../../core/library/links";
+import { useAppStore } from "../../store/useAppStore";
 import { AudioEmbedPlayer } from "./AudioEmbedPlayer";
 import { ImageEmbed, parseImageLine } from "./ImageEmbed";
 import i18n from "../../i18n";
@@ -12,9 +14,15 @@ interface Props {
   onToggleTask: (line: number) => void;
 }
 
-const INLINE_RE = /\*\*([^*]+)\*\*|`([^`]+)`|\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+const INLINE_RE =
+  /\*\*([^*]+)\*\*|`([^`]+)`|\[\[([^\]|]+)(?:\|([^\]]+))?\]\]|\[((?:\\.|[^\]\\\n])*)\]\((loomen:\/\/book\/[^\s)]+)\)/gi;
 
-/** Satır içi: **kalın**, `kod`, [[wiki-link]]. */
+/** Kitap bağlantısı (LOM-83): okuyucuyu o çizimde açar; geçersizse düz metin kalır. */
+function openBookLink(href: string) {
+  useAppStore.getState().libraryOpenLink(href);
+}
+
+/** Satır içi: **kalın**, `kod`, [[wiki-link]], [etiket](loomen://book/…). */
 function inlineNodes(text: string, onLink: (n: string) => void, kp: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   let last = 0;
@@ -31,6 +39,17 @@ function inlineNodes(text: string, onLink: (n: string) => void, kp: string): Rea
           {m[2]}
         </code>
       );
+    } else if (m[6] !== undefined) {
+      const href = m[6];
+      const label = m[5].replace(/\\([[\]\\])/g, "$1");
+      if (parseBookLink(href)) {
+        nodes.push(
+          <button key={`${kp}-k${i}`} type="button" className="lo-booklink" data-href={href} onClick={() => openBookLink(href)}>
+            <BookOpen size={13} strokeWidth={2} aria-hidden />
+            {label}
+          </button>
+        );
+      } else nodes.push(m[0]);
     } else {
       const target = m[3].trim();
       const label = m[4] ?? m[3];
@@ -107,7 +126,8 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
   while (i < lines.length) {
     const line = lines[i];
     const trimmed = line.trim();
-    if (trimmed === "") {
+    // Kütüphane çizim işaretleri (`<!-- loomen:hl … -->`) okuma modunda görünmez (LOM-83).
+    if (trimmed === "" || isHighlightMarkerLine(line)) {
       i++;
       continue;
     }
@@ -281,6 +301,7 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
       lines[i].trim() !== "" &&
       !/^(#{1,6}\s|>|```)/.test(lines[i]) &&
       !BULLET_RE.test(lines[i]) &&
+      !isHighlightMarkerLine(lines[i]) &&
       !parseImageLine(lines[i]) // resim satırı paragrafa yapışmasın (kendi bloğu)
     ) {
       buf.push(lines[i++]);

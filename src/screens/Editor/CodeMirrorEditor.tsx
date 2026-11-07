@@ -83,6 +83,10 @@ const cmTheme = EditorView.theme({
   ".cm-h5": { fontSize: "1.02em", fontWeight: "700", paddingTop: "10px" },
   ".cm-h6": { fontSize: "1em", fontWeight: "700", color: "var(--fg2)", paddingTop: "8px" },
   ".cm-wikilink": { color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px" },
+  // Kütüphane (LOM-83): kitap bağlantısı ve çizim işaret satırı.
+  ".cm-booklink": { color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px" },
+  ".cm-booklink[data-href]": { cursor: "pointer" },
+  ".cm-hlmarker": { color: "var(--fg3)", fontSize: "0.78em", opacity: "0.55" },
   // Canlı önizleme tablo widget'ı
   // NOT: margin YOK — CM satır yüksekliğini ölçemez, tıklama/imleç isabeti kayar (bkz yukarı).
   ".cm-tablewrap": { padding: "6px 0 18px", overflowX: "auto", cursor: "text" },

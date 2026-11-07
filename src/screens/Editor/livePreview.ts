@@ -14,6 +14,7 @@ import { AudioEmbedPlayer } from "./AudioEmbedPlayer";
 import { ImageEmbed, parseImageLine, type ImageRef } from "./ImageEmbed";
 import { createTauriBackend, isTauri } from "../../core/vault";
 import { useAppStore } from "../../store/useAppStore";
+import { findBookLinks, isHighlightMarkerLine } from "../../core/library/links";
 
 /** Obsidian "Canlı Önizleme" benzeri: markdown işaretlerini aktif satır dışında gizle, biçimle. */
 
@@ -117,6 +118,51 @@ interface Pending {
   deco: Decoration;
 }
 
+const HL_MARKER_LINE = Decoration.line({ class: "cm-hlmarker" });
+
+/**
+ * Kütüphane (LOM-83): `[etiket](loomen://book/…)` etiketi tıklanabilir işaret olur; imleç satırda
+ * değilse köşeli parantez ve adres gizlenir. Çizim işaret satırları (`<!-- loomen:hl … -->`)
+ * soluk görünür (silinmesinler diye gizlenmez; bloğu bunlar sınırlar).
+ */
+function bookLinkDecos(text: string, lineFrom: number, away: boolean, out: Pending[]): void {
+  if (isHighlightMarkerLine(text)) {
+    out.push({ from: lineFrom, to: lineFrom, deco: HL_MARKER_LINE });
+    return;
+  }
+  if (!text.includes("loomen://book/")) return;
+  for (const m of findBookLinks(text)) {
+    const labelFrom = lineFrom + m.from + 1;
+    // Eşleşme `[etiket](adres)` biçiminde biter: etiket sonu = bitiş − "](" − adres − ")".
+    const labelTo = lineFrom + m.to - m.href.length - 3;
+    if (labelTo <= labelFrom) continue;
+    out.push({
+      from: labelFrom,
+      to: labelTo,
+      deco: Decoration.mark({
+        class: "cm-booklink",
+        attributes: away ? { "data-href": m.href, title: m.label } : { title: m.label },
+      }),
+    });
+    if (away) {
+      out.push({ from: lineFrom + m.from, to: labelFrom, deco: HIDE });
+      out.push({ from: labelTo, to: lineFrom + m.to, deco: HIDE });
+    }
+  }
+}
+
+/** Gizli adresli kitap bağlantısına dokununca okuyucuyu aç (imleç satırındayken ham metin düzenlenir). */
+const bookLinkClick = EditorView.domEventHandlers({
+  mousedown(event) {
+    if (event.button !== 0) return false;
+    const el = (event.target as HTMLElement | null)?.closest?.(".cm-booklink[data-href]");
+    const href = el?.getAttribute("data-href");
+    if (!href) return false;
+    event.preventDefault();
+    return useAppStore.getState().libraryOpenLink(href);
+  },
+});
+
 function buildDecos(view: EditorView): DecorationSet {
   const { state } = view;
   const cursorLine = state.doc.lineAt(state.selection.main.head).number;
@@ -151,6 +197,8 @@ function buildDecos(view: EditorView): DecorationSet {
               deco: Decoration.replace({ widget: new ImageEmbedWidget(raw, img) }),
             });
           }
+        } else {
+          bookLinkDecos(line.text, line.from, line.number !== cursorLine, out);
         }
       }
       if (line.to + 1 > to) break;
@@ -298,4 +346,4 @@ const livePreviewPlugin = ViewPlugin.fromClass(
 );
 
 /** Canlı önizleme uzantısı: dekorasyonlar + panodan resim yapıştırma. */
-export const livePreview: Extension = [livePreviewPlugin, imagePaste];
+export const livePreview: Extension = [livePreviewPlugin, imagePaste, bookLinkClick];

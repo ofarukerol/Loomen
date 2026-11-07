@@ -1,25 +1,31 @@
 // Ayarlar: özellik kartları (LOM-82) — saf hesap; Ayarlar üstündeki kartlar, kayıt (store) ve
 // uygulamadaki gizleme kuralları bunu kullanır.
 //
-// Beş özellik tek yerden çözülür. Yalnız Yedekleme (GitHub), Takvim ve Alışkanlık için YENİ bayrak
+// Altı özellik tek yerden çözülür. Yalnız Yedekleme (GitHub), Takvim, Alışkanlık ve Kütüphane için YENİ bayrak
 // tutulur; Tekrar `srsSettings.enabled` (kasadaki ayar dosyası), Asistan `aiEnabled` olarak zaten
 // vardı — ikinci bir kopya tutulmaz ki iki yer birbirini tutmasın.
 
-/** Kart sırası: Yedekleme, Takvim, Tekrar, Asistan, Alışkanlık Takibi. */
-export const FEATURE_IDS = ["github", "calendar", "review", "assistant", "habits"] as const;
+/** Kart sırası: Yedekleme, Takvim, Tekrar, Asistan, Alışkanlık Takibi, Kütüphane (LOM-83). */
+export const FEATURE_IDS = ["github", "calendar", "review", "assistant", "habits", "library"] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
 
-/** Kayıtta tutulan yeni bayraklar (LOM-82). */
+/** Kayıtta tutulan yeni bayraklar (LOM-82; Kütüphane LOM-83). */
 export interface FeatureFlags {
   github: boolean;
   calendar: boolean;
   habits: boolean;
+  library: boolean;
 }
 
 /** Varsayılan: hepsi açık — güncelleme sonrası kimsede bir şey kaybolmasın. */
-export const DEFAULT_FEATURES: Readonly<FeatureFlags> = Object.freeze({ github: true, calendar: true, habits: true });
+export const DEFAULT_FEATURES: Readonly<FeatureFlags> = Object.freeze({
+  github: true,
+  calendar: true,
+  habits: true,
+  library: true,
+});
 
-const FLAG_KEYS = ["github", "calendar", "habits"] as const;
+const FLAG_KEYS = ["github", "calendar", "habits", "library"] as const;
 
 export function isFeatureId(v: unknown): v is FeatureId {
   return typeof v === "string" && (FEATURE_IDS as readonly string[]).includes(v);

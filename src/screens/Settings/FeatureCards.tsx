@@ -1,10 +1,11 @@
-// Ayarlar üstündeki özellik kartları (LOM-82): Yedekleme, Takvim, Tekrar, Asistan, Alışkanlık Takibi.
+// Ayarlar üstündeki özellik kartları (LOM-82): Yedekleme, Takvim, Tekrar, Asistan, Alışkanlık Takibi,
+// Kütüphane (LOM-83).
 //
 // Her kartta ad, kısa açıklama, durum ve açma/kapama düğmesi. Kapalı özelliğin ayar bölümü
 // aşağıda çizilmez; kapatmak bağlantıyı, hesabı ya da kasa dosyalarını silmez.
 // Tekrar ayarı okunmadan (yükleniyor/okunamadı) düğme kilitli: kişinin ayar dosyası ezilmesin (LOM-71).
 import { useTranslation } from "react-i18next";
-import { CalendarDays, Github, Repeat2, Sparkles, Sprout, type LucideIcon } from "lucide-react";
+import { BookMarked, CalendarDays, Github, Repeat2, Sparkles, Sprout, type LucideIcon } from "lucide-react";
 import { useAppStore } from "../../store/useAppStore";
 import { isTauri } from "../../core/vault";
 import { activeHabits } from "../../core/habit";
@@ -17,6 +18,7 @@ const ICONS: Record<FeatureId, LucideIcon> = {
   review: Repeat2,
   assistant: Sparkles,
   habits: Sprout,
+  library: BookMarked,
 };
 
 export function FeatureCards() {
@@ -35,6 +37,8 @@ export function FeatureCards() {
   const gcalCalendarName = useAppStore((s) => s.gcalCalendarName);
   const habits = useAppStore((s) => s.habits);
   const habitsLoaded = useAppStore((s) => s.habitsLoaded);
+  const books = useAppStore((s) => s.books.length);
+  const booksLoaded = useAppStore((s) => s.booksLoaded);
   const setOn = useAppStore((s) => s.setFeatureOn);
   const today = useToday();
 
@@ -59,6 +63,8 @@ export function FeatureCards() {
         return isTauri() ? t("settings.features.providers", { n: aiProviders }) : t("settings.features.appOnly");
       case "habits":
         return t("settings.features.habitsCount", { n: habitsLoaded ? activeHabits(habits, today).length : 0 });
+      case "library":
+        return t("settings.features.booksCount", { n: booksLoaded ? books : 0 });
     }
   };
 

@@ -1,0 +1,188 @@
+/* EPUB görüntüleyici (LOM-83, parça 3). Renkler kabuktaki --rd-bg / --rd-fg'den gelir
+   (.lo-reader.is-theme-*). Kitap CSS'i .lo-epub__body içine kapsamlanır. */
+
+.lo-epub {
+  --lo-epub-scale: 1;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--rd-bg);
+  color: var(--rd-fg);
+}
+
+.lo-epub__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--line-soft, rgba(127, 127, 127, 0.2));
+  font-size: 13px;
+  color: var(--rd-fg);
+}
+.lo-epub__barbtn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.8;
+  cursor: pointer;
+}
+.lo-epub__barbtn:hover:not(:disabled) { opacity: 1; background: rgba(127, 127, 127, 0.14); }
+.lo-epub__barbtn:disabled { opacity: 0.3; cursor: default; }
+.lo-epub__barbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lo-epub__chapter {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.lo-epub__count { flex: none; opacity: 0.6; font-variant-numeric: tabular-nums; }
+/* Sağdan sola kitapta "önceki/sonraki" okları da döner. */
+.lo-epub__bar:has(+ .lo-epub__scroll .lo-epub__col[dir="rtl"]) .lo-epub__flip { transform: scaleX(-1); }
+
+.lo-epub__scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  outline: none;
+  overscroll-behavior: contain;
+  /* Kitabın z-index'i içindekiler çekmecesinin üstüne çıkamasın. */
+  isolation: isolate;
+}
+
+.lo-epub__col {
+  max-width: 38em;
+  margin: 0 auto;
+  padding: 28px 28px 40px;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Noto Serif", serif;
+  font-size: calc(1.0625rem * var(--lo-epub-scale));
+  line-height: 1.6;
+  color: var(--rd-fg);
+  overflow-wrap: break-word;
+}
+.lo-epub__col[dir="rtl"] { font-family: "Geeza Pro", "Noto Naskh Arabic", "Iowan Old Style", Georgia, serif; }
+
+.lo-epub__body {
+  position: relative;
+  color: var(--rd-fg);
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+.lo-epub__body img,
+.lo-epub__body svg,
+.lo-epub__body video {
+  max-width: 100%;
+  height: auto;
+}
+.lo-epub__body svg { max-height: 85vh; }
+.lo-epub__body table { max-width: 100%; }
+.lo-epub__body pre { white-space: pre-wrap; }
+.lo-epub__body a[data-epub-href] { color: var(--accent); cursor: pointer; }
+.lo-epub__body.is-broken { opacity: 0.7; font-style: italic; }
+
+/* Koyu ve sepya temada kitabın sabit renkleri okunmayı bozmasın: yazı rengi temadan,
+   zemin saydam. Çizim işaretleri hariç (onların zemini çizim rengi). */
+.lo-epub.is-dark .lo-epub__body,
+.lo-epub.is-dark .lo-epub__body *:not(.lo-epub__mark):not(img):not(svg):not(svg *),
+.lo-epub.is-sepia .lo-epub__body,
+.lo-epub.is-sepia .lo-epub__body *:not(.lo-epub__mark):not(img):not(svg):not(svg *) {
+  color: inherit !important;
+  background-color: transparent !important;
+  border-color: rgba(127, 127, 127, 0.35) !important;
+}
+.lo-epub.is-dark .lo-epub__body a[data-epub-href],
+.lo-epub.is-sepia .lo-epub__body a[data-epub-href] { color: var(--accent) !important; }
+.lo-epub.is-dark .lo-epub__body img { opacity: 0.92; }
+
+/* Çizim */
+.lo-epub__mark {
+  color: inherit !important;
+  border-radius: 2px;
+  padding: 0;
+  cursor: pointer;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.lo-epub__mark.has-note { text-decoration: underline dotted rgba(127, 127, 127, 0.8); text-underline-offset: 3px; }
+.lo-epub__mark.is-flash { animation: lo-epub-flash 0.6s ease-in-out 3; }
+@keyframes lo-epub-flash {
+  50% { box-shadow: 0 0 0 3px var(--accent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lo-epub__mark.is-flash { animation: none; box-shadow: 0 0 0 2px var(--accent); }
+}
+
+/* Bölüm sonu: önceki / sonraki */
+.lo-epub__pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 40px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(127, 127, 127, 0.25);
+  font-family: var(--font-ui, system-ui, sans-serif);
+  font-size: 13px;
+}
+
+/* İçindekiler çekmecesi */
+.lo-epub__toc {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 5;
+  width: min(340px, 86%);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, #fff);
+  color: var(--fg1, inherit);
+  border-inline-end: 1px solid var(--line, rgba(127, 127, 127, 0.3));
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+.lo-epub__tochead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 8px 14px;
+  border-bottom: 1px solid var(--line-soft, rgba(127, 127, 127, 0.2));
+  font-size: 14px;
+}
+.lo-epub__toclist {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+}
+.lo-epub__tocitem {
+  display: block;
+  width: 100%;
+  padding-block: 7px;
+  padding-inline-end: 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+}
+.lo-epub__tocitem:hover { background: var(--accent-soft, rgba(127, 127, 127, 0.12)); }
+.lo-epub__tocitem.is-current { color: var(--accent); font-weight: 600; }
+.lo-epub__tocitem:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

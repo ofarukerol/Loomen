@@ -25,6 +25,8 @@ import { HelpScreen } from "./screens/Help/HelpScreen";
 import { AssistantScreen } from "./screens/Assistant/AssistantScreen";
 import { ReviewScreen } from "./screens/Review/ReviewScreen";
 import { HabitsScreen } from "./screens/Habits/HabitsScreen";
+import { LibraryScreen } from "./screens/Library/LibraryScreen";
+import { ReaderScreen } from "./screens/Library/ReaderScreen";
 import { TaskDetail } from "./screens/Planner/TaskDetail";
 import { GitHubDeviceModal } from "./screens/Settings/GitHubSync";
 
@@ -46,6 +48,7 @@ export default function App() {
   const platformMobile = useAppStore((s) => s.platformMobile);
   const habitDetailId = useAppStore((s) => s.habitDetailId);
   const habitOpenDetail = useAppStore((s) => s.habitOpenDetail);
+  const libraryCloseReader = useAppStore((s) => s.libraryCloseReader);
 
   // Mobil (dar ekran / iOS-Android): sol/sağ panel + üst sekme şeridi yerine alt bar + drawer.
   // Gerçek mobil platform her zaman mobil sayılır (tablet/yatay ekranda genişlik eşiği tutmaz).
@@ -231,6 +234,8 @@ export default function App() {
   if (screen !== "planner") closers.push(() => setScreen("planner"));
   // Alışkanlık ayrıntısı ekranın üstünde bir katman: geri önce listeye döner.
   if (screen === "habits" && habitDetailId) closers.push(() => habitOpenDetail(null));
+  // Okuyucu da bir katman: geri kitabın açıldığı ekrana (raf ya da not) döner (LOM-83).
+  if (screen === "reader") closers.push(() => libraryCloseReader());
   if (selectedTask) closers.push(() => selectTask(null));
   if (drawerOpen) closers.push(() => setDrawerOpen(false));
   if (tabsOpen) closers.push(() => setTabsOpen(false));
@@ -278,7 +283,7 @@ export default function App() {
     depthRef.current = layerCount;
   }, [layerCount]);
 
-  const explorerEligible = ["planner", "editor", "graph", "reports", "draw", "newtab", "assistant"].includes(screen);
+  const explorerEligible = ["planner", "editor", "graph", "reports", "draw", "newtab", "assistant", "library"].includes(screen);
   const showExplorer = explorerEligible && !leftCollapsed;
   const rightEligible = ["planner", "editor", "graph", "draw"].includes(screen);
   const showRight = rightEligible && !rightCollapsed;
@@ -325,6 +330,8 @@ export default function App() {
           {screen === "assistant" && <AssistantScreen />}
           {screen === "review" && <ReviewScreen />}
           {screen === "habits" && <HabitsScreen />}
+          {screen === "library" && <LibraryScreen />}
+          {screen === "reader" && <ReaderScreen />}
         </div>
       </div>
       {!isMobile && showRight && <RightPanel />}

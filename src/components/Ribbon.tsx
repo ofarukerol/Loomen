@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { NotebookPen, Share2, BarChart3, PencilRuler, Settings, Sun, Moon, HelpCircle, Sparkles, Repeat2, Sprout } from "lucide-react";
+import { NotebookPen, Share2, BarChart3, PencilRuler, Settings, Sun, Moon, HelpCircle, Sparkles, Repeat2, Sprout, BookMarked } from "lucide-react";
 import { useAppStore, type Screen } from "../store/useAppStore";
 
 const ICON = 21;
@@ -22,11 +22,15 @@ export function Ribbon() {
   const srsStatus = useAppStore((s) => s.srsSettingsStatus);
   // Alışkanlık düğmesi yalnız özellik açıkken (LOM-82; varsayılan açık).
   const habitsOn = useAppStore((s) => s.features.habits);
+  // Kütüphane düğmesi yalnız özellik açıkken (LOM-83); okuyucu açıkken de vurgulu.
+  const libraryOn = useAppStore((s) => s.features.library);
   const dayNoteActive = screen === "editor" && activeNote === todayNotePath();
 
   const btn = (target: Screen, title: string, node: React.ReactNode) => (
     <button
-      className={"lo-ribbon__btn" + (screen === target ? " is-active" : "")}
+      className={
+        "lo-ribbon__btn" + (screen === target || (target === "library" && screen === "reader") ? " is-active" : "")
+      }
       title={title}
       onClick={() => setScreen(target)}
     >
@@ -58,6 +62,7 @@ export function Ribbon() {
       {btn("graph", t("ribbon.graph"), <Share2 size={ICON} strokeWidth={SW} />)}
       {btn("draw", t("ribbon.draw"), <PencilRuler size={ICON} strokeWidth={SW} />)}
       {habitsOn && btn("habits", t("ribbon.habit"), <Sprout size={ICON} strokeWidth={SW} />)}
+      {libraryOn && btn("library", t("ribbon.library"), <BookMarked size={ICON} strokeWidth={SW} />)}
       {/* Okunamadıysa da görünür: Tekrar ekranı uyarıyı ve Yeniden dene'yi gösterir. */}
       {srsEnabled || srsStatus === "error"
         ? btn(
