@@ -863,6 +863,12 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 @keyframes loSpin { to { transform: rotate(360deg); } }
 
 .lo-prose { max-width: 680px; margin: 0 auto; padding: 0 40px; animation: loFade 0.3s ease; }
+/* LOM-90: Ayarlar → Editör → "Tam genişlik" açıkken not (düzenleme + okuma) orta sütunun
+   tamamını kullanır; tablo sığdığı sürece yatay kaydırılmaz. Kapalıyken yukarıdaki 760/680 px
+   dar sütun aynen geçerli. Planner günlük notu (.lo-dn) editör kökü dışında olduğundan etkilenmez. */
+.lo-editor--wide .lo-editor__editwrap,
+.lo-editor--wide .lo-editor__preview,
+.lo-editor--wide .lo-prose { max-width: none; }
 
 .lo-prose h1 { margin: 0 0 4px; font-size: 30px; font-weight: 700; color: var(--fg1); letter-spacing: -0.02em; }
 .lo-prose h2 {

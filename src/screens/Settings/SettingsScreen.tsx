@@ -124,6 +124,7 @@ export function SettingsScreen() {
     { key: "livePreview", label: t("settings.livePreview") },
     { key: "lineNumbers", label: t("settings.lineNumbers") },
     { key: "spellCheck", label: t("settings.spellCheck") },
+    { key: "fullWidth", label: t("settings.fullWidth") },
   ];
 
   const pomoFields: { key: keyof typeof pomo; label: string; min: number; max: number; accent?: boolean }[] = [

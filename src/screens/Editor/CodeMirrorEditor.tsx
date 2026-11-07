@@ -41,7 +41,7 @@ const mdHighlight = HighlightStyle.define([
 const cmTheme = EditorView.theme({
   "&": { backgroundColor: "transparent", color: "var(--fg1)", fontSize: "15px", height: "100%" },
   ".cm-scroller": { fontFamily: "var(--font-sans)", lineHeight: "1.7", overflow: "auto" },
-  ".cm-content": { caretColor: "var(--accent)", padding: "22px 0 200px", maxWidth: "760px" },
+  ".cm-content": { caretColor: "var(--accent)", padding: "22px 0 200px" },
   // Canlı önizleme — başlık boyutları + bölümler arası boşluk/solan ayraç + wiki-link
   // NOT: CodeMirror satır ölçümünü bozduğu için .cm-line'da margin KULLANMA — yalnız padding.
   // (margin satır kutusu dışındadır, CM hesaba katamaz → fare/imleç isabeti kayar.)

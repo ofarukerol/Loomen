@@ -14,3 +14,14 @@ export function isNarrowEditor(width: number): boolean {
   if (!(width > 0)) return false;
   return width < NARROW_EDITOR_PX;
 }
+
+/**
+ * Editör kök sınıfı (LOM-90). `narrow` dar sütun düzenini, `wide` Ayarlar → Editör →
+ * "Tam genişlik" anahtarını yansıtır; geniş modda 760/680 px içerik sınırı kalkar.
+ */
+export function editorRootClass({ narrow, wide }: { narrow: boolean; wide: boolean }): string {
+  let cls = "lo-editor";
+  if (narrow) cls += " lo-editor--narrow";
+  if (wide) cls += " lo-editor--wide";
+  return cls;
+}

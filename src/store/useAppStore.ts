@@ -220,6 +220,8 @@ export interface EditorSettings {
   livePreview: boolean;
   lineNumbers: boolean;
   spellCheck: boolean;
+  /** LOM-90: not içeriği orta sütunun tamamını kullanır (760/680 px sınırı kalkar). */
+  fullWidth: boolean;
 }
 
 /** Kaynak not adını editör sekmesine eşler (statik editör — vault entegrasyonu sonraki adım). */
@@ -1805,7 +1807,7 @@ export const useAppStore = create<AppState>()(
     lang: "tr",
     editorTab: "daily",
     accent: ACCENTS[0],
-    editorSettings: { livePreview: true, lineNumbers: false, spellCheck: true },
+    editorSettings: { livePreview: true, lineNumbers: false, spellCheck: true, fullWidth: true },
     dailyTemplate: "Günlük",
     quickText: "",
     selectedDay: Number(todayISO().slice(8, 10)),
@@ -4667,7 +4669,12 @@ export const useAppStore = create<AppState>()(
             longBreak: min(p.pomo?.longBreak, current.pomo.longBreak),
             rounds: min(p.pomo?.rounds, current.pomo.rounds),
           },
-          editorSettings: { ...current.editorSettings, ...(p.editorSettings ?? {}) },
+          editorSettings: (() => {
+            const es = { ...current.editorSettings, ...(p.editorSettings ?? {}) };
+            // LOM-90: eski kayıtta alan yoksa ya da bozuksa tam genişlik açık sayılır.
+            if (typeof es.fullWidth !== "boolean") es.fullWidth = current.editorSettings.fullWidth;
+            return es;
+          })(),
           favorites: strArr(p.favorites, current.favorites),
           vaults: Array.isArray(p.vaults)
             ? p.vaults.filter((v): v is VaultEntry => !!v && typeof v.path === "string")

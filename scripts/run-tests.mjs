@@ -73,6 +73,7 @@ const suites = [
   ["src/core/__test__/pdfAnchorTest.ts", []],
   ["src/core/__test__/zipTest.ts", []],
   ["src/core/__test__/epubTest.ts", []],
+  ["src/core/__test__/editorWidthTest.ts", []],
 ];
 
 let failed = 0;

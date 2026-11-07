@@ -15,6 +15,7 @@ import { DailyHeader } from "./DailyHeader";
 import { OnThisDay } from "./OnThisDay";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { firstSectionCaret } from "./noteCaret";
+import { editorRootClass } from "./editorLayout";
 import { firstHeading } from "../../core/markdown/autoTitle";
 
 function breadcrumb(path: string): string[] {
@@ -28,6 +29,7 @@ export function EditorScreen() {
   const isMobile = useIsMobile();
   // Dar orta sütun (masaüstünde paneller açık, ör. 800x600): Bağlantılar da alttan pencere.
   const [narrowRef, narrow] = useIsNarrow();
+  const fullWidth = useAppStore((s) => s.editorSettings.fullWidth);
   const sheetMode = isMobile || narrow;
   const contents = useAppStore((s) => s.noteContents);
   const openTabs = useAppStore((s) => s.openTabs);
@@ -208,7 +210,7 @@ export function EditorScreen() {
   };
 
   return (
-    <div ref={narrowRef} className={"lo-editor" + (narrow ? " lo-editor--narrow" : "")}>
+    <div ref={narrowRef} className={editorRootClass({ narrow, wide: fullWidth })}>
       <div className="lo-editortoolbar">
         <div className="lo-crumbs">
           {crumbs.map((c, i) => (
