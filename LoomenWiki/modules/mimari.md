@@ -33,6 +33,7 @@ Hedef: kodun %85'ten fazlası masaüstü ve mobilde ortak.
 - Pomodoro geçmişi doğal olarak Markdown'da durmadığı için özeti günlük nota yazılır (taşınabilir kaynak), ayrıntısı hızlı istatistik için yerel kayıtta tutulur.
 - **Başlıktan otomatik ad (LOM-76).** Elle ad verilmemiş not ("Adsız", "Adsız 2" deseni ya da bu oturumda oluşturulmuş not) yazma durunca ilk başlığına göre yeniden adlandırılır; içerik değişmez, ad doluysa "Ad 2" seçilir. Gezginden elle ad verilince izleme biter. Kodda `src/core/markdown/autoTitle.ts`.
 - **Tabloda formül (LOM-79).** = ile başlayan hücre formüldür; sonuç yalnız ekranda hesaplanır, dosyada formül metni kalır. Başvuru Excel gibi (B2, B:B, aynı satır için B). Kodda `src/core/markdown/tableFormula.ts`.
+- **Formül önerisi (LOM-88).** Hücre kutusunda = ve harf yazınca fonksiyon ve sütun harfi listesi açılır; Enter/Tab/dokunma seçer, Esc yalnız listeyi kapatır. Saf mantık `src/core/markdown/formulaSuggest.ts`, kutu `tableWidget.ts` openCellEditor.
 
 ## Dışarıdan gelen değişiklik ve çakışma
 - Uygulama kapalıyken değişen dosya açılışta yakalanır.
