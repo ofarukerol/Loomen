@@ -3,7 +3,7 @@ name: LOM-83 — Kütüphane 1: kitap okuma ve çizimleri kasaya kaydetme
 description: Testler kaldı: Loomen'a Kütüphane bölümü: PDF ve EPUB kitaplar uygulama klasöründe durur, kasada kitap kaydı ve düz not tutulur; okuyucuda seçilen metin renkle çizilir, alıntı sayfa/bölüm bilgisi ve kitabı o yerde açan bağlantıyla nota düşer; kalınan yer, yazı boyutu ve tema hatırlanır. İş üç alt karta bölünür: raf ve ortak altyapı, PDF okuyucu, EPUB okuyucu.
 type: project
 proje: loomen
-kaynak: kart LOM-83 · dal fix/LOM-83 · commit yok · test koşusu c6b6a87b-c057-4057-96fc-ae0f8b7a2930 (Excalibur)
+kaynak: kart LOM-83 · dal fix/LOM-83 · commit yok · test koşusu 7b1c5e2a-1b1a-4e82-b200-defa262ed457 (Excalibur)
 guven: iddia
 durum: gelistirildi
 ---
@@ -90,12 +90,12 @@ Loomen'a Kütüphane bölümü: PDF ve EPUB kitaplar uygulama klasöründe durur
 
 Testler KALDI; iş doğrulanmadı.
 
-> Tip denetimi, tüm birim testleri (46 dosya) ve derleme hatasız geçti. K8 cihazlarda canlı doğrulama bu ortamda yapılamaz, insana kaldı ve listeye yazıldı. Kokpit: `insana_kalan` yalnız insanın fiziksel olarak bakması gereken işler içindir (yazıcı fişi, para çekmecesi, terazi, kart/barkod okuyucu, POS/kasa cihazı, kiosk, dokunmatik ekran, ekranda gözle bakış). Her madde tek cümlecik (virgül, nokta,
+> Tip denetimi, birim testleri (46 dosya) ve derleme hatasız geçti. Canlı doğrulama insana kaldı. Kokpit: `insana_kalan` yalnız insanın fiziksel olarak bakması gereken işler içindir (yazıcı fişi, para çekmecesi, terazi, kart/barkod okuyucu, POS/kasa cihazı, kiosk, dokunmatik ekran, ekranda gözle bakış). Her madde tek cümlecik (virgül, nokta, 'ama' yok; 've' yalnız isimleri bağlar, iki eylemi bağlama
 
 ## Kanıt
 
 - Dal: `fix/LOM-83`
-- Test koşusu: `c6b6a87b-c057-4057-96fc-ae0f8b7a2930` (Excalibur)
+- Test koşusu: `7b1c5e2a-1b1a-4e82-b200-defa262ed457` (Excalibur)
 
 ## Durum
 
