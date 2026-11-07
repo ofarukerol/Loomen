@@ -97,7 +97,15 @@ check("ad: küçük harf =tutar-ödenen → 750", near(named[1][3].value, 750), 
 check("ad: Türkçe büyük =ÖDENEN+1 → 1", near(named[2][3].value, 1), `alınan ${named[2][3].value}`);
 check("ad: =TOPLA(Tutar) bütün sütun, kendi hücresi hariç → 213500", near(named[3][1].value, 213500), `alınan ${named[3][1].value}`);
 check("ad: =ortalama(tutar) küçük harfle → 106750", near(agg[0][2].value, 106750), `alınan ${agg[0][2].value}`);
-check("harf: =TOPLA(B) toplu fonksiyonda bütün sütun → 213500", near(agg[0][3].value, 213500), `alınan ${agg[0][3].value}`);
+check("harf: =TOPLA(B) eskisi gibi aynı satır → 212500", near(agg[0][3].value, 212500), `alınan ${agg[0][3].value}`);
+const rowSum = evaluateTable(["Ad", "Tutar", "Ödenen", "T"], [["x", "10", "5", "=TOPLA(B;C)"], ["y", "1", "2", "=MAX(B;C)"]]);
+check("harf: =TOPLA(B;C) satır toplamı → 15", near(rowSum[0][3].value, 15), `alınan ${rowSum[0][3].value}`);
+check("harf: =MAX(B;C) satırda → 2", near(rowSum[1][3].value, 2), `alınan ${rowSum[1][3].value}`);
+const selfLetter = evaluateTable(["A", "B"], [["4", "=TOPLA(A)"], ["6", "=A*2"]]);
+check("kendi harfiyle aynı başlık harf sayılır: =TOPLA(A) aynı satır → 4", near(selfLetter[0][1].value, 4), `alınan ${selfLetter[0][1].value}`);
+check("kendi harfiyle aynı başlık: =A*2 → 12", near(selfLetter[1][1].value, 12));
+const arabT = evaluateTable(["المبلغ", "X"], [["7", "=المبلغ*2"]]);
+check("Arapça başlık adıyla: =المبلغ*2 → 14", near(arabT[0][1].value, 14), JSON.stringify(arabT[0][1]));
 const adWins = evaluateTable(["Ad", "X"], [["3", "=Ad*2"]]);
 check("ad harf yorumunu (AD) yener: =Ad*2 → 6", near(adWins[0][1].value, 6), JSON.stringify(adWins[0][1]));
 const unknown = evaluateTable(header, [["x", "1", "2", "=Foo"], ["y", "1", "2", "=Ölçü+1"], ["z", "1", "2", "=TOPLA(Ölçü)"]]);

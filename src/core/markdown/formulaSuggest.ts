@@ -63,8 +63,9 @@ export function colLetter(index: number): string {
   return s;
 }
 
-const LETTER = /[A-Za-zÇĞİÖŞÜçğıöşü]/;
-const WORD_OR_PAREN = /[A-Za-zÇĞİÖŞÜçğıöşü0-9(]/;
+// Her dildeki harf (Arapça, aksanlı başlıklar dahil); motorun kelime kuralıyla aynı.
+const LETTER = /\p{L}/u;
+const WORD_OR_PAREN = /[\p{L}\p{N}(]/u;
 /** Kelimenin önünde durabilecek karakterler (boşsa satır başı). */
 const BEFORE_WORD = new Set(["=", "+", "-", "*", "/", "^", "&", "<", ">", "(", ";", ":", ",", " ", "\t"]);
 

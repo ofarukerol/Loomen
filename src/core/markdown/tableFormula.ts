@@ -14,7 +14,8 @@
  * tek kelimelik başlıklar adıyla yazılır; boşluklu başlık harfiyle. Ad, aynı yazılan harf
  * başvurusunu yener (`Ad` başlığı AD sütununu değil o sütunu gösterir); harf + rakam (`B2`) her
  * zaman hücre başvurusudur. Toplu fonksiyonlara (TOPLA, ORTALAMA, MIN, MAX, SAY) doğrudan
- * verilen satırsız başvuru (`B` ya da `Tutar`) bütün sütundur; başka yerde aynı satırdır.
+ * verilen adlı sütun (`Tutar`) bütün sütundur; başka yerde aynı satırdır. Satırsız harf (`B`)
+ * eskisi gibi her yerde aynı satırdır (`=TOPLA(B;C)` satır toplamı).
  */
 
 export type FormulaError = "syntax" | "ref" | "cycle" | "div0" | "value";
@@ -126,7 +127,7 @@ class FormulaFail extends Error {
 
 type Tok =
   | { t: "num"; v: number }
-  | { t: "ref"; col: number; row: number | null }
+  | { t: "ref"; col: number; row: number | null; named?: boolean }
   | { t: "fn"; name: string }
   | { t: "op"; v: "+" | "-" | "*" | "/" | "^" }
   | { t: "(" }
@@ -136,7 +137,7 @@ type Tok =
 
 type Node =
   | { t: "num"; v: number }
-  | { t: "ref"; col: number; row: number | null }
+  | { t: "ref"; col: number; row: number | null; named?: boolean }
   | { t: "range"; a: { col: number; row: number | null }; b: { col: number; row: number | null } }
   | { t: "neg"; e: Node }
   | { t: "bin"; op: "+" | "-" | "*" | "/" | "^"; l: Node; r: Node }
@@ -196,8 +197,10 @@ function tokenize(src: string, names: Map<string, number>): Tok[] {
         continue;
       }
       const named = names.get(normalizeColumnName(word));
-      if (named !== undefined) {
-        out.push({ t: "ref", col: named, row: null });
+      // Başlık kendi harfiyle aynıysa (A sütununda "A") harf sayılır: eski anlam korunur.
+      const sameAsLetter = /^[A-Za-z]+$/.test(word) && colIndex(word) === named;
+      if (named !== undefined && !sameAsLetter) {
+        out.push({ t: "ref", col: named, row: null, named: true });
         continue;
       }
       if (/^[A-Za-z]+$/.test(word)) {
@@ -314,7 +317,7 @@ function parse(src: string, names: Map<string, number>): Node {
         if ((a.row === null) !== (b.row === null)) throw new FormulaFail("syntax");
         return { t: "range", a, b: { col: b.col, row: b.row } };
       }
-      return { t: "ref", col: a.col, row: a.row };
+      return { t: "ref", col: a.col, row: a.row, named: t.named };
     }
     throw new FormulaFail("syntax");
   };
@@ -482,11 +485,12 @@ export function evaluateTable(header: string[], rows: string[][]): CellResult[][
           return roundHalfAway(x, d);
         }
         // Toplu fonksiyonlar: aralık ve tek başvuruda metin/boş atlanır (Excel gibi).
-        // Satırsız başvuru (B ya da Tutar) bütün sütundur, B:B gibi (LOM-88).
+        // Adla yazılan sütun (Tutar) bütün sütundur, B:B gibi (LOM-88). Satırsız harf (B) eskisi
+        // gibi aynı satırdır: =TOPLA(B;C) satır toplamı olarak kalır (LOM-79).
         const nums: number[] = [];
         for (const a of node.args) {
           if (a.t === "range") nums.push(...rangeNumbers(a, selfRow, selfCol));
-          else if (a.t === "ref" && a.row === null) {
+          else if (a.t === "ref" && a.named) {
             const whole = { col: a.col, row: null };
             nums.push(...rangeNumbers({ t: "range", a: whole, b: whole }, selfRow, selfCol));
           } else if (a.t === "ref") {

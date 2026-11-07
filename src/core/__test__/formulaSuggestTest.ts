@@ -84,6 +84,10 @@ check("boşluklu başlıkta örnek harfle", spaced?.items[0]?.example === "=A2 �
 const bold = at("=Tu", 3, "tr", ["Ad", "**Tutar**"]);
 check("kalın başlık '**Tutar**' → name/insert 'Tutar'", bold?.items[0]?.name === "Tutar" && bold?.items[0]?.insert === "Tutar");
 check("fonksiyon öğesinde name boş", to?.items[0]?.name === "");
+const arab = at("=الم", 4, "ar", ["Ad", "المبلغ"]);
+check("Arapça başlık '=الم' → insert 'المبلغ'", arab?.items[0]?.insert === "المبلغ" && arab?.items[0]?.label === "B", JSON.stringify(arab?.items[0]));
+const accent = at("=Caf", 4, "tr", ["Ad", "Café"]);
+check("aksanlı başlık '=Caf' → insert 'Café'", accent?.items[0]?.insert === "Café", JSON.stringify(accent?.items[0]));
 check("'=öd' → C (Ödenen)", labels("=öd").includes("C"));
 const colon = at("=TOPLA(B:B");
 check("'=TOPLA(B:B' → B önerisi", colon?.items.some((i) => i.label === "B") === true, JSON.stringify(colon?.items.map((i) => i.label)));
