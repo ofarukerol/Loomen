@@ -186,6 +186,21 @@ const cmTheme = EditorView.theme({
     color: "var(--danger)",
     background: "var(--danger-bg)",
   },
+  // Para birimli sütun (LOM-89): sayı ve formül sonucu sağa yaslı, rakamlar eşit genişlikte.
+  ".cm-table td.cm-table__currency": {
+    textAlign: "end",
+    fontVariantNumeric: "tabular-nums",
+  },
+  // Başlıkta sütunun para birimi simgesi.
+  ".cm-table th .cm-table__curbadge": {
+    marginInlineStart: "6px",
+    padding: "0 5px",
+    borderRadius: "4px",
+    fontSize: "0.8em",
+    fontWeight: "500",
+    color: "var(--fg2)",
+    background: "var(--bg-sunken)",
+  },
   ".cm-gutters": { backgroundColor: "transparent", color: "var(--fg3)", border: "none" },
   ".cm-activeLine": { backgroundColor: "var(--line-soft)" },
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--fg2)" },
@@ -208,8 +223,9 @@ const trailingBlankLine = EditorState.transactionFilter.of((tr) => {
   const doc = tr.newDoc;
   const last = doc.line(doc.lines);
   const t = last.text.trim();
-  // Ucuz ön eleme — yalnız tablo satırı ya da embed görünümlü son satırda tam kontrol.
-  if (t === "" || (!t.includes("|") && !t.startsWith("!["))) return tr;
+  // Ucuz ön eleme — yalnız tablo satırı, embed ya da tablonun not satırı (<!-- loomen: …,
+  // LOM-89) görünümlü son satırda tam kontrol.
+  if (t === "" || (!t.includes("|") && !t.startsWith("![") && !t.startsWith("<!--"))) return tr;
   if (!needsTrailingBlankLine(doc.toString().split("\n"))) return tr;
   return [tr, { changes: { from: doc.length, insert: "\n" }, sequential: true }];
 });

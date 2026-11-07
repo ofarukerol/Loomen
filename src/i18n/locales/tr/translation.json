@@ -1484,5 +1484,14 @@
     "fnAbs": "İşareti atar, mutlak değer",
     "column": "{{name}} sütunu; harfi ya da adıyla yazılır",
     "columnLetterOnly": "{{name}} sütunu; başlığında boşluk olduğu için harfiyle yazılır"
+  },
+  "tableCurrency": {
+    "label": "Para birimi",
+    "none": "Yok",
+    "noneTitle": "Para birimi yok",
+    "TRY": "Türk lirası",
+    "USD": "ABD doları",
+    "EUR": "Euro",
+    "GBP": "İngiliz sterlini"
   }
 }

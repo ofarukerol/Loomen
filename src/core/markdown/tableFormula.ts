@@ -40,7 +40,7 @@ const THOUSANDS_GROUPED = /^\d{1,3}(\.\d{3})+$/;
  */
 export function parseLocalizedNumber(text: string): number | null {
   if (text == null) return null;
-  let s = String(text).replace(/[₺$€]/g, "").replace(/\bTL\b/gi, "");
+  let s = String(text).replace(/[₺$€£]/g, "").replace(/\bTL\b/gi, "");
   s = s.replace(/[\s  ]/g, "");
   if (s === "") return null;
   let sign = 1;

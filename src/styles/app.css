@@ -920,6 +920,46 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
 }
 /* Formül öneri listesi (LOM-88): düzenleme kutusunun altında/üstünde yüzer. */
+/* Başlık düzenleme kutusunun altındaki para birimi şeridi (LOM-89). */
+.cm-table-currency {
+  position: fixed;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--sh3);
+  padding: 4px 6px;
+  font-size: 13px;
+}
+.cm-table-currency__label {
+  color: var(--fg3);
+  padding-inline-end: 4px;
+  white-space: nowrap;
+}
+.cm-table-currency__opt {
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--fg1);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.cm-table-currency__opt:hover { background: var(--line-soft); }
+.cm-table-currency__opt.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.lo-app.is-mobile .cm-table-currency__opt { min-width: 40px; height: 36px; }
 .cm-table-suggest {
   position: fixed;
   z-index: 1001;
@@ -985,6 +1025,11 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
 }
 .lo-table td.lo-table__formula.is-error,
 .lo-table tbody tr:nth-child(even) td.lo-table__formula.is-error { color: var(--danger); background: var(--danger-bg); }
+/* Para birimli sütun (LOM-89): sayı ve formül sonucu sağa yaslı, rakamlar eşit genişlikte. */
+.lo-table td.lo-table__currency {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
 .lo-prose ul { margin: 0 0 18px; padding-inline-start: 22px; font-size: 15px; line-height: 1.75; color: var(--fg1); }
 .lo-wiki {
   color: var(--accent);

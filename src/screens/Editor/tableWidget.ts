@@ -19,6 +19,19 @@ import i18n from "../../i18n";
 import { evaluateTable, formatFormulaResult, type CellResult } from "../../core/markdown/tableFormula";
 import { createTapTracker, isTapInput } from "./tapGesture";
 import { applySuggestion, suggestFormula, type FormulaSuggestResult } from "../../core/markdown/formulaSuggest";
+import {
+  CURRENCIES,
+  columnCurrency,
+  currencySymbol,
+  formatCellDisplay,
+  formatCurrency,
+  isCurrencyCode,
+  moveMetaColumn,
+  serializeTableMeta,
+  setColumnCurrency,
+  type CurrencyCode,
+  type TableMeta,
+} from "../../core/markdown/tableMeta";
 
 /**
  * Canlı önizlemede (düzenleme modu) GFM tablolarını gerçek tablo olarak gösterir ve
@@ -44,13 +57,50 @@ function blockRange(state: EditorState, block: TableBlock): { from: number; to: 
   return { from: state.doc.line(block.headerLine + 1).from, to: state.doc.line(block.endLine + 1).to };
 }
 
-/** Başlık satırı `headerFrom` pozisyonunda olan tablonun belge aralığı (yoksa null). */
-function tableBlockRange(state: EditorState, headerFrom: number): { from: number; to: number } | null {
+/**
+ * Tablonun not satırı (LOM-89) dahil belge aralığı: dekorasyon, seçim ve "tablonun altı" bunu
+ * kullanır. Satır/sütun ekleme ve taşıma ise yalnız tablo satırlarını (blockRange) değiştirir.
+ */
+function fullBlockRange(state: EditorState, block: TableBlock): { from: number; to: number } {
+  const last = block.metaLine ?? block.endLine;
+  return { from: state.doc.line(block.headerLine + 1).from, to: state.doc.line(last + 1).to };
+}
+
+/** Başlık satırı `headerFrom` pozisyonunda olan tablo (yoksa null). */
+function tableBlockFrom(state: EditorState, headerFrom: number): TableBlock | null {
   if (headerFrom < 0 || headerFrom > state.doc.length) return null;
   const line = state.doc.lineAt(headerFrom);
   if (line.from !== headerFrom) return null;
-  const block = tableBlockAt(docLines(state), line.number - 1);
+  return tableBlockAt(docLines(state), line.number - 1);
+}
+
+/** Başlık satırı `headerFrom` pozisyonunda olan tablonun belge aralığı (yoksa null). */
+function tableBlockRange(state: EditorState, headerFrom: number): { from: number; to: number } | null {
+  const block = tableBlockFrom(state, headerFrom);
   return block ? blockRange(state, block) : null;
+}
+
+/**
+ * Sütunun para birimini tablonun not satırına yazar (tek dispatch, LOM-89). Not satırı yoksa
+ * tablonun hemen altına eklenir; "Yok" ile saklanacak bir şey kalmazsa satır silinir.
+ * Dosyadaki hücre metinleri değişmez.
+ */
+function writeTableMeta(view: EditorView, headerFrom: number, col: number, code: CurrencyCode | null): void {
+  if (!isLive(view)) return;
+  const block = tableBlockFrom(view.state, headerFrom);
+  if (!block) return;
+  const text = serializeTableMeta(setColumnCurrency(block.meta, col, code));
+  const end = view.state.doc.line(block.endLine + 1);
+  if (block.metaLine != null) {
+    const metaLine = view.state.doc.line(block.metaLine + 1);
+    if (text === null) {
+      view.dispatch({ changes: { from: end.to, to: metaLine.to, insert: "" } });
+    } else if (text !== metaLine.text) {
+      view.dispatch({ changes: { from: metaLine.from, to: metaLine.to, insert: text } });
+    }
+  } else if (text !== null) {
+    view.dispatch({ changes: { from: end.to, to: end.to, insert: `\n${text}` } });
+  }
 }
 
 /** Bir hücrenin kaynak metindeki içerik aralığı (iki boru arası), yoksa null. */
@@ -90,8 +140,9 @@ function isLive(view: EditorView): boolean {
 /** İmleci tablonun altındaki satıra taşı (yoksa oluştur). */
 function caretBelowTable(view: EditorView, headerFrom: number): void {
   if (!isLive(view)) return;
-  const range = tableBlockRange(view.state, headerFrom);
-  if (!range) return;
+  const block = tableBlockFrom(view.state, headerFrom);
+  if (!block) return;
+  const range = fullBlockRange(view.state, block); // not satırının da altı
   const lastLine = view.state.doc.lineAt(range.to);
   if (lastLine.number < view.state.doc.lines) {
     const next = view.state.doc.line(lastLine.number + 1);
@@ -159,6 +210,74 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
     return Array.from(out, (t) => t ?? "");
   };
   const header = headerTexts();
+
+  // Başlık hücresinde: kutunun altında para birimi şeridi (LOM-89). Seçim not satırına yazılır.
+  let strip: HTMLElement | null = null;
+  const placeStrip = () => {
+    if (!strip) return;
+    const box = input.getBoundingClientRect();
+    const vw = window.visualViewport?.width ?? window.innerWidth;
+    const w = strip.offsetWidth;
+    strip.style.left = `${Math.max(4, Math.min(box.left, vw - w - 4))}px`;
+    strip.style.top = `${box.bottom + 2}px`;
+  };
+  if (row === -1) {
+    const curRaw = cellEl.dataset.currency ?? "";
+    const cur: CurrencyCode | null = isCurrencyCode(curRaw) ? curRaw : null;
+    strip = document.createElement("div");
+    strip.className = "cm-table-currency";
+    strip.setAttribute("role", "group");
+    strip.setAttribute("aria-label", i18n.t("tableCurrency.label"));
+    const label = document.createElement("span");
+    label.className = "cm-table-currency__label";
+    label.textContent = i18n.t("tableCurrency.label");
+    strip.appendChild(label);
+    const options: { code: CurrencyCode | null; text: string; title: string }[] = [
+      { code: null, text: i18n.t("tableCurrency.none"), title: i18n.t("tableCurrency.noneTitle") },
+      ...CURRENCIES.map((c) => ({ code: c.code, text: c.symbol, title: i18n.t(`tableCurrency.${c.code}`) })),
+    ];
+    for (const o of options) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cm-table-currency__opt" + (o.code === cur ? " is-active" : "");
+      btn.textContent = o.text;
+      btn.title = o.title;
+      btn.setAttribute("aria-label", o.title);
+      btn.setAttribute("aria-pressed", String(o.code === cur));
+      // Odak textarea'da kalsın (blur → finish kutuyu seçimden önce kapatırdı): pointerdown'da
+      // preventDefault. Seçince başlık metni kaydedilir, sonra not satırı yazılır. Fare basınca
+      // seçer; dokunmatikte parmak kalkınca (şerit erken kalkarsa dokunuş alttaki hücreye düşerdi).
+      const choose = () => {
+        finish(true);
+        if (o.code !== cur) writeTableMeta(view, headerFrom, col, o.code);
+      };
+      const tap = createTapTracker();
+      btn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!isTapInput(e.pointerType)) {
+          choose();
+          return;
+        }
+        tap.down(e.pointerId, e.clientX, e.clientY, e.timeStamp);
+      });
+      btn.addEventListener("mousedown", (e) => e.preventDefault());
+      btn.addEventListener("pointermove", (e) => {
+        if (isTapInput(e.pointerType)) tap.move(e.pointerId, e.clientX, e.clientY);
+      });
+      btn.addEventListener("pointerup", (e) => {
+        if (!isTapInput(e.pointerType)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (tap.up(e.pointerId, e.clientX, e.clientY, e.timeStamp)) choose();
+      });
+      btn.addEventListener("pointercancel", (e) => tap.cancel(e.pointerId));
+      strip.appendChild(btn);
+    }
+    document.body.appendChild(strip);
+    placeStrip();
+  }
+
   let current: FormulaSuggestResult | null = null;
   let active = 0;
   // Esc ile kapatılan metin: aynı metinde liste yeniden açılmaz, yeni harf yazılınca açılır.
@@ -310,6 +429,7 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
     window.removeEventListener("resize", onScroll);
     window.removeEventListener("scroll", onScroll, true);
     suggest.remove();
+    strip?.remove();
   };
 
   function finish(save: boolean, refocus = true): void {
@@ -408,6 +528,7 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
       return;
     }
     fitHeight();
+    placeStrip();
     refreshSuggest();
   });
   input.addEventListener("click", () => refreshSuggest());
@@ -440,7 +561,9 @@ class TableWidget extends WidgetType {
   constructor(
     readonly from: number,
     readonly header: string[],
-    readonly rows: string[][]
+    readonly rows: string[][],
+    /** Tablonun not satırı (para birimi, LOM-89); yoksa null. */
+    readonly meta: TableMeta | null = null
   ) {
     super();
   }
@@ -449,7 +572,8 @@ class TableWidget extends WidgetType {
     return (
       o.from === this.from &&
       JSON.stringify(o.header) === JSON.stringify(this.header) &&
-      JSON.stringify(o.rows) === JSON.stringify(this.rows)
+      JSON.stringify(o.rows) === JSON.stringify(this.rows) &&
+      JSON.stringify(o.meta) === JSON.stringify(this.meta)
     );
   }
 
@@ -487,6 +611,7 @@ class TableWidget extends WidgetType {
     const next = axis === "col" ? moveTableColumn(lines, from, to) : moveTableRow(lines, from, to);
     const newText = next.join("\n");
     if (newText === oldText) return;
+    const changes: { from: number; to: number; insert: string }[] = [{ from: range.from, to: range.to, insert: newText }];
     if (axis === "col") {
       // Saklı sütun genişlikleri taşınan sütunla birlikte yer değiştirir.
       const arr = colWidths.get(this.from);
@@ -494,8 +619,15 @@ class TableWidget extends WidgetType {
         const full = this.header.map((_, i) => arr[i] ?? 0);
         colWidths.set(this.from, moveItem(full, from, to));
       }
+      // Para birimi de sütunla birlikte taşınır (LOM-89): not satırı aynı dispatch'te yazılır.
+      const block = tableBlockFrom(view.state, this.from);
+      if (block && block.metaLine != null) {
+        const metaLine = view.state.doc.line(block.metaLine + 1);
+        const text = serializeTableMeta(moveMetaColumn(block.meta, from, to, block.header.length));
+        if (text !== null && text !== metaLine.text) changes.push({ from: metaLine.from, to: metaLine.to, insert: text });
+      }
     }
-    view.dispatch({ changes: { from: range.from, to: range.to, insert: newText } });
+    view.dispatch({ changes });
   }
 
   /**
@@ -621,6 +753,8 @@ class TableWidget extends WidgetType {
       el.dataset.col = String(col);
       el.dataset.row = String(row);
       el.dataset.raw = text;
+      // Para birimli sütun (LOM-89): ekranda "212.500 ₺"; kaynak (dataset.raw) aynen kalır.
+      const cur = columnCurrency(this.meta, col);
       if (result?.formula) {
         el.classList.add("cm-table__formula");
         if (result.error) {
@@ -628,9 +762,27 @@ class TableWidget extends WidgetType {
           el.textContent = i18n.t("tableFormula.errorLabel");
           el.title = `${result.formula} — ${i18n.t(`tableFormula.${result.error}`)}`;
         } else {
-          el.textContent = formatFormulaResult(result.value ?? 0, i18n.language);
+          el.textContent = cur
+            ? formatCurrency(result.value ?? 0, cur, i18n.language)
+            : formatFormulaResult(result.value ?? 0, i18n.language);
+          if (cur) el.classList.add("cm-table__currency");
           el.title = result.formula;
         }
+      } else if (tag === "td") {
+        // Sayı olmayan hücre (metin, boş) olduğu gibi kalır.
+        const shown = formatCellDisplay(text, cur, i18n.language);
+        if (shown !== null) {
+          el.textContent = shown;
+          el.classList.add("cm-table__currency");
+        }
+      } else if (cur) {
+        // Başlıkta seçili para biriminin simgesi; başlık kutusu seçimi buradan okur.
+        el.dataset.currency = cur;
+        const badge = document.createElement("span");
+        badge.className = "cm-table__curbadge";
+        badge.textContent = currencySymbol(cur);
+        badge.title = i18n.t(`tableCurrency.${cur}`);
+        el.appendChild(badge);
       }
       el.dataset.tableFrom = String(this.from);
       // Saklı sütun genişliği (oturum) hem width hem min-width olarak uygulanır: width
@@ -751,11 +903,12 @@ function buildTables(state: EditorState): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   for (const block of findTables(docLines(state))) {
     const from = lineStart(state, block.headerLine);
-    const to = state.doc.line(block.endLine + 1).to;
+    // Not satırı (LOM-89) da gizlenir: dekorasyon `metaLine ?? endLine` satırının sonuna kadar.
+    const to = state.doc.line((block.metaLine ?? block.endLine) + 1).to;
     builder.add(
       from,
       to,
-      Decoration.replace({ widget: new TableWidget(from, block.header, block.rows), block: true })
+      Decoration.replace({ widget: new TableWidget(from, block.header, block.rows, block.meta), block: true })
     );
   }
   return builder.finish();
@@ -786,10 +939,11 @@ const tableGuards: KeyBinding[] = [
       const line = view.state.doc.lineAt(r.from);
       if (r.from !== line.from || line.number < 2) return false;
       const prev = view.state.doc.line(line.number - 1);
-      const block = findTables(docLines(view.state)).find((t) => t.endLine === prev.number - 1);
+      // Tablonun son satırı not satırı olabilir (LOM-89): metaLine ?? endLine.
+      const block = findTables(docLines(view.state)).find((t) => (t.metaLine ?? t.endLine) === prev.number - 1);
       if (!block) return false;
-      // Silmeden önce tabloyu seç — ikinci Backspace bilinçli olarak siler.
-      const range = blockRange(view.state, block);
+      // Silmeden önce tabloyu (not satırı dahil) seç — ikinci Backspace bilinçli olarak siler.
+      const range = fullBlockRange(view.state, block);
       view.dispatch({ selection: { anchor: range.from, head: range.to } });
       return true;
     },
@@ -803,7 +957,7 @@ const tableGuards: KeyBinding[] = [
       if (r.from !== line.to || line.number >= view.state.doc.lines) return false;
       const block = findTables(docLines(view.state)).find((t) => t.headerLine === line.number);
       if (!block) return false;
-      const range = blockRange(view.state, block);
+      const range = fullBlockRange(view.state, block);
       view.dispatch({ selection: { anchor: range.from, head: range.to } });
       return true;
     },

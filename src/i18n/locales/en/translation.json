@@ -1484,5 +1484,14 @@
     "fnAbs": "Drops the sign, absolute value",
     "column": "{{name}} column; write its letter or name",
     "columnLetterOnly": "{{name}} column; its header has spaces, so write its letter"
+  },
+  "tableCurrency": {
+    "label": "Currency",
+    "none": "None",
+    "noneTitle": "No currency",
+    "TRY": "Turkish lira",
+    "USD": "US dollar",
+    "EUR": "Euro",
+    "GBP": "British pound"
   }
 }

@@ -7,6 +7,8 @@
  */
 
 /** Kod bloğu çiti: ``` veya ~~~ (en fazla 3 boşluk girintili). */
+import { isTableMetaLine, parseTableMeta, type TableMeta } from "../../core/markdown/tableMeta";
+
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
 const AUDIO_EMBED = /^!\[\[.+\.(?:flac|wav|webm|m4a|mp3|aac)\]\]$/i;
@@ -21,6 +23,18 @@ export interface TableBlock {
   header: string[];
   /** Gövde satırları — her biri header uzunluğuna tamamlanmış/kırpılmış. */
   rows: string[][];
+  /**
+   * Tablonun hemen altındaki gizli not satırı (`<!-- loomen: para B=TRY -->`, LOM-89);
+   * yoksa null. Tabloya aittir: blok sonu `metaLine ?? endLine`'dır.
+   */
+  metaLine: number | null;
+  /** Not satırından okunan ayarlar (para birimi); not satırı yoksa null. */
+  meta: TableMeta | null;
+}
+
+/** Tablonun not satırı dahil son satırı (0-tabanlı). */
+export function tableLastLine(t: TableBlock): number {
+  return t.metaLine ?? t.endLine;
 }
 
 export interface FenceBlock {
@@ -129,8 +143,15 @@ export function findTables(lines: string[]): TableBlock[] {
         endLine = j;
         j++;
       }
-      out.push({ headerLine: i, endLine, header: cells, rows });
-      i = endLine + 1;
+      let metaLine: number | null = null;
+      let meta: TableMeta | null = null;
+      const m = endLine + 1;
+      if (m < lines.length && !inFence(m) && isTableMetaLine(lines[m])) {
+        metaLine = m;
+        meta = parseTableMeta(lines[m]);
+      }
+      out.push({ headerLine: i, endLine, header: cells, rows, metaLine, meta });
+      i = (metaLine ?? endLine) + 1;
       continue;
     }
     i++;
@@ -143,9 +164,9 @@ export function tableBlockAt(lines: string[], headerLine: number): TableBlock | 
   return findTables(lines).find((t) => t.headerLine === headerLine) ?? null;
 }
 
-/** Verilen satırı içeren tablo (yoksa null). */
+/** Verilen satırı (not satırı dahil) içeren tablo (yoksa null). */
 export function tableContaining(lines: string[], lineIdx: number): TableBlock | null {
-  return findTables(lines).find((t) => lineIdx >= t.headerLine && lineIdx <= t.endLine) ?? null;
+  return findTables(lines).find((t) => lineIdx >= t.headerLine && lineIdx <= tableLastLine(t)) ?? null;
 }
 
 /** Hücrenin bulunduğu satırın indeksi. `row < 0` → başlık satırı. */
@@ -192,7 +213,7 @@ export function needsTrailingBlankLine(lines: string[]): boolean {
   if (last.trim() === "") return false;
   if (isInFence(lines, lastIdx)) return false;
   if (isBlockEmbedLine(last)) return true;
-  return findTables(lines).some((t) => t.endLine === lastIdx);
+  return findTables(lines).some((t) => tableLastLine(t) === lastIdx);
 }
 
 /** Metin hâli — gerekiyorsa sona boş satır ekler. */

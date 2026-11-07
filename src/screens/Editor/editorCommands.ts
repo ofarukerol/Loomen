@@ -143,13 +143,13 @@ export function computeBlockInsert(doc: string, pos: number, text: string, caret
 
   const tables = findTables(lines);
   const fences = findFenceBlocks(lines);
-  const inTable = tables.find((t) => idx >= t.headerLine && idx <= t.endLine);
+  const inTable = tables.find((t) => idx >= t.headerLine && idx <= (t.metaLine ?? t.endLine));
   const inFence = fences.find((f) => idx >= f.start && idx <= f.end);
   const startsTable = (i: number) => tables.some((t) => t.headerLine === i);
   const startsFence = (i: number) => fences.some((f) => f.start === i);
 
   let end = idx;
-  if (inTable) end = inTable.endLine;
+  if (inTable) end = inTable.metaLine ?? inTable.endLine; // not satırı (LOM-89) tablodan kopmasın
   else if (inFence) end = inFence.end;
   else if (lines[idx].trim() !== "") {
     while (end + 1 < lines.length && lines[end + 1].trim() !== "" && !startsTable(end + 1) && !startsFence(end + 1))

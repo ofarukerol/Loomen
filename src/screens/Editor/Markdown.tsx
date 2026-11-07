@@ -4,6 +4,7 @@ import { AudioEmbedPlayer } from "./AudioEmbedPlayer";
 import { ImageEmbed, parseImageLine } from "./ImageEmbed";
 import i18n from "../../i18n";
 import { evaluateTable, formatFormulaResult } from "../../core/markdown/tableFormula";
+import { columnCurrency, formatCellDisplay, formatCurrency, isTableMetaLine, parseTableMeta } from "../../core/markdown/tableMeta";
 
 interface Props {
   content: string;
@@ -148,6 +149,8 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
         rows.push(cells.slice(0, cols));
         i++;
       }
+      // Tablonun hemen altındaki gizli not satırı (LOM-89): para birimi; ekranda gösterilmez.
+      const meta = i < lines.length && isTableMetaLine(lines[i]) ? parseTableMeta(lines[i++]) : null;
       // Formül hücreleri (LOM-79): okuma modunda da sonuç gösterilir; dosyada formül kalır.
       const results = evaluateTable(header, rows);
       blocks.push(
@@ -165,14 +168,30 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
                 <tr key={ri}>
                   {r.map((c, ci) => {
                     const res = results[ri]?.[ci];
+                    const cur = columnCurrency(meta, ci);
                     if (res?.formula) {
                       return (
                         <td
                           key={ci}
-                          className={"lo-table__formula" + (res.error ? " is-error" : "")}
+                          className={
+                            "lo-table__formula" + (res.error ? " is-error" : "") + (cur && !res.error ? " lo-table__currency" : "")
+                          }
                           title={res.error ? `${res.formula} — ${i18n.t(`tableFormula.${res.error}`)}` : res.formula}
                         >
-                          {res.error ? i18n.t("tableFormula.errorLabel") : formatFormulaResult(res.value ?? 0, i18n.language)}
+                          {res.error
+                            ? i18n.t("tableFormula.errorLabel")
+                            : cur
+                              ? formatCurrency(res.value ?? 0, cur, i18n.language)
+                              : formatFormulaResult(res.value ?? 0, i18n.language)}
+                        </td>
+                      );
+                    }
+                    // Para birimli sütunda sayı hücresi "212.500 ₺"; metin ve boş hücre olduğu gibi.
+                    const shown = formatCellDisplay(c, cur, i18n.language);
+                    if (shown !== null) {
+                      return (
+                        <td key={ci} className="lo-table__currency">
+                          {shown}
                         </td>
                       );
                     }
