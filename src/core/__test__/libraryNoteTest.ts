@@ -5,6 +5,7 @@ import {
   blockState,
   bookNoteTemplate,
   insertHighlightBlock,
+  locationLabel,
   newBook,
   noteBookId,
   removeHighlightBlock,
@@ -115,10 +116,31 @@ check("şablon bütün çizimleri sırayla içerir", blockIds(tpl).join(",") ===
   const edited = base.replace("<!-- /loomen:hl g1 -->", "Benim yorumum\n<!-- /loomen:hl g1 -->");
   check("elle değişmiş blok güncellenmez", updateHighlightBlock(edited, up, h2, ["g1"], undefined, r.highlight) === edited);
   check("elle değişmiş blok silinmez", removeHighlightBlock(edited, "g1", { book: r.book, h: r.highlight }) === edited);
-  const EN = { page: "p. {n}", section: "Section {n}", openBook: "Open book", quotes: "Highlights" };
+  const EN = { page: "p. {n}", section: "Section {n}", openBook: "Open book", quotes: "Highlights", location: "Location {n}", kindle: "Kindle" };
   check("dil değişse de dokunulmamış blok silinir", blockState(removeHighlightBlock(base, "g1", { book: r.book, h: r.highlight, labels: EN }), "g1") === "missing");
   check("dil değişse de dokunulmamış blok güncellenir", updateHighlightBlock(base, up, h2, ["g1"], EN, r.highlight) !== base);
   check("dokunulmamış blok silinir", blockState(removeHighlightBlock(base, "g1", { book: r.book, h: r.highlight }), "g1") === "missing");
+}
+
+// Kindle kitabı (LOM-84)
+{
+  const k0 = newBook({ hash: "d".repeat(64), size: 0, fileName: "", format: "kindle", notePath: "Kütüphane/K.md", title: "Kindle Kitabı" }, NOW);
+  const tplK = bookNoteTemplate(k0);
+  check("kindle şablonunda kaynak satırı", tplK.includes("\n*Kindle*\n") && !tplK.includes("Kitabı aç"));
+  const r1 = addHighlight(k0, { text: "Korku zihni öldürendir.", anchor: { kind: "kindle", location: { start: 180, end: 182 } }, color: "yellow" }, NOW, "ka");
+  const r2 = addHighlight(r1.book, { text: "Sayfalı", anchor: { kind: "kindle", location: { start: 200, end: 200 }, page: 12 }, color: "yellow", note: "notum" }, NOW, "kb");
+  const hA = r2.book.highlights.find((h) => h.id === "ka")!;
+  const hB = r2.book.highlights.find((h) => h.id === "kb")!;
+  check("kindle konum etiketi aralık", locationLabel(hA) === "Konum 180-182");
+  check("kindle sayfa varsa sayfa", locationLabel(hB) === "s. 12");
+  check("kindle tek konum", locationLabel({ ...hA, anchor: { kind: "kindle", location: { start: 7, end: 7 } } }) === "Konum 7");
+  const EN_K = { page: "p. {n}", section: "Section {n}", openBook: "Open book", quotes: "Highlights", location: "Location {n}", kindle: "Kindle" };
+  check("kindle konum etiketi dile göre", locationLabel(hA, EN_K) === "Location 180-182" && locationLabel(hB, EN_K) === "p. 12");
+  check("eski etiket nesnesinde konum varsayılana döner", locationLabel(hA, { page: "p. {n}", section: "S {n}", openBook: "O", quotes: "Q" }) === "Konum 180-182");
+  const full = bookNoteTemplate(r2.book);
+  check("kindle blok biçimi aynı", full.includes(`<!-- loomen:hl ka -->\n> Korku zihni öldürendir.\n\n🟨 [Konum 180-182](loomen://book/${k0.id}?hl=ka)\n<!-- /loomen:hl ka -->`));
+  check("kindle notlu blok", full.includes(`> Sayfalı\n\nnotum\n\n🟨 [s. 12](loomen://book/${k0.id}?hl=kb)`));
+  check("kindle şablon sırası", blockIds(full).join(",") === "ka,kb");
 }
 
 if (fails) {

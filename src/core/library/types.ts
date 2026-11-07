@@ -7,6 +7,11 @@
 // Çizim yeri (anchor) yazı boyutundan ve yakınlaştırmadan BAĞIMSIZDIR (K5):
 //  - PDF: sayfa numarası + sayfaya göre 0..1 aralığında dikdörtgenler.
 //  - EPUB: bölüm sırası/yolu + bölümün düz metnindeki karakter aralığı.
+//  - Kindle (LOM-84): Kindle'ın "My Clippings.txt" dosyasındaki konum aralığı ve/veya sayfa.
+//
+// Kindle kitabının DOSYASI yoktur: kayıt yalnız çizimleri taşır (okuyucu açılmaz, kart notu
+// açar). Özeti (hash) dosyadan değil normalleştirilmiş "başlık|yazar" metninden türer; boyut 0,
+// dosya adı boştur. Dosya işlemlerinden önce `hasBookFile` sorulur.
 
 /** Kasadaki klasör adı. Diskte macOS NFD biçiminde de durabilir; karşılaştırma NFC ile yapılır. */
 export const LIBRARY_DIR = "Kütüphane";
@@ -28,8 +33,11 @@ export const BOOK_FILE_VERSION = 1;
 /** Bu boyutun üstünde içe aktarmadan önce uyarı (mobilde bellek). */
 export const LARGE_BOOK_BYTES = 200 * 1024 * 1024;
 
-export const BOOK_FORMATS = ["pdf", "epub"] as const;
+export const BOOK_FORMATS = ["pdf", "epub", "kindle"] as const;
 export type BookFormat = (typeof BOOK_FORMATS)[number];
+/** Uygulama klasöründe dosyası olan (okuyucuda açılan) biçimler. */
+export const FILE_BOOK_FORMATS = ["pdf", "epub"] as const;
+export type FileBookFormat = (typeof FILE_BOOK_FORMATS)[number];
 
 export const BOOK_STATUSES = ["toread", "reading", "done"] as const;
 export type BookStatus = (typeof BOOK_STATUSES)[number];
@@ -72,12 +80,24 @@ export interface EpubAnchor {
   end: number;
 }
 
-export type Anchor = PdfAnchor | EpubAnchor;
+/**
+ * Kindle çizim yeri (LOM-84): Kindle konum aralığı (start <= end, 1'den) ve/veya sayfa.
+ * En az biri doludur. Kindle konumları cihazdan bağımsızdır; sayfa yalnız bazı kitaplarda vardır.
+ */
+export interface KindleAnchor {
+  kind: "kindle";
+  location?: { start: number; end: number };
+  page?: number;
+}
+
+export type Anchor = PdfAnchor | EpubAnchor | KindleAnchor;
 
 /** Kalınan yer. PDF: sayfa + sayfa içi dikey oran (0..1). EPUB: bölüm + bölüm metnindeki karakter ofseti. */
 export type BookPosition =
   | { kind: "pdf"; page: number; offset: number }
-  | { kind: "epub"; spine: number; href: string; offset: number };
+  | { kind: "epub"; spine: number; href: string; offset: number }
+  /** Kindle: konum (yoksa sayfa) numarası. Okuyucu bunu kullanmaz; yalnız sıra/gösterim. */
+  | { kind: "kindle"; location: number };
 
 export interface Highlight {
   /** Kitap içinde tekil; bağlantıda `?hl=<id>`. Yalnız [A-Za-z0-9_-]. */

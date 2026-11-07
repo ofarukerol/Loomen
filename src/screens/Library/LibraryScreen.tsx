@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, BookMarked, Loader2, Plus } from "lucide-react";
+import { AlertTriangle, BookMarked, Loader2, Plus, Tablet } from "lucide-react";
 import { SHELF_FILTERS, shelfBooks, shelfCounts, type Book } from "../../core/library";
 import { isTauri } from "../../core/vault";
 import { useAppStore } from "../../store/useAppStore";
@@ -10,6 +10,8 @@ import { BookCard } from "./BookCard";
 /**
  * Kütüphane rafı (LOM-83): Okunuyor / Okunacak / Bitti süzgeci, içe aktarma ve kitap kartları.
  * Kayıtlar kasadaki Kütüphane/<id>.json dosyalarından gelir; kitap dosyası uygulama klasöründedir.
+ * Kindle (LOM-84): "Kindle'dan al" bağlı Kindle'ın çizim dosyasını, yoksa seçilen dosyayı alır;
+ * ekran açılınca ve pencere odak alınca Kindle aranır, bulunursa rafın üstünde şerit çıkar.
  */
 export function LibraryScreen() {
   const { t } = useTranslation();
@@ -23,6 +25,9 @@ export function LibraryScreen() {
   const load = useAppStore((s) => s.libraryLoad);
   const loadCovers = useAppStore((s) => s.libraryLoadCovers);
   const remove = useAppStore((s) => s.libraryRemove);
+  const kindlePath = useAppStore((s) => s.kindleDevicePath);
+  const probeKindle = useAppStore((s) => s.libraryProbeKindle);
+  const importKindle = useAppStore((s) => s.libraryImportKindle);
   const [confirm, setConfirm] = useState<Book | null>(null);
 
   useEffect(() => {
@@ -32,6 +37,14 @@ export function LibraryScreen() {
   useEffect(() => {
     if (loaded) void loadCovers();
   }, [loaded, ids, loadCovers]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    void probeKindle();
+    const onFocus = () => void probeKindle();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [probeKindle]);
 
   const counts = useMemo(() => shelfCounts(books), [books]);
   const shown = useMemo(() => shelfBooks(books, filter), [books, filter]);
@@ -44,13 +57,36 @@ export function LibraryScreen() {
     </button>
   );
 
+  const kindleBtn = (
+    <button type="button" className="lo-btn lo-lib-kindle-btn" onClick={() => void importKindle("auto")} disabled={busy || !app}>
+      <Tablet size={16} strokeWidth={2.2} aria-hidden />
+      <span>{t("library.kindle.import")}</span>
+    </button>
+  );
+
   return (
     <div className="lo-lib">
       <div className="lo-lib__inner">
         <header className="lo-lib-head">
           <h1 className="lo-lib-head__title">{t("library.title")}</h1>
-          {books.length > 0 && addBtn}
+          {books.length > 0 && (
+            <div className="lo-lib-head__actions">
+              {kindleBtn}
+              {addBtn}
+            </div>
+          )}
         </header>
+
+        {kindlePath && app && (
+          <div className="lo-lib-kindle" role="status">
+            <Tablet size={15} strokeWidth={2} aria-hidden />
+            <span>{t("library.kindle.detected")}</span>
+            <button type="button" className="lo-btn lo-btn--primary lo-lib-kindle__take" onClick={() => void importKindle("auto")} disabled={busy}>
+              {busy ? <Loader2 size={14} strokeWidth={2.2} className="lo-spin" aria-hidden /> : null}
+              <span>{t("library.kindle.take")}</span>
+            </button>
+          </div>
+        )}
 
         {broken.length > 0 && (
           <div className="lo-hab-warn" role="status">
@@ -72,7 +108,10 @@ export function LibraryScreen() {
             <BookMarked size={34} strokeWidth={1.5} aria-hidden />
             <h2>{t("library.emptyTitle")}</h2>
             <p>{app ? t("library.emptyBody") : t("library.appOnly")}</p>
-            {addBtn}
+            <div className="lo-lib-head__actions">
+              {addBtn}
+              {kindleBtn}
+            </div>
           </div>
         ) : (
           <>

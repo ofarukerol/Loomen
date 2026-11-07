@@ -5,3 +5,4 @@ export * from "./model";
 export * from "./links";
 export * from "./noteSync";
 export * from "./store";
+export * from "./kindle";

@@ -2,7 +2,7 @@
 module: kutuphane
 repos: [Loomen]
 status: aktif
-last_updated: 2026-11-07
+last_updated: 2026-11-08
 related_docs:
   - modules/mimari.md
 ---
@@ -75,12 +75,41 @@ kullanıcının notu (varsa)
 - Raftan kaldırma onay ister; kayıt çöpe gider, cihazdaki kopya ve kapak silinir, not kasada kalır.
 - Aynı dosya ikinci kez eklenmez. 200 MB üstü dosya için onay sorulur.
 
+## Kindle çizimleri (LOM-84)
+- **Kaynak:** Kindle'ın `documents/My Clippings.txt` dosyası. Rafta "Kindle'dan al" düğmesi: bağlı
+  Kindle varsa onun dosyası, yoksa (ya da Windows/mobil) dosya seçtirilir. Ekran açılınca ve pencere
+  odak alınca Kindle aranır (zamanlayıcı yok); bulunursa rafın üstünde "Kindle bağlı · Çizimleri al"
+  şeridi çıkar.
+- **Tanıma yolu:** macOS `/Volumes/*/documents/`, Linux `/media/*/`, `/media/*/*/`, `/run/media/*/*/`.
+  Bu yerler için yalnız okuma izni var (`capabilities/default.json`: metin oku, klasör oku, var mı);
+  yazma izni yok. Windows sürücü harfleri için güvenli izin kalıbı yazılamadığından otomatik tanıma
+  yok; seçilen dosya izne kendiliğinden girer.
+- **Ayrıştırma:** baştaki görünmez işaret (BOM) ve Windows satır sonları temizlenir; İngilizce ve
+  Türkçe meta satırı tanınır, başka dilde konum + metin varsa çizim sayılır. Not, aynı kitapta konumu
+  kapsayan (yoksa dosyada hemen önceki) çizime bağlanır; yer imleri ve eşi bulunmayan notlar atlanır,
+  sonuç mesajında sayılır.
+- **Kimlikler (tekrar koruması):** kitap özeti normalleştirilmiş "başlık|yazar"ın SHA-256'sı, kimlik
+  ilk 16 hane — aynı kitap her alımda aynı kayda düşer. Çizim kimliği `k` + SHA-256(konum|sayfa|alıntı)
+  ilk 10 hane; aynı çizim ikinci alımda yeniden eklenmez, Kindle'da sonradan yazılan not mevcut
+  çizimin bloğuna işlenir (blok elle değiştirildiyse dokunulmaz, kullanıcıya söylenir).
+- **Kayıt:** biçim `kindle`, dosya yok (`hasBookFile` false), boyut 0; çıpa `{kind: "kindle",
+  location?, page?}`, renk sarı. Kindle kaydını eski Loomen sürümleri tanımaz, "okunamadı" uyarısıyla
+  gizler; üstüne yazmaz.
+- **Not:** blok biçimi Loomen kitaplarıyla aynı (işaret, alıntı, not, renk simgesi + yer bağlantısı).
+  Yer etiketi sayfa varsa "s. 12", yoksa "Konum 180-182". "Kitabı aç" bağlantısı yerine `*Kindle*`
+  kaynak satırı yazılır.
+- **Raf:** Kindle kartına ya da nottaki yer bağlantısına dokununca okuyucu değil kitabın notu açılır;
+  kartta "KINDLE" rozeti, ilerleme ve "Oku" yok. Raftan kaldırınca yalnız kayıt çöpe gider (dosya yok).
+- **Kapsam dışı:** Kindle kitabını aynı PDF/EPUB kaydıyla eşleştirme, metnini gösterme, yer imleri,
+  Kindle'da silinen çizimin Loomen'dan silinmesi, Amazon bulutu, kapak indirme, mobilde USB tanıma.
+
 ## Kod
-- Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`).
+- Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`, `kindle`).
+  Kindle cihaz tarama ve okuma (Tauri'ye bağlı): `src/core/library/kindleDevice.ts`.
 - Durum ve eylemler: `src/store/useAppStore.ts` (`library*`, `reader*`).
 - Ekranlar: `src/screens/Library/`. Bağlantı: `src/screens/Editor/Markdown.tsx` (okuma),
   `livePreview.ts` (düzenleme).
-- Testler: `libraryTest`, `libraryNoteTest`, `libraryLinkTest` (`src/core/__test__/`).
+- Testler: `libraryTest`, `libraryNoteTest`, `libraryLinkTest`, `kindleTest` (`src/core/__test__/`).
 
 ## Kapsam dışı (ilk sürüm)
 Cihazlar arası kitap dosyası eşitleme; arama, sözlük, sesli okuma; PDF/EPUB dosyasını değiştirme;

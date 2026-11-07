@@ -5,6 +5,12 @@ import {
   applyMeta,
   bookFileName,
   bookIdFromHash,
+  compareAnchor,
+  decodeAnchor,
+  decodePosition,
+  encodeAnchor,
+  encodePosition,
+  hasBookFile,
   createMemoryBookFiles,
   coverFileName,
   decodeBook,
@@ -141,6 +147,34 @@ const e0 = newBook({ hash: "1".repeat(64), size: 1, fileName: "k.epub", format: 
 const e1 = addHighlight(e0, { text: "b", anchor: { kind: "epub", spine: 1, href: "c1.xhtml", start: 10, end: 20 }, color: "yellow", chapter: "Bölüm 2" }, NOW, "e2").book;
 const e2 = addHighlight(e1, { text: "a", anchor: { kind: "epub", spine: 0, href: "c0.xhtml", start: 50, end: 60 }, color: "yellow" }, NOW, "e1").book;
 check("EPUB sırası bölüm → başlangıç", e2.highlights.map((h) => h.id).join(",") === "e1,e2");
+
+// Kindle çıpası ve konumu (LOM-84)
+{
+  const ka = { kind: "kindle" as const, location: { start: 180, end: 182 }, page: 12 };
+  check("kindle çıpa yaz-oku", JSON.stringify(decodeAnchor(JSON.parse(JSON.stringify(encodeAnchor(ka))))) === JSON.stringify(ka));
+    const kpage = decodeAnchor({ kind: "kindle", page: 3 });
+  check("kindle yalnız sayfa okunur", kpage?.kind === "kindle" && kpage.page === 3 && kpage.location === undefined);
+  check("kindle konumsuz ve sayfasız çıpa bozuk", decodeAnchor({ kind: "kindle" }) === null);
+  check("kindle ters aralık bozuk", decodeAnchor({ kind: "kindle", location: { start: 9, end: 3 } }) === null);
+  check("kindle sıfır sayfa bozuk", decodeAnchor({ kind: "kindle", page: 0 }) === null);
+  const kp = decodePosition(encodePosition({ kind: "kindle", location: 180 }));
+  check("kindle konum yaz-oku", kp?.kind === "kindle" && kp.location === 180);
+  check("kindle bozuk konum okunmaz", decodePosition({ kind: "kindle", location: -1 }) === undefined);
+  const kpos = positionOfAnchor(ka);
+  check("kindle çizim konumu aralık başı", kpos.kind === "kindle" && kpos.location === 180);
+  check("kindle yalnız sayfa konumu sayfa", (positionOfAnchor({ kind: "kindle", page: 7 }) as { location: number }).location === 7);
+  const k = (start: number, end = start, page?: number) => ({ kind: "kindle" as const, location: { start, end }, ...(page ? { page } : {}) });
+  check("kindle sırası konum başı", compareAnchor(k(10), k(20)) < 0 && compareAnchor(k(20), k(10)) > 0);
+  check("kindle aynı başta kısa önce", compareAnchor(k(10, 12), k(10, 15)) < 0);
+  check("kindle konumsuz sona", compareAnchor(k(999), { kind: "kindle", page: 1 }) < 0);
+  check("türler arası sabit sıra", compareAnchor({ kind: "epub", spine: 0, href: "a", start: 0, end: 1 }, k(1)) < 0 && compareAnchor(k(1), { kind: "pdf", page: 1, rects: [] }) > 0);
+  const kb = newBook({ hash: "9".repeat(64), size: 0, fileName: "", format: "kindle", notePath: "Kütüphane/K.md", title: "K" }, NOW);
+  check("kindle kitabında dosya yok", !hasBookFile(kb) && hasBookFile(b0));
+  const kb1 = addHighlight(kb, { text: "alıntı", anchor: ka, color: "yellow" }, NOW, "k1").book;
+  const kdec = decodeBook(encodeBook(kb1));
+  check("kindle kitabı yaz-oku", !!kdec && kdec.format === "kindle" && kdec.size === 0 && kdec.fileName === "" && encodeBook(kdec) === encodeBook(kb1));
+  check("pdf kitaba kindle çizim hata", throws(() => addHighlight(b0, { text: "a", anchor: ka, color: "yellow" }, NOW, "kx")));
+}
 
 // ─── Kayıt biçimi ───
 const full: Book = { ...setPosition(setStatus(applyMeta(r1, { author: "F. H." }, NOW), "done", NOW + 9), { kind: "pdf", page: 2, offset: 0.123456789 }, 0.3333333, NOW + 10) };

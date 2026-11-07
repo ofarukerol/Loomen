@@ -163,6 +163,7 @@ import {
 import {
   LARGE_BOOK_BYTES,
   addHighlight as bookAddHighlight,
+  applyKindleBook,
   applyMeta as bookApplyMeta,
   baseName as bookBaseName,
   bookFileName,
@@ -173,6 +174,10 @@ import {
   createTauriBookFiles,
   detectFormat,
   freeNotePath,
+  groupClippings,
+  hasBookFile,
+  kindleBookHash,
+  parseClippings,
   blockState,
   insertHighlightBlock,
   isShelfFilter,
@@ -205,6 +210,7 @@ import {
   type ReaderPrefs,
   type ShelfFilter,
 } from "../core/library";
+import { findKindleClippings, readClippingsText } from "../core/library/kindleDevice";
 import type { BookMeta, ReaderTarget } from "../screens/Library/readerTypes";
 
 export type Theme = "light" | "dark";
@@ -476,6 +482,8 @@ interface AppState {
   libraryBusy: boolean;
   /** Kitap kimliği → kapak resminin geçici adresi (blob URL). */
   libraryCovers: Record<string, string>;
+  /** Bağlı Kindle'daki çizim dosyasının yolu (LOM-84); bağlı değilse null. */
+  kindleDevicePath: string | null;
   /** Okuyucuda açık kitap. */
   readerBookId: string | null;
   /** Okuyucuya atlama isteği (bağlantı, çizim listesi). */
@@ -750,6 +758,13 @@ interface AppState {
   librarySetFilter: (f: ShelfFilter) => void;
   /** Kapakları (varsa) yükle. */
   libraryLoadCovers: () => Promise<void>;
+  /** Bağlı Kindle'ı ara (LOM-84); bulunursa `kindleDevicePath` dolar. */
+  libraryProbeKindle: () => Promise<void>;
+  /**
+   * Kindle çizimlerini al (LOM-84): "auto"da bağlı Kindle'ın dosyası, yoksa dosya seçtirir;
+   * "file" her zaman seçtirir. Kitap kaydı + not oluşur; var olan çizim çoğalmaz.
+   */
+  libraryImportKindle: (source?: "auto" | "file") => Promise<void>;
   /** Kitabı okuyucuda aç; `target` verilirse o çizime/sayfaya gider. */
   libraryOpenReader: (id: string, target?: { highlightId?: string; page?: number }) => void;
   libraryCloseReader: () => void;
@@ -949,6 +964,8 @@ let pendingPosition: { id: string; pos: BookPosition; progress: number } | null 
 let positionTimer: ReturnType<typeof setTimeout> | null = null;
 const POSITION_SAVE_MS = 2000;
 let readerSeq = 0;
+/** Süren Kindle araması (odak ve açılış aynı anda tetikleyebilir). */
+let kindleProbing: Promise<void> | null = null;
 
 /** Notta görünen yazılar etkin dilden. */
 function libraryNoteLabels(): NoteLabels {
@@ -957,6 +974,8 @@ function libraryNoteLabels(): NoteLabels {
     openBook: i18n.t("library.note.openBook"),
     page: i18n.t("library.note.page", { n: "{n}" }),
     section: i18n.t("library.note.section", { n: "{n}" }),
+    location: i18n.t("library.note.location", { n: "{n}" }),
+    kindle: i18n.t("library.note.kindle"),
   };
 }
 
@@ -1919,6 +1938,7 @@ export const useAppStore = create<AppState>()(
     libraryFilter: "all",
     libraryBusy: false,
     libraryCovers: {},
+    kindleDevicePath: null,
     readerBookId: null,
     readerTarget: null,
     readerReturn: "library",
@@ -4268,7 +4288,7 @@ export const useAppStore = create<AppState>()(
 
     libraryRelink: async (id) => {
       const book = bookById(id);
-      if (!book || !isTauri()) return false;
+      if (!book || !isTauri() || !hasBookFile(book)) return false;
       const [path] = await pickBookFiles(false);
       if (!path) return false;
       try {
@@ -4314,7 +4334,10 @@ export const useAppStore = create<AppState>()(
       set((st) => ({ books: st.books.filter((b) => b.id !== id) }));
       // Cihazdaki kopya ve kapak: yeniden üretilebilir, kasada değil.
       const files = getBookFiles();
-      for (const name of [bookFileName(book), coverFileName(id, "image/png"), coverFileName(id, "image/jpeg")]) {
+      // Kindle kitabının cihazda dosyası yok (LOM-84): yalnız kapak adları denenir.
+      const names = [coverFileName(id, "image/png"), coverFileName(id, "image/jpeg")];
+      if (hasBookFile(book)) names.unshift(bookFileName(book));
+      for (const name of names) {
         await files.remove(name).catch((e) => console.warn("[library] dosya silinemedi:", name, e));
       }
       await revokeCover(id);
@@ -4342,11 +4365,150 @@ export const useAppStore = create<AppState>()(
       }
     },
 
+    libraryProbeKindle: async () => {
+      if (kindleProbing) return kindleProbing;
+      kindleProbing = (async () => {
+        try {
+          const path = await findKindleClippings();
+          if (path !== get().kindleDevicePath) set({ kindleDevicePath: path });
+        } finally {
+          kindleProbing = null;
+        }
+      })();
+      return kindleProbing;
+    },
+
+    libraryImportKindle: async (source = "auto") => {
+      if (get().libraryBusy) return;
+      if (!isTauri()) {
+        await notifyError(i18n.t("library.appOnly"), "info");
+        return;
+      }
+      let text: string | null = null;
+      if (source === "auto") {
+        const device = get().kindleDevicePath ?? (await findKindleClippings());
+        if (device) {
+          try {
+            text = await readClippingsText(device);
+          } catch (e) {
+            // Kindle çıkarılmış olabilir: şerit kalkar, kullanıcı dosyayı seçebilir.
+            console.warn("[library] Kindle dosyası okunamadı:", device, e);
+            set({ kindleDevicePath: null });
+            await notifyError(i18n.t("library.kindle.readError", { detail: errText(e) }));
+            return;
+          }
+        }
+      }
+      if (text === null) {
+        let path: string | null = null;
+        try {
+          const { open } = await import("@tauri-apps/plugin-dialog");
+          const sel = await open({
+            multiple: false,
+            directory: false,
+            title: i18n.t("library.kindle.pickTitle"),
+            filters: [{ name: i18n.t("library.kindle.pickFilter"), extensions: ["txt"] }],
+          });
+          path = typeof sel === "string" ? sel : null;
+        } catch (e) {
+          await notifyError(i18n.t("library.pickError", { detail: errText(e) }));
+          return;
+        }
+        if (!path) return;
+        try {
+          text = new TextDecoder("utf-8").decode(await readPickedFile(path));
+        } catch (e) {
+          await notifyError(i18n.t("library.kindle.readError", { detail: errText(e) }));
+          return;
+        }
+      }
+      const groups = groupClippings(parseClippings(text));
+      if (groups.books.length === 0) {
+        await notifyError(i18n.t("library.kindle.none"), "info");
+        return;
+      }
+      set({ libraryBusy: true });
+      const src = backend;
+      const problems: string[] = [];
+      let touched = 0;
+      let added = 0;
+      let updated = 0;
+      let same = 0;
+      let skipped = groups.skipped;
+      let edited = false;
+      try {
+        if (libraryVaultOf !== src) await get().libraryLoad();
+        for (const group of groups.books) {
+          if (backend !== src) break;
+          const name = group.title || "Kindle";
+          try {
+            const hash = await kindleBookHash(group.title, group.author);
+            const id = bookIdFromHash(hash);
+            if (get().libraryBroken.includes(`${id}.json`)) {
+              problems.push(i18n.t("library.brokenRecord", { name }));
+              continue;
+            }
+            const existing = bookById(id);
+            if (existing && existing.format !== "kindle") {
+              problems.push(i18n.t("library.kindle.clash", { name }));
+              continue;
+            }
+            const taken = new Set(get().notes.map((n) => n.path));
+            const init = existing ? undefined : { hash, notePath: freeNotePath(name, (p) => taken.has(p)) };
+            const res = await applyKindleBook(existing, group, Date.now(), init);
+            added += res.added.length;
+            updated += res.updated.length;
+            same += res.same;
+            skipped += res.skipped;
+            if (res.book === existing) continue; // değişiklik yok: yazım da yok
+            if (!(await bookCommit(res.book))) break;
+            touched++;
+            try {
+              if (res.created) {
+                // Not henüz yok: şablon bütün çizimleriyle oluşur.
+                await syncBookNote(id, (t) => t);
+              } else {
+                const labels = libraryNoteLabels();
+                const order = res.book.highlights.map((h) => h.id);
+                await syncBookNote(id, (t, b) => {
+                  let out = t;
+                  for (const h of res.added) out = insertHighlightBlock(out, b, h, order, labels);
+                  for (const u of res.updated) {
+                    const next = updateHighlightBlock(out, b, u.next, order, labels, u.prev);
+                    if (next === out && blockState(out, u.next.id) === "ok") edited = true;
+                    out = next;
+                  }
+                  return out;
+                });
+              }
+            } catch (e) {
+              await noteSyncFailed(e);
+            }
+          } catch (e) {
+            console.error("[library] Kindle kitabı alınamadı:", e);
+            problems.push(i18n.t("library.importError", { name, detail: errText(e) }));
+          }
+        }
+      } finally {
+        set({ libraryBusy: false });
+      }
+      const lines = [i18n.t("library.kindle.result", { books: touched, added, updated, same })];
+      if (skipped > 0) lines.push(i18n.t("library.kindle.skipped", { count: skipped }));
+      if (edited) lines.push(i18n.t("library.blockEdited"));
+      lines.push(...problems);
+      await notifyError(lines.join("\n"), "info");
+    },
+
     libraryOpenReader: (id, target) => {
       const s = get();
       const book = bookById(id);
       if (!book) {
         void notifyError(i18n.t("library.missingBook"), "info");
+        return;
+      }
+      // Kindle kitabının metni Loomen'da yok (LOM-84): okuyucu yerine kitabın notu açılır.
+      if (!hasBookFile(book)) {
+        void get().libraryOpenNote(id);
         return;
       }
       if (s.readerBookId && s.readerBookId !== id) void get().libraryFlushPosition();
@@ -4379,6 +4541,7 @@ export const useAppStore = create<AppState>()(
     libraryReadFile: async (id) => {
       const book = bookById(id);
       if (!book) throw new Error(i18n.t("library.missingBook"));
+      if (!hasBookFile(book)) throw new Error(i18n.t("library.kindle.noFile"));
       return getBookFiles().read(bookFileName(book));
     },
 

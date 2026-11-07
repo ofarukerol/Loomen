@@ -10,6 +10,10 @@
 //   🟨 [s. 12](loomen://book/<id>?hl=<hlId>)
 //   <!-- /loomen:hl <hlId> -->
 //
+// Kindle kitabında (LOM-84) bloklar birebir aynı biçimdedir; yer etiketi sayfa ya da
+// "Konum 180-182" olur. Kindle kitabının dosyası olmadığı için notta "Kitabı aç" bağlantısı
+// yerine düz bir kaynak satırı (*Kindle*) yazılır.
+//
 // İşaretler (HTML yorumu) başka Markdown uygulamalarında görünmez; Loomen okuma modunda da
 // gizler. Kural: yalnız işaretler ARASINA dokunulur. Kullanıcının nota yazdığı başka her şey
 // olduğu gibi kalır. Bitiş işareti kaybolmuş (elle bozulmuş) bloğa hiç dokunulmaz.
@@ -25,13 +29,19 @@ export interface NoteLabels {
   page: string;
   /** `{n}` bölüm sırasıyla (1'den) değişir. */
   section: string;
+  /** Kindle konumu: `{n}` konum ya da aralık ("180-182") ile değişir. Yoksa varsayılan. */
+  location?: string;
+  /** Kindle kitabının notundaki kaynak satırı. Yoksa varsayılan. */
+  kindle?: string;
 }
 
-export const DEFAULT_NOTE_LABELS: Readonly<NoteLabels> = Object.freeze({
+export const DEFAULT_NOTE_LABELS: Readonly<Required<NoteLabels>> = Object.freeze({
   quotes: "Alıntılar",
   openBook: "Kitabı aç",
   page: "s. {n}",
   section: "Bölüm {n}",
+  location: "Konum {n}",
+  kindle: "Kindle",
 });
 
 export const COLOR_MARK: Record<HighlightColor, string> = {
@@ -57,11 +67,18 @@ function labelSafe(s: string): string {
   return s.replace(/[[\]\\]/g, (c) => "\\" + c).replace(/\s+/g, " ").trim();
 }
 
-/** Çizimin yer etiketi: PDF'te sayfa, EPUB'da bölüm adı (yoksa sırası). */
+/** Çizimin yer etiketi: PDF'te sayfa, EPUB'da bölüm adı (yoksa sırası), Kindle'da sayfa ya da konum. */
 export function locationLabel(h: Highlight, labels: NoteLabels = DEFAULT_NOTE_LABELS): string {
-  if (h.anchor.kind === "pdf") return labels.page.replace("{n}", String(h.anchor.page));
+  const a = h.anchor;
+  if (a.kind === "pdf") return labels.page.replace("{n}", String(a.page));
+  if (a.kind === "kindle") {
+    if (a.page !== undefined) return labels.page.replace("{n}", String(a.page));
+    const l = a.location;
+    const n = !l ? "?" : l.start === l.end ? String(l.start) : `${l.start}-${l.end}`;
+    return (labels.location || DEFAULT_NOTE_LABELS.location).replace("{n}", n);
+  }
   if (h.chapter) return h.chapter;
-  return labels.section.replace("{n}", String(h.anchor.spine + 1));
+  return labels.section.replace("{n}", String(a.spine + 1));
 }
 
 /** Bir çizimin blok satırları (işaretler dahil). */
@@ -85,7 +102,9 @@ export function highlightBlockLines(book: Pick<Book, "id">, h: Highlight, labels
 export function bookNoteTemplate(book: Book, labels: NoteLabels = DEFAULT_NOTE_LABELS): string {
   const lines = ["---", `${NOTE_BOOK_KEY}: ${book.id}`, "---", "", `# ${neutralize(book.title)}`, ""];
   if (book.author) lines.push(`*${neutralize(book.author)}*`, "");
-  lines.push(`[${labelSafe(labels.openBook)}](${bookLink({ bookId: book.id })})`, "", `## ${labels.quotes}`, "");
+  if (book.format === "kindle") lines.push(`*${neutralize(labels.kindle || DEFAULT_NOTE_LABELS.kindle)}*`);
+  else lines.push(`[${labelSafe(labels.openBook)}](${bookLink({ bookId: book.id })})`);
+  lines.push("", `## ${labels.quotes}`, "");
   for (const h of book.highlights) lines.push(...highlightBlockLines(book, h, labels), "");
   return lines.join("\n").replace(/\n+$/, "") + "\n";
 }

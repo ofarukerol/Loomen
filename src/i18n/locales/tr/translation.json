@@ -1507,7 +1507,7 @@
     "importing": "Ekleniyor…",
     "loading": "Kitaplar okunuyor…",
     "emptyTitle": "Rafın boş",
-    "emptyBody": "Bir PDF ya da EPUB ekle. Kitap bu cihazda saklanır; kasaya yalnız kaydı ve notun girer.",
+    "emptyBody": "Bir PDF ya da EPUB ekle ya da Kindle'daki çizimlerini al. Kitap bu cihazda saklanır; kasaya yalnız kaydı ve notun girer.",
     "appOnly": "Kitap eklemek yalnız uygulamada çalışır.",
     "filterEmpty": "Bu rafta kitap yok.",
     "broken_one": "{{count}} kitap kaydı okunamadı, rafta gösterilmiyor. Dosyaya dokunulmadı:",
@@ -1569,7 +1569,9 @@
       "quotes": "Alıntılar",
       "openBook": "Kitabı aç",
       "page": "s. {{n}}",
-      "section": "Bölüm {{n}}"
+      "section": "Bölüm {{n}}",
+      "location": "Konum {{n}}",
+      "kindle": "Kindle"
     },
     "pickTitle": "Kitap seç",
     "pickFilter": "Kitaplar (PDF, EPUB)",
@@ -1597,6 +1599,22 @@
       "missingLib": "PDF okuyucu bu sürümde kurulu değil.",
       "password": "Bu PDF parolalı; açılamıyor."
     },
-    "blockEdited": "Bu alıntıyı notta elle değiştirmişsin; notuna dokunmadım."
+    "blockEdited": "Bu alıntıyı notta elle değiştirmişsin; notuna dokunmadım.",
+    "kindle": {
+      "import": "Kindle'dan al",
+      "detected": "Kindle bağlı. Çizimlerini kitap notlarına alabilirsin.",
+      "take": "Çizimleri al",
+      "pickTitle": "Kindle çizim dosyasını seç (My Clippings.txt)",
+      "pickFilter": "Kindle çizimleri (TXT)",
+      "none": "Bu dosyada Kindle çizimi bulunamadı.",
+      "readError": "Kindle çizim dosyası okunamadı: {{detail}}",
+      "result": "Kindle: {{books}} kitap güncellendi, {{added}} yeni çizim, {{updated}} not işlendi, {{same}} çizim zaten vardı.",
+      "skipped_one": "{{count}} girdi atlandı (yer imi ya da çizimi bulunamayan not).",
+      "skipped_other": "{{count}} girdi atlandı (yer imi ya da çizimi bulunamayan not).",
+      "clash": "“{{name}}” rafta Kindle olmayan bir kitapla çakışıyor; atlandı.",
+      "noFile": "Kindle kitabının bu cihazda dosyası yok; notu açılır.",
+      "badge": "KINDLE",
+      "openNote": "{{name}} kitabının notunu aç"
+    }
   }
 }

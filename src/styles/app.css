@@ -5289,3 +5289,18 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
   .lo-book__cover { transition: none; }
   .lo-book__cover:hover { transform: none; }
 }
+
+/* ══════════════ Kütüphane — Kindle (LOM-84) ══════════════ */
+.lo-lib-head__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.lo-lib-empty .lo-lib-head__actions { justify-content: center; }
+.lo-lib-kindle-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+.lo-lib-kindle {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 14px; padding: 8px 10px 8px 14px;
+  font-size: 12.5px; line-height: 1.5; color: var(--fg2);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: var(--radius-md);
+}
+.lo-lib-kindle > svg { color: var(--accent); flex-shrink: 0; }
+.lo-lib-kindle > span { flex: 1; min-width: 0; }
+.lo-lib-kindle__take { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; flex-shrink: 0; }

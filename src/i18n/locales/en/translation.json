@@ -1507,7 +1507,7 @@
     "importing": "Adding…",
     "loading": "Reading books…",
     "emptyTitle": "Your shelf is empty",
-    "emptyBody": "Add a PDF or EPUB. The book stays on this device; only its record and your note go into the vault.",
+    "emptyBody": "Add a PDF or EPUB, or bring in your Kindle highlights. The book stays on this device; only its record and your note go into the vault.",
     "appOnly": "Adding books only works in the app.",
     "filterEmpty": "No books on this shelf.",
     "broken_one": "{{count}} book record could not be read and is hidden. The file was not touched:",
@@ -1569,7 +1569,9 @@
       "quotes": "Highlights",
       "openBook": "Open book",
       "page": "p. {{n}}",
-      "section": "Section {{n}}"
+      "section": "Section {{n}}",
+      "location": "Loc. {{n}}",
+      "kindle": "Kindle"
     },
     "pickTitle": "Choose a book",
     "pickFilter": "Books (PDF, EPUB)",
@@ -1597,6 +1599,22 @@
       "missingLib": "The PDF reader isn't included in this version.",
       "password": "This PDF is password-protected and can't be opened."
     },
-    "blockEdited": "You edited this quote in the note, so the note was left unchanged."
+    "blockEdited": "You edited this quote in the note, so the note was left unchanged.",
+    "kindle": {
+      "import": "Import from Kindle",
+      "detected": "Kindle connected. You can bring its highlights into your book notes.",
+      "take": "Import highlights",
+      "pickTitle": "Choose the Kindle highlights file (My Clippings.txt)",
+      "pickFilter": "Kindle highlights (TXT)",
+      "none": "No Kindle highlights were found in this file.",
+      "readError": "Could not read the Kindle highlights file: {{detail}}",
+      "result": "Kindle: {{books}} books updated, {{added}} new highlights, {{updated}} notes applied, {{same}} highlights already there.",
+      "skipped_one": "{{count}} entry skipped (bookmark or note without a highlight).",
+      "skipped_other": "{{count}} entries skipped (bookmarks or notes without a highlight).",
+      "clash": "“{{name}}” clashes with a non-Kindle book on the shelf; skipped.",
+      "noFile": "A Kindle book has no file on this device; its note opens instead.",
+      "badge": "KINDLE",
+      "openNote": "Open the note for {{name}}"
+    }
   }
 }

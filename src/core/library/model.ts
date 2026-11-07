@@ -17,6 +17,7 @@ import {
   type BookFormat,
   type BookPosition,
   type BookStatus,
+  type FileBookFormat,
   type Highlight,
   type HighlightColor,
   type ReaderPrefs,
@@ -36,9 +37,14 @@ export function bookIdFromHash(hash: string): string {
   return hash.slice(0, 16);
 }
 
-/** Uygulama klasöründeki dosya adı. */
+/** Uygulama klasöründeki dosya adı. Kindle kitabının dosyası yoktur: önce `hasBookFile` sorulur. */
 export function bookFileName(b: Pick<Book, "hash" | "format">): string {
   return `${b.hash}.${b.format}`;
+}
+
+/** Kitabın uygulama klasöründe dosyası var mı (okuyucuda açılır mı)? Kindle kitabında yok (LOM-84). */
+export function hasBookFile(b: Pick<Book, "format">): boolean {
+  return b.format !== "kindle";
 }
 
 /**
@@ -46,7 +52,7 @@ export function bookFileName(b: Pick<Book, "hash" | "format">): string {
  * başlar (EPUB standardı mimetype'ı ilk ve sıkıştırmasız ister). Tanınmazsa uzantıya bakılır
  * (yine de içerik ZIP ya da PDF olmalı); hiçbiri değilse null.
  */
-export function detectFormat(fileName: string, data: Uint8Array): BookFormat | null {
+export function detectFormat(fileName: string, data: Uint8Array): FileBookFormat | null {
   const head = String.fromCharCode(...data.subarray(0, Math.min(data.length, 1024)));
   if (head.startsWith("%PDF-")) return "pdf";
   const zip = data.length > 4 && data[0] === 0x50 && data[1] === 0x4b && data[2] === 0x03 && data[3] === 0x04;
@@ -152,12 +158,12 @@ export function markOpened(b: Book, now: number): Book {
   return b.status === "toread" ? setStatus(b, "reading", now) : b;
 }
 
-const samePosition = (a: BookPosition | undefined, b: BookPosition): boolean =>
-  !!a &&
-  a.kind === b.kind &&
-  (a.kind === "pdf"
-    ? b.kind === "pdf" && a.page === b.page && Math.abs(a.offset - b.offset) < 1e-4
-    : b.kind === "epub" && a.spine === b.spine && a.href === b.href && a.offset === b.offset);
+const samePosition = (a: BookPosition | undefined, b: BookPosition): boolean => {
+  if (!a || a.kind !== b.kind) return false;
+  if (a.kind === "pdf") return b.kind === "pdf" && a.page === b.page && Math.abs(a.offset - b.offset) < 1e-4;
+  if (a.kind === "kindle") return b.kind === "kindle" && a.location === b.location;
+  return b.kind === "epub" && a.spine === b.spine && a.href === b.href && a.offset === b.offset;
+};
 
 /** Kalınan yeri yaz. Aynı yer ve ilerlemeyse aynı nesne döner (yazım olmaz). */
 export function setPosition(b: Book, pos: BookPosition, progress: number, now: number): Book {
@@ -200,7 +206,13 @@ export function applyMeta(b: Book, meta: MetaPatch, now: number): Book {
 
 // ─── Çizimler ─────────────────────────────────────────────────────────────────────
 
-/** Kitap içindeki sıra: PDF'te sayfa → üst kenar → sol kenar; EPUB'da bölüm → başlangıç. */
+const KIND_RANK: Record<Anchor["kind"], number> = { pdf: 0, epub: 1, kindle: 2 };
+
+/**
+ * Kitap içindeki sıra: PDF'te sayfa → üst kenar → sol kenar; EPUB'da bölüm → başlangıç;
+ * Kindle'da konum başı → sayfa → konum sonu (konumu olmayan, yalnız sayfalı çizim sona).
+ * Farklı türler sabit sırada: pdf < epub < kindle.
+ */
 export function compareAnchor(a: Anchor, b: Anchor): number {
   if (a.kind === "pdf" && b.kind === "pdf") {
     if (a.page !== b.page) return a.page - b.page;
@@ -215,7 +227,19 @@ export function compareAnchor(a: Anchor, b: Anchor): number {
     if (a.spine !== b.spine) return a.spine - b.spine;
     return a.start - b.start || a.end - b.end;
   }
-  return a.kind === "pdf" ? -1 : 1;
+  if (a.kind === "kindle" && b.kind === "kindle") {
+    const big = Number.MAX_SAFE_INTEGER;
+    const as = a.location?.start ?? big;
+    const bs = b.location?.start ?? big;
+    if (as !== bs) return as < bs ? -1 : 1;
+    const ap = a.page ?? big;
+    const bp = b.page ?? big;
+    if (ap !== bp) return ap < bp ? -1 : 1;
+    const ae = a.location?.end ?? big;
+    const be = b.location?.end ?? big;
+    return ae === be ? 0 : ae < be ? -1 : 1;
+  }
+  return KIND_RANK[a.kind] - KIND_RANK[b.kind];
 }
 
 export function sortHighlights(list: Highlight[]): Highlight[] {
@@ -307,6 +331,7 @@ export function removeHighlight(b: Book, id: string, now: number): Book {
 /** Çizimin gidilecek yeri (bağlantı ve listeden atlama için). */
 export function positionOfAnchor(a: Anchor): BookPosition {
   if (a.kind === "pdf") return { kind: "pdf", page: a.page, offset: a.rects.length ? Math.min(...a.rects.map((r) => r.y)) : 0 };
+  if (a.kind === "kindle") return { kind: "kindle", location: a.location?.start ?? a.page ?? 0 };
   return { kind: "epub", spine: a.spine, href: a.href, offset: a.start };
 }
 

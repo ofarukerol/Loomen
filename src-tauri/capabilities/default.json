@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Masaüstü ana pencere izinleri. Mobil için ayrı dosya: mobile.json (orada $HOME yok).",
+  "description": "Masaüstü ana pencere izinleri. Mobil için ayrı dosya: mobile.json (orada $HOME yok). Kindle (LOM-84): /Volumes, /media, /run/media yalnız okunur (metin, klasör, var mı); yazma izni yok.",
   "platforms": ["macOS", "windows", "linux"],
   "windows": ["main"],
   "permissions": [
@@ -15,7 +15,13 @@
     "fs:default",
     {
       "identifier": "fs:allow-read-text-file",
-      "allow": [{ "path": "$HOME/**" }, { "path": "$APPDATA/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "/Volumes/**" },
+        { "path": "/media/**" },
+        { "path": "/run/media/**" }
+      ]
     },
     {
       "identifier": "fs:allow-write-text-file",
@@ -37,7 +43,13 @@
         { "path": "$HOME/**/.trash/**" },
         { "path": "$APPDATA/**" },
         { "path": "$APPDATA/**/.trash" },
-        { "path": "$APPDATA/**/.trash/**" }
+        { "path": "$APPDATA/**/.trash/**" },
+        { "path": "/Volumes" },
+        { "path": "/media" },
+        { "path": "/run/media" },
+        { "path": "/Volumes/**" },
+        { "path": "/media/**" },
+        { "path": "/run/media/**" }
       ]
     },
     {
@@ -48,7 +60,10 @@
         { "path": "$HOME/**/.trash/**" },
         { "path": "$APPDATA/**" },
         { "path": "$APPDATA/**/.trash" },
-        { "path": "$APPDATA/**/.trash/**" }
+        { "path": "$APPDATA/**/.trash/**" },
+        { "path": "/Volumes/**" },
+        { "path": "/media/**" },
+        { "path": "/run/media/**" }
       ]
     },
     {

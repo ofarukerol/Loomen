@@ -19,6 +19,7 @@ import {
   type BookStatus,
   type Highlight,
   type HighlightColor,
+  type KindleAnchor,
   type PdfRect,
 } from "./types";
 
@@ -42,6 +43,12 @@ function encodeRect(r: PdfRect): PdfRect {
 
 export function encodeAnchor(a: Anchor): Anchor {
   if (a.kind === "pdf") return { kind: "pdf", page: a.page, rects: a.rects.map(encodeRect) };
+  if (a.kind === "kindle") {
+    const out: KindleAnchor = { kind: "kindle" };
+    if (a.location) out.location = { start: a.location.start, end: a.location.end };
+    if (a.page !== undefined) out.page = a.page;
+    return out;
+  }
   return { kind: "epub", spine: a.spine, href: a.href, start: a.start, end: a.end };
 }
 
@@ -60,11 +67,25 @@ export function decodeAnchor(v: unknown): Anchor | null {
     if (!isInt(v.spine) || typeof v.href !== "string" || !isInt(v.start) || !isInt(v.end) || v.end < v.start) return null;
     return { kind: "epub", spine: v.spine, href: v.href, start: v.start, end: v.end };
   }
+  if (v.kind === "kindle") {
+    const out: KindleAnchor = { kind: "kindle" };
+    if (v.location !== undefined) {
+      const l = v.location;
+      if (!isObj(l) || !isInt(l.start, 1) || !isInt(l.end, 1) || l.end < l.start) return null;
+      out.location = { start: l.start, end: l.end };
+    }
+    if (v.page !== undefined) {
+      if (!isInt(v.page, 1)) return null;
+      out.page = v.page;
+    }
+    return out.location || out.page !== undefined ? out : null;
+  }
   return null;
 }
 
 export function encodePosition(p: BookPosition): BookPosition {
   if (p.kind === "pdf") return { kind: "pdf", page: p.page, offset: r5(unit(p.offset)) };
+  if (p.kind === "kindle") return { kind: "kindle", location: Math.max(0, Math.round(p.location)) };
   return { kind: "epub", spine: p.spine, href: p.href, offset: Math.max(0, Math.round(p.offset)) };
 }
 
@@ -74,6 +95,7 @@ export function decodePosition(v: unknown): BookPosition | undefined {
   if (v.kind === "epub" && isInt(v.spine) && typeof v.href === "string" && isNum(v.offset)) {
     return { kind: "epub", spine: v.spine, href: v.href, offset: Math.max(0, Math.round(v.offset)) };
   }
+  if (v.kind === "kindle" && isInt(v.location)) return { kind: "kindle", location: v.location };
   return undefined;
 }
 

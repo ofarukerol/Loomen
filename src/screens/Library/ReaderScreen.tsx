@@ -14,13 +14,15 @@ import type { ReaderSelection, ReaderViewModule, ReaderViewProps, ViewRect } fro
  * Dosya henüz yoksa glob onu bulmaz ve kabuk yer tutucu gösterir (LOM-83 parça sözleşmesi).
  */
 const VIEW_LOADERS = import.meta.glob<ReaderViewModule>("./views/*View.tsx");
-const VIEW_NAME: Record<BookFormat, string> = { pdf: "./views/PdfView.tsx", epub: "./views/EpubView.tsx" };
+// Kindle kitabının dosyası yok; okuyucuda açılmaz (kart notu açar), görüntüleyicisi de yoktur.
+const VIEW_NAME: Partial<Record<BookFormat, string>> = { pdf: "./views/PdfView.tsx", epub: "./views/EpubView.tsx" };
 const lazyViews = new Map<BookFormat, ComponentType<ReaderViewProps>>();
 
 function viewFor(format: BookFormat): ComponentType<ReaderViewProps> | null {
   const cached = lazyViews.get(format);
   if (cached) return cached;
-  const loader = VIEW_LOADERS[VIEW_NAME[format]];
+  const name = VIEW_NAME[format];
+  const loader = name ? VIEW_LOADERS[name] : undefined;
   if (!loader) return null;
   const View = lazy(async () => {
     const mod = await loader();

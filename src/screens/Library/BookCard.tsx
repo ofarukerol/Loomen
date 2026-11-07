@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BookOpen, FileText, MoreHorizontal, NotebookText, Trash2 } from "lucide-react";
-import { BOOK_STATUSES, type Book, type BookStatus } from "../../core/library";
+import { BOOK_STATUSES, hasBookFile, type Book, type BookStatus } from "../../core/library";
 import { useAppStore, useModalLayer } from "../../store/useAppStore";
 
 /** Kapak yoksa başlıktan renkli bir yüzey (aynı kitap her zaman aynı ton). */
@@ -14,6 +14,7 @@ function hue(id: string): number {
 /**
  * Raftaki kitap (LOM-83, K1): kapak, başlık, yazar, ilerleme ve durum. Karta dokununca kitap
  * açılır; durum seçicisi kasadaki kayda yazar. ⋯ menüsünde not ve raftan kaldırma.
+ * Kindle kitabının (LOM-84) dosyası yok: karta dokununca kitabın notu açılır, "Oku" ve ilerleme yok.
  */
 export function BookCard({ book, onRemove }: { book: Book; onRemove: (b: Book) => void }) {
   const { t } = useTranslation();
@@ -40,18 +41,25 @@ export function BookCard({ book, onRemove }: { book: Book; onRemove: (b: Book) =
     };
   }, [menu]);
 
-  const pct = book.progress !== undefined ? Math.round(book.progress * 100) : null;
+  const readable = hasBookFile(book);
+  const pct = readable && book.progress !== undefined ? Math.round(book.progress * 100) : null;
+  const onOpen = () => (readable ? open(book.id) : void openNote(book.id));
   const count = book.highlights.length;
 
   return (
     <article className={"lo-book is-" + book.status} data-book={book.id}>
-      <button type="button" className="lo-book__cover" onClick={() => open(book.id)} aria-label={t("library.open", { name: book.title })}>
+      <button
+        type="button"
+        className="lo-book__cover"
+        onClick={onOpen}
+        aria-label={readable ? t("library.open", { name: book.title }) : t("library.kindle.openNote", { name: book.title })}
+      >
         {cover ? (
           <img src={cover} alt="" draggable={false} />
         ) : (
           <span className="lo-book__blank" style={{ ["--book-h" as string]: String(hue(book.id)) }}>
             <span className="lo-book__blank-title">{book.title}</span>
-            <span className="lo-book__fmt">{book.format.toUpperCase()}</span>
+            <span className="lo-book__fmt">{readable ? book.format.toUpperCase() : t("library.kindle.badge")}</span>
           </span>
         )}
         {pct !== null && book.status === "reading" && (
@@ -98,10 +106,12 @@ export function BookCard({ book, onRemove }: { book: Book; onRemove: (b: Book) =
             </button>
             {menu && (
               <div className="lo-book__dropdown" role="menu">
-                <button type="button" role="menuitem" onClick={() => (setMenu(false), open(book.id))}>
-                  <BookOpen size={14} strokeWidth={2} aria-hidden />
-                  {t("library.read")}
-                </button>
+                {readable && (
+                  <button type="button" role="menuitem" onClick={() => (setMenu(false), open(book.id))}>
+                    <BookOpen size={14} strokeWidth={2} aria-hidden />
+                    {t("library.read")}
+                  </button>
+                )}
                 <button type="button" role="menuitem" onClick={() => (setMenu(false), void openNote(book.id))}>
                   <NotebookText size={14} strokeWidth={2} aria-hidden />
                   {t("library.openNote")}
