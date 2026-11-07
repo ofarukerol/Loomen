@@ -58,7 +58,7 @@ Kindle "My Clippings.txt" dosyasındaki çizimleri (bağlı Kindle'dan ya da se�
 
 Testler KALDI; iş doğrulanmadı.
 
-> Tip denetimi, birim testleri ve derleme temiz geçti. Kindle testleri ve kitap notu testleri yeşil. K8 canlı doğrulaması koşmadı. Canlı doğrulama insana kaldı. Kokpit: `gecti=true` ama özet bir kontrolün koşmadığını söylüyor: "K8 canlı doğrulaması koşmadı". O kontrolü koştur ve komut çıktısını alıntıla; yalnız fiziksel doğrulamaysa (yazıcı, terazi, kasa ekranı) `insana_kalan`a tek cümlecik olarak y
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
