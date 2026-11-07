@@ -247,6 +247,13 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
         alias.textContent = ` ${it.alias}`;
         name.appendChild(alias);
       }
+      // Sütunda harfin yanında başlık adı: "B · Tutar" (LOM-88).
+      if (it.kind === "column" && it.name) {
+        const colname = document.createElement("span");
+        colname.className = "cm-table-suggest__colname";
+        colname.textContent = it.name;
+        name.append(" · ", colname);
+      }
       const desc = document.createElement("span");
       desc.className = "cm-table-suggest__desc";
       desc.textContent = i18n.t(it.descKey, { name: it.descParam });

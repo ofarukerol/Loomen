@@ -1482,6 +1482,7 @@
     "fnCount": "Sayı olan hücreleri sayar",
     "fnRound": "Verilen basamağa yuvarlar",
     "fnAbs": "İşareti atar, mutlak değer",
-    "column": "{{name}} sütunu"
+    "column": "{{name}} sütunu; harfi ya da adıyla yazılır",
+    "columnLetterOnly": "{{name}} sütunu; başlığında boşluk olduğu için harfiyle yazılır"
   }
 }

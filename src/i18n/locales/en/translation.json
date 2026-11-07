@@ -1482,6 +1482,7 @@
     "fnCount": "Counts cells with numbers",
     "fnRound": "Rounds to the given digits",
     "fnAbs": "Drops the sign, absolute value",
-    "column": "{{name}} column"
+    "column": "{{name}} column; write its letter or name",
+    "columnLetterOnly": "{{name}} column; its header has spaces, so write its letter"
   }
 }

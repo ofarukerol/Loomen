@@ -1,8 +1,11 @@
 // Tablo formülü öneri listesi (LOM-88) — saf mantık; DOM, i18n, CodeMirror yok.
 //
 // Hücre kutusunda "=" ile başlayan metinde imlecin solundaki harf dizisine bakar ve
-// Excel gibi fonksiyon (TOPLA/SUM…) ve sütun harfi (B — "Tutar") önerir. Ekrandaki liste
+// Excel gibi fonksiyon (TOPLA/SUM…) ve sütun (B · Tutar) önerir. Tek kelimelik başlıklı
+// sütunda seçilince başlık adı, diğerlerinde harf yazılır. Ekrandaki liste
 // tableWidget.ts openCellEditor içinde; açıklama metinleri i18n anahtarıyla gelir.
+
+import { columnDisplayName, isPlainColumnName, normalizeColumnName } from "./tableFormula";
 
 export interface FormulaSuggestion {
   kind: "fn" | "column";
@@ -10,7 +13,9 @@ export interface FormulaSuggestion {
   label: string;
   /** Diğer dildeki ad (fonksiyonda); aynıysa ya da sütunda boş. */
   alias: string;
-  /** Kelimenin yerine yazılacak metin: "TOPLA(" ya da "B". */
+  /** Sütunun başlık adı (listede "B · Tutar"); fonksiyonda ya da boş başlıkta boş. */
+  name: string;
+  /** Kelimenin yerine yazılacak metin: "TOPLA(", "Tutar" ya da "B". */
   insert: string;
   /** Açıklama çeviri anahtarı. */
   descKey: string;
@@ -63,10 +68,8 @@ const WORD_OR_PAREN = /[A-Za-zÇĞİÖŞÜçğıöşü0-9(]/;
 /** Kelimenin önünde durabilecek karakterler (boşsa satır başı). */
 const BEFORE_WORD = new Set(["=", "+", "-", "*", "/", "^", "&", "<", ">", "(", ";", ":", ",", " ", "\t"]);
 
-/** Türkçe i/ı farkı eşleşmeyi bozmasın: büyük harf + İ → I. */
-function norm(s: string): string {
-  return s.toUpperCase().replace(/İ/g, "I");
-}
+/** Türkçe i/ı farkı eşleşmeyi bozmasın: Türkçe büyük harf + İ → I (motorla aynı kural). */
+const norm = normalizeColumnName;
 
 export function suggestFormula(
   text: string,
@@ -105,6 +108,7 @@ export function suggestFormula(
       kind: "fn",
       label,
       alias: alias === label ? "" : alias,
+      name: "",
       insert: `${label}(`,
       descKey: f.descKey,
       descParam: "",
@@ -112,28 +116,36 @@ export function suggestFormula(
     });
   }
 
+  const sumName = trFirst ? "TOPLA" : "SUM";
   const cols: FormulaSuggestion[] = [];
   header.forEach((h, i) => {
     const letter = colLetter(i);
-    const name = h.trim();
-    if (!letter.startsWith(q) && !(q && norm(name).startsWith(q))) return;
+    const name = columnDisplayName(h);
+    const byLetter = letter.startsWith(q);
+    const byName = q !== "" && name !== "" && norm(name).startsWith(q);
+    if (!byLetter && !byName) return;
+    const plain = isPlainColumnName(name);
+    // Tam harf yazıldıysa (=B) harf kalır: Enter hücreyi kaydeder. Ad eşleşiyorsa ya da
+    // kelime boşsa düz başlık adı yazılır; boşluklu başlıkta harf.
+    const useName = plain && q !== letter && (byName || q === "");
     cols.push({
       kind: "column",
       label: letter,
       alias: "",
-      insert: letter,
-      descKey: "tableFormula.column",
+      name,
+      insert: useName ? name : letter,
+      descKey: plain || !name ? "tableFormula.column" : "tableFormula.columnLetterOnly",
       descParam: name || letter,
-      example: `=${letter}2 · =${letter}:${letter}`,
+      example: plain ? `=${name} · =${sumName}(${name})` : `=${letter}2 · =${letter}:${letter}`,
     });
   });
 
   // Parantez/aralık içinde sütun başvurusu daha olası.
   const columnsFirst = prev === "(" || prev === ":" || prev === ";";
   const items = columnsFirst ? [...cols, ...fns] : [...fns, ...cols];
-  // Kelime tam bir sütun harfiyse (=B*C'deki C) o sütun başa gelir: Enter yeni bir şey
-  // yazmaz, hücreyi kaydeder (aynı satır kısaltması, LOM-79).
-  const exact = q ? items.findIndex((i) => i.kind === "column" && i.insert === q) : -1;
+  // Kelime tam bir sütun harfi ya da adıysa (=B*C'deki C, =Tutar) o sütun başa gelir: Enter
+  // yeni bir şey yazmaz, hücreyi kaydeder (aynı satır kısaltması, LOM-79).
+  const exact = q ? items.findIndex((i) => i.kind === "column" && norm(i.insert) === q) : -1;
   if (exact > 0) items.unshift(...items.splice(exact, 1));
   if (!items.length) return null;
   return { items, replaceFrom: start, replaceTo: pos };

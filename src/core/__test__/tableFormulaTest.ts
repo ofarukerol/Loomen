@@ -9,7 +9,10 @@ import { join } from "node:path";
 import {
   evaluateTable,
   formatFormulaResult,
+  headerNameIndex,
   isFormulaCell,
+  isPlainColumnName,
+  normalizeColumnName,
   parseLocalizedNumber,
   type CellResult,
 } from "../markdown/tableFormula";
@@ -77,6 +80,48 @@ check("girdi değişmez (dosyaya sonuç yazılmaz)", rows[0][3] === "=B-C" && ro
 const rows2 = rows.map((r) => [...r]);
 rows2[0][2] = "60.000";
 check("değişim: ödenen 60.000 olunca kalan 152500", near(evaluateTable(header, rows2)[0][3].value, 152500));
+
+// ─── Sütun adıyla başvuru (LOM-88) ──────────────────────────────────────────
+const named = evaluateTable(header, [
+  ["x", "212.500", "50.000", "=Tutar-Ödenen"],
+  ["y", "1.000", "250", "=tutar-ödenen"],
+  ["z", "", "", "=ÖDENEN+1"],
+  ["Toplam", "=TOPLA(Tutar)", "", ""],
+]);
+const agg = evaluateTable(header, [
+  ["x", "212.500", "=ortalama(tutar)", "=TOPLA(B)"],
+  ["y", "1.000", "", ""],
+]);
+check("ad: =Tutar-Ödenen aynı satır → 162500", near(named[0][3].value, 162500), `alınan ${named[0][3].value}`);
+check("ad: küçük harf =tutar-ödenen → 750", near(named[1][3].value, 750), `alınan ${named[1][3].value}`);
+check("ad: Türkçe büyük =ÖDENEN+1 → 1", near(named[2][3].value, 1), `alınan ${named[2][3].value}`);
+check("ad: =TOPLA(Tutar) bütün sütun, kendi hücresi hariç → 213500", near(named[3][1].value, 213500), `alınan ${named[3][1].value}`);
+check("ad: =ortalama(tutar) küçük harfle → 106750", near(agg[0][2].value, 106750), `alınan ${agg[0][2].value}`);
+check("harf: =TOPLA(B) toplu fonksiyonda bütün sütun → 213500", near(agg[0][3].value, 213500), `alınan ${agg[0][3].value}`);
+const adWins = evaluateTable(["Ad", "X"], [["3", "=Ad*2"]]);
+check("ad harf yorumunu (AD) yener: =Ad*2 → 6", near(adWins[0][1].value, 6), JSON.stringify(adWins[0][1]));
+const unknown = evaluateTable(header, [["x", "1", "2", "=Foo"], ["y", "1", "2", "=Ölçü+1"], ["z", "1", "2", "=TOPLA(Ölçü)"]]);
+check("bilinmeyen ad =Foo → ref", unknown[0][3].error === "ref");
+check("bilinmeyen Türkçe ad =Ölçü+1 → ref", unknown[1][3].error === "ref");
+check("bilinmeyen ad fonksiyonda =TOPLA(Ölçü) → ref", unknown[2][3].error === "ref");
+const mixed = evaluateTable(header, [["x", "5", "2", "=Foo"], ["y", "1", "2", "=Tutar-Ödenen"]]);
+check("bilinmeyen ad diğer formülleri bozmaz", mixed[0][3].error === "ref" && near(mixed[1][3].value, -1));
+const old = evaluateTable(header, [["x", "212.500", "50.000", "=B2-C2"], ["Toplam", "=TOPLA(B:B)", "=SUM(C2:C2)", "=B-C"]]);
+check("eski: =B2-C2 → 162500", near(old[0][3].value, 162500));
+check("eski: =TOPLA(B:B) → 212500", near(old[1][1].value, 212500));
+check("eski: =B-C aynı satır → 162500", near(old[1][3].value, 162500), `alınan ${old[1][3].value}`);
+const bold = evaluateTable(["Ad", "**Tutar**", "X"], [["x", "5", "=Tutar*2"]]);
+check("'**Tutar**' başlığı adıyla bulunur → 10", near(bold[0][2].value, 10), JSON.stringify(bold[0][2]));
+const spacedHdr = evaluateTable(["Birim Fiyat", "X"], [["4", "=A*2"]]);
+check("boşluklu başlık harfiyle çalışır =A*2 → 8", near(spacedHdr[0][1].value, 8));
+const dup = headerNameIndex(["Tutar", "tutar", "Birim Fiyat"]);
+check("aynı ad iki kez → ilk sütun", dup.get("TUTAR") === 0 && dup.size === 1);
+check("normalizeColumnName('ıpTal') === 'IPTAL'", normalizeColumnName("ıpTal") === "IPTAL");
+check("normalizeColumnName('iptal') === 'IPTAL'", normalizeColumnName("iptal") === "IPTAL");
+check("normalizeColumnName(' **Tutar** ') === 'TUTAR'", normalizeColumnName(" **Tutar** ") === "TUTAR");
+check("isPlainColumnName('Birim Fiyat') false", !isPlainColumnName("Birim Fiyat"));
+check("isPlainColumnName('Ödenen') true", isPlainColumnName("Ödenen"));
+check("isPlainColumnName('B2') false (hücre başvurusu)", !isPlainColumnName("B2"));
 
 // ─── Tek hücreli formül yardımcısı ──────────────────────────────────────────
 /** A=5, B=boş, C='metin', D=formül. Gövde satırı 2. */

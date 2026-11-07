@@ -60,7 +60,30 @@ check("'=TOPLA(' → aralık boş, imleçte", inParen?.replaceFrom === 7 && inPa
 const tu = at("=Tu");
 check("'=Tu' → B (Tutar)", tu?.items[0]?.label === "B" && tu?.items[0]?.descParam === "Tutar", JSON.stringify(tu?.items[0]));
 check("sütun açıklama anahtarı", tu?.items[0]?.descKey === "tableFormula.column");
-check("sütun insert harftir", tu?.items[0]?.insert === "B");
+check("'=Tu' → name 'Tutar'", tu?.items[0]?.name === "Tutar");
+check("'=Tu' → insert başlık adı 'Tutar'", tu?.items[0]?.insert === "Tutar");
+check("'=Tu' → örnek '=Tutar · =TOPLA(Tutar)'", tu?.items[0]?.example === "=Tutar · =TOPLA(Tutar)", tu?.items[0]?.example);
+check("İngilizcede örnek SUM ile", at("=Tu", 3, "en")?.items[0]?.example === "=Tutar · =SUM(Tutar)");
+if (tu) {
+  const ap = applySuggestion("=Tu", tu.replaceFrom, tu.replaceTo, tu.items[0].insert);
+  check("'=Tu' uygulanınca '=Tutar' imleç 6", ap.text === "=Tutar" && ap.caret === 6, JSON.stringify(ap));
+}
+check("'=Tutar' tam ad → Tutar ilk sırada", at("=Tutar")?.items[0]?.insert === "Tutar");
+check("'=tutar' küçük harfle tam ad ilk sırada", at("=tutar")?.items[0]?.insert === "Tutar");
+const parenItems = (inParen?.items ?? []).filter((i) => i.kind === "column");
+check("'=TOPLA(' boş önekte sütun adı önerilir (insert 'Ad')", parenItems[0]?.insert === "Ad" && parenItems[0]?.name === "Ad");
+const bLetter = at("=B");
+const bCol = bLetter?.items.find((i) => i.kind === "column" && i.label === "B");
+check("'=B' harf eşleşmesi → insert 'B'", bCol?.insert === "B", JSON.stringify(bCol));
+const butce = at("=Bü", 3, "tr", ["Ad", "Bütçe"]);
+check("'=Bü' ad eşleşmesi → insert 'Bütçe'", butce?.items[0]?.insert === "Bütçe", JSON.stringify(butce?.items[0]));
+const spaced = at("=Bi", 3, "tr", ["Birim Fiyat"]);
+check("boşluklu başlık '=Bi' → insert 'A'", spaced?.items[0]?.insert === "A" && spaced?.items[0]?.name === "Birim Fiyat", JSON.stringify(spaced?.items[0]));
+check("boşluklu başlıkta açıklama columnLetterOnly", spaced?.items[0]?.descKey === "tableFormula.columnLetterOnly");
+check("boşluklu başlıkta örnek harfle", spaced?.items[0]?.example === "=A2 · =A:A");
+const bold = at("=Tu", 3, "tr", ["Ad", "**Tutar**"]);
+check("kalın başlık '**Tutar**' → name/insert 'Tutar'", bold?.items[0]?.name === "Tutar" && bold?.items[0]?.insert === "Tutar");
+check("fonksiyon öğesinde name boş", to?.items[0]?.name === "");
 check("'=öd' → C (Ödenen)", labels("=öd").includes("C"));
 const colon = at("=TOPLA(B:B");
 check("'=TOPLA(B:B' → B önerisi", colon?.items.some((i) => i.label === "B") === true, JSON.stringify(colon?.items.map((i) => i.label)));
@@ -100,6 +123,7 @@ check("colLetter(27) = AB", colLetter(27) === "AB");
 const tw = read("src/screens/Editor/tableWidget.ts");
 check("widget suggestFormula( çağırıyor", tw.includes("suggestFormula("));
 check("widget cm-table-suggest sınıfı", tw.includes("cm-table-suggest"));
+check("widget sütun adı cm-table-suggest__colname", tw.includes("cm-table-suggest__colname") && tw.includes('" · "'));
 check(
   "öneri öğesinde pointerdown + preventDefault",
   /cm-table-suggest__item[\s\S]*addEventListener\("pointerdown", \(e\) => \{\s*e\.preventDefault\(\)/.test(tw),
@@ -115,12 +139,14 @@ check("öneri kutusu temizlikte kaldırılıyor", tw.includes("suggest.remove()"
 const css = read("src/styles/app.css");
 const i = css.indexOf(".cm-table-suggest {");
 check("app.css .cm-table-suggest kuralı", i >= 0);
+check("app.css .cm-table-suggest__colname kuralı", css.includes(".cm-table-suggest__colname {"));
 check("app.css z-index 1001", i >= 0 && css.slice(i, css.indexOf("}", i)).includes("z-index: 1001"));
 for (const lng of ["tr", "en", "ar"]) {
   const t = JSON.parse(read(`src/i18n/locales/${lng}/translation.json`)).tableFormula ?? {};
   const keys = ["fnSum", "fnAverage", "fnMin", "fnMax", "fnCount", "fnRound", "fnAbs", "column", "suggestLabel"];
   check(`i18n ${lng}: öneri anahtarları dolu`, keys.every((k) => typeof t[k] === "string" && t[k].length > 0));
   check(`i18n ${lng}: column {{name}} içeriyor`, typeof t.column === "string" && t.column.includes("{{name}}"));
+  check(`i18n ${lng}: columnLetterOnly dolu`, typeof t.columnLetterOnly === "string" && t.columnLetterOnly.length > 0);
 }
 check("run-tests.mjs'de test kayıtlı", read("scripts/run-tests.mjs").includes("src/core/__test__/formulaSuggestTest.ts"));
 

@@ -954,6 +954,16 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   .cm-table-suggest__item:hover { background: var(--line-soft); }
 }
 .cm-table-suggest__name { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cm-table-suggest__colname {
+  font-weight: 400;
+  color: var(--fg);
+  display: inline-block;
+  vertical-align: bottom;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cm-table-suggest__alias { font-weight: 400; font-size: 11px; }
 .cm-table-suggest__alias,
 .cm-table-suggest__desc { color: var(--fg2); }

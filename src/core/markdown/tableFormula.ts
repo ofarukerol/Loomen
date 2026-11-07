@@ -8,6 +8,13 @@
  * gövde satırı 2'dir (`=B2-C2`). Satır numarası yazılmazsa (`=B-C`) formülün kendi satırı
  * kullanılır. Aralık `B2:B9`, tam sütun `B:B` (bütün gövde satırları, formülün kendi
  * hücresi hariç — alt toplam satırı döngüye girmesin diye).
+ *
+ * Sütun başlık adıyla da yazılır (LOM-88): `=Tutar-Ödenen` aynı satırı, `=TOPLA(Tutar)` bütün
+ * sütunu (kendi hücresi hariç) kullanır. Büyük/küçük harf ve Türkçe i/ı farkı önemsizdir. Yalnız
+ * tek kelimelik başlıklar adıyla yazılır; boşluklu başlık harfiyle. Ad, aynı yazılan harf
+ * başvurusunu yener (`Ad` başlığı AD sütununu değil o sütunu gösterir); harf + rakam (`B2`) her
+ * zaman hücre başvurusudur. Toplu fonksiyonlara (TOPLA, ORTALAMA, MIN, MAX, SAY) doğrudan
+ * verilen satırsız başvuru (`B` ya da `Tutar`) bütün sütundur; başka yerde aynı satırdır.
  */
 
 export type FormulaError = "syntax" | "ref" | "cycle" | "div0" | "value";
@@ -77,6 +84,38 @@ export function formatFormulaResult(value: number, locale: string): string {
   return fmt.format(v);
 }
 
+// ─── Sütun adı ──────────────────────────────────────────────────────────────
+
+/** Başlığın görünen adı: baştaki/sondaki boşluk ve Markdown işaretleri (* _) atılır. */
+export function columnDisplayName(s: string): string {
+  return (s ?? "").trim().replace(/^[\s*_]+|[\s*_]+$/g, "");
+}
+
+/** Karşılaştırma anahtarı: görünen ad, Türkçe büyük harf, İ → I ("ıpTal" → "IPTAL"). */
+export function normalizeColumnName(s: string): string {
+  return columnDisplayName(s).toLocaleUpperCase("tr").replace(/İ/g, "I");
+}
+
+/**
+ * Başlık formülde adıyla yazılabilir mi: tek kelime (harfle başlar; harf, rakam, _) ve
+ * hücre başvurusuna benzemez (`B2` gibi harf + rakam her zaman hücredir).
+ */
+export function isPlainColumnName(s: string): boolean {
+  const n = columnDisplayName(s);
+  return /^\p{L}[\p{L}\p{N}_]*$/u.test(n) && !/^[A-Za-z]+\d+$/.test(n);
+}
+
+/** Normalize edilmiş ad → ilk sütun indeksi (aynı ad iki kez varsa ilki). */
+export function headerNameIndex(header: string[]): Map<string, number> {
+  const m = new Map<string, number>();
+  header.forEach((h, i) => {
+    if (!isPlainColumnName(h)) return;
+    const k = normalizeColumnName(h);
+    if (!m.has(k)) m.set(k, i);
+  });
+  return m;
+}
+
 // ─── Ayrıştırıcı ────────────────────────────────────────────────────────────
 
 class FormulaFail extends Error {
@@ -111,9 +150,10 @@ function colIndex(letters: string): number {
 }
 
 const isDigit = (c: string | undefined) => c !== undefined && c >= "0" && c <= "9";
-const isLetter = (c: string | undefined) => c !== undefined && /[A-Za-z]/.test(c);
+const isLetter = (c: string | undefined) => c !== undefined && /\p{L}/u.test(c);
+const isWordChar = (c: string | undefined) => c !== undefined && /[\p{L}\p{N}_]/u.test(c);
 
-function tokenize(src: string): Tok[] {
+function tokenize(src: string, names: Map<string, number>): Tok[] {
   const out: Tok[] = [];
   let i = 0;
   while (i < src.length) {
@@ -139,22 +179,32 @@ function tokenize(src: string): Tok[] {
     }
     if (isLetter(c)) {
       let j = i;
-      while (isLetter(src[j])) j++;
-      const letters = src.slice(i, j);
+      while (isWordChar(src[j])) j++;
+      const word = src.slice(i, j);
       let k = j;
       while (/\s/.test(src[k] ?? "")) k++;
       if (src[k] === "(") {
-        out.push({ t: "fn", name: letters.toUpperCase() });
+        out.push({ t: "fn", name: word.toUpperCase() });
         i = j;
         continue;
       }
-      let d = j;
-      while (isDigit(src[d])) d++;
-      if (isLetter(src[d])) throw new FormulaFail("syntax");
-      const row = d > j ? Number(src.slice(j, d)) : null;
-      out.push({ t: "ref", col: colIndex(letters), row });
-      i = d;
-      continue;
+      i = j;
+      // Harf + rakam her zaman hücre (B2); sonra başlık adı; sonra satırsız harf (B).
+      const cell = /^([A-Za-z]+)(\d+)$/.exec(word);
+      if (cell) {
+        out.push({ t: "ref", col: colIndex(cell[1]), row: Number(cell[2]) });
+        continue;
+      }
+      const named = names.get(normalizeColumnName(word));
+      if (named !== undefined) {
+        out.push({ t: "ref", col: named, row: null });
+        continue;
+      }
+      if (/^[A-Za-z]+$/.test(word)) {
+        out.push({ t: "ref", col: colIndex(word), row: null });
+        continue;
+      }
+      throw new FormulaFail("ref");
     }
     if (c === "+" || c === "-" || c === "*" || c === "/" || c === "^") {
       out.push({ t: "op", v: c });
@@ -176,8 +226,8 @@ function tokenize(src: string): Tok[] {
   return out;
 }
 
-function parse(src: string): Node {
-  const toks = tokenize(src);
+function parse(src: string, names: Map<string, number>): Node {
+  const toks = tokenize(src, names);
   let p = 0;
   const peek = () => toks[p];
   const isOp = (v: string) => {
@@ -302,6 +352,7 @@ function roundHalfAway(x: number, digits: number): number {
  */
 export function evaluateTable(header: string[], rows: string[][]): CellResult[][] {
   const cols = header.length;
+  const names = headerNameIndex(header);
   const memo = new Map<string, CellResult>();
   const visiting = new Set<string>();
   const key = (r: number, c: number) => `${r}:${c}`;
@@ -320,7 +371,7 @@ export function evaluateTable(header: string[], rows: string[][]): CellResult[][
     const formula = raw.trim();
     let res: CellResult;
     try {
-      const v = evalNode(parse(formula.slice(1)), r, c);
+      const v = evalNode(parse(formula.slice(1), names), r, c);
       res = Number.isFinite(v) ? { formula, value: v, error: null } : { formula, value: null, error: "value" };
     } catch (e) {
       const code = e instanceof FormulaFail ? e.code : "syntax";
@@ -431,10 +482,14 @@ export function evaluateTable(header: string[], rows: string[][]): CellResult[][
           return roundHalfAway(x, d);
         }
         // Toplu fonksiyonlar: aralık ve tek başvuruda metin/boş atlanır (Excel gibi).
+        // Satırsız başvuru (B ya da Tutar) bütün sütundur, B:B gibi (LOM-88).
         const nums: number[] = [];
         for (const a of node.args) {
           if (a.t === "range") nums.push(...rangeNumbers(a, selfRow, selfCol));
-          else if (a.t === "ref") {
+          else if (a.t === "ref" && a.row === null) {
+            const whole = { col: a.col, row: null };
+            nums.push(...rangeNumbers({ t: "range", a: whole, b: whole }, selfRow, selfCol));
+          } else if (a.t === "ref") {
             const r = resolveRow(a.row, selfRow);
             checkBounds(r, a.col);
             const { n } = cellNumber(r, a.col);
