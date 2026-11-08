@@ -3,7 +3,7 @@ name: LOM-87 — Kütüphane 4: fotoğraftan alıntı, kitaplara soru sorma, oku
 description: LOM-87: Kütüphane'ye fotoğraftan alıntı (yapay zekâ sağlayıcısıyla metin okuma, yeni "photo" çizim türü), Asistan'a raf ve çizim bilgisi (kitap sorularına çizimlerden cevap) ve kalıcı okuma istatistikleri (sayfa, süre, biten kitap; Raporlar'da Okuma bölümü) eklenir.
 type: project
 proje: loomen
-kaynak: kart LOM-87 · dal fix/LOM-87 · Loomen@b25a88e2a5807eff70c17b41b8d4acc799b5bcac · test koşusu 02863cda-a7b5-4931-b207-9429a1342ed6 (Excalibur)
+kaynak: kart LOM-87 · dal fix/LOM-87 · Loomen@630081efd049f0a9ccc694a98d8ec78a846999aa · test koşusu 5363c716-f667-43de-b7b6-1cfa97b8a831 (Excalibur)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-11-08
@@ -78,13 +78,13 @@ LOM-87: Kütüphane'ye fotoğraftan alıntı (yapay zekâ sağlayıcısıyla met
 
 Testler geçti.
 
-> Tip denetimi, tüm test paketi (61 dosya), web derlemesi ve Rust derleme denetimi temiz geçti. Canlı doğrulama (telefon kamerası, gerçek yapay zekâ hizmeti) insana kaldı.
+> Tip denetimi, tüm test paketi (61 dosya), web derlemesi ve Rust derleme denetimi temiz geçti. Canlı doğrulama insana kaldı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-87`
-- Commit: `Loomen@b25a88e2a5807eff70c17b41b8d4acc799b5bcac`
-- Test koşusu: `02863cda-a7b5-4931-b207-9429a1342ed6` (Excalibur)
+- Commit: `Loomen@630081efd049f0a9ccc694a98d8ec78a846999aa`
+- Test koşusu: `5363c716-f667-43de-b7b6-1cfa97b8a831` (Excalibur)
 
 ## Durum
 
