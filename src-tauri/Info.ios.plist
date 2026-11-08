@@ -21,7 +21,7 @@
       degistirilmeli. Adimlar .env.example icinde (VITE_GOOGLE_IOS_CLIENT_ID).
       Sema kayitli olmadan iPhone'da Google girisi uygulamaya GERI DONEMEZ.
 
-  Asagidaki iki anahtar paylasilan Info.plist'te de var. Bilerek tekrarlandi:
+  Asagidaki anahtarlar (mikrofon, kamera, fotograflar, sifreleme) paylasilan Info.plist'te de var. Bilerek tekrarlandi:
   ikisi de App Store icin zorunlu ve eksikligi pahali (mikrofon aciklamasi yoksa
   iOS ses kaydinda uygulamayi ANINDA KAPATIR). Birini degistiren otekini de
   degistirsin.
@@ -32,6 +32,13 @@
 	     izin penceresinde aynen gosterilir; Turkce ve acik olmali. -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Not editörüne ses notu kaydetmek için mikrofon erişimi gerekir.</string>
+
+	<!-- Fotograftan alinti (src/screens/Library/PhotoQuoteDialog.tsx, photoCapture.ts).
+	     Kamera aciklamasi yoksa iOS "Fotograf cek"te uygulamayi ANINDA KAPATIR. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Basılı kitap sayfasının fotoğrafını çekip altı çizili yeri kitabın notuna alıntı olarak eklemek için kamera erişimi gerekir.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Kitap sayfası fotoğrafını galeriden seçip alıntı olarak eklemek için fotoğraflara erişim gerekir.</string>
 
 	<!-- Uygulama yalnizca HTTPS kullanir (muaf sifreleme). Bu anahtar olmadan her
 	     App Store yuklemesinde ihracat uyumlulugu sorusu tekrar sorulur. -->

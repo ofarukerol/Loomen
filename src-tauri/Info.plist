@@ -4,6 +4,10 @@
 <dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Not editörüne ses notu kaydetmek ve asistana sesle soru sormak için mikrofon erişimi gerekir.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Basılı kitap sayfasının fotoğrafını çekip altı çizili yeri kitabın notuna alıntı olarak eklemek için kamera erişimi gerekir.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Kitap sayfası fotoğrafını galeriden seçip alıntı olarak eklemek için fotoğraflara erişim gerekir.</string>
 	<!-- Uygulama yalnızca HTTPS kullanır (muaf şifreleme). Bu anahtar olmadan her
 	     App Store yüklemesinde ihracat uyumluluğu sorusu tekrar sorulur. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
