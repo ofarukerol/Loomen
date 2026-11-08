@@ -9,6 +9,7 @@ export * from "./store";
 export * from "./kindle";
 export * from "./lua";
 export * from "./koreader";
+export * from "./share";
 export * from "./reviewCard";
 export * from "./sqlite";
 export * from "./kobo";

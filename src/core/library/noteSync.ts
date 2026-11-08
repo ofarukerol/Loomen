@@ -16,6 +16,10 @@
 // sayfa, kaynak satırı *KOReader*. Kobo kitabı (LOM-95) da aynı: yer etiketi bölüm adı (yoksa
 // "Bölüm n", o da yoksa bölüm içi yüzde), kaynak satırı *Kobo*.
 //
+// Paylaşılan alıntı (LOM-96) da aynı blok biçimindedir; yer etiketi "Paylaşıldı" (sayfa geçiyorsa
+// "Paylaşıldı · s. 12"). Herhangi bir kitabın notuna düşebilir. Raftaki kitapla eşleşmediği için
+// açılan dosyasız `shared` kaydın notunda kaynak satırı *Paylaşıldı* olur.
+//
 // İşaretler (HTML yorumu) başka Markdown uygulamalarında görünmez; Loomen okuma modunda da
 // gizler. Kural: yalnız işaretler ARASINA dokunulur. Kullanıcının nota yazdığı başka her şey
 // olduğu gibi kalır. Bitiş işareti kaybolmuş (elle bozulmuş) bloğa hiç dokunulmaz.
@@ -59,6 +63,8 @@ export interface NoteLabels {
   progress?: string;
   /** Kalem notları bölümünün başlığı (LOM-97). Yoksa varsayılan. */
   ink?: string;
+  /** Paylaşılan alıntının yer etiketi ve `shared` kaydın kaynak satırı (LOM-96). Yoksa varsayılan. */
+  shared?: string;
 }
 
 export const DEFAULT_NOTE_LABELS: Readonly<Required<NoteLabels>> = Object.freeze({
@@ -72,6 +78,7 @@ export const DEFAULT_NOTE_LABELS: Readonly<Required<NoteLabels>> = Object.freeze
   kobo: "Kobo",
   progress: "%{n}",
   ink: "Kalem notları",
+  shared: "Paylaşıldı",
 });
 
 export const COLOR_MARK: Record<HighlightColor, string> = {
@@ -110,10 +117,15 @@ function labelSafe(s: string): string {
 
 /**
  * Çizimin yer etiketi: PDF'te sayfa, EPUB'da bölüm adı (yoksa sırası), Kindle'da sayfa ya da konum,
- * KOReader'da sayfa, Kobo'da bölüm adı (yoksa sırası, o da yoksa bölüm içi yüzde).
+ * KOReader'da sayfa, Kobo'da bölüm adı (yoksa sırası, o da yoksa bölüm içi yüzde), paylaşılan
+ * alıntıda "Paylaşıldı" (sayfa varsa "Paylaşıldı · s. 12").
  */
 export function locationLabel(h: Highlight, labels: NoteLabels = DEFAULT_NOTE_LABELS): string {
   const a = h.anchor;
+  if (a.kind === "shared") {
+    const tag = labels.shared || DEFAULT_NOTE_LABELS.shared;
+    return a.page !== undefined ? `${tag} · ${labels.page.replace("{n}", String(a.page))}` : tag;
+  }
   if (a.kind === "pdf" || a.kind === "koreader") return labels.page.replace("{n}", String(a.page));
   if (a.kind === "kindle") {
     if (a.page !== undefined) return labels.page.replace("{n}", String(a.page));
@@ -152,8 +164,8 @@ export function bookNoteTemplate(book: Book, labels: NoteLabels = DEFAULT_NOTE_L
   const lines = ["---", `${NOTE_BOOK_KEY}: ${book.id}`, "---", "", `# ${neutralize(book.title)}`, ""];
   if (book.author) lines.push(`*${neutralize(book.author)}*`, "");
   if (!hasBookFile(book)) {
-    // Dosyasız kitap (Kindle, KOReader, Kobo): "Kitabı aç" yerine düz kaynak satırı.
-    const f = book.format as "kindle" | "koreader" | "kobo";
+    // Dosyasız kitap (Kindle, KOReader, Kobo, paylaşılan kayıt): "Kitabı aç" yerine düz kaynak satırı.
+    const f = book.format as "kindle" | "koreader" | "kobo" | "shared";
     lines.push(`*${neutralize(labels[f] || DEFAULT_NOTE_LABELS[f])}*`);
   } else lines.push(`[${labelSafe(labels.openBook)}](${bookLink({ bookId: book.id })})`);
   lines.push("", `## ${labels.quotes}`, "");

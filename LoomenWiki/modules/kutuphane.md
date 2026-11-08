@@ -162,13 +162,49 @@ kullanıcının notu (varsa)
 - **Ortak alma döngüsü:** Kindle, KOReader ve Kobo alımı store'da aynı yardımcıdan geçer (`importExternalBooks`):
   bozuk kayıt/biçim çakışması kontrolü, boş not yolu, kayıt yazımı, not bloklarının eklenmesi, tek sonuç mesajı.
 
+## Paylaş menüsünden alıntı (LOM-96)
+- **Giriş yolu:** bütün kaynaklar tek adrese iner: `loomen://share?text=<metin>&subject=<konu>&app=<gönderen>`.
+  - Android: manifestte (otomatik DEEP LINK bloğunun DIŞINDA) `ACTION_SEND` + `text/plain` alıcısı.
+    `MainActivity.kt` gelen isteği bu adrese `ACTION_VIEW` olarak çevirir (`subject` = EXTRA_SUBJECT,
+    `app` = gönderen paket). Derin bağlantı eklentisi soğuk açılışta `load()`'da `activity.intent`i, açıkken
+    `onNewIntent`'i okur; bu yüzden çeviri `super.onCreate`'ten ÖNCE yapılır. `MainActivity.kt` elle düzenlenir
+    ve `.gitignore` istisnasıyla depoda izlenir; `tauri android init` yeniden üretirse geri alınmalı.
+  - iPhone/iPad: Share Extension yok. Kullanıcı bir kez Kısayol kurar (Paylaşma Ekranında Göster → URL Kodla →
+    Metin `loomen://share?text=` + sonuç → URL'leri Aç). Adımlar Yardım > Telefonda kullanım > "Başka uygulamadan
+    alıntı gönder" bölümünde üç dilde.
+  - Masaüstünde ayrı düğme yok; aynı adres gelirse aynı yoldan işlenir.
+- **Uygulamada alım:** `useShareIntake` (App düzeyi) eklentinin `getCurrent` + `onOpenUrl` değerlerinden yalnız
+  `loomen://share` adreslerini alır (Google giriş dönüşü ve kitap bağlantıları başka yerde). Kasa açılmadan gelen
+  adres kuyrukta bekler, kasa açılınca işlenir; aynı adres 3 sn içinde iki kez gelirse bir kez işlenir.
+- **Ayıklama** (`share.ts`, saf): Kindle, Apple Kitaplar ve Google Play Kitaplar biçimleri tanınır (örnekler
+  `shareTest.ts`'te); tanınmayan metinde tamamı alıntı, konu (subject) varsa kitap adı odur. Uygulama bağlantıları ve
+  tanıtım/telif satırları atılır; metinde sayfa geçiyorsa okunur.
+- **Kitabı bulma** (`matchBooks`): başlık işaretsiz/küçük harf karşılaştırılır; tam eşleşme yoksa ana başlık (alt
+  başlık ayracından önce). Birden çok aday varsa yazar daraltır. **Tek aday → doğrudan eklenir.** Aday yok ya da
+  birden çoksa seçim penceresi (`SharePickDialog`) açılır: birden çok eşleşmede yalnız onlar, yoksa bütün raf;
+  başlık tanındıysa "Yeni kayıt: <başlık>" seçeneği (dosyasız `shared` kayıt, özeti "shared|başlık|yazar").
+  Vazgeç/Escape/zemin hiçbir şey yazmaz. Raf boş ve başlık yoksa "önce kitap ekle" mesajı çıkar.
+- **Kayıt ve not:** çizim çıpası `{kind: "shared", app?, page?}`, herhangi bir biçimdeki kitaba eklenebilir; renk
+  sarı. Kimlik `s` + SHA-256(alıntı anahtarı) ilk 10 hane. Not bloğu diğer çizimlerle aynı biçimde, yer etiketi
+  "Paylaşıldı" (sayfa varsa "Paylaşıldı · s. 12"). `shared` kaydın notunda "Kitabı aç" yerine `*Paylaşıldı*` kaynak
+  satırı; rafta "PAYLAŞILDI" rozeti, dokununca not açılır. Eklenince "notuna eklendi" mesajı ve kitabın notu açılır.
+- **Tekrar koruması:** alıntı anahtarı (işaretsiz, küçük harf, yalnız harf/rakam) kitabın BÜTÜN çizimleriyle
+  karşılaştırılır (Kindle'dan ya da okuyucudan gelen dahil). Varsa kayıt ve not yazılmaz, "zaten var" denir.
+- **Okuyucu:** paylaşılan alıntının kitapta yeri yok (`positionOfAnchor` null). Çizim listesinde görünür ama
+  dokununca atlanmaz; nottaki bağlantısı kitabı kalınan yerden açar. PDF/EPUB görüntüleyicileri bu çizimi boyamaz.
+- **Sıra:** paylaşımlar store'da sırayla işlenir; süren bir içe aktarma varsa bitmesi beklenir.
+- **Bilinen sınırlar:** okuma uygulamalarının paylaşım metni örnekleri bellekten kuruldu, gerçek cihaz çıktısıyla
+  doğrulanmadı; tanınmazsa seçim penceresi açılır. Android'de Paylaş listesinde görünme yalnız gerçek cihazda
+  denenebilir.
+
 ## Kod
-- Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`, `kindle`, `lua`, `koreader`, `sqlite`, `kobo`).
+- Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`, `kindle`, `lua`, `koreader`, `sqlite`, `kobo`, `share`).
   Kindle/Kobo cihaz tarama ve okuma (Tauri'ye bağlı): `src/core/library/kindleDevice.ts`, `koboDevice.ts`.
+  Paylaş alımı: `src/hooks/useShareIntake.ts`, `src/screens/Library/SharePickDialog.tsx`.
 - Durum ve eylemler: `src/store/useAppStore.ts` (`library*`, `reader*`).
 - Ekranlar: `src/screens/Library/`. Bağlantı: `src/screens/Editor/Markdown.tsx` (okuma),
   `livePreview.ts` (düzenleme).
-- Testler: `libraryTest`, `libraryNoteTest`, `libraryLinkTest`, `kindleTest`, `luaTest`, `koreaderTest`, `sqliteTest`, `koboTest` (`src/core/__test__/`; Kobo örnek veritabanı `fixtures/kobo-sample.sqlite`, kaynağı `scripts/fixtures/kobo-sample.sql`).
+- Testler: `libraryTest`, `libraryNoteTest`, `libraryLinkTest`, `kindleTest`, `luaTest`, `koreaderTest`, `sqliteTest`, `koboTest`, `shareTest` (`src/core/__test__/`; Kobo örnek veritabanı `fixtures/kobo-sample.sqlite`, kaynağı `scripts/fixtures/kobo-sample.sql`).
 
 ## Kapsam dışı (ilk sürüm)
 Cihazlar arası kitap dosyası eşitleme; arama, sözlük, sesli okuma; PDF/EPUB dosyasını değiştirme;

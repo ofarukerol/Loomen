@@ -15,6 +15,9 @@ import { BookCard } from "./BookCard";
  * KOReader (LOM-94): "KOReader'dan al" kitabın yanındaki metadata.*.lua ya da JSON dışa aktarımını seçtirir.
  * Kobo (LOM-95): "Kobo'dan al" bağlı Kobo'nun veritabanını, yoksa seçilen dosyayı alır; Kindle ile
  * birlikte aranır, bulunursa rafın üstünde "Kobo bağlı" şeridi çıkar.
+ * Paylaş (LOM-96): rafta düğmesi yok; telefonda Paylaş menüsünden / Kısayol'dan gelen alıntı uygulama
+ * düzeyinde alınır (useShareIntake, SharePickDialog). Eşleşmeyen başlık için açılan `shared` kayıt
+ * rafta diğer kitaplar gibi görünür.
  */
 export function LibraryScreen() {
   const { t } = useTranslation();

@@ -21,6 +21,12 @@
 //
 // Kobo kitabı da (LOM-95) dosyasızdır; özeti "kobo|başlık|yazar" metninden türer, böylece aynı
 // başlıklı Kindle ve KOReader kayıtlarıyla çakışmaz.
+//
+// Paylaşılan alıntı (LOM-96): telefonda başka uygulamadan (Kindle, Apple Kitaplar, Google Play
+// Kitaplar…) Paylaş menüsüyle ya da iPhone/iPad Kısayolu ile gelen metin. Çıpası `shared` türündedir
+// ve kitabın HER biçiminde bulunabilir (PDF kitabına da paylaşılan alıntı eklenebilir); yeri yoktur,
+// okuyucu oraya atlamaz. Raftaki kitapla eşleşmeyen başlık için dosyasız `shared` biçimli kayıt
+// açılabilir; özeti "shared|başlık|yazar" metninden türer.
 
 /** Kasadaki klasör adı. Diskte macOS NFD biçiminde de durabilir; karşılaştırma NFC ile yapılır. */
 export const LIBRARY_DIR = "Kütüphane";
@@ -42,7 +48,7 @@ export const BOOK_FILE_VERSION = 1;
 /** Bu boyutun üstünde içe aktarmadan önce uyarı (mobilde bellek). */
 export const LARGE_BOOK_BYTES = 200 * 1024 * 1024;
 
-export const BOOK_FORMATS = ["pdf", "epub", "kindle", "koreader", "kobo"] as const;
+export const BOOK_FORMATS = ["pdf", "epub", "kindle", "koreader", "kobo", "shared"] as const;
 export type BookFormat = (typeof BOOK_FORMATS)[number];
 /** Uygulama klasöründe dosyası olan (okuyucuda açılan) biçimler. */
 export const FILE_BOOK_FORMATS = ["pdf", "epub"] as const;
@@ -121,7 +127,21 @@ export interface KoboAnchor {
   chapter?: number;
 }
 
-export type Anchor = PdfAnchor | EpubAnchor | KindleAnchor | KoreaderAnchor | KoboAnchor;
+/** Paylaşılan alıntıyı gönderen uygulama (ayıklayıcı biçimi tanıdıysa). */
+export const SHARE_APPS = ["kindle", "applebooks", "playbooks"] as const;
+export type ShareApp = (typeof SHARE_APPS)[number];
+
+/**
+ * Paylaşılan alıntının çıpası (LOM-96): kitapta yeri bilinmez. `app` gönderen uygulama (tanındıysa),
+ * `page` paylaşılan metinde sayfa geçiyorsa (yalnız gösterim). Kitabın biçiminden bağımsızdır.
+ */
+export interface SharedAnchor {
+  kind: "shared";
+  app?: ShareApp;
+  page?: number;
+}
+
+export type Anchor = PdfAnchor | EpubAnchor | KindleAnchor | KoreaderAnchor | KoboAnchor | SharedAnchor;
 
 /** Kalınan yer. PDF: sayfa + sayfa içi dikey oran (0..1). EPUB: bölüm + bölüm metnindeki karakter ofseti. */
 export type BookPosition =

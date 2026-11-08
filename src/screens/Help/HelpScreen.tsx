@@ -114,6 +114,8 @@ const SECTIONS: SectionDef[] = [
       { id: "press", visual: "pressMenu" },
       { id: "editorPress" },
       { id: "voice", visual: "recorder" },
+      // Paylaş menüsü ve iPhone/iPad Kısayolu ile alıntı gönderme (LOM-96).
+      { id: "share" },
     ],
   },
   {

@@ -46,7 +46,10 @@ export function bookFileName(b: Pick<Book, "hash" | "format">): string {
   return `${b.hash}.${b.format}`;
 }
 
-/** Kitabın uygulama klasöründe dosyası var mı (okuyucuda açılır mı)? Kindle (LOM-84), KOReader (LOM-94) ve Kobo (LOM-95) kitabında yok. */
+/**
+ * Kitabın uygulama klasöründe dosyası var mı (okuyucuda açılır mı)? Kindle (LOM-84), KOReader (LOM-94),
+ * Kobo (LOM-95) ve paylaşılan alıntı kaydında (LOM-96) yok.
+ */
 export function hasBookFile(b: Pick<Book, "format">): boolean {
   return (FILE_BOOK_FORMATS as readonly string[]).includes(b.format);
 }
@@ -272,14 +275,15 @@ export function applyMeta(b: Book, meta: MetaPatch, now: number): Book {
 
 // ─── Çizimler ─────────────────────────────────────────────────────────────────────
 
-const KIND_RANK: Record<Anchor["kind"], number> = { pdf: 0, epub: 1, kindle: 2, koreader: 3, kobo: 4 };
+const KIND_RANK: Record<Anchor["kind"], number> = { pdf: 0, epub: 1, kindle: 2, koreader: 3, kobo: 4, shared: 5 };
 
 /**
  * Kitap içindeki sıra: PDF'te sayfa → üst kenar → sol kenar; EPUB'da bölüm → başlangıç;
  * Kindle'da konum başı → sayfa → konum sonu (konumu olmayan, yalnız sayfalı çizim sona);
  * KOReader'da sayfa (aynı sayfada `sortHighlights` oluşma anıyla ayırır); Kobo'da bölüm sırası
- * (bilinmeyen sona) → bölüm içi ilerleme.
- * Farklı türler sabit sırada: pdf < epub < kindle < koreader < kobo.
+ * (bilinmeyen sona) → bölüm içi ilerleme. Paylaşılan alıntıların (LOM-96) yeri yoktur: kendi
+ * aralarında eşittir, `sortHighlights` geliş anıyla sıralar.
+ * Farklı türler sabit sırada: pdf < epub < kindle < koreader < kobo < shared (paylaşılanlar sonda).
  */
 export function compareAnchor(a: Anchor, b: Anchor): number {
   if (a.kind === "pdf" && b.kind === "pdf") {
@@ -315,6 +319,7 @@ export function compareAnchor(a: Anchor, b: Anchor): number {
     if (ac !== bc) return ac < bc ? -1 : 1;
     return a.progress - b.progress;
   }
+  if (a.kind === "shared" && b.kind === "shared") return 0;
   return KIND_RANK[a.kind] - KIND_RANK[b.kind];
 }
 
@@ -349,11 +354,14 @@ export interface NewHighlightInput {
   chapter?: string;
 }
 
-/** Çizim ekle; kitap sırası korunur. Boş metin ya da biçime uymayan çıpa hata atar. */
+/**
+ * Çizim ekle; kitap sırası korunur. Boş metin ya da biçime uymayan çıpa hata atar. Paylaşılan
+ * alıntı çıpası (`shared`, LOM-96) her biçimdeki kitaba eklenebilir.
+ */
 export function addHighlight(b: Book, input: NewHighlightInput, now: number, id: string): { book: Book; highlight: Highlight } {
   const text = cleanQuote(input.text);
   if (!text) throw new Error("Boş seçim çizilmez");
-  if (input.anchor.kind !== b.format) throw new Error("Çizim yeri kitabın biçimine uymuyor");
+  if (input.anchor.kind !== "shared" && input.anchor.kind !== b.format) throw new Error("Çizim yeri kitabın biçimine uymuyor");
   if (!HIGHLIGHT_ID_RE.test(id) || b.highlights.some((h) => h.id === id)) throw new Error("Geçersiz çizim kimliği");
   const h: Highlight = {
     id,
@@ -410,8 +418,12 @@ export function koboLocation(a: { progress: number; chapter?: number }): number 
   return Math.max(0, Math.round(((a.chapter ?? 0) + p) * 1000));
 }
 
-/** Çizimin gidilecek yeri (bağlantı ve listeden atlama için). */
-export function positionOfAnchor(a: Anchor): BookPosition {
+/**
+ * Çizimin gidilecek yeri (bağlantı ve listeden atlama için). Paylaşılan alıntının (LOM-96) kitapta
+ * yeri yoktur: null döner, çağıran atlamaz.
+ */
+export function positionOfAnchor(a: Anchor): BookPosition | null {
+  if (a.kind === "shared") return null;
   if (a.kind === "pdf") return { kind: "pdf", page: a.page, offset: a.rects.length ? Math.min(...a.rects.map((r) => r.y)) : 0 };
   if (a.kind === "kindle") return { kind: "kindle", location: a.location?.start ?? a.page ?? 0 };
   if (a.kind === "koreader") return { kind: "koreader", location: a.page };

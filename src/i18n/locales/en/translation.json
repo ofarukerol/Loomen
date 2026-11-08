@@ -855,7 +855,7 @@
       },
       "mobile": {
         "title": "Using it on a phone",
-        "summary": "Bottom bar, long-press menus and voice notes.",
+        "summary": "Bottom bar, long-press menus, voice notes and sending quotes from other apps.",
         "nav": {
           "h": "Bottom bar",
           "list": [
@@ -890,6 +890,18 @@
             "If you don't like it, delete it with the bin icon. \"Record from here\" re-records everything after a point (the rest is replaced).",
             "When done, press the confirm button, give the recording a name if you like, and confirm again. The recording is added to the note.",
             "On a phone a single recording is at most 10 minutes. It stops at the limit. Save it and start a new one."
+          ]
+        },
+        "share": {
+          "h": "Send a quote from another app",
+          "p": "You can send text you select in Kindle, Apple Books or Google Play Books to Loomen. If the book title matches a book on your shelf, the quote goes straight into that book's note; otherwise you're asked which book to add it to. Sending the same quote twice doesn't add it again. On Android, select the text, tap Share and pick Loomen from the list. On iPhone and iPad you set up a Shortcut once:",
+          "steps": [
+            "In the Shortcuts app, create a new shortcut and name it \"Send to Loomen\".",
+            "In the shortcut's details, turn on \"Show in Share Sheet\" and leave only Text as the input type.",
+            "Add the \"URL Encode\" action and give it \"Shortcut Input\".",
+            "Add a \"Text\" action, type `loomen://share?text=` and put the URL Encode result right after it.",
+            "Add the \"Open URLs\" action and give it that Text.",
+            "Now select text in your reading app, tap Share and choose \"Send to Loomen\" from the list."
           ]
         }
       },
@@ -1593,7 +1605,8 @@
       "koreader": "KOReader",
       "kobo": "Kobo",
       "progress": "{{n}}%",
-      "ink": "Pen notes"
+      "ink": "Pen notes",
+      "shared": "Shared"
     },
     "pickTitle": "Choose a book",
     "pickFilter": "Books (PDF, EPUB)",
@@ -1670,6 +1683,22 @@
       "add": "Make a review card",
       "done": "In Review",
       "saveError": "The review card could not be saved: {{detail}}"
+    },
+    "shared": {
+      "badge": "SHARED",
+      "openNote": "Open the note for {{name}}"
+    },
+    "share": {
+      "empty": "The shared text was empty; there is no quote to add.",
+      "needBook": "Couldn't tell which book the quote is from. Add a book to your shelf first, then share again.",
+      "exists": "This quote is already in the note for “{{name}}”; it wasn't added again.",
+      "added": "Quote added to the note for “{{name}}”.",
+      "error": "The shared quote couldn't be added: {{detail}}",
+      "pickTitle": "Which book should this quote go to?",
+      "pickBody": "The book title wasn't recognised. Pick a book from your shelf.",
+      "pickFrom": "Title received: {{name}}. Pick a book from your shelf or create a new entry.",
+      "create": "New entry: {{name}}",
+      "cancel": "Cancel"
     }
   }
 }

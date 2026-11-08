@@ -44,6 +44,14 @@
                 
             </intent-filter>
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
+            <!-- Paylas menusu (LOM-96): baska uygulamada secilen duz metin Loomen'a gelir.
+                 MainActivity.kt bunu loomen://share?... baglantisina cevirir. Otomatik
+                 DEEP LINK blogunun DISINDA durur ki eklenti yeniden uretince silinmesin. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <provider

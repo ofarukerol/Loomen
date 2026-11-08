@@ -228,6 +228,12 @@ import {
   shouldKeepPendingPosition,
   updateHighlight as bookUpdateHighlight,
   updateHighlightBlock,
+  applySharedQuote,
+  matchBooks,
+  parseSharedText,
+  parseShareUrl,
+  sharedBookHash,
+  findSharedDuplicate,
   type Book,
   type BookFileStore,
   type BookPosition,
@@ -239,12 +245,24 @@ import {
   type LibraryVault,
   type NewHighlightInput,
   type NoteLabels,
+  type ParsedShare,
   type ReaderPrefs,
   type ShelfFilter,
 } from "../core/library";
 import { findKindleClippings, readClippingsText } from "../core/library/kindleDevice";
 import { findKoboDatabase, readKoboDatabase } from "../core/library/koboDevice";
 import type { BookMeta, ReaderTarget } from "../screens/Library/readerTypes";
+
+/**
+ * Paylaş menüsünden gelen, kitabı henüz seçilmemiş alıntı (LOM-96). `candidates` seçim
+ * penceresinde sunulacak kitaplar (birden çok eşleşme varsa yalnız onlar, yoksa bütün raf);
+ * `canCreate` başlık tanındıysa "Yeni kayıt" seçeneği.
+ */
+export interface PendingShare {
+  parsed: ParsedShare;
+  candidates: string[];
+  canCreate: boolean;
+}
 
 export type Theme = "light" | "dark";
 export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help" | "assistant" | "review" | "habits" | "library" | "reader";
@@ -519,6 +537,8 @@ interface AppState {
   kindleDevicePath: string | null;
   /** Bağlı Kobo'daki veritabanının yolu (LOM-95); bağlı değilse null. */
   koboDevicePath: string | null;
+  /** Kitabı seçilmeyi bekleyen paylaşılan alıntı (LOM-96); null = pencere kapalı. */
+  pendingShare: PendingShare | null;
   /** Okuyucuda açık kitap. */
   readerBookId: string | null;
   /** Okuyucuya atlama isteği (bağlantı, çizim listesi). */
@@ -863,6 +883,14 @@ interface AppState {
   librarySetMeta: (meta: BookMeta) => Promise<void>;
   /** `loomen://book/...` bağlantısını aç; tanınmazsa false. */
   libraryOpenLink: (href: string) => boolean;
+  /**
+   * Paylaş menüsünden / Kısayol'dan gelen `loomen://share?...` adresini işle (LOM-96). Paylaşım
+   * adresi değilse false. Başlık raftaki tek kitapla eşleşirse alıntı doğrudan o kitaba eklenir;
+   * değilse `pendingShare` dolar ve seçim penceresi açılır.
+   */
+  libraryReceiveShare: (url: string) => Promise<boolean>;
+  /** Seçim penceresinin sonucu: raftaki kitap, başlıktan yeni kayıt ya da vazgeç (null). */
+  libraryResolveShare: (choice: { bookId: string } | { create: true } | null) => Promise<void>;
   /** Kitabın notunu aç (yoksa oluşturur). */
   libraryOpenNote: (id: string) => Promise<void>;
   readerSetPrefs: (patch: Partial<ReaderPrefs>) => void;
@@ -1053,6 +1081,8 @@ const INK_SAVE_MS = 2000;
 /** Kalem resmi + not bloğu yazımları sırayla (aynı sayfanın iki resmi yarışmasın). */
 let inkChain: Promise<unknown> = Promise.resolve();
 let readerSeq = 0;
+/** Paylaşılan alıntılar sırayla işlenir (LOM-96): peş peşe iki paylaşım aynı kaydı ezmesin. */
+let shareChain: Promise<unknown> = Promise.resolve();
 /** Süren Kindle araması (odak ve açılış aynı anda tetikleyebilir). */
 let kindleProbing: Promise<void> | null = null;
 /** Kobo araması aynı anda tek kez (LOM-95). */
@@ -1074,6 +1104,7 @@ function libraryNoteLabels(): NoteLabels {
     kobo: i18n.t("library.note.kobo"),
     progress: i18n.t("library.note.progress", { n: "{n}" }),
     ink: i18n.t("library.note.ink"),
+    shared: i18n.t("library.note.shared"),
   };
 }
 
@@ -1272,6 +1303,8 @@ export const useAppStore = create<AppState>()(
         libraryBroken: [],
         readerBookId: null,
         readerTarget: null,
+        // Bekleyen paylaşımın adayları eski kasanın kitapları: pencere kapanır.
+        pendingShare: null,
         screen: st.screen === "reader" ? "library" : st.screen,
       });
     }
@@ -1470,6 +1503,110 @@ export const useAppStore = create<AppState>()(
     if (edited) lines.push(i18n.t("library.blockEdited"));
     lines.push(...problems);
     await notifyError(lines.join("\n"), "info");
+  }
+
+  /** Kütüphanenin süren işi (içe aktarma) bitene kadar bekle; en çok iki dakika. */
+  async function waitLibraryIdle(): Promise<void> {
+    for (let i = 0; i < 600 && get().libraryBusy; i++) await new Promise((r) => setTimeout(r, 200));
+  }
+
+  /**
+   * Paylaşılan alıntıyı kitaba işle (LOM-96). `target` raftaki kitap; null ise başlıktan dosyasız
+   * `shared` kayıt açılır (aynı başlık+yazarla daha önce açıldıysa o kayıt kullanılır). Aynı alıntı
+   * kitapta varsa kayıt ve not yazılmaz, "zaten var" denir. Eklenince kitabın notu açılır.
+   */
+  function applyShare(targetId: string | null, parsed: ParsedShare): Promise<void> {
+    const run = async () => {
+      await waitLibraryIdle();
+      const src = backend;
+      set({ libraryBusy: true });
+      let openId: string | null = null;
+      let msg: string | null = null;
+      // İç işlev: erken `return` da aşağıdaki mesaj ve not açma adımına düşsün.
+      const work = async (): Promise<void> => {
+        if (libraryVaultOf !== src) await get().libraryLoad();
+        if (backend !== src) return;
+        let existing: Book | null = null;
+        let init: { hash: string; notePath: string } | undefined;
+        const name = targetId ? (bookById(targetId)?.title ?? "") : (parsed.title ?? "");
+        if (targetId) {
+          existing = bookById(targetId);
+          if (!existing) {
+            msg = i18n.t("library.missingBook");
+            return;
+          }
+        } else {
+          if (!parsed.title?.trim()) {
+            msg = i18n.t("library.share.needBook");
+            return;
+          }
+          const hash = await sharedBookHash(parsed.title, parsed.author);
+          const id = bookIdFromHash(hash);
+          if (get().libraryBroken.includes(`${id}.json`)) {
+            msg = i18n.t("library.brokenRecord", { name });
+            return;
+          }
+          existing = bookById(id);
+          if (!existing) {
+            const taken = new Set(get().notes.map((n) => n.path));
+            init = { hash, notePath: freeNotePath(parsed.title, (p) => taken.has(p)) };
+          }
+        }
+        const res = await applySharedQuote(existing, parsed, Date.now(), init);
+        if (res.duplicate) {
+          msg = i18n.t("library.share.exists", { name: res.book.title });
+          openId = res.book.id;
+          // Kayıt yazılmaz. Önceki paylaşımda not yazımı yarıda kaldıysa blok notta yoktur: yalnız
+          // o durumda eksik blok eklenir (blok varsa not olduğu gibi kalır).
+          const dup = findSharedDuplicate(res.book, parsed.quote);
+          if (dup) {
+            try {
+              const order = res.book.highlights.map((h) => h.id);
+              await syncBookNote(res.book.id, (t, b) =>
+                blockState(t, dup.id) === "missing" ? insertHighlightBlock(t, b, dup, order, libraryNoteLabels()) : t,
+              );
+            } catch (e) {
+              await noteSyncFailed(e);
+              openId = null;
+            }
+          }
+          return;
+        }
+        if (!(await bookCommit(res.book))) return;
+        const book = res.book;
+        openId = book.id;
+        try {
+          const labels = libraryNoteLabels();
+          const order = book.highlights.map((h) => h.id);
+          const toInsert = res.created ? book.highlights : res.added ? [res.added] : [];
+          await syncBookNote(book.id, (t, b) => {
+            let out = t;
+            for (const h of toInsert) {
+              if (blockState(out, h.id) === "missing") out = insertHighlightBlock(out, b, h, order, labels);
+            }
+            return out;
+          });
+        } catch (e) {
+          await noteSyncFailed(e);
+          return;
+        }
+        msg = i18n.t("library.share.added", { name: book.title });
+      };
+      try {
+        await work();
+      } catch (e) {
+        console.error("[library] paylaşılan alıntı eklenemedi:", e);
+        msg = i18n.t("library.share.error", { detail: errText(e) });
+        openId = null;
+      } finally {
+        set({ libraryBusy: false });
+      }
+      if (openId && backend === src && get().features.library) await get().libraryOpenNote(openId);
+      if (msg) await notifyError(msg, "info");
+    };
+    const next = shareChain.then(run, run);
+    shareChain = next.catch(() => {});
+    return next;
   }
 
   async function pickBookFiles(multiple: boolean): Promise<string[]> {
@@ -2208,6 +2345,7 @@ export const useAppStore = create<AppState>()(
     libraryCovers: {},
     kindleDevicePath: null,
     koboDevicePath: null,
+    pendingShare: null,
     readerBookId: null,
     readerTarget: null,
     readerReturn: "library",
@@ -4883,7 +5021,9 @@ export const useAppStore = create<AppState>()(
       let readerTarget: ReaderTarget | null = null;
       if (target?.highlightId) {
         const h = book.highlights.find((x) => x.id === target.highlightId);
-        if (h) readerTarget = { seq: ++readerSeq, anchor: h.anchor, position: positionOfAnchor(h.anchor), highlightId: h.id };
+        // Paylaşılan alıntının (LOM-96) kitapta yeri yok: kitap kalınan yerden açılır.
+        const position = h ? positionOfAnchor(h.anchor) : null;
+        if (h && position) readerTarget = { seq: ++readerSeq, anchor: h.anchor, position, highlightId: h.id };
       }
       if (!readerTarget && target?.page && book.format === "pdf") {
         readerTarget = { seq: ++readerSeq, position: { kind: "pdf", page: target.page, offset: 0 } };
@@ -5150,6 +5290,54 @@ export const useAppStore = create<AppState>()(
         get().libraryOpenReader(link.bookId, { highlightId: link.highlightId, page: link.page });
       })();
       return true;
+    },
+
+    libraryReceiveShare: async (url) => {
+      const payload = parseShareUrl(url);
+      if (!payload) return false;
+      if (!get().features.library) {
+        await notifyError(i18n.t("library.featureOff"), "info");
+        return true;
+      }
+      const parsed = parseSharedText(payload.text, payload.subject, payload.app);
+      if (!parsed) {
+        await notifyError(i18n.t("library.share.empty"), "info");
+        return true;
+      }
+      // Önceki paylaşım (ör. aynı başlıkla yeni kayıt açan) bitsin: eşleşme güncel rafa göre verilsin.
+      await shareChain;
+      // Kasa yeni açıldıysa kayıtlar henüz okunmamış olabilir.
+      if (!get().booksLoaded || libraryVaultOf !== backend) {
+        try {
+          await get().libraryLoad();
+        } catch (e) {
+          // Raf okunamadıysa seçim penceresi boş raf + "Yeni kayıt" gösterip çift kayıt açtırmasın.
+          console.error("[library] paylaşım için raf okunamadı:", e);
+          await notifyError(i18n.t("library.share.error", { detail: errText(e) }));
+          return true;
+        }
+      }
+      const books = get().books;
+      const matches = matchBooks(books, parsed);
+      if (matches.length === 1) {
+        await applyShare(matches[0].id, parsed);
+        return true;
+      }
+      const canCreate = !!parsed.title?.trim();
+      const candidates = (matches.length > 1 ? matches : books).map((b) => b.id);
+      if (candidates.length === 0 && !canCreate) {
+        await notifyError(i18n.t("library.share.needBook"), "info");
+        return true;
+      }
+      set({ pendingShare: { parsed, candidates, canCreate } });
+      return true;
+    },
+
+    libraryResolveShare: async (choice) => {
+      const pending = get().pendingShare;
+      set({ pendingShare: null });
+      if (!pending || !choice) return; // vazgeç: hiçbir şey değişmez
+      await applyShare("bookId" in choice ? choice.bookId : null, pending.parsed);
     },
 
     libraryOpenNote: async (id) => {

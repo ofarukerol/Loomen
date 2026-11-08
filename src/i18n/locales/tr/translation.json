@@ -877,7 +877,7 @@
       },
       "mobile": {
         "title": "Telefonda kullanım",
-        "summary": "Alt çubuk, uzun basma menüleri ve sesli not.",
+        "summary": "Alt çubuk, uzun basma menüleri, sesli not ve başka uygulamadan alıntı gönderme.",
         "nav": {
           "h": "Alt çubuk",
           "list": [
@@ -912,6 +912,18 @@
             "Beğenmezsen çöp simgesiyle sil. \"Buradan kaydet\" ile bir yerden sonrasını yeniden kaydedersin.",
             "Bittiğinde onay düğmesine bas, istersen kayda bir ad ver ve tekrar onayla. Kayıt nota eklenir.",
             "Telefonda tek kayıt en çok 10 dakika sürer. Sınıra gelince kayıt durur. Kaydedip yenisini başlat."
+          ]
+        },
+        "share": {
+          "h": "Başka uygulamadan alıntı gönder",
+          "p": "Kindle, Apple Kitaplar ya da Google Play Kitaplar'da seçtiğin metni Loomen'a gönderebilirsin. Kitap adı raftaki bir kitapla eşleşirse alıntı doğrudan o kitabın notuna eklenir; eşleşmezse hangi kitaba ekleneceği sorulur. Aynı alıntıyı ikinci kez gönderirsen yeniden eklenmez. Android'de metni seç, Paylaş'a dokun ve listeden Loomen'ı seç. iPhone ve iPad'de bunun için bir kez Kısayol kurarsın:",
+          "steps": [
+            "Kısayollar uygulamasında yeni bir kısayol oluştur, adını \"Loomen'a gönder\" koy.",
+            "Kısayolun ayrıntılarında \"Paylaşma Ekranında Göster\"i aç; girdi türü olarak yalnız Metin kalsın.",
+            "\"URL Kodla\" eylemini ekle; girdisi \"Kısayol Girdisi\" olsun.",
+            "\"Metin\" eylemini ekle, içine `loomen://share?text=` yaz ve hemen arkasına URL Kodla sonucunu koy.",
+            "\"URL'leri Aç\" eylemini ekle; girdisi bu Metin olsun.",
+            "Artık okuma uygulamasında metni seç, Paylaş'a dokun ve listeden \"Loomen'a gönder\"i seç."
           ]
         }
       },
@@ -1593,7 +1605,8 @@
       "koreader": "KOReader",
       "kobo": "Kobo",
       "progress": "%{{n}}",
-      "ink": "Kalem notları"
+      "ink": "Kalem notları",
+      "shared": "Paylaşıldı"
     },
     "pickTitle": "Kitap seç",
     "pickFilter": "Kitaplar (PDF, EPUB)",
@@ -1670,6 +1683,22 @@
       "add": "Tekrar kartı yap",
       "done": "Tekrar'da",
       "saveError": "Tekrar kartı kaydedilemedi: {{detail}}"
+    },
+    "shared": {
+      "badge": "PAYLAŞILDI",
+      "openNote": "{{name}} kitabının notunu aç"
+    },
+    "share": {
+      "empty": "Paylaşılan metin boş geldi; eklenecek alıntı yok.",
+      "needBook": "Alıntının hangi kitaptan olduğu anlaşılamadı. Önce rafa bir kitap ekle, sonra yeniden paylaş.",
+      "exists": "Bu alıntı “{{name}}” notunda zaten var; yeniden eklenmedi.",
+      "added": "Alıntı “{{name}}” notuna eklendi.",
+      "error": "Paylaşılan alıntı eklenemedi: {{detail}}",
+      "pickTitle": "Alıntı hangi kitaba eklensin?",
+      "pickBody": "Kitap adı tanınmadı. Raftan bir kitap seç.",
+      "pickFrom": "Gelen kitap adı: {{name}}. Raftan bir kitap seç ya da yeni kayıt aç.",
+      "create": "Yeni kayıt: {{name}}",
+      "cancel": "Vazgeç"
     }
   }
 }

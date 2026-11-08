@@ -194,7 +194,7 @@ const r1 = removeHighlight(u1, "h3", NOW + 3);
 check("çizim silinir", r1.highlights.map((h) => h.id).join(",") === "h1,h2");
 check("olmayanı silmek aynı nesne", removeHighlight(r1, "h3", NOW + 4) === r1);
 const pos = positionOfAnchor({ kind: "pdf", page: 4, rects: [{ x: 0, y: 0.6, w: 1, h: 0.1 }, { x: 0, y: 0.4, w: 1, h: 0.1 }] });
-check("çizimin konumu en üst kenar", pos.kind === "pdf" && pos.page === 4 && pos.offset === 0.4);
+check("çizimin konumu en üst kenar", !!pos && pos.kind === "pdf" && pos.page === 4 && pos.offset === 0.4);
 
 // EPUB sırası
 const e0 = newBook({ hash: "1".repeat(64), size: 1, fileName: "k.epub", format: "epub", notePath: "Kütüphane/k.md" }, NOW);
@@ -215,7 +215,7 @@ check("EPUB sırası bölüm → başlangıç", e2.highlights.map((h) => h.id).j
   check("kindle konum yaz-oku", kp?.kind === "kindle" && kp.location === 180);
   check("kindle bozuk konum okunmaz", decodePosition({ kind: "kindle", location: -1 }) === undefined);
   const kpos = positionOfAnchor(ka);
-  check("kindle çizim konumu aralık başı", kpos.kind === "kindle" && kpos.location === 180);
+  check("kindle çizim konumu aralık başı", !!kpos && kpos.kind === "kindle" && kpos.location === 180);
   check("kindle yalnız sayfa konumu sayfa", (positionOfAnchor({ kind: "kindle", page: 7 }) as { location: number }).location === 7);
   const k = (start: number, end = start, page?: number) => ({ kind: "kindle" as const, location: { start, end }, ...(page ? { page } : {}) });
   check("kindle sırası konum başı", compareAnchor(k(10), k(20)) < 0 && compareAnchor(k(20), k(10)) > 0);
@@ -243,7 +243,7 @@ check("EPUB sırası bölüm → başlangıç", e2.highlights.map((h) => h.id).j
   check("koreader konum yaz-oku", opos?.kind === "koreader" && opos.location === 12);
   check("koreader bozuk konum okunmaz", decodePosition({ kind: "koreader", location: 0 }) === undefined);
   const ppos = positionOfAnchor(oa);
-  check("koreader çizim konumu sayfa", ppos.kind === "koreader" && ppos.location === 12);
+  check("koreader çizim konumu sayfa", !!ppos && ppos.kind === "koreader" && ppos.location === 12);
   const o = (page: number) => ({ kind: "koreader" as const, page });
   check("koreader sırası sayfa", compareAnchor(o(3), o(10)) < 0 && compareAnchor(o(10), o(3)) > 0 && compareAnchor(o(5), o(5)) === 0);
   check("koreader türler arası en sonda", compareAnchor({ kind: "kindle", page: 1 }, o(1)) < 0 && compareAnchor(o(1), { kind: "pdf", page: 1, rects: [] }) > 0);
@@ -273,7 +273,7 @@ check("EPUB sırası bölüm → başlangıç", e2.highlights.map((h) => h.id).j
   check("kobo konum yaz-oku", kpos?.kind === "kobo" && kpos.location === 3250);
   check("kobo bozuk konum okunmaz", decodePosition({ kind: "kobo", location: -1 }) === undefined);
   const kpa = positionOfAnchor(ka);
-  check("kobo çizim konumu bölüm+ilerleme", kpa.kind === "kobo" && kpa.location === 3250);
+  check("kobo çizim konumu bölüm+ilerleme", kpa?.kind === "kobo" && kpa.location === 3250);
   const k = (progress: number, chapter?: number) => ({ kind: "kobo" as const, progress, ...(chapter === undefined ? {} : { chapter }) });
   check("kobo sırası bölüm önce", compareAnchor(k(0.9, 1), k(0.1, 2)) < 0 && compareAnchor(k(0.1, 2), k(0.9, 1)) > 0);
   check("kobo aynı bölümde ilerleme", compareAnchor(k(0.2, 1), k(0.6, 1)) < 0 && compareAnchor(k(0.5, 1), k(0.5, 1)) === 0);
@@ -287,6 +287,33 @@ check("EPUB sırası bölüm → başlangıç", e2.highlights.map((h) => h.id).j
   check("kobo kitabı yaz-oku", !!kdec && kdec.format === "kobo" && kdec.size === 0 && encodeBook(kdec) === encodeBook(kb1));
   check("pdf kitaba kobo çizim hata", throws(() => addHighlight(b0, { text: "a", anchor: ka, color: "yellow" }, NOW, "bx")));
   check("kobo kitaba koreader çizim hata", throws(() => addHighlight(kb, { text: "a", anchor: { kind: "koreader", page: 1 }, color: "yellow" }, NOW, "bx")));
+}
+
+// Paylaşılan alıntı çıpası (LOM-96)
+{
+  const sa = { kind: "shared" as const, app: "kindle" as const, page: 12 };
+  check("paylaşım çıpa yaz-oku", JSON.stringify(decodeAnchor(JSON.parse(JSON.stringify(encodeAnchor(sa))))) === JSON.stringify(sa));
+  check("paylaşım yalın çıpa", JSON.stringify(decodeAnchor({ kind: "shared" })) === JSON.stringify({ kind: "shared" }));
+  check("paylaşım bilinmeyen uygulama düşer, çizim bozulmaz", JSON.stringify(decodeAnchor({ kind: "shared", app: "yeni-uygulama" })) === JSON.stringify({ kind: "shared" }));
+  check("paylaşım sıfır sayfa bozuk", decodeAnchor({ kind: "shared", page: 0 }) === null);
+  check("paylaşım çizim konumu yok", positionOfAnchor(sa) === null);
+  check("paylaşım türler arası en sonda", compareAnchor({ kind: "koreader", page: 99 }, sa) < 0 && compareAnchor(sa, { kind: "pdf", page: 1, rects: [] }) > 0);
+  check("paylaşım kendi arasında eşit", compareAnchor(sa, { kind: "shared" }) === 0);
+  const pdf1 = addHighlight(b0, { text: "pdf çizim", anchor: { kind: "pdf", page: 3, rects: [] }, color: "yellow" }, NOW, "p1").book;
+  const s1 = addHighlight(pdf1, { text: "ilk paylaşım", anchor: sa, color: "yellow" }, NOW + 2, "s2").book;
+  const s2 = addHighlight(s1, { text: "ikinci paylaşım", anchor: { kind: "shared" }, color: "yellow" }, NOW + 1, "s1").book;
+  check("pdf kitaba paylaşım çizimi eklenir", s2.format === "pdf" && s2.highlights.length === 3);
+  check("paylaşımlar sonda, geliş anına göre", s2.highlights.map((h) => h.id).join(",") === "p1,s1,s2");
+  for (const format of ["epub", "kindle", "koreader", "kobo", "shared"] as const) {
+    const fb = newBook({ hash: "7".repeat(64), size: 0, fileName: "", format, notePath: "Kütüphane/S.md", title: "S" }, NOW);
+    check(`${format} kitaba paylaşım çizimi eklenir`, addHighlight(fb, { text: "a", anchor: { kind: "shared" }, color: "yellow" }, NOW, "sx").book.highlights.length === 1);
+  }
+  const sb = newBook({ hash: "6".repeat(64), size: 0, fileName: "", format: "shared", notePath: "Kütüphane/S.md", title: "S" }, NOW);
+  check("paylaşım kaydında dosya yok", !hasBookFile(sb));
+  const sdec = decodeBook(encodeBook(addHighlight(sb, { text: "a", anchor: sa, color: "pink" }, NOW, "sa").book));
+  check("paylaşım kaydı yaz-oku", !!sdec && sdec.format === "shared" && sdec.highlights[0]?.anchor.kind === "shared");
+  check("paylaşım kaydına pdf çizim hata", throws(() => addHighlight(sb, { text: "a", anchor: { kind: "pdf", page: 1, rects: [] }, color: "yellow" }, NOW, "px")));
+  check("pdf kitaba kindle çizim hâlâ hata", throws(() => addHighlight(b0, { text: "a", anchor: { kind: "kindle", page: 1 }, color: "yellow" }, NOW, "kx")));
 }
 
 // ─── Kayıt biçimi ───

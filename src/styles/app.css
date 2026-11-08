@@ -4793,6 +4793,27 @@ html[lang="ar"] .lo-hab-aside__title { letter-spacing: 0; }
 .lo-hab-confirm__actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .lo-hab-confirm__actions .lo-btn { min-height: 38px; }
 
+/* — Paylaşılan alıntının kitabını seçtiren pencere (LOM-96) — */
+.lo-share-pick { width: 440px; }
+.lo-share-pick__quote {
+  margin: 12px 0 0; padding: 8px 12px; border-inline-start: 3px solid var(--accent);
+  font-size: 13.5px; line-height: 1.55; color: var(--fg1); background: var(--accent-soft);
+  border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.lo-share-pick__list {
+  display: flex; flex-direction: column; gap: 4px; margin-top: 12px;
+  max-height: min(320px, 45dvh); overflow-y: auto;
+}
+.lo-share-pick__item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
+  min-height: 42px; padding: 8px 12px; text-align: start; cursor: pointer;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px; color: var(--fg1);
+}
+.lo-share-pick__item:hover, .lo-share-pick__item:focus-visible { border-color: var(--accent); }
+.lo-share-pick__item--new { flex-direction: row; align-items: center; gap: 8px; color: var(--accent); }
+.lo-share-pick__name { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.lo-share-pick__author { font-size: 12px; color: var(--fg3); overflow-wrap: anywhere; }
+
 /* — Ekleme / tur penceresi — */
 .lo-hab-form {
   width: 480px; max-width: 100%; max-height: 88dvh; display: flex; flex-direction: column; overflow: hidden;

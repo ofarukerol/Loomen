@@ -211,6 +211,7 @@ export function ReaderScreen() {
       openBook: t("library.note.openBook"),
       page: t("library.note.page", { n: "{n}" }),
       section: t("library.note.section", { n: "{n}" }),
+      shared: t("library.note.shared"),
     }),
     [t]
   );
@@ -535,7 +536,11 @@ export function ReaderScreen() {
             highlights={book.highlights}
             labels={labels}
             activeId={target?.highlightId}
-            onJump={(h) => jump({ anchor: h.anchor, position: positionOfAnchor(h.anchor), highlightId: h.id })}
+            onJump={(h) => {
+              // Paylaşılan alıntının (LOM-96) kitapta yeri yok: atlanmaz.
+              const position = positionOfAnchor(h.anchor);
+              if (position) jump({ anchor: h.anchor, position, highlightId: h.id });
+            }}
             inReview={(h) => quoteInList(bookList, h.text)}
             busyId={reviewBusy}
             onReview={(h) => void sendToReview(h.id)}

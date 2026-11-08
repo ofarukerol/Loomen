@@ -295,6 +295,30 @@ check("şablon bütün çizimleri sırayla içerir", blockIds(tpl).join(",") ===
   check("eşitleme elle değişen bloğu silmez", inkBlockState(syncInkBlocks(editedTpl, cleared), 7) === "ok");
 }
 
+// Paylaşılan alıntı (LOM-96)
+{
+  const s0 = newBook({ hash: "d".repeat(64), size: 0, fileName: "", format: "shared", notePath: "Kütüphane/P.md", title: "Paylaşılan Kitap" }, NOW);
+  const tplS = bookNoteTemplate(s0);
+  check("paylaşım şablonunda kaynak satırı", tplS.includes("\n*Paylaşıldı*\n") && !tplS.includes("Kitabı aç") && !tplS.includes("*Kindle*"));
+  const EN_S = { page: "p. {n}", section: "Section {n}", openBook: "Open book", quotes: "Highlights", shared: "Shared" };
+  check("paylaşım kaynak satırı dile göre", bookNoteTemplate(s0, EN_S).includes("\n*Shared*\n"));
+  check("eski etiket nesnesinde paylaşım varsayılana döner", bookNoteTemplate(s0, { page: "p. {n}", section: "S {n}", openBook: "O", quotes: "Q" }).includes("\n*Paylaşıldı*\n"));
+  const r1 = addHighlight(s0, { text: "Paylaşılan cümle", anchor: { kind: "shared", app: "applebooks" }, color: "yellow" }, NOW, "sa");
+  const r2 = addHighlight(r1.book, { text: "Sayfalı cümle", anchor: { kind: "shared", page: 9 }, color: "green" }, NOW + 1, "sb");
+  const hA = r2.book.highlights.find((h) => h.id === "sa")!;
+  const hB = r2.book.highlights.find((h) => h.id === "sb")!;
+  check("paylaşım yer etiketi", locationLabel(hA) === "Paylaşıldı" && locationLabel(hB) === "Paylaşıldı · s. 9");
+  check("paylaşım yer etiketi dile göre", locationLabel(hA, EN_S) === "Shared" && locationLabel(hB, EN_S) === "Shared · p. 9");
+  const full = bookNoteTemplate(r2.book);
+  check("paylaşım blok biçimi aynı", full.includes(`<!-- loomen:hl sa -->\n> Paylaşılan cümle\n\n🟨 [Paylaşıldı](loomen://book/${s0.id}?hl=sa)\n<!-- /loomen:hl sa -->`));
+  check("paylaşım şablon sırası geliş anına göre", blockIds(full).join(",") === "sa,sb");
+  // Dosyalı (PDF) kitabın notuna paylaşım bloğu: "Kitabı aç" bağlantısı yerinde kalır.
+  const p0 = newBook({ hash: "c".repeat(64), size: 1, fileName: "p.pdf", format: "pdf", notePath: "Kütüphane/PDF.md", title: "PDF" }, NOW);
+  const pr = addHighlight(p0, { text: "Dışarıdan", anchor: { kind: "shared" }, color: "yellow" }, NOW, "sz");
+  const pNote = insertHighlightBlock(bookNoteTemplate(p0), pr.book, pr.highlight, ["sz"]);
+  check("pdf notuna paylaşım bloğu", pNote.includes(`[Kitabı aç](loomen://book/${p0.id})`) && pNote.includes(`🟨 [Paylaşıldı](loomen://book/${p0.id}?hl=sz)`) && blockIds(pNote).join(",") === "sz");
+}
+
 if (fails) {
   console.error(`\n${fails} kontrol başarısız`);
   process.exit(1);

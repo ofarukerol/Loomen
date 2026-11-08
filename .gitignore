@@ -32,6 +32,17 @@ src-tauri/gen/android/app/src/*
 !src-tauri/gen/android/app/src/main/
 src-tauri/gen/android/app/src/main/*
 !src-tauri/gen/android/app/src/main/AndroidManifest.xml
+# ...ve Paylas menusu alimini yapan MainActivity.kt (LOM-96). Yanindaki generated/
+# klasoru tauri'nin urettigi dosyalardir, yok sayilmaya devam eder.
+!src-tauri/gen/android/app/src/main/java/
+src-tauri/gen/android/app/src/main/java/*
+!src-tauri/gen/android/app/src/main/java/org/
+src-tauri/gen/android/app/src/main/java/org/*
+!src-tauri/gen/android/app/src/main/java/org/loomen/
+src-tauri/gen/android/app/src/main/java/org/loomen/*
+!src-tauri/gen/android/app/src/main/java/org/loomen/notes/
+src-tauri/gen/android/app/src/main/java/org/loomen/notes/*
+!src-tauri/gen/android/app/src/main/java/org/loomen/notes/MainActivity.kt
 # ...ve manifest'in atif yaptigi yedekleme kural dosyasi (res/xml altindaki
 # geri kalan uretilen kaynaklar yok sayilmaya devam eder).
 !src-tauri/gen/android/app/src/main/res/

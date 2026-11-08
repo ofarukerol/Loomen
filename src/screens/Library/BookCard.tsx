@@ -16,6 +16,8 @@ function hue(id: string): number {
  * açılır; durum seçicisi kasadaki kayda yazar. ⋯ menüsünde not ve raftan kaldırma.
  * Kindle (LOM-84) ve KOReader (LOM-94) kitabının dosyası yok: karta dokununca kitabın notu açılır,
  * "Oku" ve ilerleme yok; rozet ve etiket biçimden (`library.<biçim>.badge` / `.openNote`) gelir.
+ * Paylaş ile gelen ve raftaki kitapla eşleşmeyen alıntının kaydı (LOM-96, biçim `shared`) da böyledir:
+ * rozeti "PAYLAŞILDI", karta dokununca notu açılır.
  */
 export function BookCard({ book, onRemove }: { book: Book; onRemove: (b: Book) => void }) {
   const { t } = useTranslation();

@@ -29,6 +29,8 @@ import { LibraryScreen } from "./screens/Library/LibraryScreen";
 import { ReaderScreen } from "./screens/Library/ReaderScreen";
 import { TaskDetail } from "./screens/Planner/TaskDetail";
 import { GitHubDeviceModal } from "./screens/Settings/GitHubSync";
+import { SharePickDialog } from "./screens/Library/SharePickDialog";
+import { useShareIntake } from "./hooks/useShareIntake";
 
 export default function App() {
   const { i18n } = useTranslation();
@@ -80,6 +82,9 @@ export default function App() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // Paylaş menüsünden / Kısayol'dan gelen alıntı (LOM-96): kasa açılınca kitabın notuna düşer.
+  useShareIntake();
 
   // Pomodoro sayacı — App seviyesinde sürer; hangi ekranda olursak olalım durmaz
   // (önceden PomodoroCard'daydı, planner'dan çıkınca kart unmount olup sayaç duruyordu).
@@ -362,6 +367,8 @@ export default function App() {
       <TaskDetail />
       {/* GitHub bağlan (device flow) modalı — global */}
       <GitHubDeviceModal />
+      {/* Paylaşılan alıntının kitabını seçtiren pencere (LOM-96) — global */}
+      <SharePickDialog />
     </div>
   );
 }

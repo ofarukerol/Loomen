@@ -12,6 +12,7 @@ import {
   BOOK_STATUSES,
   DEFAULT_HIGHLIGHT_COLOR,
   HIGHLIGHT_COLORS,
+  SHARE_APPS,
   type Anchor,
   type Book,
   type BookFormat,
@@ -26,6 +27,8 @@ import {
   type KoboAnchor,
   type KoreaderAnchor,
   type PdfRect,
+  type ShareApp,
+  type SharedAnchor,
 } from "./types";
 
 /** Dosya adı olarak güvenli kimlik (yol ayırıcısı, nokta, boşluk yok). */
@@ -65,6 +68,12 @@ export function encodeAnchor(a: Anchor): Anchor {
   if (a.kind === "kobo") {
     const out: KoboAnchor = { kind: "kobo", progress: r5(unit(isNum(a.progress) ? a.progress : 0)) };
     if (a.chapter !== undefined && isInt(a.chapter)) out.chapter = a.chapter;
+    return out;
+  }
+  if (a.kind === "shared") {
+    const out: SharedAnchor = { kind: "shared" };
+    if (a.app) out.app = a.app;
+    if (a.page !== undefined) out.page = a.page;
     return out;
   }
   return { kind: "epub", spine: a.spine, href: a.href, start: a.start, end: a.end };
@@ -114,6 +123,16 @@ export function decodeAnchor(v: unknown): Anchor | null {
     if (v.chapter !== undefined && v.chapter !== null) {
       if (!isInt(v.chapter)) return null;
       out.chapter = v.chapter;
+    }
+    return out;
+  }
+  if (v.kind === "shared") {
+    const out: SharedAnchor = { kind: "shared" };
+    // Bilinmeyen uygulama adı (yeni sürümden gelmiş olabilir) çizimi bozmaz; yalnız alan düşer.
+    if (v.app !== undefined && SHARE_APPS.includes(v.app as ShareApp)) out.app = v.app as ShareApp;
+    if (v.page !== undefined) {
+      if (!isInt(v.page, 1)) return null;
+      out.page = v.page;
     }
     return out;
   }
