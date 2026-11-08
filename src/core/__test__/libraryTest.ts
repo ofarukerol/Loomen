@@ -146,6 +146,15 @@ check("konumun kayıt anı yazılır (LOM-92)", p1.positionSavedAt === NOW + 1);
   check("aynı konum → şerit yok", remotePositionAhead(remote, { pos: pdf(9), at: NOW }) === null);
   check("geride konum → şerit yok", remotePositionAhead(remote, { pos: pdf(12), at: NOW }) === null);
   check("ileri ama eski zaman → şerit yok", remotePositionAhead(remote, { pos: pdf(3), at: NOW + 600 }) === null);
+  // Açılışta yerel an = kaydın konum zamanı: açılıştan önce başka cihazda okunmuş ama açılan
+  // kayıttan yeni konum eşitlemeyle gelince şerit çıkar (açılış anı karşılaştırılmaz).
+  const opened92: Book = { ...b0, position: pdf(30), positionSavedAt: NOW + 100 };
+  const openLocal = { pos: opened92.position, at: opened92.positionSavedAt ?? 0 };
+  check("açılışta kendi kaydı için şerit yok", remotePositionAhead(opened92, openLocal) === null);
+  const synced92: Book = { ...opened92, position: pdf(50), positionSavedAt: NOW + 300 };
+  const ahead92 = remotePositionAhead(synced92, openLocal);
+  check("açılıştan önce okunmuş ama kayıttan yeni konum → şerit var", ahead92?.kind === "pdf" && ahead92.page === 50);
+  check("zamansız eski kayıtla açılınca gelen ileri konum → şerit var", remotePositionAhead(synced92, { pos: pdf(30), at: 0 }) !== null);
   const ahead = remotePositionAhead(remote, { pos: pdf(3), at: NOW + 400 });
   check("ileri ve yeni → konum döner", ahead?.kind === "pdf" && ahead.page === 9);
   check("yerel konum yokken ileri sayılır", remotePositionAhead(remote, { at: NOW }) !== null);

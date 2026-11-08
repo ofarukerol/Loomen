@@ -149,7 +149,9 @@ export function ReaderScreen() {
   const localRef = useRef<{ id: string | null; pos?: BookPosition; at: number }>({ id: null, at: 0 });
   if (book && initialRef.current.id !== book.id) {
     initialRef.current = { id: book.id, pos: book.position };
-    localRef.current = { id: book.id, pos: book.position, at: Date.now() };
+    // Açılıştaki "bilinen an" kaydın kendi konum zamanıdır (açılış anı DEĞİL): kitap açıldıktan
+    // sonra eşitlemeyle gelen ama başka cihazda açılıştan önce okunmuş ileri yer de şerit çıkarır.
+    localRef.current = { id: book.id, pos: book.position, at: book.positionSavedAt ?? 0 };
   }
   const [remoteHint, setRemoteHint] = useState<{ id: string; pos: BookPosition; savedAt: number } | null>(null);
   const dismissedAt = useRef<number | null>(null);
