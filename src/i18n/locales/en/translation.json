@@ -1468,11 +1468,19 @@
       "roundExists": "This habit already has a running round.",
       "editTitle": "Edit habit",
       "save": "Save",
-      "editFixed": "Duration and start day stay the same; your check marks are kept."
+      "editFixed": "Duration and start day stay the same; your check marks are kept.",
+      "pagesGoal": "Daily page goal",
+      "pagesHint": "When this many pages are read in the reader, the day is marked done automatically.",
+      "pagesRange": "Goal must be {{min}}-{{max}} pages",
+      "pagesUnit": "pages",
+      "book": "Book",
+      "anyBook": "Any book",
+      "missingBook": "(book removed from shelf)"
     },
     "edit": "Edit",
     "openScreen": "Open habits screen",
-    "todayProgress": "{{done}} of {{total}} done today"
+    "todayProgress": "{{done}} of {{total}} done today",
+    "pagesToday": "Today {{read}} / {{goal}} pages"
   },
   "tableFormula": {
     "errorLabel": "#ERROR",
@@ -1566,7 +1574,10 @@
       "missingBody": "The file “{{name}}” hasn't been added on this device. Pick the same file and the book opens where you left off.",
       "relink": "Choose file",
       "noViewer": "The {{format}} reader isn't in this version yet.",
-      "openError": "The book could not be opened."
+      "openError": "The book could not be opened.",
+      "pomoStart": "Start Pomodoro",
+      "pomoPause": "Pause Pomodoro",
+      "pomoBreak": "Break — tap to start a new focus session"
     },
     "note": {
       "quotes": "Highlights",

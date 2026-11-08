@@ -515,7 +515,7 @@ export default function EpubView({
             console.warn("[epub] kapak okunamadı:", e);
           }
         }
-        cb.current.onMeta({ title: s.title, author: s.author, pages: s.spine.length, cover });
+        cb.current.onMeta({ title: s.title, author: s.author, pages: s.spine.length, cover, textBytes: s.spine.reduce((n, x) => n + Math.max(0, x.size), 0) });
       } catch (e) {
         if (!alive) return;
         console.warn("[epub] kitap açılamadı:", e);

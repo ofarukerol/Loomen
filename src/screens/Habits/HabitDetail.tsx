@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Flag, RotateCcw, Repeat, Trash2, ArrowRight, Pencil } from "lucide-react";
-import { dayIndex, endKey, isFinished, isSealed, outcome, quitDayNo, stats, type Habit } from "../../core/habit";
+import { ArrowLeft, BookOpen, Flag, RotateCcw, Repeat, Trash2, ArrowRight, Pencil } from "lucide-react";
+import { dayIndex, endKey, isFinished, isSealed, outcome, quitDayNo, readingToday, stats, type Habit } from "../../core/habit";
 import { useAppStore } from "../../store/useAppStore";
 import { HabitRing } from "./HabitRing";
 import { HabitGrid } from "./HabitGrid";
@@ -34,6 +34,9 @@ export function HabitDetail({
 }) {
   const { t, i18n } = useTranslation();
   const habits = useAppStore((s) => s.habits);
+  // Okuma hedefi (LOM-93): yalnız süren turda bugünkü sayfa; kitap adı raftan.
+  const pages = isFinished(habit, today) ? null : readingToday(habit, today);
+  const goalBook = useAppStore((s) => (habit.reading?.bookId ? (s.books.find((b) => b.id === habit.reading?.bookId) ?? null) : null));
   const openDetail = useAppStore((s) => s.habitOpenDetail);
   const habitQuit = useAppStore((s) => s.habitQuit);
   const habitDelete = useAppStore((s) => s.habitDelete);
@@ -97,6 +100,13 @@ export function HabitDetail({
             {sealed && <span className="lo-hab-badge is-completed">{t("habit.outcome.completed")}</span>}
           </div>
           <div className="lo-hab-detail__range">{fmtRange(habit.start, endKey(habit), i18n.language)}</div>
+          {pages && (
+            <div className={"lo-hab-card__pages lo-hab-detail__pages" + (pages.read >= pages.goal ? " is-on" : "")}>
+              <BookOpen size={13} strokeWidth={2.2} aria-hidden />
+              {t("habit.pagesToday", { read: pages.read, goal: pages.goal })}
+              {goalBook && <span className="lo-hab-detail__book"> · {goalBook.title}</span>}
+            </div>
+          )}
         </div>
       </header>
 

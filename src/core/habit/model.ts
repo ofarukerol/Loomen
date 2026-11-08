@@ -9,12 +9,15 @@ import {
   HABIT_COLORS,
   HABIT_EMOJIS,
   MAX_DAYS,
+  MAX_GOAL_PAGES,
   MIN_DAYS,
+  MIN_GOAL_PAGES,
   type CellState,
   type Habit,
   type HabitColor,
   type HabitStats,
   type Outcome,
+  type ReadingGoal,
 } from "./types";
 
 const KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -199,6 +202,8 @@ export interface NewHabitInput {
   intent?: string;
   days: number;
   start: string;
+  /** Günlük sayfa hedefi (LOM-93); null ya da yok = hedef yok. */
+  reading?: ReadingGoal | null;
 }
 
 function checkSpan(days: number, start: string, today: string): void {
@@ -216,6 +221,7 @@ export function newHabit(input: NewHabitInput, today: string, now: number): Habi
   checkSpan(input.days, input.start, today);
   const id = newId(now);
   const intent = input.intent?.trim();
+  const reading = input.reading ? checkReadingGoal(input.reading) : undefined;
   return {
     id,
     name,
@@ -230,11 +236,12 @@ export function newHabit(input: NewHabitInput, today: string, now: number): Habi
     done: [],
     excused: [],
     half: [],
+    ...(reading ? { reading } : {}),
     createdAt: now,
   };
 }
 
-/** Önceki turdan bağlı yeni kayıt: aynı ad/simge/renk/niyet, boş günler. */
+/** Önceki turdan bağlı yeni kayıt: aynı ad/simge/renk/niyet ve sayfa hedefi, boş günler (okunan sayfalar taşınmaz). */
 function successor(prev: Habit, days: number, start: string, round: number, now: number): Habit {
   const id = newId(now);
   return {
@@ -252,6 +259,7 @@ function successor(prev: Habit, days: number, start: string, round: number, now:
     done: [],
     excused: [],
     half: [],
+    ...(prev.reading ? { reading: { ...prev.reading } } : {}),
     createdAt: now,
   };
 }
@@ -279,6 +287,8 @@ export interface EditHabitInput {
   emoji?: string;
   color?: HabitColor;
   intent?: string;
+  /** Sayfa hedefi (LOM-93): verilmezse değişmez, null silinir. */
+  reading?: ReadingGoal | null;
 }
 
 /**
@@ -293,9 +303,70 @@ export function editHabit(habit: Habit, input: EditHabitInput): Habit {
   if (!(HABIT_COLORS as readonly string[]).includes(color)) throw new Error(`Geçersiz renk: ${color}`);
   const emoji = input.emoji?.trim() || habit.emoji;
   const intent = input.intent?.trim() || undefined;
-  if (name === habit.name && emoji === habit.emoji && color === habit.color && intent === habit.intent) return habit;
-  const next: Habit = { ...habit, name, emoji, color };
+  const withGoal = input.reading === undefined ? habit : setReadingGoal(habit, input.reading); // geçersiz hedef hata atar
+  if (
+    name === habit.name &&
+    emoji === habit.emoji &&
+    color === habit.color &&
+    intent === habit.intent &&
+    withGoal === habit
+  ) {
+    return habit;
+  }
+  const next: Habit = { ...withGoal, name, emoji, color };
   if (intent) next.intent = intent;
   else delete next.intent;
   return next;
+}
+
+// ---------------------------------------------------------------- okuma hedefi (LOM-93)
+
+/** Kitap kimliği biçimi: dosya adına uygun, yol ayırıcısı yok. */
+export const READING_BOOK_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+export function isGoalPages(v: unknown): v is number {
+  return typeof v === "number" && Number.isInteger(v) && v >= MIN_GOAL_PAGES && v <= MAX_GOAL_PAGES;
+}
+
+/** Hedefi doğrula ve temiz kopyasını döndür; aralık dışı sayfa ya da bozuk kimlik hata atar. */
+function checkReadingGoal(goal: ReadingGoal): ReadingGoal {
+  if (!isGoalPages(goal.pages)) throw new Error(`Sayfa hedefi ${MIN_GOAL_PAGES}-${MAX_GOAL_PAGES} arasında olmalı`);
+  if (goal.bookId !== undefined && !READING_BOOK_ID_RE.test(goal.bookId)) throw new Error(`Geçersiz kitap kimliği: ${goal.bookId}`);
+  return goal.bookId !== undefined ? { pages: goal.pages, bookId: goal.bookId } : { pages: goal.pages };
+}
+
+/** Sayfa hedefini koy (null = kaldır). Değişmezse aynı nesne döner; geçersiz hedef hata atar. */
+export function setReadingGoal(habit: Habit, goal: ReadingGoal | null): Habit {
+  if (goal === null) {
+    if (!habit.reading) return habit;
+    const next = { ...habit };
+    delete next.reading;
+    return next;
+  }
+  const clean = checkReadingGoal(goal);
+  if (habit.reading && habit.reading.pages === clean.pages && habit.reading.bookId === clean.bookId) return habit;
+  return { ...habit, reading: clean };
+}
+
+/**
+ * Günün okunan sayfalarına ekle. Hedef yoksa, tur bitmiş/bırakılmışsa ya da gün düzenlenemezse
+ * aynı nesne döner. Gün yalnız hedefin İLK aşıldığı anda ve hücre boşken "yapıldı" olur: elle
+ * yapılan/yarım/mazeretli gün değişmez, hedef aşıldıktan sonra kaldırılan işaret geri gelmez.
+ */
+export function addPagesRead(habit: Habit, day: string, pages: number, today: string): Habit {
+  const goal = habit.reading?.pages;
+  if (!goal || !Number.isInteger(pages) || pages <= 0) return habit;
+  if (isFinished(habit, today) || !editable(habit, day, today)) return habit;
+  const prev = habit.pagesRead?.[day] ?? 0;
+  const total = prev + pages;
+  const next: Habit = { ...habit, pagesRead: { ...(habit.pagesRead ?? {}), [day]: total } };
+  const empty = !habit.done.includes(day) && !habit.half.includes(day) && !habit.excused.includes(day);
+  if (prev < goal && total >= goal && empty) next.done = sortedUnique([...habit.done, day]);
+  return next;
+}
+
+/** Bugünkü okuma ilerlemesi; hedef yoksa null. */
+export function readingToday(habit: Habit, today: string): { read: number; goal: number } | null {
+  if (!habit.reading) return null;
+  return { read: habit.pagesRead?.[today] ?? 0, goal: habit.reading.pages };
 }

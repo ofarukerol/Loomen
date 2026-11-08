@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X, Sprout, Repeat, Pencil } from "lucide-react";
@@ -9,7 +9,9 @@ import {
   HABIT_COLORS,
   HABIT_EMOJIS,
   MAX_DAYS,
+  MAX_GOAL_PAGES,
   MIN_DAYS,
+  MIN_GOAL_PAGES,
   addDays,
   dayKey,
   endKey,
@@ -17,7 +19,9 @@ import {
   isFinished,
   type Habit,
   type HabitColor,
+  type ReadingGoal,
 } from "../../core/habit";
+import { hasBookFile } from "../../core/library";
 import { useAppStore, useModalLayer } from "../../store/useAppStore";
 import { colorVars, fmtRange } from "./habitUi";
 
@@ -67,6 +71,13 @@ export function HabitForm({
   const [customText, setCustomText] = useState(String(initialDays));
   const [start, setStart] = useState(today);
   const [intent, setIntent] = useState(editing?.intent ?? "");
+  // Günlük sayfa hedefi (LOM-93): boş = hedef yok. Kitap boş = herhangi bir kitap.
+  const [pagesText, setPagesText] = useState(editing?.reading ? String(editing.reading.pages) : "");
+  const [bookId, setBookId] = useState(editing?.reading?.bookId ?? "");
+  const libraryOn = useAppStore((s) => s.features.library);
+  const books = useAppStore((s) => s.books);
+  const booksLoaded = useAppStore((s) => s.booksLoaded);
+  const libraryLoad = useAppStore((s) => s.libraryLoad);
   const [tried, setTried] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,12 +98,25 @@ export function HabitForm({
     return () => window.removeEventListener("keydown", onKey);
   }, [from]);
 
+  // Kitap listesi için raf henüz okunmadıysa oku (kütüphane açıkken).
+  const showGoal = !from;
+  useEffect(() => {
+    if (showGoal && libraryOn && !booksLoaded) void libraryLoad().catch(() => {});
+  }, [showGoal, libraryOn, booksLoaded, libraryLoad]);
+  const shelf = useMemo(
+    () => books.filter(hasBookFile).sort((a, b) => a.title.localeCompare(b.title, i18n.language)),
+    [books, i18n.language]
+  );
+
   const yesterday = addDays(today, -1);
   const nameOk = from != null || name.trim().length > 0;
   const daysOk = Number.isInteger(days) && days >= MIN_DAYS && days <= MAX_DAYS;
   const startOk = isDayKey(start) && start <= today;
-  // Düzenlemede süre ve başlangıç değişmez; yalnız ad denetlenir.
-  const valid = editing ? nameOk : nameOk && daysOk && startOk;
+  const goalPages = pagesText ? Number(pagesText) : null;
+  const pagesOk = goalPages === null || (Number.isInteger(goalPages) && goalPages >= MIN_GOAL_PAGES && goalPages <= MAX_GOAL_PAGES);
+  const reading: ReadingGoal | null = goalPages !== null && pagesOk ? (bookId ? { pages: goalPages, bookId } : { pages: goalPages }) : null;
+  // Düzenlemede süre ve başlangıç değişmez; ad ve sayfa hedefi denetlenir. Tur modunda hedef önceki turdan gelir.
+  const valid = editing ? nameOk && pagesOk : from ? daysOk && startOk : nameOk && daysOk && startOk && pagesOk;
 
   const pickChip = (n: number) => {
     setCustom(false);
@@ -117,14 +141,14 @@ export function HabitForm({
     try {
       if (editing) {
         // null: değişiklik yok ya da kasa değişti → kapat. Kayıt hatası fırlar (catch): pencere açık, yazılanlar kalır (LOM-63).
-        const h = await habitEdit(editing.id, { name: name.trim(), emoji, color, intent: intent.trim() });
+        const h = await habitEdit(editing.id, { name: name.trim(), emoji, color, intent: intent.trim(), reading });
         if (h) onDone?.(h);
         onClose();
         return;
       }
       const h = from
         ? await habitNewRound(from.id, { days, start })
-        : await habitAdd({ name: name.trim(), emoji, color, intent: intent.trim() || undefined, days, start });
+        : await habitAdd({ name: name.trim(), emoji, color, intent: intent.trim() || undefined, days, start, reading });
       // null: bu soyda zaten süren bir tur var ya da kayıt sırasında kasa değişti (sessizce kapanır,
       // LOM-67). Kayıt hatası fırlar ve aşağıda pencerede gösterilir.
       if (h) {
@@ -353,6 +377,47 @@ export function HabitForm({
                 onChange={(e) => setIntent(e.target.value)}
               />
             </label>
+          )}
+
+          {showGoal && (
+            <div className="lo-hab-field">
+              <label className="lo-hab-field__label" htmlFor="lo-hab-pages">
+                {t("habit.form.pagesGoal")} <span className="lo-hab-field__opt">{t("habit.form.optional")}</span>
+              </label>
+              <span className="lo-hab-custom">
+                <input
+                  id="lo-hab-pages"
+                  className={"lo-hab-input lo-hab-input--num" + (!pagesOk ? " is-invalid" : "")}
+                  inputMode="numeric"
+                  value={pagesText}
+                  placeholder="20"
+                  aria-invalid={!pagesOk}
+                  aria-describedby="lo-hab-pages-hint"
+                  onChange={(e) => setPagesText(e.target.value.replace(/[^\d]/g, "").slice(0, 3))}
+                />
+                <span className="lo-hab-custom__unit">{t("habit.form.pagesUnit")}</span>
+                {!pagesOk && (
+                  <span className="lo-hab-field__err">{t("habit.form.pagesRange", { min: MIN_GOAL_PAGES, max: MAX_GOAL_PAGES })}</span>
+                )}
+              </span>
+              <span className="lo-hab-field__opt" id="lo-hab-pages-hint">
+                {t("habit.form.pagesHint")}
+              </span>
+              {goalPages !== null && libraryOn && (
+                <label className="lo-hab-field">
+                  <span className="lo-hab-field__label">{t("habit.form.book")}</span>
+                  <select className="lo-hab-input lo-hab-select" value={bookId} onChange={(e) => setBookId(e.target.value)}>
+                    <option value="">{t("habit.form.anyBook")}</option>
+                    {shelf.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.title}
+                      </option>
+                    ))}
+                    {bookId && !shelf.some((b) => b.id === bookId) && <option value={bookId}>{t("habit.form.missingBook")}</option>}
+                  </select>
+                </label>
+              )}
+            </div>
           )}
 
           {editing && (

@@ -91,6 +91,8 @@ export function ReaderScreen() {
   const jump = useAppStore((s) => s.libraryJump);
   const savePosition = useAppStore((s) => s.librarySavePosition);
   const flushPosition = useAppStore((s) => s.libraryFlushPosition);
+  const trackReading = useAppStore((s) => s.habitTrackReading);
+  const flushReading = useAppStore((s) => s.habitFlushReading);
   const setMeta = useAppStore((s) => s.librarySetMeta);
   const openNote = useAppStore((s) => s.libraryOpenNote);
   const toReview = useAppStore((s) => s.libraryHighlightToReview);
@@ -133,15 +135,20 @@ export function ReaderScreen() {
 
   // Uygulama arka plana geçince / pencere gizlenince kalınan yeri hemen yaz; ekrandan çıkınca da.
   useEffect(() => {
-    const onVis = () => document.visibilityState === "hidden" && void flushPosition();
+    const onVis = () => {
+      if (document.visibilityState !== "hidden") return;
+      void flushPosition();
+      flushReading(); // okuma alışkanlığı: ekranda bekleyen sayfa (LOM-93)
+    };
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("pagehide", onVis);
     return () => {
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("pagehide", onVis);
       void flushPosition();
+      flushReading();
     };
-  }, [flushPosition]);
+  }, [flushPosition, flushReading]);
 
   // İlk açılıştaki kalınan yer: kitap açıldığı andaki konum (okurken değişen kayıt görüntüleyiciyi sıfırlamasın).
   const initialRef = useRef<{ id: string | null; pos: ReaderViewProps["initialPosition"] }>({ id: null, pos: undefined });
@@ -155,16 +162,6 @@ export function ReaderScreen() {
   }
   const [remoteHint, setRemoteHint] = useState<{ id: string; pos: BookPosition; savedAt: number } | null>(null);
   const dismissedAt = useRef<number | null>(null);
-
-  const onPosition = useCallback(
-    (pos: BookPosition, progress: number) => {
-      localRef.current = { id: localRef.current.id, pos, at: Date.now() };
-      // Okur o yere kendisi vardıysa şerit gereksiz.
-      setRemoteHint((h) => (h && h.pos.kind === pos.kind && comparePosition(pos, h.pos) >= 0 ? null : h));
-      savePosition(pos, progress);
-    },
-    [savePosition]
-  );
 
   // Kitap açıkken başka cihazdan ileri bir yer gelirse şerit çıkar; sayfa kendiliğinden atlamaz.
   const bookPos = book?.position;
@@ -192,7 +189,30 @@ export function ReaderScreen() {
   }, []);
   const onHighlightClick = useCallback((id: string, rect: ViewRect) => setMenu({ kind: "highlight", id, rect }), []);
   const onError = useCallback((e: unknown) => setViewError(errText(e)), []);
-  const onMeta = useCallback((m: Parameters<ReaderViewProps["onMeta"]>[0]) => void setMeta(m), [setMeta]);
+  // EPUB bölüm boyutu: okuma alışkanlığında sanal sayfa sayısı (LOM-93). Kitap kaydına yazılmaz.
+  const textBytesRef = useRef<{ id: string | null; bytes?: number }>({ id: null });
+  const bookIdRef = useRef<string | null>(null);
+  bookIdRef.current = bookId;
+  const onMeta = useCallback(
+    (m: Parameters<ReaderViewProps["onMeta"]>[0]) => {
+      textBytesRef.current = { id: bookIdRef.current, bytes: m.textBytes };
+      void setMeta(m);
+    },
+    [setMeta]
+  );
+  const onPosition = useCallback<ReaderViewProps["onPosition"]>(
+    (pos, progress) => {
+      localRef.current = { id: localRef.current.id, pos, at: Date.now() };
+      // Okur o yere kendisi vardıysa şerit gereksiz.
+      setRemoteHint((h) => (h && h.pos.kind === pos.kind && comparePosition(pos, h.pos) >= 0 ? null : h));
+      savePosition(pos, progress);
+      const id = bookIdRef.current;
+      if (!id) return;
+      const tb = textBytesRef.current.id === id ? textBytesRef.current.bytes : undefined;
+      trackReading(id, pos, progress, tb);
+    },
+    [savePosition, trackReading]
+  );
 
   if (!book || !bookId) {
     return (

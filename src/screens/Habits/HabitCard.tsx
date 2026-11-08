@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { Check, Flame, ChevronRight, Moon } from "lucide-react";
-import { dayIndex, isSealed, lastSevenStrip, stats, type Habit } from "../../core/habit";
+import { BookOpen, Check, Flame, ChevronRight, Moon } from "lucide-react";
+import { dayIndex, isSealed, lastSevenStrip, readingToday, stats, type Habit } from "../../core/habit";
 import { useAppStore } from "../../store/useAppStore";
 import { HabitRing } from "./HabitRing";
 import { HabitStrip } from "./HabitStrip";
@@ -17,6 +17,7 @@ export function HabitCard({ habit, today }: { habit: Habit; today: string }) {
   const openDetail = useAppStore((s) => s.habitOpenDetail);
 
   const st = stats(habit, today);
+  const pages = readingToday(habit, today); // LOM-93
   const dayNo = Math.min(Math.max(dayIndex(habit, today), 1), habit.days);
   const marked = st.completed + st.excused;
   // Halka yarım günü yarım dilim sayar (LOM-70); sayım ve mühür yarımı tam saymaz.
@@ -50,6 +51,12 @@ export function HabitCard({ habit, today }: { habit: Habit; today: string }) {
             <Flame size={13} strokeWidth={2.2} aria-hidden />
             {st.currentStreak > 0 ? t("habit.streak", { count: st.currentStreak }) : t("habit.noStreak")}
           </span>
+          {pages && (
+            <span className={"lo-hab-card__pages" + (pages.read >= pages.goal ? " is-on" : "")}>
+              <BookOpen size={13} strokeWidth={2.2} aria-hidden />
+              {t("habit.pagesToday", { read: pages.read, goal: pages.goal })}
+            </span>
+          )}
         </span>
         <ChevronRight size={17} strokeWidth={2} className="lo-hab-card__chev lo-hab-flip" aria-hidden />
       </button>

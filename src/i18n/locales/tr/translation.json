@@ -1468,11 +1468,19 @@
       "roundExists": "Bu alışkanlığın süren bir turu zaten var.",
       "editTitle": "Alışkanlığı düzenle",
       "save": "Kaydet",
-      "editFixed": "Süre ve başlangıç günü değişmez; çentikler korunur."
+      "editFixed": "Süre ve başlangıç günü değişmez; çentikler korunur.",
+      "pagesGoal": "Günlük sayfa hedefi",
+      "pagesHint": "Okuyucuda bu kadar sayfa okununca gün kendiliğinden yapıldı olur.",
+      "pagesRange": "Hedef {{min}}-{{max}} sayfa arasında olmalı",
+      "pagesUnit": "sayfa",
+      "book": "Kitap",
+      "anyBook": "Herhangi bir kitap",
+      "missingBook": "(raftan kaldırılmış kitap)"
     },
     "edit": "Düzenle",
     "openScreen": "Alışkanlıklar ekranını aç",
-    "todayProgress": "Bugün {{done}} / {{total}} yapıldı"
+    "todayProgress": "Bugün {{done}} / {{total}} yapıldı",
+    "pagesToday": "Bugün {{read}} / {{goal}} sayfa"
   },
   "tableFormula": {
     "errorLabel": "#HATA",
@@ -1566,7 +1574,10 @@
       "missingBody": "“{{name}}” dosyası bu cihaza eklenmemiş. Aynı dosyayı seçersen kitap kaldığın yerden açılır.",
       "relink": "Dosyayı seç",
       "noViewer": "{{format}} okuyucusu bu sürümde yok.",
-      "openError": "Kitap açılamadı."
+      "openError": "Kitap açılamadı.",
+      "pomoStart": "Pomodoro'yu başlat",
+      "pomoPause": "Pomodoro'yu duraklat",
+      "pomoBreak": "Mola — dokun, yeni odak başlasın"
     },
     "note": {
       "quotes": "Alıntılar",

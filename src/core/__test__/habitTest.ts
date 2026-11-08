@@ -9,6 +9,9 @@ process.env.TZ = "Europe/Berlin";
 import {
   HABIT_DIR,
   addDays,
+  addPagesRead,
+  readingToday,
+  setReadingGoal,
   cellState,
   dayIndex,
   dayKey,
@@ -304,6 +307,82 @@ check(
   "isteğe bağlı alanlar güvenli varsayılanla doluyor",
   !!loose && loose.color === "terra" && loose.status === "active" && loose.round === 1 && loose.done.length === 0 && loose.excused.join() === "2026-10-02" && !!loose.emoji,
 );
+
+// ---------------------------------------------------------------- okuma hedefi (LOM-93)
+
+{
+  const T = "2026-10-10";
+  const plain = base();
+  const plainText = encodeHabit(plain);
+  check("hedefsiz kayıtta reading/pagesRead yazılmıyor", !plainText.includes("reading") && !plainText.includes("pagesRead"));
+  const plainBack = decodeHabit(plainText)!;
+  check("hedefsiz eski dosya aynen okunup aynı metni üretiyor", encodeHabit(plainBack) === plainText && plainBack.reading === undefined && plainBack.pagesRead === undefined);
+
+  const goal = setReadingGoal(plain, { pages: 20, bookId: "kitap_1" });
+  check("setReadingGoal hedefi koyuyor", goal.reading?.pages === 20 && goal.reading.bookId === "kitap_1");
+  check("aynı hedef aynı nesne", setReadingGoal(goal, { pages: 20, bookId: "kitap_1" }) === goal);
+  check("null hedefi siliyor", setReadingGoal(goal, null).reading === undefined && setReadingGoal(plain, null) === plain);
+  check("aralık dışı hedef reddediliyor", throws(() => setReadingGoal(plain, { pages: 0 })) && throws(() => setReadingGoal(plain, { pages: 1000 })) && throws(() => setReadingGoal(plain, { pages: 2.5 })));
+  check("bozuk kitap kimliği reddediliyor", throws(() => setReadingGoal(plain, { pages: 5, bookId: "../x" })));
+
+  let g = addPagesRead(goal, T, 12, T);
+  check("hedef altında gün yapılmıyor", g.pagesRead?.[T] === 12 && !g.done.includes(T));
+  check("readingToday ilerlemeyi veriyor", readingToday(g, T)?.read === 12 && readingToday(g, T)?.goal === 20);
+  check("hedefsiz turda readingToday null", readingToday(plain, T) === null);
+  g = addPagesRead(g, T, 8, T);
+  check("hedef dolunca gün yapıldı", g.pagesRead?.[T] === 20 && g.done.includes(T));
+  const unmarked = { ...g, done: g.done.filter((k) => k !== T) };
+  const more = addPagesRead(unmarked, T, 5, T);
+  check("işaret kaldırılınca okumaya devam etmek yeniden işaretlemiyor", more.pagesRead?.[T] === 25 && !more.done.includes(T));
+
+  const halfDay = toggleDay(toggleDay(goal, T, T), T, T); // yapıldı → yarım
+  const hh = addPagesRead(halfDay, T, 30, T);
+  check("elle yarım gün korunuyor", hh.half.includes(T) && !hh.done.includes(T));
+  const exc = setExcused(goal, T, true, T);
+  const ee = addPagesRead(exc, T, 30, T);
+  check("mazeretli gün korunuyor", ee.excused.includes(T) && !ee.done.includes(T));
+  const manual = toggleDay(goal, T, T);
+  const mm = addPagesRead(manual, T, 30, T);
+  check("elle yapılan gün değişmiyor", mm.done.filter((k) => k === T).length === 1 && mm.half.length === 0);
+
+  check("hedefsiz turda sayım yok", addPagesRead(plain, T, 5, T) === plain);
+  const ended = base({ start: "2026-09-01", days: 7, reading: { pages: 5 } });
+  check("bitmiş turda sayım yok", addPagesRead(ended, T, 10, T) === ended);
+  const quitG = quitHabit(goal, NOW);
+  check("bırakılmış turda sayım yok", addPagesRead(quitG, T, 10, T) === quitG);
+  check("gelecek güne sayım yok", addPagesRead(goal, "2026-10-11", 10, T) === goal);
+  check("geçersiz sayfa sayısı yok sayılıyor", addPagesRead(goal, T, 0, T) === goal && addPagesRead(goal, T, -3, T) === goal);
+
+  const gEnc = encodeHabit(g);
+  const gBack = decodeHabit(gEnc)!;
+  check(
+    "hedefli kayıt gidiş-dönüş",
+    !!gBack && encodeHabit(gBack) === gEnc && gBack.reading?.pages === 20 && gBack.reading.bookId === "kitap_1" && gBack.pagesRead?.[T] === 20,
+  );
+  check("hedefli yazım deterministik", encodeHabit({ ...g, pagesRead: { [T]: 20, "2026-10-09": 3 } }) === encodeHabit({ ...g, pagesRead: { "2026-10-09": 3, [T]: 20 } }));
+  const badGoal = decodeHabit(gEnc.replace('"pages": 20', '"pages": 5000'))!;
+  check("geçersiz hedef atılıyor, kayıt okunuyor", !!badGoal && badGoal.reading === undefined && badGoal.id === g.id);
+  const badBook = decodeHabit(gEnc.replace('"bookId": "kitap_1"', '"bookId": "../x"'))!;
+  check("geçersiz kitap kimliği hedefi atıyor", !!badBook && badBook.reading === undefined);
+  const badPages = decodeHabit(gEnc.replace(`"${T}": 20`, `"${T}": -4, "bozuk": 3, "2026-10-08": 2`))!;
+  check("geçersiz gün/sayı girişleri atılıyor", !!badPages && JSON.stringify(badPages.pagesRead) === '{"2026-10-08":2}');
+
+  const nr = newRound(g, { days: 21, start: T }, T, NOW + 5);
+  check("yeni tur hedefi taşıyor, okunan sayfaları taşımıyor", nr.reading?.pages === 20 && nr.reading.bookId === "kitap_1" && nr.pagesRead === undefined);
+  const rs = restart(g, T, NOW + 6);
+  check("yeniden başlatmada da hedef taşınıyor", rs.reading?.pages === 20 && rs.pagesRead === undefined);
+
+  const ed = editHabit(g, { name: g.name, emoji: g.emoji, color: g.color, reading: null });
+  check("editHabit(reading: null) hedefi siliyor", ed.reading === undefined && ed !== g);
+  check("editHabit hedef verilmezse değişmiyor", editHabit(g, { name: g.name, emoji: g.emoji, color: g.color }) === g);
+  const ed2 = editHabit(plain, { name: plain.name, emoji: plain.emoji, color: plain.color, reading: { pages: 15 } });
+  check("editHabit hedef ekliyor", ed2.reading?.pages === 15 && ed2.reading.bookId === undefined);
+  check("editHabit aralık dışı hedefi reddediyor", throws(() => editHabit(plain, { name: plain.name, reading: { pages: 0 } })));
+  const nhG = newHabit({ name: "Oku", days: 21, start: T, reading: { pages: 20 } }, T, NOW);
+  check("newHabit hedefi alıyor", nhG.reading?.pages === 20);
+  check("newHabit aralık dışı hedefi reddediyor", throws(() => newHabit({ name: "Oku", days: 21, start: T, reading: { pages: 1000 } }, T, NOW)));
+  check("newHabit reading null → hedef yok", newHabit({ name: "Oku", days: 21, start: T, reading: null }, T, NOW).reading === undefined);
+}
 
 // ---------------------------------------------------------------- kasa katmanı
 

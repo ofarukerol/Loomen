@@ -26,6 +26,16 @@ export const HABIT_EMOJIS = ["🌱", "📖", "🏃", "💧", "🧘", "✍️", "
 
 export type HabitStatus = "active" | "quit";
 
+/** Günlük sayfa hedefi sınırları (LOM-93). */
+export const MIN_GOAL_PAGES = 1;
+export const MAX_GOAL_PAGES = 999;
+
+/** Okuma alışkanlığının günlük hedefi: sayfa sayısı ve isteğe bağlı tek kitap (yoksa her kitap sayılır). */
+export interface ReadingGoal {
+  pages: number;
+  bookId?: string;
+}
+
 /** Bir alışkanlığın tek turu. Yeni tur yeni kayıttır; turlar `lineageId` ile bağlanır. */
 export interface Habit {
   /** Dosya adı da budur: `Alışkanlık/<id>.json`. Yalnız [a-z0-9]. */
@@ -56,6 +66,13 @@ export interface Habit {
    * doluyken yazılır; alanı olmayan eski dosya boş listeyle okunur.
    */
   half: string[];
+  /**
+   * Günlük sayfa hedefi (LOM-93). Hedef dolunca gün kendiliğinden "yapıldı" olur. Dosyada yalnız
+   * doluyken yazılır; alanı olmayan eski dosyanın metni değişmez.
+   */
+  reading?: ReadingGoal;
+  /** Gün → okunan sayfa sayısı (yalnız hedef varken artar; pozitif tam sayılar). */
+  pagesRead?: Record<string, number>;
   /** Oluşturulma anı (ms). */
   createdAt: number;
   /** Bırakılma anı (ms). */

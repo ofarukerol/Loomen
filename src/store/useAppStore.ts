@@ -159,6 +159,15 @@ import {
   type HabitVault,
   type NewHabitInput,
   type EditHabitInput,
+  applyReading as habitApplyReading,
+  dwellFinish as readingDwellFinish,
+  dwellStep as readingDwellStep,
+  logAdd as readingLogAdd,
+  normalizeReadingLog,
+  pageUnit as readingPageUnit,
+  type Dwell as ReadingDwell,
+  type ReadingLog,
+  type SettledUnit as ReadingSettled,
 } from "../core/habit";
 import {
   LARGE_BOOK_BYTES,
@@ -496,6 +505,8 @@ interface AppState {
   /** Okuyucu kapanınca dönülecek ekran. */
   readerReturn: Screen;
   readerPrefs: ReaderPrefs;
+  /** Okuma alışkanlığı (LOM-93): bugün bu cihazda okundu sayılan sayfalar. Cihaza özel, kasaya yazılmaz. */
+  readingLog: ReadingLog;
 
   // Pomodoro
   pomo: PomodoroSettings;
@@ -750,6 +761,13 @@ interface AppState {
   /** Ad, simge, renk ve niyeti yerinde güncelle; süre, başlangıç ve çentikler değişmez (LOM-62).
    *  Boş ad / geçersiz renk hata atar; kayıt hatası HabitSaveError atar; değişiklik yoksa ya da kasa değiştiyse null döner. */
   habitEdit: (id: string, input: EditHabitInput) => Promise<Habit | null>;
+  /**
+   * Okuyucudaki konum değişti (LOM-93): sayfa en az 3 sn ekranda kalınca bugün okundu sayılır ve
+   * hedefi olan süren turlara eklenir. Alışkanlık özelliği kapalıysa ya da turlar yüklenmediyse bir şey yapmaz.
+   */
+  habitTrackReading: (bookId: string, pos: BookPosition, progress: number, textBytes?: number) => void;
+  /** Okuyucu kapanınca/gizlenince bekleyen sayfayı oturt. */
+  habitFlushReading: () => void;
   toggleHabitToday: () => void;
 
   // Kütüphane aksiyonları (LOM-83).
@@ -1359,6 +1377,22 @@ export const useAppStore = create<AppState>()(
 
   const habitById = (id: string) => get().habits.find((h) => h.id === id) ?? null;
   const habitToday = () => habitDayKey(new Date());
+
+  /** Okuyucuda ekranda bekleyen sayfa (LOM-93); kalıcı değil. */
+  let readingDwell: ReadingDwell | null = null;
+
+  /** Oturan sayfayı kütüğe yaz; bugün ilk kez görüldüyse hedefli turlara ekle. */
+  function settleReading(u: ReadingSettled | null): void {
+    if (!u) return;
+    const s = get();
+    if (!s.features.habits || !s.habitsLoaded) return;
+    const today = habitToday();
+    const { log, added } = readingLogAdd(s.readingLog, today, u.bookId, u.unit);
+    if (log !== s.readingLog) set({ readingLog: log });
+    if (!added) return;
+    const changed = habitApplyReading(get().habits, u.bookId, 1, today);
+    if (changed.length) void habitCommit(changed);
+  }
 
   /**
    * Yeni tur açılırken eskisi hâlâ sürüyorsa (mühürlü değil) bırakılır: iki aktif kopya kalmasın.
@@ -1982,6 +2016,7 @@ export const useAppStore = create<AppState>()(
     readerTarget: null,
     readerReturn: "library",
     readerPrefs: normalizeReaderPrefs(undefined),
+    readingLog: normalizeReadingLog(undefined, habitDayKey(new Date())),
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoSound: true,
@@ -4231,6 +4266,24 @@ export const useAppStore = create<AppState>()(
       return (await habitCommit([next], true)) ? next : null;
     },
 
+    habitTrackReading: (bookId, pos, progress, textBytes) => {
+      const s = get();
+      if (!s.features.habits || !s.habitsLoaded) {
+        readingDwell = null;
+        return;
+      }
+      const unit = readingPageUnit(pos, progress, textBytes);
+      const { next, settled } = readingDwellStep(readingDwell, bookId, unit, Date.now());
+      readingDwell = next;
+      settleReading(settled);
+    },
+
+    habitFlushReading: () => {
+      const settled = readingDwellFinish(readingDwell, Date.now());
+      readingDwell = null;
+      settleReading(settled);
+    },
+
     toggleHabitToday: () => set((s) => ({ habitTodayCollapsed: !s.habitTodayCollapsed })),
 
     // ——— Kütüphane (LOM-83) ———
@@ -4913,6 +4966,7 @@ export const useAppStore = create<AppState>()(
           // Kütüphane (LOM-83): bozuk kayıt varsayılana döner.
           libraryFilter: isShelfFilter(p.libraryFilter) ? p.libraryFilter : current.libraryFilter,
           readerPrefs: p.readerPrefs === undefined ? current.readerPrefs : normalizeReaderPrefs(p.readerPrefs),
+          readingLog: normalizeReadingLog(p.readingLog, habitDayKey(new Date())),
           habitTodayCollapsed:
             typeof p.habitTodayCollapsed === "boolean" ? p.habitTodayCollapsed : current.habitTodayCollapsed,
           // Bozuk/aşırı kayıt paneli ekranı yutacak kadar büyütmesin (LOM-63).
@@ -5026,6 +5080,8 @@ export const useAppStore = create<AppState>()(
         // Kütüphane: yalnız raf süzgeci ve okuyucu tercihleri. Kitap kayıtları kasada durur.
         libraryFilter: s.libraryFilter,
         readerPrefs: s.readerPrefs,
+        // Okuma kütüğü (LOM-93): cihaza özel; yalnız bugünün kaydı anlamlı.
+        readingLog: s.readingLog,
       }),
     }
   )

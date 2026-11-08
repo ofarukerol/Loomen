@@ -5,7 +5,7 @@
 // okunur kalır. Okuma şüphecidir: bozuk JSON, bilinmeyen sürüm ya da zorunlu alanı eksik/yanlış
 // dosya null döner (store onu "bozuk" sayar ve asla üstüne yazmaz).
 
-import { isDayKey } from "./model";
+import { READING_BOOK_ID_RE, isDayKey, isGoalPages } from "./model";
 import {
   DEFAULT_COLOR,
   HABIT_COLORS,
@@ -22,6 +22,18 @@ export const HABIT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 const keyList = (v: unknown): string[] =>
   Array.isArray(v) ? [...new Set(v.filter(isDayKey))].sort() : [];
+
+/** Gün → sayfa eşlemesini temizle: geçerli gün, pozitif tam sayı; anahtarlar sıralı. */
+function pageMap(v: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return out;
+  const src = v as Record<string, unknown>;
+  for (const k of Object.keys(src).sort()) {
+    const n = src[k];
+    if (isDayKey(k) && typeof n === "number" && Number.isInteger(n) && n > 0) out[k] = n;
+  }
+  return out;
+}
 
 /** Kaydı dosya metnine çevir. */
 export function encodeHabit(h: Habit): string {
@@ -44,6 +56,12 @@ export function encodeHabit(h: Habit): string {
   // Yarım listesi yalnız doluyken yazılır: dokunulmamış eski dosyanın metni değişmez.
   const half = keyList(h.half).filter((k) => !h.done.includes(k) && !h.excused.includes(k));
   if (half.length) habit.half = half;
+  // Okuma hedefi ve sayfa sayımı (LOM-93) yalnız doluyken; anahtarlar sıralı.
+  if (h.reading) {
+    habit.reading = h.reading.bookId ? { pages: h.reading.pages, bookId: h.reading.bookId } : { pages: h.reading.pages };
+  }
+  const pages = pageMap(h.pagesRead);
+  if (Object.keys(pages).length) habit.pagesRead = pages;
   habit.createdAt = h.createdAt;
   if (h.quitAt !== undefined) habit.quitAt = h.quitAt;
   const file = { v: HABIT_FILE_VERSION, habit };
@@ -98,5 +116,13 @@ export function decodeHabit(raw: string): Habit | null {
   if (typeof h.intent === "string" && h.intent.trim()) out.intent = h.intent;
   if (typeof h.prevId === "string" && h.prevId) out.prevId = h.prevId;
   if (typeof h.quitAt === "number" && Number.isFinite(h.quitAt)) out.quitAt = h.quitAt;
+  // Okuma hedefi (LOM-93): bozuk hedef ya da kitap kimliği alanı tümden düşürür.
+  if (isObj(h.reading) && isGoalPages(h.reading.pages)) {
+    const bookId = h.reading.bookId;
+    if (bookId === undefined) out.reading = { pages: h.reading.pages };
+    else if (typeof bookId === "string" && READING_BOOK_ID_RE.test(bookId)) out.reading = { pages: h.reading.pages, bookId };
+  }
+  const pages = pageMap(h.pagesRead);
+  if (Object.keys(pages).length) out.pagesRead = pages;
   return out;
 }

@@ -4500,6 +4500,11 @@ html[dir="rtl"] .lo-drawer.is-open { transform: translateX(0); }
 }
 .lo-hab-card__streak { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--fg3); }
 .lo-hab-card__streak.is-on { color: var(--hab-ink); font-weight: 500; }
+/* Okuma hedefi: "Bugün X / Y sayfa" (LOM-93). */
+.lo-hab-card__pages { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--fg3); font-variant-numeric: tabular-nums; }
+.lo-hab-card__pages.is-on { color: var(--hab-ink); font-weight: 500; }
+.lo-hab-detail__pages { margin-top: 4px; }
+.lo-hab-detail__book { font-weight: 400; color: var(--fg3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lo-hab-card__chev { color: var(--fg3); transition: transform var(--dur-base), color var(--dur-base); }
 @media (hover: hover) {
   .lo-hab-card__head:hover .lo-hab-card__chev { color: var(--fg1); transform: translateX(2px); }
@@ -4826,6 +4831,7 @@ html[lang="ar"] .lo-hab-aside__title { letter-spacing: 0; }
 .lo-hab-input.is-invalid:focus { box-shadow: 0 0 0 3px var(--danger-bg); }
 .lo-hab-input--num { width: 76px; font-family: var(--font-mono); text-align: center; }
 .lo-hab-input--date { width: auto; flex: 0 1 170px; font-family: var(--font-mono); font-size: 13px; }
+.lo-hab-select { appearance: auto; cursor: pointer; margin-top: 2px; }
 [data-theme="dark"] .lo-hab-input--date { color-scheme: dark; }
 
 .lo-hab-emojis { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 6px; }
@@ -5199,6 +5205,10 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
 .lo-reader-bar__title small { font-size: 11.5px; color: var(--fg3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lo-reader-bar__tools { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .lo-reader-bar__scale { min-width: 40px; text-align: center; font-size: 11.5px; color: var(--fg3); font-variant-numeric: tabular-nums; }
+/* Okuyucudan Pomodoro (LOM-93): boşta yalnız simge, çalışırken kalan süre. */
+.lo-reader-bar__pomo { width: auto; min-width: 32px; gap: 4px; padding: 0 6px; }
+.lo-reader-bar__pomo.is-break { color: var(--fg2); }
+.lo-reader-bar__pomo-time { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .lo-reader-bar__badge {
   position: absolute; top: 2px; inset-inline-end: 1px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px;
   font-size: 9.5px; font-weight: 700; line-height: 15px; color: #fff; background: var(--accent);
@@ -5309,6 +5319,7 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
   .lo-reader-bar { padding: 6px 6px; gap: 4px; }
   .lo-reader-bar__scale { display: none; }
   .lo-hlmenu__review { padding: 0 7px; }
+  .lo-reader-bar__pomo { padding: 0 4px; }
   .lo-hlpanel {
     position: absolute; inset-inline-end: 0; top: 0; bottom: 0; width: min(88vw, 340px); z-index: 30; box-shadow: var(--sh3);
   }
@@ -5336,3 +5347,9 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
 .lo-lib-kindle > svg { color: var(--accent); flex-shrink: 0; }
 .lo-lib-kindle > span { flex: 1; min-width: 0; }
 .lo-lib-kindle__take { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; flex-shrink: 0; }
+
+@media (max-width: 480px) {
+  /* Dar ekranda da kalan süre görünür kalır; yalnız boşluk daralır (LOM-93). */
+  .lo-reader-bar__pomo { gap: 2px; padding: 0 3px; }
+  .lo-reader-bar__pomo-time { font-size: 11px; }
+}

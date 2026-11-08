@@ -33,6 +33,8 @@ export interface BookMeta {
   pages?: number;
   /** Kapak resmi (PNG/JPEG). Kabuk uygulama klasörüne yazar, rafta gösterir. */
   cover?: Blob;
+  /** EPUB: bölümlerin açılmış toplam bayt boyu — okuma alışkanlığında sanal sayfa sayısı için (LOM-93). */
+  textBytes?: number;
 }
 
 /** İçindekiler maddesi (EPUB; PDF'te ana hatlar varsa). */

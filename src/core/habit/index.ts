@@ -4,3 +4,4 @@ export * from "./model";
 export * from "./codec";
 export * from "./store";
 export * from "./view";
+export * from "./reading";
