@@ -73,6 +73,8 @@ const suites = [
   ["src/core/__test__/kindleTest.ts", []],
   ["src/core/__test__/luaTest.ts", []],
   ["src/core/__test__/koreaderTest.ts", []],
+  ["src/core/__test__/sqliteTest.ts", []],
+  ["src/core/__test__/koboTest.ts", []],
   ["src/core/__test__/libraryReviewTest.ts", []],
   // LOM-83 görüntüleyici parçaları (kaynağı gelince koşar).
   ["src/core/__test__/pdfAnchorTest.ts", []],

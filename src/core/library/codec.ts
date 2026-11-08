@@ -20,6 +20,7 @@ import {
   type Highlight,
   type HighlightColor,
   type KindleAnchor,
+  type KoboAnchor,
   type KoreaderAnchor,
   type PdfRect,
 } from "./types";
@@ -54,6 +55,11 @@ export function encodeAnchor(a: Anchor): Anchor {
     const out: KoreaderAnchor = { kind: "koreader", page: a.page };
     if (a.pos0) out.pos0 = a.pos0;
     if (a.pos1) out.pos1 = a.pos1;
+    return out;
+  }
+  if (a.kind === "kobo") {
+    const out: KoboAnchor = { kind: "kobo", progress: r5(unit(isNum(a.progress) ? a.progress : 0)) };
+    if (a.chapter !== undefined && isInt(a.chapter)) out.chapter = a.chapter;
     return out;
   }
   return { kind: "epub", spine: a.spine, href: a.href, start: a.start, end: a.end };
@@ -97,6 +103,15 @@ export function decodeAnchor(v: unknown): Anchor | null {
     }
     return out;
   }
+  if (v.kind === "kobo") {
+    if (!isNum(v.progress)) return null;
+    const out: KoboAnchor = { kind: "kobo", progress: unit(v.progress) };
+    if (v.chapter !== undefined && v.chapter !== null) {
+      if (!isInt(v.chapter)) return null;
+      out.chapter = v.chapter;
+    }
+    return out;
+  }
   return null;
 }
 
@@ -104,6 +119,7 @@ export function encodePosition(p: BookPosition): BookPosition {
   if (p.kind === "pdf") return { kind: "pdf", page: p.page, offset: r5(unit(p.offset)) };
   if (p.kind === "kindle") return { kind: "kindle", location: Math.max(0, Math.round(p.location)) };
   if (p.kind === "koreader") return { kind: "koreader", location: Math.max(1, Math.round(p.location)) };
+  if (p.kind === "kobo") return { kind: "kobo", location: Math.max(0, Math.round(p.location)) };
   return { kind: "epub", spine: p.spine, href: p.href, offset: Math.max(0, Math.round(p.offset)) };
 }
 
@@ -115,6 +131,7 @@ export function decodePosition(v: unknown): BookPosition | undefined {
   }
   if (v.kind === "kindle" && isInt(v.location)) return { kind: "kindle", location: v.location };
   if (v.kind === "koreader" && isInt(v.location, 1)) return { kind: "koreader", location: v.location };
+  if (v.kind === "kobo" && isInt(v.location)) return { kind: "kobo", location: v.location };
   return undefined;
 }
 

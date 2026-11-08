@@ -130,16 +130,45 @@ kullanıcının notu (varsa)
   satırı. Kartta "KOREADER" rozeti, ilerleme ve "Oku" yok; karta dokununca not açılır.
 - **Bilinen sınırlar:** aynı kitapta birebir aynı iki alıntı tek çizim sayılır. KOReader'da silinen çizim
   Loomen'dan silinmez. Başlık/yazar yazımı değişirse ayrı kitap olur.
-- **Ortak alma döngüsü:** Kindle ve KOReader alımı store'da aynı yardımcıdan geçer (`importExternalBooks`):
+
+## Kobo çizimleri (LOM-95)
+- **Kaynak:** Kobo'nun kökündeki gizli `.kobo/KoboReader.sqlite`. Masaüstünde (macOS/Linux) takılı
+  disklerde kendisi aranır (`/Volumes/<disk>`, `/media/<disk>`, `/media/<kullanıcı>/<disk>`,
+  `/run/media/<kullanıcı>/<disk>`; Kindle aramasıyla ortak `findOnMountedDisks`); bulunursa rafta
+  "Kobo bağlı" şeridi çıkar. "Kobo'dan al" düğmesi (dolu ve boş rafta) cihaz varsa onu okur, yoksa
+  dosya seçtirir (.sqlite/.sqlite3/.db). Windows ve mobilde yalnız dosya seçimi.
+- **İzin:** capabilities'te yalnız dört kökteki `.kobo/KoboReader.sqlite` için var-mı ve okuma; yazma yok.
+- **SQLite okuyucu** (`sqlite.ts`): bağımlılıksız, salt okunur; SQL çalıştırmaz, B-ağacını gezip tablo
+  satırlarını verir (taşma sayfaları, INTEGER PRIMARY KEY = rowid, ALTER ile sonradan eklenmiş sütun →
+  null). Sınırlar: yalnız UTF-8 veritabanı; `-wal`/`-shm` okunmaz (cihazda henüz yazılmamış son çizim
+  gelmeyebilir, Kobo'yu güvenli çıkarınca gelir); WITHOUT ROWID ve sanal tablolar okunmaz. Bozuk dosyada
+  ("sayfa döngüsü", "dosyanın dışında" …) hata atar, sonsuz döngüye girmez.
+- **Alan eşlemesi:** `Bookmark` satırı → çizim (Text alıntı, Annotation not, DateCreated an,
+  ChapterProgress bölüm içi ilerleme, Color renk). Hidden='true', Type dogear/markup ve metinsiz satırlar
+  atlanır, sonuç mesajında sayılır. Kitap adı/yazarı `content` (ContentType 6) satırından; yoksa
+  VolumeID yolundan (uzantı atılır, `_` boşluk olur). Bölüm: ContentID'nin birebir, `#` öncesi ya da aynı
+  kitapta en uzun önek eşleşmesi; bölüm sırası VolumeIndex.
+- **Kimlikler:** kitap özeti SHA-256("kobo|" + normalleştirilmiş "başlık|yazar") — Kindle/KOReader
+  kaydıyla çakışmaz. Çizim kimliği `b` + SHA-256(sadeleştirilmiş alıntı) ilk 10 hane. Aynı alıntı iki kez
+  varsa tek çizim olur (not ve en erken tarih tutulur). İkinci alımda yalnız yeni çizim eklenir; Kobo'da
+  sonradan yazılan not var olan bloğa işlenir, elle değiştirilmiş bloğa dokunulmaz.
+- **Kayıt:** biçim `kobo`, dosya yok, boyut 0; çıpa `{kind: "kobo", progress, chapter?}`, konum
+  `{kind: "kobo", location}` = (bölüm + ilerleme) × 1000. Sıra: bölüm, sonra ilerleme; bölümü
+  bilinmeyen sona. Renk: 1 pembe, 2 yeşil, 3 mavi, diğerleri sarı.
+- **Not ve raf:** blok biçimi aynı; yer etiketi bölüm adı, yoksa "Bölüm n", yoksa "%n"; "Kitabı aç"
+  yerine `*Kobo*` kaynak satırı. Kartta "KOBO" rozeti; dokununca not açılır.
+- **Kapsam dışı / sınırlar:** Kobo bulutu; Kobo kitabını PDF/EPUB kaydıyla eşleme; Kobo'da silinen
+  çizimi silme; yer imi ve kalem çizimi; Windows/mobilde cihaz tanıma.
+- **Ortak alma döngüsü:** Kindle, KOReader ve Kobo alımı store'da aynı yardımcıdan geçer (`importExternalBooks`):
   bozuk kayıt/biçim çakışması kontrolü, boş not yolu, kayıt yazımı, not bloklarının eklenmesi, tek sonuç mesajı.
 
 ## Kod
-- Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`, `kindle`, `lua`, `koreader`).
-  Kindle cihaz tarama ve okuma (Tauri'ye bağlı): `src/core/library/kindleDevice.ts`.
+- Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`, `kindle`, `lua`, `koreader`, `sqlite`, `kobo`).
+  Kindle/Kobo cihaz tarama ve okuma (Tauri'ye bağlı): `src/core/library/kindleDevice.ts`, `koboDevice.ts`.
 - Durum ve eylemler: `src/store/useAppStore.ts` (`library*`, `reader*`).
 - Ekranlar: `src/screens/Library/`. Bağlantı: `src/screens/Editor/Markdown.tsx` (okuma),
   `livePreview.ts` (düzenleme).
-- Testler: `libraryTest`, `libraryNoteTest`, `libraryLinkTest`, `kindleTest`, `luaTest`, `koreaderTest` (`src/core/__test__/`).
+- Testler: `libraryTest`, `libraryNoteTest`, `libraryLinkTest`, `kindleTest`, `luaTest`, `koreaderTest`, `sqliteTest`, `koboTest` (`src/core/__test__/`; Kobo örnek veritabanı `fixtures/kobo-sample.sqlite`, kaynağı `scripts/fixtures/kobo-sample.sql`).
 
 ## Kapsam dışı (ilk sürüm)
 Cihazlar arası kitap dosyası eşitleme; arama, sözlük, sesli okuma; PDF/EPUB dosyasını değiştirme;

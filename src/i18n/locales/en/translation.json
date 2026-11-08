@@ -1586,7 +1586,9 @@
       "section": "Section {{n}}",
       "location": "Loc. {{n}}",
       "kindle": "Kindle",
-      "koreader": "KOReader"
+      "koreader": "KOReader",
+      "kobo": "Kobo",
+      "progress": "{{n}}%"
     },
     "pickTitle": "Choose a book",
     "pickFilter": "Books (PDF, EPUB)",
@@ -1642,6 +1644,21 @@
       "skipped_other": "{{count}} entries skipped (bookmarks or entries without text).",
       "clash": "“{{name}}” clashes with a non-KOReader book on the shelf; skipped.",
       "badge": "KOREADER",
+      "openNote": "Open the note for {{name}}"
+    },
+    "kobo": {
+      "import": "Import from Kobo",
+      "detected": "Kobo connected. You can import its highlights into book notes.",
+      "take": "Import highlights",
+      "pickTitle": "Choose the Kobo database file (.kobo/KoboReader.sqlite — hidden folder, press Cmd+Shift+. on Mac to show it)",
+      "pickFilter": "Kobo database (SQLITE)",
+      "none": "No Kobo highlights found in this file. Choose KoboReader.sqlite in the Kobo's .kobo folder.",
+      "readError": "Couldn't read the Kobo database: {{detail}}",
+      "result": "Kobo: {{books}} books updated, {{added}} new highlights, {{updated}} notes applied, {{same}} highlights already existed.",
+      "skipped_one": "{{count}} entry skipped (bookmark, pen markup or entry without text).",
+      "skipped_other": "{{count}} entries skipped (bookmark, pen markup or entry without text).",
+      "clash": "“{{name}}” clashes with a non-Kobo book on the shelf; skipped.",
+      "badge": "KOBO",
       "openNote": "Open the note for {{name}}"
     },
     "review": {

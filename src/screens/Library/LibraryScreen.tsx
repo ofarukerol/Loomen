@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, BookMarked, Import, Loader2, Plus, Tablet } from "lucide-react";
+import { AlertTriangle, BookMarked, HardDriveDownload, Import, Loader2, Plus, Tablet } from "lucide-react";
 import { SHELF_FILTERS, shelfBooks, shelfCounts, type Book } from "../../core/library";
 import { isTauri } from "../../core/vault";
 import { useAppStore } from "../../store/useAppStore";
@@ -13,6 +13,8 @@ import { BookCard } from "./BookCard";
  * Kindle (LOM-84): "Kindle'dan al" bağlı Kindle'ın çizim dosyasını, yoksa seçilen dosyayı alır;
  * ekran açılınca ve pencere odak alınca Kindle aranır, bulunursa rafın üstünde şerit çıkar.
  * KOReader (LOM-94): "KOReader'dan al" kitabın yanındaki metadata.*.lua ya da JSON dışa aktarımını seçtirir.
+ * Kobo (LOM-95): "Kobo'dan al" bağlı Kobo'nun veritabanını, yoksa seçilen dosyayı alır; Kindle ile
+ * birlikte aranır, bulunursa rafın üstünde "Kobo bağlı" şeridi çıkar.
  */
 export function LibraryScreen() {
   const { t } = useTranslation();
@@ -30,6 +32,9 @@ export function LibraryScreen() {
   const probeKindle = useAppStore((s) => s.libraryProbeKindle);
   const importKindle = useAppStore((s) => s.libraryImportKindle);
   const importKoreader = useAppStore((s) => s.libraryImportKoreader);
+  const koboPath = useAppStore((s) => s.koboDevicePath);
+  const probeKobo = useAppStore((s) => s.libraryProbeKobo);
+  const importKobo = useAppStore((s) => s.libraryImportKobo);
   const [confirm, setConfirm] = useState<Book | null>(null);
 
   useEffect(() => {
@@ -43,10 +48,14 @@ export function LibraryScreen() {
   useEffect(() => {
     if (!isTauri()) return;
     void probeKindle();
-    const onFocus = () => void probeKindle();
+    void probeKobo();
+    const onFocus = () => {
+      void probeKindle();
+      void probeKobo();
+    };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [probeKindle]);
+  }, [probeKindle, probeKobo]);
 
   const counts = useMemo(() => shelfCounts(books), [books]);
   const shown = useMemo(() => shelfBooks(books, filter), [books, filter]);
@@ -73,6 +82,13 @@ export function LibraryScreen() {
     </button>
   );
 
+  const koboBtn = (
+    <button type="button" className="lo-btn lo-lib-kindle-btn" onClick={() => void importKobo("auto")} disabled={busy || !app}>
+      <HardDriveDownload size={16} strokeWidth={2.2} aria-hidden />
+      <span>{t("library.kobo.import")}</span>
+    </button>
+  );
+
   return (
     <div className="lo-lib">
       <div className="lo-lib__inner">
@@ -82,6 +98,7 @@ export function LibraryScreen() {
             <div className="lo-lib-head__actions">
               {kindleBtn}
               {koreaderBtn}
+              {koboBtn}
               {addBtn}
             </div>
           )}
@@ -94,6 +111,17 @@ export function LibraryScreen() {
             <button type="button" className="lo-btn lo-btn--primary lo-lib-kindle__take" onClick={() => void importKindle("auto")} disabled={busy}>
               {busy ? <Loader2 size={14} strokeWidth={2.2} className="lo-spin" aria-hidden /> : null}
               <span>{t("library.kindle.take")}</span>
+            </button>
+          </div>
+        )}
+
+        {koboPath && app && (
+          <div className="lo-lib-kindle" role="status">
+            <HardDriveDownload size={15} strokeWidth={2} aria-hidden />
+            <span>{t("library.kobo.detected")}</span>
+            <button type="button" className="lo-btn lo-btn--primary lo-lib-kindle__take" onClick={() => void importKobo("auto")} disabled={busy}>
+              {busy ? <Loader2 size={14} strokeWidth={2.2} className="lo-spin" aria-hidden /> : null}
+              <span>{t("library.kobo.take")}</span>
             </button>
           </div>
         )}
@@ -122,6 +150,7 @@ export function LibraryScreen() {
               {addBtn}
               {kindleBtn}
               {koreaderBtn}
+              {koboBtn}
             </div>
           </div>
         ) : (

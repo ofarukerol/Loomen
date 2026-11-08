@@ -9,3 +9,5 @@ export * from "./kindle";
 export * from "./lua";
 export * from "./koreader";
 export * from "./reviewCard";
+export * from "./sqlite";
+export * from "./kobo";

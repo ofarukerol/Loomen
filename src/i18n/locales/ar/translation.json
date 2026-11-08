@@ -1622,7 +1622,9 @@
       "section": "الفصل {{n}}",
       "location": "الموقع {{n}}",
       "kindle": "كيندل",
-      "koreader": "KOReader"
+      "koreader": "KOReader",
+      "kobo": "Kobo",
+      "progress": "{{n}}%"
     },
     "pickTitle": "اختر كتابًا",
     "pickFilter": "كتب (PDF، EPUB)",
@@ -1686,6 +1688,25 @@
       "skipped_other": "تم تخطي {{count}} إدخال (إشارات مرجعية أو إدخالات بلا نص).",
       "clash": "«{{name}}» يتعارض مع كتاب ليس من KOReader على الرف؛ تم تخطيه.",
       "badge": "KOREADER",
+      "openNote": "افتح ملاحظة {{name}}"
+    },
+    "kobo": {
+      "import": "استيراد من Kobo",
+      "detected": "جهاز Kobo متصل. يمكنك استيراد تظليلاته إلى ملاحظات الكتب.",
+      "take": "استيراد التظليلات",
+      "pickTitle": "اختر ملف قاعدة بيانات Kobo (.kobo/KoboReader.sqlite — مجلد مخفي، اضغط Cmd+Shift+. على Mac لإظهاره)",
+      "pickFilter": "قاعدة بيانات Kobo (SQLITE)",
+      "none": "لم يُعثر على تظليلات Kobo في هذا الملف. اختر KoboReader.sqlite من مجلد .kobo في الجهاز.",
+      "readError": "تعذّرت قراءة قاعدة بيانات Kobo: {{detail}}",
+      "result": "Kobo: تم تحديث {{books}} كتاب، {{added}} تظليل جديد، {{updated}} ملاحظة، {{same}} تظليل موجود مسبقًا.",
+      "skipped_zero": "تم تخطي {{count}} إدخال (إشارة مرجعية أو رسم بالقلم أو إدخال بلا نص).",
+      "skipped_one": "تم تخطي {{count}} إدخال (إشارة مرجعية أو رسم بالقلم أو إدخال بلا نص).",
+      "skipped_two": "تم تخطي {{count}} إدخال (إشارة مرجعية أو رسم بالقلم أو إدخال بلا نص).",
+      "skipped_few": "تم تخطي {{count}} إدخال (إشارة مرجعية أو رسم بالقلم أو إدخال بلا نص).",
+      "skipped_many": "تم تخطي {{count}} إدخال (إشارة مرجعية أو رسم بالقلم أو إدخال بلا نص).",
+      "skipped_other": "تم تخطي {{count}} إدخال (إشارة مرجعية أو رسم بالقلم أو إدخال بلا نص).",
+      "clash": "«{{name}}» يتعارض مع كتاب ليس من Kobo على الرف؛ تم تخطيه.",
+      "badge": "KOBO",
       "openNote": "افتح ملاحظة {{name}}"
     },
     "review": {

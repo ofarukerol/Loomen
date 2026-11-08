@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Masaüstü ana pencere izinleri. Mobil için ayrı dosya: mobile.json (orada $HOME yok). Kindle (LOM-84): dış disklerde yalnız disk adları listelenir ve yalnız documents/My Clippings.txt okunur; yazma izni yok.",
+  "description": "Masaüstü ana pencere izinleri. Mobil için ayrı dosya: mobile.json (orada $HOME yok). Kindle (LOM-84): dış disklerde yalnız disk adları listelenir ve yalnız documents/My Clippings.txt okunur; yazma izni yok. Kobo (LOM-95): aynı disklerde yalnız .kobo/KoboReader.sqlite okunur (var mı + bayt okuma); yazma izni yok.",
   "platforms": ["macOS", "windows", "linux"],
   "windows": ["main"],
   "permissions": [
@@ -30,7 +30,14 @@
     },
     {
       "identifier": "fs:allow-read-file",
-      "allow": [{ "path": "$HOME/**" }, { "path": "$APPDATA/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$APPDATA/**" },
+        { "path": "/Volumes/*/.kobo/KoboReader.sqlite" },
+        { "path": "/media/*/.kobo/KoboReader.sqlite" },
+        { "path": "/media/*/*/.kobo/KoboReader.sqlite" },
+        { "path": "/run/media/*/*/.kobo/KoboReader.sqlite" }
+      ]
     },
     {
       "identifier": "fs:allow-write-file",
@@ -64,7 +71,11 @@
         { "path": "/Volumes/*/documents/My Clippings.txt" },
         { "path": "/media/*/documents/My Clippings.txt" },
         { "path": "/media/*/*/documents/My Clippings.txt" },
-        { "path": "/run/media/*/*/documents/My Clippings.txt" }
+        { "path": "/run/media/*/*/documents/My Clippings.txt" },
+        { "path": "/Volumes/*/.kobo/KoboReader.sqlite" },
+        { "path": "/media/*/.kobo/KoboReader.sqlite" },
+        { "path": "/media/*/*/.kobo/KoboReader.sqlite" },
+        { "path": "/run/media/*/*/.kobo/KoboReader.sqlite" }
       ]
     },
     {

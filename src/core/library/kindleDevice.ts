@@ -33,14 +33,6 @@ async function subDirs(fs: Fs, dir: string): Promise<string[]> {
   }
 }
 
-const clippingsIn = (root: string) => `${root}/${DOCS}/${CLIPPINGS_FILE_NAME}`;
-
-/** Bir disk kökünde çizim dosyası varsa yolu. */
-async function probeRoot(fs: Fs, root: string): Promise<string | null> {
-  const p = clippingsIn(root);
-  return (await fileExists(fs, p)) ? p : null;
-}
-
 function isWindows(): boolean {
   return typeof navigator !== "undefined" && /Windows/i.test(navigator.userAgent);
 }
@@ -50,37 +42,52 @@ function isMobileUa(): boolean {
 }
 
 /**
- * Bağlı Kindle'ın çizim dosyasının yolu; bulunamazsa (ya da tarayıcı/mobil) null.
- * Birden çok disk varsa ilk bulunan döner.
+ * Bağlı disklerin kökünde `relPath` dosyasını ara (Kindle LOM-84, Kobo LOM-95); bulunamazsa (ya da
+ * tarayıcı/mobil/Windows) null. Birden çok disk varsa ilk bulunan döner. Hata dışarı sızmaz.
+ * Aranan kökler: macOS `/Volumes/<disk>`, Linux `/media/<disk>`, `/media/<kullanıcı>/<disk>`,
+ * `/run/media/<kullanıcı>/<disk>`.
+ * Her yol için `capabilities/default.json`'da salt okuma izni bulunmalıdır.
  */
-export async function findKindleClippings(): Promise<string | null> {
+export async function findOnMountedDisks(relPath: string): Promise<string | null> {
   if (!isTauri() || isMobileUa() || isWindows()) return null;
   try {
     const fs = await import("@tauri-apps/plugin-fs");
+    const probeRoot = async (root: string): Promise<string | null> => {
+      const p = `${root}/${relPath}`;
+      return (await fileExists(fs, p)) ? p : null;
+    };
     // macOS
     for (const name of await subDirs(fs, "/Volumes")) {
-      const hit = await probeRoot(fs, `/Volumes/${name}`);
+      const hit = await probeRoot(`/Volumes/${name}`);
       if (hit) return hit;
     }
     // Linux: /media/<disk>, /media/<kullanıcı>/<disk>, /run/media/<kullanıcı>/<disk>
     for (const name of await subDirs(fs, "/media")) {
-      const direct = await probeRoot(fs, `/media/${name}`);
+      const direct = await probeRoot(`/media/${name}`);
       if (direct) return direct;
       for (const disk of await subDirs(fs, `/media/${name}`)) {
-        const hit = await probeRoot(fs, `/media/${name}/${disk}`);
+        const hit = await probeRoot(`/media/${name}/${disk}`);
         if (hit) return hit;
       }
     }
     for (const user of await subDirs(fs, "/run/media")) {
       for (const disk of await subDirs(fs, `/run/media/${user}`)) {
-        const hit = await probeRoot(fs, `/run/media/${user}/${disk}`);
+        const hit = await probeRoot(`/run/media/${user}/${disk}`);
         if (hit) return hit;
       }
     }
   } catch (e) {
-    console.warn("[library] Kindle aranamadı:", e);
+    console.warn("[library] bağlı disk aranamadı:", e);
   }
   return null;
+}
+
+/**
+ * Bağlı Kindle'ın çizim dosyasının yolu; bulunamazsa (ya da tarayıcı/mobil) null.
+ * Birden çok disk varsa ilk bulunan döner.
+ */
+export function findKindleClippings(): Promise<string | null> {
+  return findOnMountedDisks(`${DOCS}/${CLIPPINGS_FILE_NAME}`);
 }
 
 /** Çizim dosyasının metni (UTF-8; baştaki görünmez işaret ayrıştırıcıda temizlenir). */

@@ -43,7 +43,7 @@ export function bookFileName(b: Pick<Book, "hash" | "format">): string {
   return `${b.hash}.${b.format}`;
 }
 
-/** Kitabın uygulama klasöründe dosyası var mı (okuyucuda açılır mı)? Kindle (LOM-84) ve KOReader (LOM-94) kitabında yok. */
+/** Kitabın uygulama klasöründe dosyası var mı (okuyucuda açılır mı)? Kindle (LOM-84), KOReader (LOM-94) ve Kobo (LOM-95) kitabında yok. */
 export function hasBookFile(b: Pick<Book, "format">): boolean {
   return (FILE_BOOK_FORMATS as readonly string[]).includes(b.format);
 }
@@ -165,12 +165,13 @@ export const samePosition = (a: BookPosition | undefined, b: BookPosition): bool
   if (a.kind === "pdf") return b.kind === "pdf" && a.page === b.page && Math.abs(a.offset - b.offset) < 1e-4;
   if (a.kind === "kindle") return b.kind === "kindle" && a.location === b.location;
   if (a.kind === "koreader") return b.kind === "koreader" && a.location === b.location;
+  if (a.kind === "kobo") return b.kind === "kobo" && a.location === b.location;
   return b.kind === "epub" && a.spine === b.spine && a.href === b.href && a.offset === b.offset;
 };
 
 /**
  * Kitap sırasına göre karşılaştır: a ilerideyse > 0, gerideyse < 0, aynı yerse 0 (LOM-92).
- * PDF: sayfa sonra sayfa içi oran; EPUB: bölüm sonra karakter; Kindle: konum; KOReader: sayfa. Farklı tür → 0.
+ * PDF: sayfa sonra sayfa içi oran; EPUB: bölüm sonra karakter; Kindle: konum; KOReader: sayfa; Kobo: bölüm+ilerleme. Farklı tür → 0.
  */
 export function comparePosition(a: BookPosition, b: BookPosition): number {
   if (a.kind === "pdf" && b.kind === "pdf") {
@@ -183,6 +184,7 @@ export function comparePosition(a: BookPosition, b: BookPosition): number {
   }
   if (a.kind === "kindle" && b.kind === "kindle") return a.location - b.location;
   if (a.kind === "koreader" && b.kind === "koreader") return a.location - b.location;
+  if (a.kind === "kobo" && b.kind === "kobo") return a.location - b.location;
   return 0;
 }
 
@@ -267,13 +269,14 @@ export function applyMeta(b: Book, meta: MetaPatch, now: number): Book {
 
 // ─── Çizimler ─────────────────────────────────────────────────────────────────────
 
-const KIND_RANK: Record<Anchor["kind"], number> = { pdf: 0, epub: 1, kindle: 2, koreader: 3 };
+const KIND_RANK: Record<Anchor["kind"], number> = { pdf: 0, epub: 1, kindle: 2, koreader: 3, kobo: 4 };
 
 /**
  * Kitap içindeki sıra: PDF'te sayfa → üst kenar → sol kenar; EPUB'da bölüm → başlangıç;
  * Kindle'da konum başı → sayfa → konum sonu (konumu olmayan, yalnız sayfalı çizim sona);
- * KOReader'da sayfa (aynı sayfada `sortHighlights` oluşma anıyla ayırır).
- * Farklı türler sabit sırada: pdf < epub < kindle < koreader.
+ * KOReader'da sayfa (aynı sayfada `sortHighlights` oluşma anıyla ayırır); Kobo'da bölüm sırası
+ * (bilinmeyen sona) → bölüm içi ilerleme.
+ * Farklı türler sabit sırada: pdf < epub < kindle < koreader < kobo.
  */
 export function compareAnchor(a: Anchor, b: Anchor): number {
   if (a.kind === "pdf" && b.kind === "pdf") {
@@ -302,6 +305,13 @@ export function compareAnchor(a: Anchor, b: Anchor): number {
     return ae === be ? 0 : ae < be ? -1 : 1;
   }
   if (a.kind === "koreader" && b.kind === "koreader") return a.page - b.page;
+  if (a.kind === "kobo" && b.kind === "kobo") {
+    const big = Number.MAX_SAFE_INTEGER;
+    const ac = a.chapter ?? big;
+    const bc = b.chapter ?? big;
+    if (ac !== bc) return ac < bc ? -1 : 1;
+    return a.progress - b.progress;
+  }
   return KIND_RANK[a.kind] - KIND_RANK[b.kind];
 }
 
@@ -391,11 +401,18 @@ export function removeHighlight(b: Book, id: string, now: number): Book {
   return { ...b, highlights: b.highlights.filter((h) => h.id !== id), updatedAt: now };
 }
 
+/** Kobo çıpasının sıra numarası: round((bölüm sırası + ilerleme) × 1000). */
+export function koboLocation(a: { progress: number; chapter?: number }): number {
+  const p = Number.isFinite(a.progress) ? Math.min(1, Math.max(0, a.progress)) : 0;
+  return Math.max(0, Math.round(((a.chapter ?? 0) + p) * 1000));
+}
+
 /** Çizimin gidilecek yeri (bağlantı ve listeden atlama için). */
 export function positionOfAnchor(a: Anchor): BookPosition {
   if (a.kind === "pdf") return { kind: "pdf", page: a.page, offset: a.rects.length ? Math.min(...a.rects.map((r) => r.y)) : 0 };
   if (a.kind === "kindle") return { kind: "kindle", location: a.location?.start ?? a.page ?? 0 };
   if (a.kind === "koreader") return { kind: "koreader", location: a.page };
+  if (a.kind === "kobo") return { kind: "kobo", location: koboLocation(a) };
   return { kind: "epub", spine: a.spine, href: a.href, offset: a.start };
 }
 

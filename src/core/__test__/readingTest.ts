@@ -51,6 +51,7 @@ check("EPUB: son sayfa taşmıyor", pageUnit(epub, 1, 10 * EPUB_PAGE_BYTES) === 
 check("EPUB: küçük kitap tek sayfa", pageUnit(epub, 0.9, 500) === 0);
 check("Kindle: null", pageUnit({ kind: "kindle", location: 120 }, 0.5) === null);
 check("KOReader: null", pageUnit({ kind: "koreader", location: 12 }, 0.5, 10 * EPUB_PAGE_BYTES) === null);
+check("Kobo: null", pageUnit({ kind: "kobo", location: 1250 }, 0.5, 10 * EPUB_PAGE_BYTES) === null);
 
 // ---------------------------------------------------------------- bekleme (3 sn)
 

@@ -10,6 +10,7 @@
 //  - Kindle (LOM-84): Kindle'ın "My Clippings.txt" dosyasındaki konum aralığı ve/veya sayfa.
 //  - KOReader (LOM-94): KOReader'ın kitap-yanı dosyasındaki (metadata.*.lua) ya da JSON dışa
 //    aktarımındaki sayfa (+ varsa KOReader'ın iç konum işaretleri pos0/pos1).
+//  - Kobo (LOM-95): Kobo veritabanındaki bölüm sırası + bölüm içi ilerleme (0..1).
 //
 // Kindle kitabının DOSYASI yoktur: kayıt yalnız çizimleri taşır (okuyucu açılmaz, kart notu
 // açar). Özeti (hash) dosyadan değil normalleştirilmiş "başlık|yazar" metninden türer; boyut 0,
@@ -17,6 +18,9 @@
 //
 // KOReader kitabı da (LOM-94) dosyasızdır; özeti "koreader|başlık|yazar" metninden türer, böylece
 // aynı başlıklı Kindle kaydıyla çakışmaz.
+//
+// Kobo kitabı da (LOM-95) dosyasızdır; özeti "kobo|başlık|yazar" metninden türer, böylece aynı
+// başlıklı Kindle ve KOReader kayıtlarıyla çakışmaz.
 
 /** Kasadaki klasör adı. Diskte macOS NFD biçiminde de durabilir; karşılaştırma NFC ile yapılır. */
 export const LIBRARY_DIR = "Kütüphane";
@@ -38,7 +42,7 @@ export const BOOK_FILE_VERSION = 1;
 /** Bu boyutun üstünde içe aktarmadan önce uyarı (mobilde bellek). */
 export const LARGE_BOOK_BYTES = 200 * 1024 * 1024;
 
-export const BOOK_FORMATS = ["pdf", "epub", "kindle", "koreader"] as const;
+export const BOOK_FORMATS = ["pdf", "epub", "kindle", "koreader", "kobo"] as const;
 export type BookFormat = (typeof BOOK_FORMATS)[number];
 /** Uygulama klasöründe dosyası olan (okuyucuda açılan) biçimler. */
 export const FILE_BOOK_FORMATS = ["pdf", "epub"] as const;
@@ -107,7 +111,17 @@ export interface KoreaderAnchor {
   pos1?: string;
 }
 
-export type Anchor = PdfAnchor | EpubAnchor | KindleAnchor | KoreaderAnchor;
+/**
+ * Kobo çizim yeri (LOM-95): Kobo'nun bölüm sırası (0'dan, biliniyorsa) + bölüm içi ilerleme (0..1).
+ * Kobo sayfa numarası vermez; yalnız sıra ve gösterim içindir, çizim kimliğine girmez.
+ */
+export interface KoboAnchor {
+  kind: "kobo";
+  progress: number;
+  chapter?: number;
+}
+
+export type Anchor = PdfAnchor | EpubAnchor | KindleAnchor | KoreaderAnchor | KoboAnchor;
 
 /** Kalınan yer. PDF: sayfa + sayfa içi dikey oran (0..1). EPUB: bölüm + bölüm metnindeki karakter ofseti. */
 export type BookPosition =
@@ -119,7 +133,12 @@ export type BookPosition =
    * KOReader: sayfa numarası (alan adı Kindle'la ortak: dosyasız kitapların sıra numarası).
    * Okuyucu bunu kullanmaz; yalnız sıra/gösterim.
    */
-  | { kind: "koreader"; location: number };
+  | { kind: "koreader"; location: number }
+  /**
+   * Kobo: round((bölüm sırası + bölüm içi ilerleme) × 1000). Okuyucu bunu kullanmaz; yalnız
+   * sıra/gösterim.
+   */
+  | { kind: "kobo"; location: number };
 
 export interface Highlight {
   /** Kitap içinde tekil; bağlantıda `?hl=<id>`. Yalnız [A-Za-z0-9_-]. */

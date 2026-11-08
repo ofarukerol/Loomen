@@ -163,6 +163,29 @@ check("şablon bütün çizimleri sırayla içerir", blockIds(tpl).join(",") ===
   check("koreader şablon sırası sayfaya göre", blockIds(full).join(",") === "oa,ob");
 }
 
+// Kobo kitabı (LOM-95)
+{
+  const k0 = newBook({ hash: "f".repeat(64), size: 0, fileName: "", format: "kobo", notePath: "Kütüphane/K.md", title: "Kobo Kitabı" }, NOW);
+  const tplK = bookNoteTemplate(k0);
+  check("kobo şablonunda kaynak satırı", tplK.includes("\n*Kobo*\n") && !tplK.includes("Kitabı aç") && !tplK.includes("*KOReader*"));
+  const EN_K = { page: "p. {n}", section: "Section {n}", openBook: "Open book", quotes: "Highlights", location: "Location {n}", kindle: "Kindle", koreader: "KOReader", kobo: "Kobo (EN)", progress: "{n}%" };
+  check("kobo kaynak satırı dile göre", bookNoteTemplate(k0, EN_K).includes("\n*Kobo (EN)*\n"));
+  check("eski etiket nesnesinde kobo varsayılana döner", bookNoteTemplate(k0, { page: "p. {n}", section: "S {n}", openBook: "O", quotes: "Q" }).includes("\n*Kobo*\n"));
+  const r1 = addHighlight(k0, { text: "Bölüm adlı", anchor: { kind: "kobo", progress: 0.5, chapter: 1 }, color: "blue", chapter: "İkinci Bölüm" }, NOW, "kb");
+  const r2 = addHighlight(r1.book, { text: "Adsız bölüm", anchor: { kind: "kobo", progress: 0.2, chapter: 0 }, color: "yellow", note: "notum" }, NOW, "ka");
+  const r3 = addHighlight(r2.book, { text: "Bölümsüz", anchor: { kind: "kobo", progress: 0.426 }, color: "pink" }, NOW, "kc");
+  const hA = r3.book.highlights.find((h) => h.id === "ka")!;
+  const hB = r3.book.highlights.find((h) => h.id === "kb")!;
+  const hC = r3.book.highlights.find((h) => h.id === "kc")!;
+  check("kobo yer etiketi bölüm adı", locationLabel(hB) === "İkinci Bölüm");
+  check("kobo yer etiketi bölüm sırası", locationLabel(hA) === "Bölüm 1" && locationLabel(hA, EN_K) === "Section 1");
+  check("kobo yer etiketi yüzde", locationLabel(hC) === "%43" && locationLabel(hC, EN_K) === "43%");
+  check("eski etiket nesnesinde yüzde varsayılana döner", locationLabel(hC, { page: "p. {n}", section: "S {n}", openBook: "O", quotes: "Q" }) === "%43");
+  const full = bookNoteTemplate(r3.book);
+  check("kobo blok biçimi aynı", full.includes(`<!-- loomen:hl ka -->\n> Adsız bölüm\n\nnotum\n\n🟨 [Bölüm 1](loomen://book/${k0.id}?hl=ka)\n<!-- /loomen:hl ka -->`));
+  check("kobo şablon sırası bölüm, bölümsüz sonda", blockIds(full).join(",") === "ka,kb,kc");
+}
+
 if (fails) {
   console.error(`\n${fails} kontrol başarısız`);
   process.exit(1);

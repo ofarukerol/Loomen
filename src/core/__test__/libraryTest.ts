@@ -257,6 +257,38 @@ check("EPUB sırası bölüm → başlangıç", e2.highlights.map((h) => h.id).j
   check("koreader kitaba kindle çizim hata", throws(() => addHighlight(ob, { text: "a", anchor: { kind: "kindle", page: 1 }, color: "yellow" }, NOW, "ox")));
 }
 
+// Kobo çıpası ve konumu (LOM-95)
+{
+  const ka = { kind: "kobo" as const, progress: 0.25, chapter: 3 };
+  check("kobo çıpa yaz-oku", JSON.stringify(decodeAnchor(JSON.parse(JSON.stringify(encodeAnchor(ka))))) === JSON.stringify(ka));
+  const kp = decodeAnchor({ kind: "kobo", progress: 0.5 });
+  check("kobo bölümsüz çıpa okunur", kp?.kind === "kobo" && kp.progress === 0.5 && kp.chapter === undefined);
+  check("kobo ilerleme 0..1'e sıkışır", (decodeAnchor({ kind: "kobo", progress: 7 }) as { progress: number } | null)?.progress === 1);
+  check("kobo yazımda ilerleme yuvarlanır", (encodeAnchor({ kind: "kobo", progress: 0.123456789 }) as { progress: number }).progress === 0.12346);
+  check("kobo ilerlemesiz çıpa bozuk", decodeAnchor({ kind: "kobo" }) === null);
+  check("kobo dize ilerleme bozuk", decodeAnchor({ kind: "kobo", progress: "0.5" }) === null);
+  check("kobo eksi bölüm bozuk", decodeAnchor({ kind: "kobo", progress: 0.1, chapter: -1 }) === null);
+  check("kobo kesirli bölüm bozuk", decodeAnchor({ kind: "kobo", progress: 0.1, chapter: 1.5 }) === null);
+  const kpos = decodePosition(encodePosition({ kind: "kobo", location: 3250 }));
+  check("kobo konum yaz-oku", kpos?.kind === "kobo" && kpos.location === 3250);
+  check("kobo bozuk konum okunmaz", decodePosition({ kind: "kobo", location: -1 }) === undefined);
+  const kpa = positionOfAnchor(ka);
+  check("kobo çizim konumu bölüm+ilerleme", kpa.kind === "kobo" && kpa.location === 3250);
+  const k = (progress: number, chapter?: number) => ({ kind: "kobo" as const, progress, ...(chapter === undefined ? {} : { chapter }) });
+  check("kobo sırası bölüm önce", compareAnchor(k(0.9, 1), k(0.1, 2)) < 0 && compareAnchor(k(0.1, 2), k(0.9, 1)) > 0);
+  check("kobo aynı bölümde ilerleme", compareAnchor(k(0.2, 1), k(0.6, 1)) < 0 && compareAnchor(k(0.5, 1), k(0.5, 1)) === 0);
+  check("kobo bölümü bilinmeyen sona", compareAnchor(k(0.9, 5), k(0.1)) < 0 && compareAnchor(k(0.1), k(0.3)) < 0);
+  check("kobo türler arası en sonda", compareAnchor({ kind: "koreader", page: 1 }, k(0)) < 0 && compareAnchor(k(0), { kind: "pdf", page: 1, rects: [] }) > 0);
+  check("kobo konum karşılaştırma", comparePosition({ kind: "kobo", location: 9 }, { kind: "kobo", location: 4 }) > 0);
+  const kb = newBook({ hash: "9".repeat(64), size: 0, fileName: "", format: "kobo", notePath: "Kütüphane/K.md", title: "K" }, NOW);
+  check("kobo kitabında dosya yok", !hasBookFile(kb));
+  const kb1 = addHighlight(kb, { text: "alıntı", anchor: ka, color: "pink", chapter: "Bölüm adı" }, NOW, "b1").book;
+  const kdec = decodeBook(encodeBook(kb1));
+  check("kobo kitabı yaz-oku", !!kdec && kdec.format === "kobo" && kdec.size === 0 && encodeBook(kdec) === encodeBook(kb1));
+  check("pdf kitaba kobo çizim hata", throws(() => addHighlight(b0, { text: "a", anchor: ka, color: "yellow" }, NOW, "bx")));
+  check("kobo kitaba koreader çizim hata", throws(() => addHighlight(kb, { text: "a", anchor: { kind: "koreader", page: 1 }, color: "yellow" }, NOW, "bx")));
+}
+
 // ─── Kayıt biçimi ───
 const full: Book = { ...setPosition(setStatus(applyMeta(r1, { author: "F. H." }, NOW), "done", NOW + 9), { kind: "pdf", page: 2, offset: 0.123456789 }, 0.3333333, NOW + 10) };
 const text = encodeBook(full);

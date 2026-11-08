@@ -20,7 +20,7 @@ const MAX_UNITS_PER_BOOK = 5000;
 
 /**
  * Konumun sayılabilir birimi. PDF: sayfa numarası. EPUB: ilerleme × sanal sayfa sayısı (bölüm
- * boyutu bilinmiyorsa null). Kindle ve KOReader: null (dosyası yok, okuyucuda açılmaz).
+ * boyutu bilinmiyorsa null). Kindle, KOReader ve Kobo: null (dosyası yok, okuyucuda açılmaz).
  */
 export function pageUnit(pos: BookPosition, progress: number, textBytes?: number): number | null {
   if (pos.kind === "pdf") return Number.isInteger(pos.page) && pos.page >= 1 ? pos.page : null;

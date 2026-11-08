@@ -190,6 +190,9 @@ import {
   applyKoreaderBook,
   koreaderBookHash,
   parseKoreaderFile,
+  applyKoboBook,
+  koboBookHash,
+  parseKoboDatabase,
   blockState,
   insertHighlightBlock,
   isShelfFilter,
@@ -228,6 +231,7 @@ import {
   type ShelfFilter,
 } from "../core/library";
 import { findKindleClippings, readClippingsText } from "../core/library/kindleDevice";
+import { findKoboDatabase, readKoboDatabase } from "../core/library/koboDevice";
 import type { BookMeta, ReaderTarget } from "../screens/Library/readerTypes";
 
 export type Theme = "light" | "dark";
@@ -501,6 +505,8 @@ interface AppState {
   libraryCovers: Record<string, string>;
   /** Bağlı Kindle'daki çizim dosyasının yolu (LOM-84); bağlı değilse null. */
   kindleDevicePath: string | null;
+  /** Bağlı Kobo'daki veritabanının yolu (LOM-95); bağlı değilse null. */
+  koboDevicePath: string | null;
   /** Okuyucuda açık kitap. */
   readerBookId: string | null;
   /** Okuyucuya atlama isteği (bağlantı, çizim listesi). */
@@ -798,6 +804,13 @@ interface AppState {
    * seçtirilir. Kitap kaydı + not oluşur; var olan çizim çoğalmaz, yalnız fark işlenir.
    */
   libraryImportKoreader: () => Promise<void>;
+  /** Bağlı Kobo'yu ara (LOM-95); bulunursa `koboDevicePath` dolar. */
+  libraryProbeKobo: () => Promise<void>;
+  /**
+   * Kobo çizimlerini al (LOM-95): "auto"da bağlı Kobo'nun veritabanı (.kobo/KoboReader.sqlite),
+   * yoksa dosya seçtirir; "file" her zaman seçtirir. Kitap kaydı + not oluşur; var olan çizim çoğalmaz.
+   */
+  libraryImportKobo: (source?: "auto" | "file") => Promise<void>;
   /** Kitabı okuyucuda aç; `target` verilirse o çizime/sayfaya gider. */
   libraryOpenReader: (id: string, target?: { highlightId?: string; page?: number }) => void;
   libraryCloseReader: () => void;
@@ -1002,6 +1015,8 @@ const POSITION_SAVE_MS = 2000;
 let readerSeq = 0;
 /** Süren Kindle araması (odak ve açılış aynı anda tetikleyebilir). */
 let kindleProbing: Promise<void> | null = null;
+/** Kobo araması aynı anda tek kez (LOM-95). */
+let koboProbing: Promise<void> | null = null;
 /** Çizimden Tekrar kartı işlemleri sırayla (LOM-91): peş peşe iki basış aynı eski listeyi okuyup
  *  birbirinin satırını ezmesin. */
 let reviewChain: Promise<unknown> = Promise.resolve();
@@ -1016,6 +1031,8 @@ function libraryNoteLabels(): NoteLabels {
     location: i18n.t("library.note.location", { n: "{n}" }),
     kindle: i18n.t("library.note.kindle"),
     koreader: i18n.t("library.note.koreader"),
+    kobo: i18n.t("library.note.kobo"),
+    progress: i18n.t("library.note.progress", { n: "{n}" }),
   };
 }
 
@@ -1287,7 +1304,7 @@ export const useAppStore = create<AppState>()(
   }
 
   /**
-   * Dış kaynaktan (Kindle LOM-84, KOReader LOM-94) gelen kitapları kayda ve nota işle. Kitap başına:
+   * Dış kaynaktan (Kindle LOM-84, KOReader LOM-94, Kobo LOM-95) gelen kitapları kayda ve nota işle. Kitap başına:
    * özet → kimlik, bozuk kayıt ve biçim çakışması kontrolü, yeni kayıtta boş not yolu, `apply`,
    * kayıt yazımı, not bloklarının eklenmesi/güncellenmesi. Sonuç tek mesajla bildirilir
    * (`<prefix>.result`, `<prefix>.skipped`, `<prefix>.clash`).
@@ -1296,7 +1313,7 @@ export const useAppStore = create<AppState>()(
     groups: G[],
     skippedAtStart: number,
     opts: {
-      format: "kindle" | "koreader";
+      format: "kindle" | "koreader" | "kobo";
       prefix: string;
       fallbackTitle: string;
       hash: (group: G) => Promise<string>;
@@ -2119,6 +2136,7 @@ export const useAppStore = create<AppState>()(
     libraryBusy: false,
     libraryCovers: {},
     kindleDevicePath: null,
+    koboDevicePath: null,
     readerBookId: null,
     readerTarget: null,
     readerReturn: "library",
@@ -4690,6 +4708,85 @@ export const useAppStore = create<AppState>()(
         fallbackTitle: "KOReader",
         hash: (g) => koreaderBookHash(g.title, g.author),
         apply: applyKoreaderBook,
+      });
+    },
+
+    libraryProbeKobo: async () => {
+      if (koboProbing) return koboProbing;
+      koboProbing = (async () => {
+        try {
+          const path = await findKoboDatabase();
+          if (path !== get().koboDevicePath) set({ koboDevicePath: path });
+        } finally {
+          koboProbing = null;
+        }
+      })();
+      return koboProbing;
+    },
+
+    libraryImportKobo: async (source = "auto") => {
+      if (get().libraryBusy) return;
+      if (!isTauri()) {
+        await notifyError(i18n.t("library.appOnly"), "info");
+        return;
+      }
+      let data: Uint8Array | null = null;
+      let path: string | null = null;
+      if (source === "auto") {
+        const device = get().koboDevicePath ?? (await findKoboDatabase());
+        if (device) {
+          path = device;
+          try {
+            data = await readKoboDatabase(device);
+          } catch (e) {
+            // Kobo çıkarılmış olabilir: şerit kalkar, kullanıcı dosyayı seçebilir.
+            console.warn("[library] Kobo veritabanı okunamadı:", device, e);
+            set({ koboDevicePath: null });
+            await notifyError(i18n.t("library.kobo.readError", { detail: errText(e) }));
+            return;
+          }
+        }
+      }
+      if (data === null) {
+        try {
+          const { open } = await import("@tauri-apps/plugin-dialog");
+          const sel = await open({
+            multiple: false,
+            directory: false,
+            title: i18n.t("library.kobo.pickTitle"),
+            filters: [{ name: i18n.t("library.kobo.pickFilter"), extensions: ["sqlite", "sqlite3", "db"] }],
+          });
+          path = typeof sel === "string" ? sel : null;
+        } catch (e) {
+          await notifyError(i18n.t("library.pickError", { detail: errText(e) }));
+          return;
+        }
+        if (!path) return;
+        try {
+          data = await readPickedFile(path);
+        } catch (e) {
+          await notifyError(i18n.t("library.kobo.readError", { detail: errText(e) }));
+          return;
+        }
+      }
+      let groups: ReturnType<typeof parseKoboDatabase>;
+      try {
+        groups = parseKoboDatabase(data);
+      } catch (e) {
+        console.warn("[library] Kobo veritabanı çözülemedi:", path, e);
+        await notifyError(i18n.t("library.kobo.none"), "info");
+        return;
+      }
+      if (groups.books.length === 0) {
+        await notifyError(i18n.t("library.kobo.none"), "info");
+        return;
+      }
+      await importExternalBooks(groups.books, groups.skipped, {
+        format: "kobo",
+        prefix: "library.kobo",
+        fallbackTitle: "Kobo",
+        hash: (g) => koboBookHash(g.title, g.author),
+        apply: applyKoboBook,
       });
     },
 

@@ -13,13 +13,15 @@
 // Kindle kitabında (LOM-84) bloklar birebir aynı biçimdedir; yer etiketi sayfa ya da
 // "Konum 180-182" olur. Kindle kitabının dosyası olmadığı için notta "Kitabı aç" bağlantısı
 // yerine düz bir kaynak satırı (*Kindle*) yazılır. KOReader kitabı (LOM-94) da aynı: yer etiketi
-// sayfa, kaynak satırı *KOReader*.
+// sayfa, kaynak satırı *KOReader*. Kobo kitabı (LOM-95) da aynı: yer etiketi bölüm adı (yoksa
+// "Bölüm n", o da yoksa bölüm içi yüzde), kaynak satırı *Kobo*.
 //
 // İşaretler (HTML yorumu) başka Markdown uygulamalarında görünmez; Loomen okuma modunda da
 // gizler. Kural: yalnız işaretler ARASINA dokunulur. Kullanıcının nota yazdığı başka her şey
 // olduğu gibi kalır. Bitiş işareti kaybolmuş (elle bozulmuş) bloğa hiç dokunulmaz.
 
 import { bookLink } from "./links";
+import { hasBookFile } from "./model";
 import type { Book, Highlight, HighlightColor } from "./types";
 
 /** Notta görünen yazılar (uygulama dili). Varsayılan Türkçe. */
@@ -36,6 +38,10 @@ export interface NoteLabels {
   kindle?: string;
   /** KOReader kitabının notundaki kaynak satırı (LOM-94). Yoksa varsayılan. */
   koreader?: string;
+  /** Kobo kitabının notundaki kaynak satırı (LOM-95). Yoksa varsayılan. */
+  kobo?: string;
+  /** Kobo yer etiketi bölüm bilinmediğinde: `{n}` bölüm içi yüzdeyle değişir. Yoksa varsayılan. */
+  progress?: string;
 }
 
 export const DEFAULT_NOTE_LABELS: Readonly<Required<NoteLabels>> = Object.freeze({
@@ -46,6 +52,8 @@ export const DEFAULT_NOTE_LABELS: Readonly<Required<NoteLabels>> = Object.freeze
   location: "Konum {n}",
   kindle: "Kindle",
   koreader: "KOReader",
+  kobo: "Kobo",
+  progress: "%{n}",
 });
 
 export const COLOR_MARK: Record<HighlightColor, string> = {
@@ -71,7 +79,10 @@ function labelSafe(s: string): string {
   return s.replace(/[[\]\\]/g, (c) => "\\" + c).replace(/\s+/g, " ").trim();
 }
 
-/** Çizimin yer etiketi: PDF'te sayfa, EPUB'da bölüm adı (yoksa sırası), Kindle'da sayfa ya da konum, KOReader'da sayfa. */
+/**
+ * Çizimin yer etiketi: PDF'te sayfa, EPUB'da bölüm adı (yoksa sırası), Kindle'da sayfa ya da konum,
+ * KOReader'da sayfa, Kobo'da bölüm adı (yoksa sırası, o da yoksa bölüm içi yüzde).
+ */
 export function locationLabel(h: Highlight, labels: NoteLabels = DEFAULT_NOTE_LABELS): string {
   const a = h.anchor;
   if (a.kind === "pdf" || a.kind === "koreader") return labels.page.replace("{n}", String(a.page));
@@ -80,6 +91,11 @@ export function locationLabel(h: Highlight, labels: NoteLabels = DEFAULT_NOTE_LA
     const l = a.location;
     const n = !l ? "?" : l.start === l.end ? String(l.start) : `${l.start}-${l.end}`;
     return (labels.location || DEFAULT_NOTE_LABELS.location).replace("{n}", n);
+  }
+  if (a.kind === "kobo") {
+    if (h.chapter) return h.chapter;
+    if (a.chapter !== undefined) return labels.section.replace("{n}", String(a.chapter + 1));
+    return (labels.progress || DEFAULT_NOTE_LABELS.progress).replace("{n}", String(Math.round(a.progress * 100)));
   }
   if (h.chapter) return h.chapter;
   return labels.section.replace("{n}", String(a.spine + 1));
@@ -106,9 +122,11 @@ export function highlightBlockLines(book: Pick<Book, "id">, h: Highlight, labels
 export function bookNoteTemplate(book: Book, labels: NoteLabels = DEFAULT_NOTE_LABELS): string {
   const lines = ["---", `${NOTE_BOOK_KEY}: ${book.id}`, "---", "", `# ${neutralize(book.title)}`, ""];
   if (book.author) lines.push(`*${neutralize(book.author)}*`, "");
-  if (book.format === "kindle") lines.push(`*${neutralize(labels.kindle || DEFAULT_NOTE_LABELS.kindle)}*`);
-  else if (book.format === "koreader") lines.push(`*${neutralize(labels.koreader || DEFAULT_NOTE_LABELS.koreader)}*`);
-  else lines.push(`[${labelSafe(labels.openBook)}](${bookLink({ bookId: book.id })})`);
+  if (!hasBookFile(book)) {
+    // Dosyasız kitap (Kindle, KOReader, Kobo): "Kitabı aç" yerine düz kaynak satırı.
+    const f = book.format as "kindle" | "koreader" | "kobo";
+    lines.push(`*${neutralize(labels[f] || DEFAULT_NOTE_LABELS[f])}*`);
+  } else lines.push(`[${labelSafe(labels.openBook)}](${bookLink({ bookId: book.id })})`);
   lines.push("", `## ${labels.quotes}`, "");
   for (const h of book.highlights) lines.push(...highlightBlockLines(book, h, labels), "");
   return lines.join("\n").replace(/\n+$/, "") + "\n";
