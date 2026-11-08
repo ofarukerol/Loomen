@@ -3,10 +3,10 @@ name: LOM-92 — Kütüphane: kalınan yer cihazlar arasında kaybolmadan taşı
 description: Kütüphanede kalınan yer: eşitlemeden önce bekleyen konum diske yazılır, konuma kayıt zamanı eklenir ve daha yeni konum (başka cihazdan gelen) eskisini ezmez; kitap açıkken başka cihazdan ileri konum gelince okuyucuda "Oraya git" şeridi çıkar.
 type: project
 proje: loomen
-kaynak: kart LOM-92 · dal fix/LOM-92 · Loomen@43153e38154e45def657e041d3746b9b0acc56c6 · test koşusu 15172332-6cd9-4394-82a2-db7a32adf4c9 (Excalibur)
+kaynak: kart LOM-92 · dal fix/LOM-92 · Loomen@390fddf3c8ad5c21ec061615f7cfe53818c15b8c · test koşusu f4e6ddc4-10ab-45b3-ab89-a4cc141a6f82 (Excalibur)
 guven: dogrulandi
 durum: test_gecti
-dogrulama_tarihi: 2026-11-07
+dogrulama_tarihi: 2026-11-08
 ---
 
 # LOM-92 — Kütüphane: kalınan yer cihazlar arasında kaybolmadan taşınır
@@ -46,13 +46,13 @@ Kütüphanede kalınan yer: eşitlemeden önce bekleyen konum diske yazılır, k
 
 Testler geçti.
 
-> Tip denetimi temiz çıktı. npm test ile 50 test dosyasının tümü geçti, kütüphane çekirdeği testi de yeşil. Canlı doğrulama insana kaldı.
+> Tip denetimi hatasız geçti. npm test ile 51 test dosyasının tümü geçti, kütüphane çekirdeği testi de yeşil. Canlı doğrulama insana kaldı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-92`
-- Commit: `Loomen@43153e38154e45def657e041d3746b9b0acc56c6`
-- Test koşusu: `15172332-6cd9-4394-82a2-db7a32adf4c9` (Excalibur)
+- Commit: `Loomen@390fddf3c8ad5c21ec061615f7cfe53818c15b8c`
+- Test koşusu: `f4e6ddc4-10ab-45b3-ab89-a4cc141a6f82` (Excalibur)
 
 ## Durum
 
