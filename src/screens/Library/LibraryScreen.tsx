@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, BookMarked, Loader2, Plus, Tablet } from "lucide-react";
+import { AlertTriangle, BookMarked, Import, Loader2, Plus, Tablet } from "lucide-react";
 import { SHELF_FILTERS, shelfBooks, shelfCounts, type Book } from "../../core/library";
 import { isTauri } from "../../core/vault";
 import { useAppStore } from "../../store/useAppStore";
@@ -12,6 +12,7 @@ import { BookCard } from "./BookCard";
  * Kayıtlar kasadaki Kütüphane/<id>.json dosyalarından gelir; kitap dosyası uygulama klasöründedir.
  * Kindle (LOM-84): "Kindle'dan al" bağlı Kindle'ın çizim dosyasını, yoksa seçilen dosyayı alır;
  * ekran açılınca ve pencere odak alınca Kindle aranır, bulunursa rafın üstünde şerit çıkar.
+ * KOReader (LOM-94): "KOReader'dan al" kitabın yanındaki metadata.*.lua ya da JSON dışa aktarımını seçtirir.
  */
 export function LibraryScreen() {
   const { t } = useTranslation();
@@ -28,6 +29,7 @@ export function LibraryScreen() {
   const kindlePath = useAppStore((s) => s.kindleDevicePath);
   const probeKindle = useAppStore((s) => s.libraryProbeKindle);
   const importKindle = useAppStore((s) => s.libraryImportKindle);
+  const importKoreader = useAppStore((s) => s.libraryImportKoreader);
   const [confirm, setConfirm] = useState<Book | null>(null);
 
   useEffect(() => {
@@ -64,6 +66,13 @@ export function LibraryScreen() {
     </button>
   );
 
+  const koreaderBtn = (
+    <button type="button" className="lo-btn lo-lib-kindle-btn" onClick={() => void importKoreader()} disabled={busy || !app}>
+      <Import size={16} strokeWidth={2.2} aria-hidden />
+      <span>{t("library.koreader.import")}</span>
+    </button>
+  );
+
   return (
     <div className="lo-lib">
       <div className="lo-lib__inner">
@@ -72,6 +81,7 @@ export function LibraryScreen() {
           {books.length > 0 && (
             <div className="lo-lib-head__actions">
               {kindleBtn}
+              {koreaderBtn}
               {addBtn}
             </div>
           )}
@@ -111,6 +121,7 @@ export function LibraryScreen() {
             <div className="lo-lib-head__actions">
               {addBtn}
               {kindleBtn}
+              {koreaderBtn}
             </div>
           </div>
         ) : (

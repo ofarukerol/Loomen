@@ -20,6 +20,7 @@ import {
   type Highlight,
   type HighlightColor,
   type KindleAnchor,
+  type KoreaderAnchor,
   type PdfRect,
 } from "./types";
 
@@ -47,6 +48,12 @@ export function encodeAnchor(a: Anchor): Anchor {
     const out: KindleAnchor = { kind: "kindle" };
     if (a.location) out.location = { start: a.location.start, end: a.location.end };
     if (a.page !== undefined) out.page = a.page;
+    return out;
+  }
+  if (a.kind === "koreader") {
+    const out: KoreaderAnchor = { kind: "koreader", page: a.page };
+    if (a.pos0) out.pos0 = a.pos0;
+    if (a.pos1) out.pos1 = a.pos1;
     return out;
   }
   return { kind: "epub", spine: a.spine, href: a.href, start: a.start, end: a.end };
@@ -80,12 +87,23 @@ export function decodeAnchor(v: unknown): Anchor | null {
     }
     return out.location || out.page !== undefined ? out : null;
   }
+  if (v.kind === "koreader") {
+    if (!isInt(v.page, 1)) return null;
+    const out: KoreaderAnchor = { kind: "koreader", page: v.page };
+    for (const k of ["pos0", "pos1"] as const) {
+      if (v[k] === undefined) continue;
+      if (typeof v[k] !== "string") return null;
+      if (v[k]) out[k] = v[k] as string;
+    }
+    return out;
+  }
   return null;
 }
 
 export function encodePosition(p: BookPosition): BookPosition {
   if (p.kind === "pdf") return { kind: "pdf", page: p.page, offset: r5(unit(p.offset)) };
   if (p.kind === "kindle") return { kind: "kindle", location: Math.max(0, Math.round(p.location)) };
+  if (p.kind === "koreader") return { kind: "koreader", location: Math.max(1, Math.round(p.location)) };
   return { kind: "epub", spine: p.spine, href: p.href, offset: Math.max(0, Math.round(p.offset)) };
 }
 
@@ -96,6 +114,7 @@ export function decodePosition(v: unknown): BookPosition | undefined {
     return { kind: "epub", spine: v.spine, href: v.href, offset: Math.max(0, Math.round(v.offset)) };
   }
   if (v.kind === "kindle" && isInt(v.location)) return { kind: "kindle", location: v.location };
+  if (v.kind === "koreader" && isInt(v.location, 1)) return { kind: "koreader", location: v.location };
   return undefined;
 }
 

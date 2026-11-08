@@ -1621,7 +1621,8 @@
       "page": "ص {{n}}",
       "section": "الفصل {{n}}",
       "location": "الموقع {{n}}",
-      "kindle": "كيندل"
+      "kindle": "كيندل",
+      "koreader": "KOReader"
     },
     "pickTitle": "اختر كتابًا",
     "pickFilter": "كتب (PDF، EPUB)",
@@ -1668,6 +1669,23 @@
       "clash": "«{{name}}» يتعارض مع كتاب ليس من كيندل على الرف؛ تم تخطيه.",
       "noFile": "كتاب كيندل ليس له ملف على هذا الجهاز؛ تُفتح ملاحظته بدلًا من ذلك.",
       "badge": "KINDLE",
+      "openNote": "افتح ملاحظة {{name}}"
+    },
+    "koreader": {
+      "import": "استيراد من KOReader",
+      "pickTitle": "اختر ملف تظليلات KOReader (metadata.*.lua أو JSON)",
+      "pickFilter": "تظليلات KOReader (LUA، JSON)",
+      "none": "لم يُعثر على تظليلات KOReader في هذا الملف. اختر ملف البيانات في مجلد ‎.sdr بجانب الكتاب أو ملف تصدير JSON.",
+      "readError": "تعذّرت قراءة ملف تظليلات KOReader: {{detail}}",
+      "result": "KOReader: حُدّث {{books}} كتاب، {{added}} تظليل جديد، {{updated}} ملاحظة طُبّقت، {{same}} تظليل موجود مسبقًا.",
+      "skipped_zero": "تم تخطي {{count}} إدخال (إشارة مرجعية أو إدخال بلا نص).",
+      "skipped_one": "تم تخطي إدخال واحد (إشارة مرجعية أو إدخال بلا نص).",
+      "skipped_two": "تم تخطي إدخالين (إشارة مرجعية أو إدخال بلا نص).",
+      "skipped_few": "تم تخطي {{count}} إدخالات (إشارات مرجعية أو إدخالات بلا نص).",
+      "skipped_many": "تم تخطي {{count}} إدخالًا (إشارات مرجعية أو إدخالات بلا نص).",
+      "skipped_other": "تم تخطي {{count}} إدخال (إشارات مرجعية أو إدخالات بلا نص).",
+      "clash": "«{{name}}» يتعارض مع كتاب ليس من KOReader على الرف؛ تم تخطيه.",
+      "badge": "KOREADER",
       "openNote": "افتح ملاحظة {{name}}"
     },
     "review": {

@@ -230,6 +230,33 @@ check("EPUB sırası bölüm → başlangıç", e2.highlights.map((h) => h.id).j
   check("pdf kitaba kindle çizim hata", throws(() => addHighlight(b0, { text: "a", anchor: ka, color: "yellow" }, NOW, "kx")));
 }
 
+// KOReader çıpası ve konumu (LOM-94)
+{
+  const oa = { kind: "koreader" as const, page: 12, pos0: "/body/DocFragment[3]/body/p[5]/text().0", pos1: "/body/DocFragment[3]/body/p[5]/text().40" };
+  check("koreader çıpa yaz-oku", JSON.stringify(decodeAnchor(JSON.parse(JSON.stringify(encodeAnchor(oa))))) === JSON.stringify(oa));
+  const op = decodeAnchor({ kind: "koreader", page: 3 });
+  check("koreader yalnız sayfa okunur", op?.kind === "koreader" && op.page === 3 && op.pos0 === undefined);
+  check("koreader sayfasız çıpa bozuk", decodeAnchor({ kind: "koreader" }) === null);
+  check("koreader sıfır sayfa bozuk", decodeAnchor({ kind: "koreader", page: 0 }) === null);
+  check("koreader dize olmayan pos0 bozuk", decodeAnchor({ kind: "koreader", page: 2, pos0: { x: 1 } }) === null);
+  const opos = decodePosition(encodePosition({ kind: "koreader", location: 12 }));
+  check("koreader konum yaz-oku", opos?.kind === "koreader" && opos.location === 12);
+  check("koreader bozuk konum okunmaz", decodePosition({ kind: "koreader", location: 0 }) === undefined);
+  const ppos = positionOfAnchor(oa);
+  check("koreader çizim konumu sayfa", ppos.kind === "koreader" && ppos.location === 12);
+  const o = (page: number) => ({ kind: "koreader" as const, page });
+  check("koreader sırası sayfa", compareAnchor(o(3), o(10)) < 0 && compareAnchor(o(10), o(3)) > 0 && compareAnchor(o(5), o(5)) === 0);
+  check("koreader türler arası en sonda", compareAnchor({ kind: "kindle", page: 1 }, o(1)) < 0 && compareAnchor(o(1), { kind: "pdf", page: 1, rects: [] }) > 0);
+  check("koreader konum karşılaştırma", comparePosition({ kind: "koreader", location: 9 }, { kind: "koreader", location: 4 }) > 0);
+  const ob = newBook({ hash: "8".repeat(64), size: 0, fileName: "", format: "koreader", notePath: "Kütüphane/O.md", title: "O" }, NOW);
+  check("koreader kitabında dosya yok", !hasBookFile(ob));
+  const ob1 = addHighlight(ob, { text: "alıntı", anchor: oa, color: "green", chapter: "Bölüm 1" }, NOW, "o1").book;
+  const odec = decodeBook(encodeBook(ob1));
+  check("koreader kitabı yaz-oku", !!odec && odec.format === "koreader" && odec.size === 0 && encodeBook(odec) === encodeBook(ob1));
+  check("pdf kitaba koreader çizim hata", throws(() => addHighlight(b0, { text: "a", anchor: oa, color: "yellow" }, NOW, "ox")));
+  check("koreader kitaba kindle çizim hata", throws(() => addHighlight(ob, { text: "a", anchor: { kind: "kindle", page: 1 }, color: "yellow" }, NOW, "ox")));
+}
+
 // ─── Kayıt biçimi ───
 const full: Book = { ...setPosition(setStatus(applyMeta(r1, { author: "F. H." }, NOW), "done", NOW + 9), { kind: "pdf", page: 2, offset: 0.123456789 }, 0.3333333, NOW + 10) };
 const text = encodeBook(full);

@@ -143,6 +143,26 @@ check("şablon bütün çizimleri sırayla içerir", blockIds(tpl).join(",") ===
   check("kindle şablon sırası", blockIds(full).join(",") === "ka,kb");
 }
 
+// KOReader kitabı (LOM-94)
+{
+  const o0 = newBook({ hash: "e".repeat(64), size: 0, fileName: "", format: "koreader", notePath: "Kütüphane/O.md", title: "KOReader Kitabı" }, NOW);
+  const tplO = bookNoteTemplate(o0);
+  check("koreader şablonunda kaynak satırı", tplO.includes("\n*KOReader*\n") && !tplO.includes("Kitabı aç") && !tplO.includes("*Kindle*"));
+  const EN_O = { page: "p. {n}", section: "Section {n}", openBook: "Open book", quotes: "Highlights", location: "Location {n}", kindle: "Kindle", koreader: "KOReader (EN)" };
+  check("koreader kaynak satırı dile göre", bookNoteTemplate(o0, EN_O).includes("\n*KOReader (EN)*\n"));
+  check("eski etiket nesnesinde koreader varsayılana döner", bookNoteTemplate(o0, { page: "p. {n}", section: "S {n}", openBook: "O", quotes: "Q" }).includes("\n*KOReader*\n"));
+  const r1 = addHighlight(o0, { text: "İkinci sayfa", anchor: { kind: "koreader", page: 40 }, color: "blue", chapter: "Bölüm 2" }, NOW, "ob");
+  const r2 = addHighlight(r1.book, { text: "İlk sayfa", anchor: { kind: "koreader", page: 7, pos0: "/body/p[1]" }, color: "yellow", note: "notum" }, NOW, "oa");
+  const hA = r2.book.highlights.find((h) => h.id === "oa")!;
+  const hB = r2.book.highlights.find((h) => h.id === "ob")!;
+  check("koreader yer etiketi sayfa (bölüm adı değil)", locationLabel(hA) === "s. 7" && locationLabel(hB) === "s. 40");
+  check("koreader yer etiketi dile göre", locationLabel(hB, EN_O) === "p. 40");
+  const full = bookNoteTemplate(r2.book);
+  check("koreader blok biçimi aynı", full.includes(`<!-- loomen:hl oa -->\n> İlk sayfa\n\nnotum\n\n🟨 [s. 7](loomen://book/${o0.id}?hl=oa)\n<!-- /loomen:hl oa -->`));
+  check("koreader renk simgesi", full.includes(`🟦 [s. 40](loomen://book/${o0.id}?hl=ob)`));
+  check("koreader şablon sırası sayfaya göre", blockIds(full).join(",") === "oa,ob");
+}
+
 if (fails) {
   console.error(`\n${fails} kontrol başarısız`);
   process.exit(1);

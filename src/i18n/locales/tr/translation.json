@@ -1585,7 +1585,8 @@
       "page": "s. {{n}}",
       "section": "Bölüm {{n}}",
       "location": "Konum {{n}}",
-      "kindle": "Kindle"
+      "kindle": "Kindle",
+      "koreader": "KOReader"
     },
     "pickTitle": "Kitap seç",
     "pickFilter": "Kitaplar (PDF, EPUB)",
@@ -1628,6 +1629,19 @@
       "clash": "“{{name}}” rafta Kindle olmayan bir kitapla çakışıyor; atlandı.",
       "noFile": "Kindle kitabının bu cihazda dosyası yok; notu açılır.",
       "badge": "KINDLE",
+      "openNote": "{{name}} kitabının notunu aç"
+    },
+    "koreader": {
+      "import": "KOReader'dan al",
+      "pickTitle": "KOReader çizim dosyasını seç (metadata.*.lua ya da JSON)",
+      "pickFilter": "KOReader çizimleri (LUA, JSON)",
+      "none": "Bu dosyada KOReader çizimi bulunamadı. Kitabın yanındaki .sdr klasöründeki metadata dosyasını ya da JSON dışa aktarımını seç.",
+      "readError": "KOReader çizim dosyası okunamadı: {{detail}}",
+      "result": "KOReader: {{books}} kitap güncellendi, {{added}} yeni çizim, {{updated}} not işlendi, {{same}} çizim zaten vardı.",
+      "skipped_one": "{{count}} girdi atlandı (yer imi ya da metni olmayan girdi).",
+      "skipped_other": "{{count}} girdi atlandı (yer imi ya da metni olmayan girdi).",
+      "clash": "“{{name}}” rafta KOReader olmayan bir kitapla çakışıyor; atlandı.",
+      "badge": "KOREADER",
       "openNote": "{{name}} kitabının notunu aç"
     },
     "review": {

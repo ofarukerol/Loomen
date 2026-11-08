@@ -106,13 +106,40 @@ kullanıcının notu (varsa)
 - **Not tamamlama:** raftan kaldırılıp yeniden alınan kitapta not zaten varsa yalnız notta olmayan bloklar eklenir; var olan bloğa dokunulmaz.
 - **İzin:** dış disklerde yalnız disk adları listelenir, yalnız `documents/My Clippings.txt` okunur; yazma yok.
 
+## KOReader çizimleri (LOM-94)
+- **Kaynak:** rafta "KOReader'dan al" düğmesi (dolu ve boş rafta) bir dosya seçtirir: kitabın yanındaki
+  `<kitap>.sdr/metadata.<biçim>.lua` ya da KOReader'ın JSON dışa aktarımı (tek kitap ya da kitap
+  listesi). Bağlı cihaz tanıma ve `.sdr` klasörü tarama yok. Mobilde ve masaüstünde aynı yol.
+- **Lua dosyası** kod çalıştırılmadan okunur (`lua.ts`: yalnız tablo sabiti; dize kaçışları, uzun dize,
+  yorumlar). İki düzen tanınır: yeni `annotations` dizisi (metni ve `pos0`'ı olan girdi çizim) ve eski
+  `highlight[sayfa][i]` + `bookmarks` (yer imindeki metin kullanıcının notu; KOReader'ın kendi yazdığı
+  "Sayfa 12 … @ tarih" kalıbı not sayılmaz). Başlık `doc_props`'tan, yoksa kitap yolundan ya da `.sdr`
+  klasör adından. Yer imleri ve metinsiz girdiler atlanır, sonuç mesajında sayılır.
+- **JSON:** `{title, author, entries: [...]}`; girdide text, note, page, time (saniye), chapter, color.
+  TXT, HTML, Markdown dışa aktarmaları desteklenmez ("çizim bulunamadı" mesajı).
+- **Kimlikler (tekrar koruması):** kitap özeti SHA-256("koreader|" + normalleştirilmiş "başlık|yazar"),
+  kimlik ilk 16 hane — aynı başlıklı Kindle kaydıyla çakışmaz, ayrı kart ve ayrı not olur. Çizim kimliği
+  `o` + SHA-256(sadeleştirilmiş alıntı) ilk 10 hane. Sayfa kimliğe girmez (EPUB'da KOReader sayfası yazı
+  boyutuna göre değişir). İkinci alımda yalnız yeni çizim eklenir, KOReader'da yazılan yeni/değişen not
+  var olan bloğa işlenir; değişiklik yoksa kayıt ve not yazılmaz.
+- **Kayıt:** biçim `koreader`, dosya yok (`hasBookFile` false), boyut 0; çıpa `{kind: "koreader", page,
+  pos0?, pos1?}`. Renk eşlemesi: yellow/orange→sarı, green/olive→yeşil, blue/cyan→mavi,
+  red/purple/pink→pembe, diğerleri sarı; renk kimliğe girmez. Eski Loomen sürümleri kaydı "okunamadı"
+  uyarısıyla gizler, üstüne yazmaz.
+- **Not ve raf:** blok biçimi aynı; yer etiketi sayfa ("s. 12"), "Kitabı aç" yerine `*KOReader*` kaynak
+  satırı. Kartta "KOREADER" rozeti, ilerleme ve "Oku" yok; karta dokununca not açılır.
+- **Bilinen sınırlar:** aynı kitapta birebir aynı iki alıntı tek çizim sayılır. KOReader'da silinen çizim
+  Loomen'dan silinmez. Başlık/yazar yazımı değişirse ayrı kitap olur.
+- **Ortak alma döngüsü:** Kindle ve KOReader alımı store'da aynı yardımcıdan geçer (`importExternalBooks`):
+  bozuk kayıt/biçim çakışması kontrolü, boş not yolu, kayıt yazımı, not bloklarının eklenmesi, tek sonuç mesajı.
+
 ## Kod
-- Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`, `kindle`).
+- Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`, `kindle`, `lua`, `koreader`).
   Kindle cihaz tarama ve okuma (Tauri'ye bağlı): `src/core/library/kindleDevice.ts`.
 - Durum ve eylemler: `src/store/useAppStore.ts` (`library*`, `reader*`).
 - Ekranlar: `src/screens/Library/`. Bağlantı: `src/screens/Editor/Markdown.tsx` (okuma),
   `livePreview.ts` (düzenleme).
-- Testler: `libraryTest`, `libraryNoteTest`, `libraryLinkTest`, `kindleTest` (`src/core/__test__/`).
+- Testler: `libraryTest`, `libraryNoteTest`, `libraryLinkTest`, `kindleTest`, `luaTest`, `koreaderTest` (`src/core/__test__/`).
 
 ## Kapsam dışı (ilk sürüm)
 Cihazlar arası kitap dosyası eşitleme; arama, sözlük, sesli okuma; PDF/EPUB dosyasını değiştirme;

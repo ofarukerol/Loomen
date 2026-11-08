@@ -14,7 +14,8 @@ function hue(id: string): number {
 /**
  * Raftaki kitap (LOM-83, K1): kapak, başlık, yazar, ilerleme ve durum. Karta dokununca kitap
  * açılır; durum seçicisi kasadaki kayda yazar. ⋯ menüsünde not ve raftan kaldırma.
- * Kindle kitabının (LOM-84) dosyası yok: karta dokununca kitabın notu açılır, "Oku" ve ilerleme yok.
+ * Kindle (LOM-84) ve KOReader (LOM-94) kitabının dosyası yok: karta dokununca kitabın notu açılır,
+ * "Oku" ve ilerleme yok; rozet ve etiket biçimden (`library.<biçim>.badge` / `.openNote`) gelir.
  */
 export function BookCard({ book, onRemove }: { book: Book; onRemove: (b: Book) => void }) {
   const { t } = useTranslation();
@@ -52,14 +53,14 @@ export function BookCard({ book, onRemove }: { book: Book; onRemove: (b: Book) =
         type="button"
         className="lo-book__cover"
         onClick={onOpen}
-        aria-label={readable ? t("library.open", { name: book.title }) : t("library.kindle.openNote", { name: book.title })}
+        aria-label={readable ? t("library.open", { name: book.title }) : t(`library.${book.format}.openNote`, { name: book.title })}
       >
         {cover ? (
           <img src={cover} alt="" draggable={false} />
         ) : (
           <span className="lo-book__blank" style={{ ["--book-h" as string]: String(hue(book.id)) }}>
             <span className="lo-book__blank-title">{book.title}</span>
-            <span className="lo-book__fmt">{readable ? book.format.toUpperCase() : t("library.kindle.badge")}</span>
+            <span className="lo-book__fmt">{readable ? book.format.toUpperCase() : t(`library.${book.format}.badge`)}</span>
           </span>
         )}
         {pct !== null && book.status === "reading" && (

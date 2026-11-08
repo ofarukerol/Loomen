@@ -6,4 +6,6 @@ export * from "./links";
 export * from "./noteSync";
 export * from "./store";
 export * from "./kindle";
+export * from "./lua";
+export * from "./koreader";
 export * from "./reviewCard";

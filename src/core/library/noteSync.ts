@@ -12,7 +12,8 @@
 //
 // Kindle kitabında (LOM-84) bloklar birebir aynı biçimdedir; yer etiketi sayfa ya da
 // "Konum 180-182" olur. Kindle kitabının dosyası olmadığı için notta "Kitabı aç" bağlantısı
-// yerine düz bir kaynak satırı (*Kindle*) yazılır.
+// yerine düz bir kaynak satırı (*Kindle*) yazılır. KOReader kitabı (LOM-94) da aynı: yer etiketi
+// sayfa, kaynak satırı *KOReader*.
 //
 // İşaretler (HTML yorumu) başka Markdown uygulamalarında görünmez; Loomen okuma modunda da
 // gizler. Kural: yalnız işaretler ARASINA dokunulur. Kullanıcının nota yazdığı başka her şey
@@ -33,6 +34,8 @@ export interface NoteLabels {
   location?: string;
   /** Kindle kitabının notundaki kaynak satırı. Yoksa varsayılan. */
   kindle?: string;
+  /** KOReader kitabının notundaki kaynak satırı (LOM-94). Yoksa varsayılan. */
+  koreader?: string;
 }
 
 export const DEFAULT_NOTE_LABELS: Readonly<Required<NoteLabels>> = Object.freeze({
@@ -42,6 +45,7 @@ export const DEFAULT_NOTE_LABELS: Readonly<Required<NoteLabels>> = Object.freeze
   section: "Bölüm {n}",
   location: "Konum {n}",
   kindle: "Kindle",
+  koreader: "KOReader",
 });
 
 export const COLOR_MARK: Record<HighlightColor, string> = {
@@ -67,10 +71,10 @@ function labelSafe(s: string): string {
   return s.replace(/[[\]\\]/g, (c) => "\\" + c).replace(/\s+/g, " ").trim();
 }
 
-/** Çizimin yer etiketi: PDF'te sayfa, EPUB'da bölüm adı (yoksa sırası), Kindle'da sayfa ya da konum. */
+/** Çizimin yer etiketi: PDF'te sayfa, EPUB'da bölüm adı (yoksa sırası), Kindle'da sayfa ya da konum, KOReader'da sayfa. */
 export function locationLabel(h: Highlight, labels: NoteLabels = DEFAULT_NOTE_LABELS): string {
   const a = h.anchor;
-  if (a.kind === "pdf") return labels.page.replace("{n}", String(a.page));
+  if (a.kind === "pdf" || a.kind === "koreader") return labels.page.replace("{n}", String(a.page));
   if (a.kind === "kindle") {
     if (a.page !== undefined) return labels.page.replace("{n}", String(a.page));
     const l = a.location;
@@ -103,6 +107,7 @@ export function bookNoteTemplate(book: Book, labels: NoteLabels = DEFAULT_NOTE_L
   const lines = ["---", `${NOTE_BOOK_KEY}: ${book.id}`, "---", "", `# ${neutralize(book.title)}`, ""];
   if (book.author) lines.push(`*${neutralize(book.author)}*`, "");
   if (book.format === "kindle") lines.push(`*${neutralize(labels.kindle || DEFAULT_NOTE_LABELS.kindle)}*`);
+  else if (book.format === "koreader") lines.push(`*${neutralize(labels.koreader || DEFAULT_NOTE_LABELS.koreader)}*`);
   else lines.push(`[${labelSafe(labels.openBook)}](${bookLink({ bookId: book.id })})`);
   lines.push("", `## ${labels.quotes}`, "");
   for (const h of book.highlights) lines.push(...highlightBlockLines(book, h, labels), "");

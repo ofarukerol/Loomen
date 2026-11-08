@@ -187,6 +187,9 @@ import {
   hasBookFile,
   kindleBookHash,
   parseClippings,
+  applyKoreaderBook,
+  koreaderBookHash,
+  parseKoreaderFile,
   blockState,
   insertHighlightBlock,
   isShelfFilter,
@@ -790,6 +793,11 @@ interface AppState {
    * "file" her zaman seçtirir. Kitap kaydı + not oluşur; var olan çizim çoğalmaz.
    */
   libraryImportKindle: (source?: "auto" | "file") => Promise<void>;
+  /**
+   * KOReader çizimlerini al (LOM-94): kitabın yanındaki metadata.*.lua ya da JSON dışa aktarımı
+   * seçtirilir. Kitap kaydı + not oluşur; var olan çizim çoğalmaz, yalnız fark işlenir.
+   */
+  libraryImportKoreader: () => Promise<void>;
   /** Kitabı okuyucuda aç; `target` verilirse o çizime/sayfaya gider. */
   libraryOpenReader: (id: string, target?: { highlightId?: string; page?: number }) => void;
   libraryCloseReader: () => void;
@@ -1007,6 +1015,7 @@ function libraryNoteLabels(): NoteLabels {
     section: i18n.t("library.note.section", { n: "{n}" }),
     location: i18n.t("library.note.location", { n: "{n}" }),
     kindle: i18n.t("library.note.kindle"),
+    koreader: i18n.t("library.note.koreader"),
   };
 }
 
@@ -1275,6 +1284,104 @@ export const useAppStore = create<AppState>()(
   async function readPickedFile(path: string): Promise<Uint8Array> {
     const fs = await import("@tauri-apps/plugin-fs");
     return fs.readFile(path);
+  }
+
+  /**
+   * Dış kaynaktan (Kindle LOM-84, KOReader LOM-94) gelen kitapları kayda ve nota işle. Kitap başına:
+   * özet → kimlik, bozuk kayıt ve biçim çakışması kontrolü, yeni kayıtta boş not yolu, `apply`,
+   * kayıt yazımı, not bloklarının eklenmesi/güncellenmesi. Sonuç tek mesajla bildirilir
+   * (`<prefix>.result`, `<prefix>.skipped`, `<prefix>.clash`).
+   */
+  async function importExternalBooks<G extends { title: string }>(
+    groups: G[],
+    skippedAtStart: number,
+    opts: {
+      format: "kindle" | "koreader";
+      prefix: string;
+      fallbackTitle: string;
+      hash: (group: G) => Promise<string>;
+      apply: (
+        existing: Book | null,
+        group: G,
+        now: number,
+        init?: { hash: string; notePath: string },
+      ) => Promise<{ book: Book; created: boolean; added: Highlight[]; updated: { prev: Highlight; next: Highlight }[]; same: number; skipped: number }>;
+    },
+  ): Promise<void> {
+    set({ libraryBusy: true });
+    const src = backend;
+    const problems: string[] = [];
+    let touched = 0;
+    let added = 0;
+    let updated = 0;
+    let same = 0;
+    let skipped = skippedAtStart;
+    let edited = false;
+    try {
+      if (libraryVaultOf !== src) await get().libraryLoad();
+      for (const group of groups) {
+        if (backend !== src) break;
+        const name = group.title || opts.fallbackTitle;
+        try {
+          const hash = await opts.hash(group);
+          const id = bookIdFromHash(hash);
+          if (get().libraryBroken.includes(`${id}.json`)) {
+            problems.push(i18n.t("library.brokenRecord", { name }));
+            continue;
+          }
+          const existing = bookById(id);
+          if (existing && existing.format !== opts.format) {
+            problems.push(i18n.t(`${opts.prefix}.clash`, { name }));
+            continue;
+          }
+          const taken = new Set(get().notes.map((n) => n.path));
+          const init = existing ? undefined : { hash, notePath: freeNotePath(name, (p) => taken.has(p)) };
+          const res = await opts.apply(existing, group, Date.now(), init);
+          added += res.added.length;
+          updated += res.updated.length;
+          same += res.same;
+          skipped += res.skipped;
+          if (res.book === existing) continue; // değişiklik yok: yazım da yok
+          if (!(await bookCommit(res.book))) break;
+          touched++;
+          try {
+            {
+              // Not yoksa şablon bütün çizimleriyle oluşur. Not zaten varsa (ör. raftan kaldırılıp
+              // yeniden alınan kitap) yalnız notta OLMAYAN bloklar eklenir; var olan bloğa —
+              // kullanıcı içine yazmış olabilir — dokunulmaz.
+              const labels = libraryNoteLabels();
+              const order = res.book.highlights.map((h) => h.id);
+              const toInsert = res.created ? res.book.highlights : res.added;
+              await syncBookNote(id, (t, b) => {
+                let out = t;
+                for (const h of toInsert) {
+                  if (blockState(out, h.id) === "missing") out = insertHighlightBlock(out, b, h, order, labels);
+                }
+                if (res.created) return out;
+                for (const u of res.updated) {
+                  const next = updateHighlightBlock(out, b, u.next, order, labels, u.prev);
+                  if (next === out && blockState(out, u.next.id) === "ok") edited = true;
+                  out = next;
+                }
+                return out;
+              });
+            }
+          } catch (e) {
+            await noteSyncFailed(e);
+          }
+        } catch (e) {
+          console.error(`[library] ${opts.fallbackTitle} kitabı alınamadı:`, e);
+          problems.push(i18n.t("library.importError", { name, detail: errText(e) }));
+        }
+      }
+    } finally {
+      set({ libraryBusy: false });
+    }
+    const lines = [i18n.t(`${opts.prefix}.result`, { books: touched, added, updated, same })];
+    if (skipped > 0) lines.push(i18n.t(`${opts.prefix}.skipped`, { count: skipped }));
+    if (edited) lines.push(i18n.t("library.blockEdited"));
+    lines.push(...problems);
+    await notifyError(lines.join("\n"), "info");
   }
 
   async function pickBookFiles(multiple: boolean): Promise<string[]> {
@@ -4528,80 +4635,62 @@ export const useAppStore = create<AppState>()(
         await notifyError(i18n.t("library.kindle.none"), "info");
         return;
       }
-      set({ libraryBusy: true });
-      const src = backend;
-      const problems: string[] = [];
-      let touched = 0;
-      let added = 0;
-      let updated = 0;
-      let same = 0;
-      let skipped = groups.skipped;
-      let edited = false;
-      try {
-        if (libraryVaultOf !== src) await get().libraryLoad();
-        for (const group of groups.books) {
-          if (backend !== src) break;
-          const name = group.title || "Kindle";
-          try {
-            const hash = await kindleBookHash(group.title, group.author);
-            const id = bookIdFromHash(hash);
-            if (get().libraryBroken.includes(`${id}.json`)) {
-              problems.push(i18n.t("library.brokenRecord", { name }));
-              continue;
-            }
-            const existing = bookById(id);
-            if (existing && existing.format !== "kindle") {
-              problems.push(i18n.t("library.kindle.clash", { name }));
-              continue;
-            }
-            const taken = new Set(get().notes.map((n) => n.path));
-            const init = existing ? undefined : { hash, notePath: freeNotePath(name, (p) => taken.has(p)) };
-            const res = await applyKindleBook(existing, group, Date.now(), init);
-            added += res.added.length;
-            updated += res.updated.length;
-            same += res.same;
-            skipped += res.skipped;
-            if (res.book === existing) continue; // değişiklik yok: yazım da yok
-            if (!(await bookCommit(res.book))) break;
-            touched++;
-            try {
-              {
-                // Not yoksa şablon bütün çizimleriyle oluşur. Not zaten varsa (ör. raftan kaldırılıp
-                // yeniden alınan kitap) yalnız notta OLMAYAN bloklar eklenir; var olan bloğa —
-                // kullanıcı içine yazmış olabilir — dokunulmaz.
-                const labels = libraryNoteLabels();
-                const order = res.book.highlights.map((h) => h.id);
-                const toInsert = res.created ? res.book.highlights : res.added;
-                await syncBookNote(id, (t, b) => {
-                  let out = t;
-                  for (const h of toInsert) {
-                    if (blockState(out, h.id) === "missing") out = insertHighlightBlock(out, b, h, order, labels);
-                  }
-                  if (res.created) return out;
-                  for (const u of res.updated) {
-                    const next = updateHighlightBlock(out, b, u.next, order, labels, u.prev);
-                    if (next === out && blockState(out, u.next.id) === "ok") edited = true;
-                    out = next;
-                  }
-                  return out;
-                });
-              }
-            } catch (e) {
-              await noteSyncFailed(e);
-            }
-          } catch (e) {
-            console.error("[library] Kindle kitabı alınamadı:", e);
-            problems.push(i18n.t("library.importError", { name, detail: errText(e) }));
-          }
-        }
-      } finally {
-        set({ libraryBusy: false });
+      await importExternalBooks(groups.books, groups.skipped, {
+        format: "kindle",
+        prefix: "library.kindle",
+        fallbackTitle: "Kindle",
+        hash: (g) => kindleBookHash(g.title, g.author),
+        apply: applyKindleBook,
+      });
+    },
+
+    libraryImportKoreader: async () => {
+      if (get().libraryBusy) return;
+      if (!isTauri()) {
+        await notifyError(i18n.t("library.appOnly"), "info");
+        return;
       }
-      const lines = [i18n.t("library.kindle.result", { books: touched, added, updated, same })];
-      if (skipped > 0) lines.push(i18n.t("library.kindle.skipped", { count: skipped }));
-      if (edited) lines.push(i18n.t("library.blockEdited"));
-      lines.push(...problems);
-      await notifyError(lines.join("\n"), "info");
+      let path: string | null = null;
+      try {
+        const { open } = await import("@tauri-apps/plugin-dialog");
+        const sel = await open({
+          multiple: false,
+          directory: false,
+          title: i18n.t("library.koreader.pickTitle"),
+          filters: [{ name: i18n.t("library.koreader.pickFilter"), extensions: ["lua", "json"] }],
+        });
+        path = typeof sel === "string" ? sel : null;
+      } catch (e) {
+        await notifyError(i18n.t("library.pickError", { detail: errText(e) }));
+        return;
+      }
+      if (!path) return;
+      let text: string;
+      try {
+        text = new TextDecoder("utf-8").decode(await readPickedFile(path));
+      } catch (e) {
+        await notifyError(i18n.t("library.koreader.readError", { detail: errText(e) }));
+        return;
+      }
+      let groups: ReturnType<typeof parseKoreaderFile>;
+      try {
+        groups = parseKoreaderFile(text, path);
+      } catch (e) {
+        console.warn("[library] KOReader dosyası çözülemedi:", path, e);
+        await notifyError(i18n.t("library.koreader.none"), "info");
+        return;
+      }
+      if (groups.books.length === 0) {
+        await notifyError(i18n.t("library.koreader.none"), "info");
+        return;
+      }
+      await importExternalBooks(groups.books, groups.skipped, {
+        format: "koreader",
+        prefix: "library.koreader",
+        fallbackTitle: "KOReader",
+        hash: (g) => koreaderBookHash(g.title, g.author),
+        apply: applyKoreaderBook,
+      });
     },
 
     libraryOpenReader: (id, target) => {

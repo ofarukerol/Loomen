@@ -1585,7 +1585,8 @@
       "page": "p. {{n}}",
       "section": "Section {{n}}",
       "location": "Loc. {{n}}",
-      "kindle": "Kindle"
+      "kindle": "Kindle",
+      "koreader": "KOReader"
     },
     "pickTitle": "Choose a book",
     "pickFilter": "Books (PDF, EPUB)",
@@ -1628,6 +1629,19 @@
       "clash": "“{{name}}” clashes with a non-Kindle book on the shelf; skipped.",
       "noFile": "A Kindle book has no file on this device; its note opens instead.",
       "badge": "KINDLE",
+      "openNote": "Open the note for {{name}}"
+    },
+    "koreader": {
+      "import": "Import from KOReader",
+      "pickTitle": "Choose the KOReader highlights file (metadata.*.lua or JSON)",
+      "pickFilter": "KOReader highlights (LUA, JSON)",
+      "none": "No KOReader highlights were found in this file. Choose the metadata file in the book's .sdr folder or a JSON export.",
+      "readError": "Could not read the KOReader highlights file: {{detail}}",
+      "result": "KOReader: {{books}} books updated, {{added}} new highlights, {{updated}} notes applied, {{same}} highlights already there.",
+      "skipped_one": "{{count}} entry skipped (bookmark or entry without text).",
+      "skipped_other": "{{count}} entries skipped (bookmarks or entries without text).",
+      "clash": "“{{name}}” clashes with a non-KOReader book on the shelf; skipped.",
+      "badge": "KOREADER",
       "openNote": "Open the note for {{name}}"
     },
     "review": {
