@@ -55,6 +55,11 @@ export interface PromptOptions {
   context: BuiltContext;
   /** Asistan not önerebilsin mi? (Öneri yazmaz; kullanıcı onayı şarttır.) */
   canWrite?: boolean;
+  /**
+   * Kütüphane bilgisi (LOM-87): kitap sorusunda raf özeti (`libraryDigest`), değilse tek satırlık
+   * ipucu (`libraryHint`). Boşsa ya da yoksa Kütüphane bölümü yazılmaz.
+   */
+  library?: string | null;
 }
 
 const BASE =
@@ -70,6 +75,12 @@ const NO_CONTEXT =
   "Notlarda bu soruyla ilgili bir bölüm bulunamadı. Bunu kullanıcıya söyle; " +
   "genel bilgiyle cevap verirsen bunun notlardan gelmediğini belirt.";
 
+const LIBRARY_INSTRUCTION =
+  "Kullanıcının bir Kütüphane'si var: okuduğu kitaplar ve kitaplardan altını çizdiği yerler (çizimler). " +
+  "Kitaplarla ilgili sorularda cevabını bağlamdaki \"Çizimler\" bölümlerine dayandır, alıntının hangi " +
+  "kitaptan olduğunu söyle ve numarasını [1] biçiminde belirt. Rafta olmayan bir kitabı, kullanıcının " +
+  "çizmediği bir alıntıyı ya da çizim sayısını uydurma; bağlamda o kitabın çizimi yoksa bunu açıkça söyle.";
+
 /** Sistem istemini kur. */
 export function buildSystemPrompt(opts: PromptOptions): string {
   const lines = [BASE];
@@ -81,6 +92,11 @@ export function buildSystemPrompt(opts: PromptOptions): string {
     lines.push(`--- NOTLARDAN İLGİLİ BÖLÜMLER ---\n${opts.context.text}\n--- BÖLÜMLER SONU ---`);
   } else {
     lines.push(NO_CONTEXT);
+  }
+  const library = opts.library?.trim();
+  if (library) {
+    lines.push(LIBRARY_INSTRUCTION);
+    lines.push(`--- KÜTÜPHANE ---\n${library}\n--- KÜTÜPHANE SONU ---`);
   }
   if (opts.canWrite) lines.push(PROPOSAL_INSTRUCTION);
   return lines.join("\n\n");

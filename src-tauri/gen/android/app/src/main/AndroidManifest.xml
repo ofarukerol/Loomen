@@ -5,6 +5,11 @@
          Bu izin manifest'te yoksa Android'de mikrofon HIC acilamaz. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Kutuphane "Fotograftan al" (LOM-87): <input type=file accept=image/* capture=environment>.
+         wry'nin dosya secicisi bu izin manifest'te varsa calisma aninda izni ister ve kamerayi
+         acar; yoksa yalniz galeri acilir. Kamerasiz cihazlar da kurabilsin diye required=false. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <!-- allowBackup=false: GitHub erisim jetonu ve Google Takvim jetonlari uygulama
          ayarlarinda DUZ METIN duruyor — zustand persist, "loomen.settings" anahtari,

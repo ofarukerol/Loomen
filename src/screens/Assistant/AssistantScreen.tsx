@@ -3,7 +3,7 @@
 // Asistan hiçbir dosyaya kendi yazmaz. Bir şey not edilmesi istendiğinde cevabın altında
 // ÖNERİ kartı çıkar; yalnız kullanıcı "Uygula" derse yazılır (bkz. core/ai/proposal.ts ve
 // NOTE_SAFETY_RULES.md).
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Sparkles,
@@ -163,6 +163,22 @@ export function AssistantScreen() {
   // Çizimler aranmaz — yalnızca markdown notlar.
   const noteCount = useAppStore((s) => s.notes.filter((n) => n.kind === "note").length);
   const setScreen = useAppStore((s) => s.setScreen);
+  // Kütüphane (LOM-87): boş sohbette kitaplarla ilgili hazır soru düğmeleri.
+  const libraryOn = useAppStore((s) => s.features.library);
+  const books = useAppStore((s) => s.books);
+  /** Hazır soruda adı geçecek kitap: çizimi olanlardan okunmakta olan, sonra en son dokunulan. */
+  const recentBook = useMemo(() => {
+    const withHl = books.filter((b) => b.highlights.length > 0);
+    const at = (b: (typeof books)[number]) => Math.max(b.positionSavedAt ?? 0, b.updatedAt);
+    withHl.sort((a, b) => Number(b.status === "reading") - Number(a.status === "reading") || at(b) - at(a));
+    return withHl[0] ?? null;
+  }, [books]);
+
+  const booksLoaded = useAppStore((s) => s.booksLoaded);
+  const libraryLoad = useAppStore((s) => s.libraryLoad);
+  useEffect(() => {
+    if (enabled && libraryOn && !booksLoaded) void libraryLoad().catch((e) => console.error("[ai] kütüphane okunamadı:", e));
+  }, [enabled, libraryOn, booksLoaded, libraryLoad]);
 
   const [text, setText] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -184,7 +200,8 @@ export function AssistantScreen() {
   const submit = (body?: string) => {
     const q = (body ?? text).trim();
     if (!q || busy) return;
-    setText("");
+    // Hazır soru düğmesi (body verilmiş) kutudaki taslağı silmesin.
+    if (body === undefined) setText("");
     void send(q);
   };
 
@@ -275,7 +292,43 @@ export function AssistantScreen() {
 
       <div className="lo-ai__list lo-scroll" ref={listRef}>
         {messages.length === 0 ? (
-          <div className="lo-ai__hint">{t("ai.startHint")}</div>
+          <>
+            <div className="lo-ai__hint">{t("ai.startHint")}</div>
+            {libraryOn && books.length > 0 && (
+              <div className="lo-ai__qchips" role="group" aria-label={t("ai.library.chipsLabel")}>
+                {recentBook && (
+                  <button
+                    type="button"
+                    className="lo-ai__qchip"
+                    disabled={busy}
+                    onClick={() => submit(t("ai.library.chipHighlightsQ", { name: recentBook.title }))}
+                  >
+                    {t("ai.library.chipHighlights", { name: recentBook.title })}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="lo-ai__qchip"
+                  disabled={busy}
+                  onClick={() => {
+                    // Konu kullanıcıdan: kalıp kutuya yazılır, imleç sonda.
+                    setText(t("ai.library.chipTopicQ"));
+                    requestAnimationFrame(() => {
+                      const ta = taRef.current;
+                      if (!ta) return;
+                      ta.focus();
+                      ta.setSelectionRange(ta.value.length, ta.value.length);
+                    });
+                  }}
+                >
+                  {t("ai.library.chipTopic")}
+                </button>
+                <button type="button" className="lo-ai__qchip" disabled={busy} onClick={() => submit(t("ai.library.chipShelfQ"))}>
+                  {t("ai.library.chipShelf")}
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           messages.map((m) => <Bubble key={m.id} m={m} />)
         )}

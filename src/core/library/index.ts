@@ -13,3 +13,4 @@ export * from "./share";
 export * from "./reviewCard";
 export * from "./sqlite";
 export * from "./kobo";
+export * from "./photo";

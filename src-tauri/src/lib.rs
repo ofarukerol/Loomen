@@ -257,6 +257,7 @@ pub fn run() {
         ai::llm::ai_chat_cancel,
         ai::llm::ai_provider_test,
         ai::stt::ai_transcribe,
+        ai::ocr::ai_ocr_image,
         updater::app_update_supported,
         updater::update_check,
         updater::update_install,
@@ -300,6 +301,7 @@ pub fn run() {
         ai::llm::ai_chat_cancel,
         ai::llm::ai_provider_test,
         ai::stt::ai_transcribe,
+        ai::ocr::ai_ocr_image,
         updater::app_update_supported,
         surum::surum_kontrol,
     ]);

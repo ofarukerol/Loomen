@@ -197,14 +197,50 @@ kullanıcının notu (varsa)
   doğrulanmadı; tanınmazsa seçim penceresi açılır. Android'de Paylaş listesinde görünme yalnız gerçek cihazda
   denenebilir.
 
+## Fotoğraftan alıntı (LOM-87)
+- **Akış:** rafta "Fotoğraftan al" (dolu rafta baş eylemlerde, boş rafta da) → `PhotoQuoteDialog`. Telefonda "Fotoğraf
+  çek" (gizli dosya girdisi, `capture=environment`) ve "Galeriden seç"; masaüstünde dosya penceresi. Görsel
+  `photoCapture.ts` ile en uzun kenarı 1600 piksel JPEG'e küçültülür, Rust'a (`ai/ocr.rs`, `core/ai/ocr.ts`) verilir;
+  istek ve anahtar Rust'tan çıkar. Fotoğraf hiçbir yere kaydedilmez; pencere fotoğrafın etkin sağlayıcıya gideceğini yazar.
+- **Hata yolu sessiz değil:** Asistan kapalıysa / sağlayıcı yoksa pencere bunu söyler ve Ayarlar'a götürür; yazı
+  bulunamazsa "okunabilir yazı yok", diğer sağlayıcı hataları sade mesajla pencerede görünür (konsola da yazılır).
+- **Düzenleme:** okunan metin (`cleanOcrText`, en çok 20.000 karakter) düzenlenebilir kutuda. Kutuda bir kısım
+  seçiliyse yalnız o, değilse tamamı eklenir. Sayfa isteğe bağlı. Kitap raftan seçilir (okunanlar önce) ya da
+  "Yeni basılı kitap" ile başlık/yazar yazılır.
+- **Kayıt:** çıpa `{kind: "photo", page?}`, kimlik `p` + SHA-256(alıntı anahtarı) ilk 10 hane. Raftaki kitapla
+  eşleşmeyen basılı kitap dosyasız `paper` kayıttır (özet "paper|başlık|yazar"; aynı ad+yazar aynı kayda gider).
+  Not bloğunda yer etiketi "Fotoğraf" (sayfa varsa "Fotoğraf · s. 12"); `paper` notunda kaynak satırı "Basılı kitap",
+  rafta "BASILI" rozeti, dokununca not açılır.
+- **Tekrar koruması:** Paylaş'taki alıntı anahtarıyla kitabın BÜTÜN çizimleri karşılaştırılır; varsa yazılmaz, pencere
+  açık kalır ve "zaten var" der (eksik not bloğu tamamlanır). Eklenince pencere kapanır, kitabın notu açılır.
+- **Sıra:** Paylaş zinciriyle aynı sırada işlenir; süren içe aktarma bitmeden yazılmaz.
+
+## Okuma istatistikleri (LOM-87)
+- Okuyucu bugün ilk kez görülen sayfa birimini (`settleNewUnit`) ve aktif okuma süresini bildirir. Süre: dokunma,
+  tekerlek, tuş ve kaydırma olayları; 90 sn hareketsizlikten sonrası sayılmaz. Bekleyen saniyeler 30 sn birikince ya da
+  okuyucu kapanınca yazılır.
+- Kayıt `readingStats` (gün → kitap → [sayfa, saniye]) ayarlar kaydında, **cihaza özel**; kasaya yazılmaz ve
+  eşitlenmez. 400 günden eskisi budanır. Biten kitap sayısı kasadaki kayıtlardan (durum "Bitti") gelir.
+- Gösterim: Raporlar > Okuma (bugün sayfa, son 7 gün sayfa ve süre, toplam süre, biten kitap, son 7 gün çubukları;
+  kayıt yoksa boş durum metni) ve rafın üstünde "Son 7 gün N sayfa · süre" şeridi. Kütüphane kapalıysa sayılmaz ve
+  çizilmez. Alışkanlıktaki okuma turu aynı sayfa sayımını kullanır (alışkanlık kapalıyken de istatistik sayılır).
+
+## Asistan ve kitaplar (LOM-87)
+- Soruda raftaki bir kitabın adı ya da yazarı geçiyorsa (`matchBooksInQuestion`) o kitabın çizimleri not parçalarıyla
+  aynı biçimde kaynak olur; kaynak bağlantısı kitabın notunu açar. Hariç tutulan klasördeki notun kitabı kullanılmaz.
+- Soru kitapla ilgiliyse raf özeti (ad, yazar, durum, sayfa, çizim sayısı; ~40 kitap / ~1500 karakter) sistem metnine
+  girer; değilse tek satırlık ipucu. Not bloklarındaki gizli işaret satırları parçalara girmez.
+- Boş sohbette hızlı sorular: son okunan kitabın çizimlerini özetle, bir konuda çizimlerim (kutuya yazar), rafımda ne var.
+
 ## Kod
-- Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`, `kindle`, `lua`, `koreader`, `sqlite`, `kobo`, `share`).
+- Saf çekirdek: `src/core/library/` (`types`, `codec`, `model`, `links`, `noteSync`, `store`, `kindle`, `lua`, `koreader`, `sqlite`, `kobo`, `share`, `photo`, `stats`).
   Kindle/Kobo cihaz tarama ve okuma (Tauri'ye bağlı): `src/core/library/kindleDevice.ts`, `koboDevice.ts`.
   Paylaş alımı: `src/hooks/useShareIntake.ts`, `src/screens/Library/SharePickDialog.tsx`.
+  Fotoğraf: `src/screens/Library/PhotoQuoteDialog.tsx`, `photoCapture.ts`, `src/core/ai/ocr.ts`. Asistan kitap bağlamı: `src/core/ai/library.ts`.
 - Durum ve eylemler: `src/store/useAppStore.ts` (`library*`, `reader*`).
 - Ekranlar: `src/screens/Library/`. Bağlantı: `src/screens/Editor/Markdown.tsx` (okuma),
   `livePreview.ts` (düzenleme).
-- Testler: `libraryTest`, `libraryNoteTest`, `libraryLinkTest`, `kindleTest`, `luaTest`, `koreaderTest`, `sqliteTest`, `koboTest`, `shareTest` (`src/core/__test__/`; Kobo örnek veritabanı `fixtures/kobo-sample.sqlite`, kaynağı `scripts/fixtures/kobo-sample.sql`).
+- Testler: `libraryTest`, `libraryNoteTest`, `libraryLinkTest`, `kindleTest`, `luaTest`, `koreaderTest`, `sqliteTest`, `koboTest`, `shareTest`, `photoQuoteTest`, `aiLibraryTest`, `readingStatsTest` (`src/core/__test__/`; Kobo örnek veritabanı `fixtures/kobo-sample.sqlite`, kaynağı `scripts/fixtures/kobo-sample.sql`).
 
 ## Kapsam dışı (ilk sürüm)
 Cihazlar arası kitap dosyası eşitleme; arama, sözlük, sesli okuma; PDF/EPUB dosyasını değiştirme;

@@ -27,6 +27,12 @@
 // ve kitabın HER biçiminde bulunabilir (PDF kitabına da paylaşılan alıntı eklenebilir); yeri yoktur,
 // okuyucu oraya atlamaz. Raftaki kitapla eşleşmeyen başlık için dosyasız `shared` biçimli kayıt
 // açılabilir; özeti "shared|başlık|yazar" metninden türer.
+//
+// Fotoğraftan alıntı (LOM-87): basılı kitap sayfasının fotoğrafındaki yazı yapay zekâ sağlayıcısıyla
+// metne çevrilir, seçilen kısım çizim olur. Çıpası `photo` türündedir (isteğe bağlı sayfa) ve
+// kitabın HER biçiminde bulunabilir; yeri yoktur, okuyucu oraya atlamaz. Raftaki kitapla
+// eşleşmeyen basılı kitap için dosyasız `paper` biçimli kayıt açılır; özeti "paper|başlık|yazar"
+// metninden türer.
 
 /** Kasadaki klasör adı. Diskte macOS NFD biçiminde de durabilir; karşılaştırma NFC ile yapılır. */
 export const LIBRARY_DIR = "Kütüphane";
@@ -48,7 +54,7 @@ export const BOOK_FILE_VERSION = 1;
 /** Bu boyutun üstünde içe aktarmadan önce uyarı (mobilde bellek). */
 export const LARGE_BOOK_BYTES = 200 * 1024 * 1024;
 
-export const BOOK_FORMATS = ["pdf", "epub", "kindle", "koreader", "kobo", "shared"] as const;
+export const BOOK_FORMATS = ["pdf", "epub", "kindle", "koreader", "kobo", "shared", "paper"] as const;
 export type BookFormat = (typeof BOOK_FORMATS)[number];
 /** Uygulama klasöründe dosyası olan (okuyucuda açılan) biçimler. */
 export const FILE_BOOK_FORMATS = ["pdf", "epub"] as const;
@@ -141,7 +147,16 @@ export interface SharedAnchor {
   page?: number;
 }
 
-export type Anchor = PdfAnchor | EpubAnchor | KindleAnchor | KoreaderAnchor | KoboAnchor | SharedAnchor;
+/**
+ * Fotoğraftan alınan alıntının çıpası (LOM-87): basılı sayfanın fotoğrafı. Kitapta yeri bilinmez;
+ * `page` kullanıcı sayfa yazdıysa (yalnız gösterim). Kitabın biçiminden bağımsızdır.
+ */
+export interface PhotoAnchor {
+  kind: "photo";
+  page?: number;
+}
+
+export type Anchor = PdfAnchor | EpubAnchor | KindleAnchor | KoreaderAnchor | KoboAnchor | SharedAnchor | PhotoAnchor;
 
 /** Kalınan yer. PDF: sayfa + sayfa içi dikey oran (0..1). EPUB: bölüm + bölüm metnindeki karakter ofseti. */
 export type BookPosition =

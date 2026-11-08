@@ -108,6 +108,7 @@ export function ReaderScreen() {
   const inkSnapshot = useAppStore((s) => s.libraryInkSnapshot);
   const trackReading = useAppStore((s) => s.habitTrackReading);
   const flushReading = useAppStore((s) => s.habitFlushReading);
+  const readActivity = useAppStore((s) => s.libraryReadActivity);
   const setMeta = useAppStore((s) => s.librarySetMeta);
   const openNote = useAppStore((s) => s.libraryOpenNote);
   const toReview = useAppStore((s) => s.libraryHighlightToReview);
@@ -168,7 +169,7 @@ export function ReaderScreen() {
       if (document.visibilityState !== "hidden") return;
       void flushPosition();
       void inkFlush(); // kalem çizgileri (LOM-97)
-      flushReading(); // okuma alışkanlığı: ekranda bekleyen sayfa (LOM-93)
+      flushReading(); // okuma alışkanlığı: ekranda bekleyen sayfa (LOM-93) + okuma süresi (LOM-87)
     };
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("pagehide", onVis);
@@ -212,6 +213,7 @@ export function ReaderScreen() {
       page: t("library.note.page", { n: "{n}" }),
       section: t("library.note.section", { n: "{n}" }),
       shared: t("library.note.shared"),
+      photo: t("library.note.photo"),
     }),
     [t]
   );
@@ -262,6 +264,16 @@ export function ReaderScreen() {
     },
     [savePosition, trackReading]
   );
+
+  // Okuma süresi (LOM-87): dokunma, kaydırma ve tuş da etkinliktir (sayfa çevirmeden okunan uzun
+  // sayfa sayılsın). Saniyede en çok bir kez bildirilir; ekran açık bırakılırsa süre durur.
+  const lastActRef = useRef(0);
+  const onActivity = () => {
+    const now = Date.now();
+    if (!bookId || now - lastActRef.current < 1000) return;
+    lastActRef.current = now;
+    readActivity(bookId);
+  };
 
   if (!book || !bookId) {
     return (
@@ -475,7 +487,13 @@ export function ReaderScreen() {
   }
 
   return (
-    <div className={"lo-reader is-theme-" + prefs.theme}>
+    <div
+      className={"lo-reader is-theme-" + prefs.theme}
+      onPointerDownCapture={onActivity}
+      onWheelCapture={onActivity}
+      onKeyDownCapture={onActivity}
+      onTouchMoveCapture={onActivity}
+    >
       <ReaderToolbar
         book={book}
         fontScale={prefs.fontScale}

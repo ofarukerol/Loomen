@@ -48,7 +48,7 @@ export function bookFileName(b: Pick<Book, "hash" | "format">): string {
 
 /**
  * Kitabın uygulama klasöründe dosyası var mı (okuyucuda açılır mı)? Kindle (LOM-84), KOReader (LOM-94),
- * Kobo (LOM-95) ve paylaşılan alıntı kaydında (LOM-96) yok.
+ * Kobo (LOM-95), paylaşılan alıntı kaydında (LOM-96) ve basılı kitap kaydında (LOM-87) yok.
  */
 export function hasBookFile(b: Pick<Book, "format">): boolean {
   return (FILE_BOOK_FORMATS as readonly string[]).includes(b.format);
@@ -275,15 +275,16 @@ export function applyMeta(b: Book, meta: MetaPatch, now: number): Book {
 
 // ─── Çizimler ─────────────────────────────────────────────────────────────────────
 
-const KIND_RANK: Record<Anchor["kind"], number> = { pdf: 0, epub: 1, kindle: 2, koreader: 3, kobo: 4, shared: 5 };
+const KIND_RANK: Record<Anchor["kind"], number> = { pdf: 0, epub: 1, kindle: 2, koreader: 3, kobo: 4, shared: 5, photo: 6 };
 
 /**
  * Kitap içindeki sıra: PDF'te sayfa → üst kenar → sol kenar; EPUB'da bölüm → başlangıç;
  * Kindle'da konum başı → sayfa → konum sonu (konumu olmayan, yalnız sayfalı çizim sona);
  * KOReader'da sayfa (aynı sayfada `sortHighlights` oluşma anıyla ayırır); Kobo'da bölüm sırası
  * (bilinmeyen sona) → bölüm içi ilerleme. Paylaşılan alıntıların (LOM-96) yeri yoktur: kendi
- * aralarında eşittir, `sortHighlights` geliş anıyla sıralar.
- * Farklı türler sabit sırada: pdf < epub < kindle < koreader < kobo < shared (paylaşılanlar sonda).
+ * aralarında eşittir, `sortHighlights` geliş anıyla sıralar. Fotoğraftan alıntılar (LOM-87) sayfaya
+ * göre (sayfası olmayan sona), eşitse geliş anıyla.
+ * Farklı türler sabit sırada: pdf < epub < kindle < koreader < kobo < shared < photo.
  */
 export function compareAnchor(a: Anchor, b: Anchor): number {
   if (a.kind === "pdf" && b.kind === "pdf") {
@@ -320,6 +321,12 @@ export function compareAnchor(a: Anchor, b: Anchor): number {
     return a.progress - b.progress;
   }
   if (a.kind === "shared" && b.kind === "shared") return 0;
+  if (a.kind === "photo" && b.kind === "photo") {
+    const big = Number.MAX_SAFE_INTEGER;
+    const ap = a.page ?? big;
+    const bp = b.page ?? big;
+    return ap === bp ? 0 : ap < bp ? -1 : 1;
+  }
   return KIND_RANK[a.kind] - KIND_RANK[b.kind];
 }
 
@@ -356,12 +363,14 @@ export interface NewHighlightInput {
 
 /**
  * Çizim ekle; kitap sırası korunur. Boş metin ya da biçime uymayan çıpa hata atar. Paylaşılan
- * alıntı çıpası (`shared`, LOM-96) her biçimdeki kitaba eklenebilir.
+ * alıntı (`shared`, LOM-96) ve fotoğraftan alıntı (`photo`, LOM-87) çıpaları her biçimdeki kitaba
+ * eklenebilir.
  */
 export function addHighlight(b: Book, input: NewHighlightInput, now: number, id: string): { book: Book; highlight: Highlight } {
   const text = cleanQuote(input.text);
   if (!text) throw new Error("Boş seçim çizilmez");
-  if (input.anchor.kind !== "shared" && input.anchor.kind !== b.format) throw new Error("Çizim yeri kitabın biçimine uymuyor");
+  const free = input.anchor.kind === "shared" || input.anchor.kind === "photo";
+  if (!free && input.anchor.kind !== b.format) throw new Error("Çizim yeri kitabın biçimine uymuyor");
   if (!HIGHLIGHT_ID_RE.test(id) || b.highlights.some((h) => h.id === id)) throw new Error("Geçersiz çizim kimliği");
   const h: Highlight = {
     id,
@@ -419,11 +428,11 @@ export function koboLocation(a: { progress: number; chapter?: number }): number 
 }
 
 /**
- * Çizimin gidilecek yeri (bağlantı ve listeden atlama için). Paylaşılan alıntının (LOM-96) kitapta
- * yeri yoktur: null döner, çağıran atlamaz.
+ * Çizimin gidilecek yeri (bağlantı ve listeden atlama için). Paylaşılan alıntının (LOM-96) ve
+ * fotoğraftan alıntının (LOM-87) kitapta yeri yoktur: null döner, çağıran atlamaz.
  */
 export function positionOfAnchor(a: Anchor): BookPosition | null {
-  if (a.kind === "shared") return null;
+  if (a.kind === "shared" || a.kind === "photo") return null;
   if (a.kind === "pdf") return { kind: "pdf", page: a.page, offset: a.rects.length ? Math.min(...a.rects.map((r) => r.y)) : 0 };
   if (a.kind === "kindle") return { kind: "kindle", location: a.location?.start ?? a.page ?? 0 };
   if (a.kind === "koreader") return { kind: "koreader", location: a.page };

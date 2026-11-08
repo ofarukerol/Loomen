@@ -5381,3 +5381,44 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
   .lo-reader-bar__pen.is-on { padding: 0; }
   .lo-reader-bar__pen.is-on .lo-lib-iconbtn { width: 30px; }
 }
+
+/* ══════════════ Fotoğraftan alıntı, okuma özeti, Asistan kitap soruları (LOM-87) ══════════════ */
+.lo-photo { width: 480px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.lo-photo__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.lo-photo__actions .lo-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; }
+.lo-photo__reading { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 13.5px; color: var(--fg2); }
+.lo-photo__reading > svg { color: var(--accent); flex-shrink: 0; }
+.lo-photo__form { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+.lo-photo__text { min-height: 150px; resize: vertical; line-height: 1.55; font-family: inherit; }
+.lo-photo__hint { font-size: 12px; line-height: 1.5; color: var(--fg3); }
+.lo-photo__row { display: flex; gap: 10px; flex-wrap: wrap; }
+.lo-photo__grow { flex: 1 1 160px; }
+.lo-photo__error, .lo-photo__info { margin: 14px 0 0; font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.lo-photo__error { color: var(--danger); }
+.lo-photo__info { color: var(--fg2); }
+.lo-photo .lo-hab-confirm__actions .lo-btn { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Rafın üstünde son 7 günün okuma özeti */
+.lo-lib-stats {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+  font-size: 12.5px; color: var(--fg2);
+}
+.lo-lib-stats > svg { color: var(--accent); flex-shrink: 0; }
+
+/* Raporlar — Okuma: 5 kart (mobilde 2 sütun) */
+.lo-reports__stats--reading { grid-template-columns: repeat(5, 1fr); }
+.lo-app.is-mobile .lo-reports__stats--reading { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 720px) {
+  .lo-reports__stats--reading { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Asistan boş sohbette kitap soruları (Ayarlar'daki .lo-ai__chips rozetlerinden ayrı) */
+.lo-ai__qchips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px auto 0; max-width: 520px; }
+.lo-ai__qchip {
+  padding: 7px 12px; min-height: 34px;
+  font: inherit; font-size: 13px; line-height: 1.35; color: var(--fg2); text-align: start;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.lo-ai__qchip:hover:not(:disabled), .lo-ai__qchip:focus-visible { border-color: var(--accent); color: var(--fg1); }
+.lo-ai__qchip:disabled { opacity: 0.55; cursor: default; }

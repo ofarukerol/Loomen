@@ -83,7 +83,9 @@ import { secretSet, secretGet, secretDelete, encodeGoogle, decodeGoogle, type Se
 import { gcalEventTasks, gcalEventIdOf, isGcalTaskFile, patchDescriptionItem } from "../core/gcalItems";
 import { chatStream, cancelChat, testProvider, aiKeys } from "../core/ai/llm";
 import { newProviderId, DEFAULT_MODEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
-import { retrieve, resetIndex } from "../core/ai/retrieve";
+import { retrieve, resetIndex, isExcluded } from "../core/ai/retrieve";
+import { libraryPromptContext } from "../core/ai/library";
+import { ocrImage, OcrEmptyError } from "../core/ai/ocr";
 import { buildContext, buildSystemPrompt } from "../core/ai/context";
 import { transcribe } from "../core/ai/stt";
 import { splitProposals, appendText, uniquePath, type ProposalState } from "../core/ai/proposal";
@@ -162,7 +164,7 @@ import {
   applyReading as habitApplyReading,
   dwellFinish as readingDwellFinish,
   dwellStep as readingDwellStep,
-  logAdd as readingLogAdd,
+  settleNewUnit as readingSettleNewUnit,
   normalizeReadingLog,
   pageUnit as readingPageUnit,
   type Dwell as ReadingDwell,
@@ -234,6 +236,9 @@ import {
   parseShareUrl,
   sharedBookHash,
   findSharedDuplicate,
+  applyPhotoQuote,
+  cleanOcrText,
+  paperBookHash,
   type Book,
   type BookFileStore,
   type BookPosition,
@@ -250,6 +255,15 @@ import {
   type ShelfFilter,
 } from "../core/library";
 import { findKindleClippings, readClippingsText } from "../core/library/kindleDevice";
+import {
+  clockFinish as readClockFinish,
+  clockStep as readClockStep,
+  normalizeStats as normalizeReadingStats,
+  pruneStats as pruneReadingStats,
+  statsAdd as readingStatsAdd,
+  type ReadClock,
+  type ReadingStats,
+} from "../core/library/stats";
 import { findKoboDatabase, readKoboDatabase } from "../core/library/koboDevice";
 import type { BookMeta, ReaderTarget } from "../screens/Library/readerTypes";
 
@@ -548,6 +562,11 @@ interface AppState {
   readerPrefs: ReaderPrefs;
   /** Okuma alışkanlığı (LOM-93): bugün bu cihazda okundu sayılan sayfalar. Cihaza özel, kasaya yazılmaz. */
   readingLog: ReadingLog;
+  /**
+   * Okuma istatistiği (LOM-87): gün → kitap → [sayfa, aktif saniye]. Cihaza özel, kasaya yazılmaz;
+   * gece yarısı sıfırlanmaz, 400 günden eskisi budanır.
+   */
+  readingStats: ReadingStats;
 
   // Pomodoro
   pomo: PomodoroSettings;
@@ -807,8 +826,10 @@ interface AppState {
    * hedefi olan süren turlara eklenir. Alışkanlık özelliği kapalıysa ya da turlar yüklenmediyse bir şey yapmaz.
    */
   habitTrackReading: (bookId: string, pos: BookPosition, progress: number, textBytes?: number) => void;
-  /** Okuyucu kapanınca/gizlenince bekleyen sayfayı oturt. */
+  /** Okuyucu kapanınca/gizlenince bekleyen sayfayı oturt ve okuma süresini istatistiğe yaz. */
   habitFlushReading: () => void;
+  /** Okuyucuda etkinlik (dokunma, kaydırma, tuş; LOM-87): aktif okuma süresi sayılır. */
+  libraryReadActivity: (bookId: string) => void;
   toggleHabitToday: () => void;
 
   // Kütüphane aksiyonları (LOM-83).
@@ -893,6 +914,21 @@ interface AppState {
   libraryResolveShare: (choice: { bookId: string } | { create: true } | null) => Promise<void>;
   /** Kitabın notunu aç (yoksa oluşturur). */
   libraryOpenNote: (id: string) => Promise<void>;
+  /**
+   * Fotoğraftaki yazıyı etkin yapay zekâ sağlayıcısıyla oku (LOM-87); temizlenmiş metni döndürür.
+   * Asistan kapalıysa, sağlayıcı yoksa ya da okuma düşerse anlaşılır iletiyle hata atar.
+   */
+  libraryOcrPhoto: (image: Uint8Array, mime: string) => Promise<string>;
+  /**
+   * Fotoğraftan seçilen alıntıyı kitaba ekle (LOM-87): raftaki kitap ya da başlıktan yeni basılı
+   * kitap kaydı. Eklenince kitabın notu açılır. Aynı alıntı kitapta varsa "duplicate"; hata
+   * iletisi `message`ta döner (pencere gösterir).
+   */
+  libraryAddPhotoQuote: (
+    target: { bookId: string } | { title: string; author?: string },
+    quote: string,
+    page?: number,
+  ) => Promise<{ status: "added" | "duplicate" | "error"; message?: string }>;
   readerSetPrefs: (patch: Partial<ReaderPrefs>) => void;
 }
 
@@ -1105,6 +1141,8 @@ function libraryNoteLabels(): NoteLabels {
     progress: i18n.t("library.note.progress", { n: "{n}" }),
     ink: i18n.t("library.note.ink"),
     shared: i18n.t("library.note.shared"),
+    photo: i18n.t("library.note.photo"),
+    paper: i18n.t("library.note.paper"),
   };
 }
 
@@ -1713,17 +1751,68 @@ export const useAppStore = create<AppState>()(
   /** Okuyucuda ekranda bekleyen sayfa (LOM-93); kalıcı değil. */
   let readingDwell: ReadingDwell | null = null;
 
-  /** Oturan sayfayı kütüğe yaz; bugün ilk kez görüldüyse hedefli turlara ekle. */
+  /** Okuyucuda süren aktif okuma saati (LOM-87); kalıcı değil. */
+  let readClock: ReadClock | null = null;
+  /** Henüz istatistiğe yazılmamış okuma saniyeleri (her etkinlikte ayar kaydı yazılmasın). */
+  let pendingReadSecs: { bookId: string; seconds: number } | null = null;
+  /** Bekleyen saniyeler bu kadarı aşınca istatistiğe yazılır. */
+  const READ_SECS_COMMIT = 30;
+
+  /** İstatistiğe bugün için sayfa/süre ekle; eski günler budanır. */
+  function statsCredit(bookId: string, add: { pages?: number; seconds?: number }): void {
+    const today = habitToday();
+    const cur = get().readingStats;
+    const next = pruneReadingStats(readingStatsAdd(cur, today, bookId, add), today);
+    if (next !== cur) set({ readingStats: next });
+  }
+
+  function commitReadSecs(): void {
+    const p = pendingReadSecs;
+    pendingReadSecs = null;
+    if (p && p.seconds > 0) statsCredit(p.bookId, { seconds: p.seconds });
+  }
+
+  function addReadSecs(credit: { bookId: string; seconds: number } | null): void {
+    if (!credit || credit.seconds <= 0) return;
+    if (pendingReadSecs && pendingReadSecs.bookId !== credit.bookId) commitReadSecs();
+    pendingReadSecs = { bookId: credit.bookId, seconds: (pendingReadSecs?.seconds ?? 0) + credit.seconds };
+    if (pendingReadSecs.seconds >= READ_SECS_COMMIT) commitReadSecs();
+  }
+
+  function readActivity(bookId: string): void {
+    const { next, credit } = readClockStep(readClock, bookId, Date.now());
+    readClock = next;
+    addReadSecs(credit);
+  }
+
+  /**
+   * Oturan sayfayı kütüğe yaz; bugün ilk kez görüldüyse okuma istatistiğine (LOM-87) bir sayfa
+   * ekle ve hedefli alışkanlık turlarına işle. İstatistik alışkanlıktan bağımsızdır; aynı sayfa
+   * ikisinde de en çok bir kez sayılır (karar ortak kütükten).
+   */
   function settleReading(u: ReadingSettled | null): void {
     if (!u) return;
     const s = get();
-    if (!s.features.habits || !s.habitsLoaded) return;
+    if (!s.features.library) return;
     const today = habitToday();
-    const { log, added } = readingLogAdd(s.readingLog, today, u.bookId, u.unit);
+    const { log, fresh } = readingSettleNewUnit(s.readingLog, today, u);
     if (log !== s.readingLog) set({ readingLog: log });
-    if (!added) return;
-    const changed = habitApplyReading(get().habits, u.bookId, 1, today);
-    if (changed.length) void habitCommit(changed);
+    if (!fresh) return;
+    statsCredit(fresh.bookId, { pages: 1 });
+    if (!s.features.habits) return;
+    const apply = () => {
+      const changed = habitApplyReading(get().habits, fresh.bookId, 1, today);
+      if (changed.length) void habitCommit(changed);
+    };
+    if (get().habitsLoaded) apply();
+    else
+      // Turlar henüz okunmadı: sayfa kütükte "görüldü" oldu, alışkanlığa yükleme bitince işlenir.
+      void get()
+        .habitLoad()
+        .then(() => {
+          if (get().habitsLoaded && get().features.habits) apply();
+        })
+        .catch(() => {});
   }
 
   /**
@@ -2351,6 +2440,7 @@ export const useAppStore = create<AppState>()(
     readerReturn: "library",
     readerPrefs: normalizeReaderPrefs(undefined),
     readingLog: normalizeReadingLog(undefined, habitDayKey(new Date())),
+    readingStats: normalizeReadingStats(undefined),
 
     pomo: { focusMin: FOCUS_MIN, shortBreak: 5, longBreak: 15, rounds: 4 },
     pomoSound: true,
@@ -4133,18 +4223,31 @@ export const useAppStore = create<AppState>()(
     aiSend: async (text) => {
       const body = text.trim();
       if (!body) return;
-      const s = get();
-      if (s.aiBusy) return;
-      const provider = s.aiProviders.find((p) => p.id === s.aiActiveProviderId);
+      const s0 = get();
+      if (s0.aiBusy) return;
+      const provider = s0.aiProviders.find((p) => p.id === s0.aiActiveProviderId);
       if (!provider) {
         set({
           aiMessages: [
-            ...s.aiMessages,
+            ...s0.aiMessages,
             { id: `err-${Date.now()}`, role: "assistant", content: "", error: "Önce ayarlardan bir sağlayıcı ekleyin." },
           ],
         });
         return;
       }
+      // Kütüphane (LOM-87): raf henüz okunmadıysa önce okunur (kitap soruları boş raf görmesin).
+      if (s0.features.library && (!s0.booksLoaded || libraryVaultOf !== backend)) {
+        set({ aiBusy: true });
+        try {
+          await get().libraryLoad();
+        } catch (e) {
+          console.error("[ai] kütüphane okunamadı:", e);
+          void notifyError(i18n.t("ai.library.loadError", { detail: errText(e) }), "info");
+        } finally {
+          set({ aiBusy: false });
+        }
+      }
+      const s = get();
 
       // Bağlam: kasadaki notlarda arama (RAG). Yalnızca okuma yapılır, diske dokunulmaz.
       // Editördeki kaydedilmemiş taslak da hesaba katılır ki kullanıcının EKRANDA GÖRDÜĞÜ
@@ -4152,9 +4255,24 @@ export const useAppStore = create<AppState>()(
       const contents: Record<string, string> = { ...s.noteContents };
       if (s.draftPath && s.draftPath === s.activeNote) contents[s.draftPath] = s.draft;
 
-      const hits = retrieve(contents, body, { k: 6, excluded: s.aiExcluded });
+      const noteHits = retrieve(contents, body, { k: 6, excluded: s.aiExcluded });
+      // Kütüphane (LOM-87): soruda geçen kitabın çizimleri not parçalarının önüne konur (kaynak =
+      // kitabın notu); soru kitapla ilgiliyse raf özeti sistem metnine girer. Notu hariç tutulan
+      // klasördeki kitap asistana verilmez.
+      const shelf = s.features.library ? s.books.filter((b) => !isExcluded(b.notePath, s.aiExcluded)) : [];
+      const lib = libraryPromptContext(shelf, body, {
+        labels: libraryNoteLabels(),
+        heading: i18n.t("ai.library.heading"),
+      });
+      // Kitap notunun kendi parçaları da kalır: kullanıcının nota yazdığı düşünceler orada.
+      const hits = [...lib.hits, ...noteHits];
       const context = buildContext(hits);
-      const system = buildSystemPrompt({ activeNote: s.activeNote, context, canWrite: s.aiCanWrite });
+      const system = buildSystemPrompt({
+        activeNote: s.activeNote,
+        context,
+        canWrite: s.aiCanWrite,
+        library: lib.library || null,
+      });
 
       const stamp = Date.now();
       const userMsg: AiMessage = { id: `u-${stamp}`, role: "user", content: body };
@@ -4602,10 +4720,11 @@ export const useAppStore = create<AppState>()(
 
     habitTrackReading: (bookId, pos, progress, textBytes) => {
       const s = get();
-      if (!s.features.habits || !s.habitsLoaded) {
+      if (!s.features.library) {
         readingDwell = null;
         return;
       }
+      readActivity(bookId);
       const unit = readingPageUnit(pos, progress, textBytes);
       const { next, settled } = readingDwellStep(readingDwell, bookId, unit, Date.now());
       readingDwell = next;
@@ -4613,9 +4732,17 @@ export const useAppStore = create<AppState>()(
     },
 
     habitFlushReading: () => {
-      const settled = readingDwellFinish(readingDwell, Date.now());
+      const now = Date.now();
+      const settled = readingDwellFinish(readingDwell, now);
       readingDwell = null;
       settleReading(settled);
+      addReadSecs(readClockFinish(readClock, now));
+      readClock = null;
+      commitReadSecs();
+    },
+
+    libraryReadActivity: (bookId) => {
+      if (get().features.library) readActivity(bookId);
     },
 
     toggleHabitToday: () => set((s) => ({ habitTodayCollapsed: !s.habitTodayCollapsed })),
@@ -5354,6 +5481,119 @@ export const useAppStore = create<AppState>()(
       if (now) await get().openNote(now.notePath, false);
     },
 
+    libraryOcrPhoto: async (image, mime) => {
+      const s = get();
+      if (!s.aiEnabled) throw new Error(i18n.t("library.photo.needAi"));
+      const provider = s.aiProviders.find((p) => p.id === s.aiActiveProviderId);
+      if (!provider) throw new Error(i18n.t("library.photo.needProvider"));
+      let raw: string;
+      try {
+        raw = await ocrImage(provider, image, mime, s.lang);
+      } catch (e) {
+        if (e instanceof OcrEmptyError) throw new Error(i18n.t("library.photo.empty"));
+        console.error("[library] fotoğraf okunamadı:", e);
+        throw new Error(i18n.t("library.photo.error", { detail: errText(e) }));
+      }
+      const text = cleanOcrText(raw);
+      if (!text) throw new Error(i18n.t("library.photo.empty"));
+      return text;
+    },
+
+    libraryAddPhotoQuote: (target, quote, page) => {
+      type Out = { status: "added" | "duplicate" | "error"; message?: string };
+      const run = async (): Promise<Out> => {
+        await waitLibraryIdle();
+        const src = backend;
+        if (!get().features.library) return { status: "error", message: i18n.t("library.featureOff") };
+        set({ libraryBusy: true });
+        let openId: string | null = null;
+        let out: Out = { status: "error", message: i18n.t("library.missingBook") };
+        try {
+          if (libraryVaultOf !== src || !get().booksLoaded) await get().libraryLoad();
+          if (backend !== src) return { status: "error", message: i18n.t("library.missingBook") };
+          let existing: Book | null = null;
+          let init: { hash: string; notePath: string } | undefined;
+          let title: string | undefined;
+          let author: string | undefined;
+          if ("bookId" in target) {
+            existing = bookById(target.bookId);
+            if (!existing) return out;
+          } else {
+            title = target.title.trim();
+            author = target.author?.trim() || undefined;
+            if (!title) return { status: "error", message: i18n.t("library.photo.needTitle") };
+            const hash = await paperBookHash(title, author);
+            const id = bookIdFromHash(hash);
+            if (get().libraryBroken.includes(`${id}.json`)) {
+              return { status: "error", message: i18n.t("library.brokenRecord", { name: title }) };
+            }
+            existing = bookById(id);
+            if (!existing) {
+              const taken = new Set(get().notes.map((n) => n.path));
+              init = { hash, notePath: freeNotePath(title, (p) => taken.has(p)) };
+            }
+          }
+          const res = await applyPhotoQuote(existing, { quote, page, title, author }, Date.now(), init);
+          if (res.duplicate) {
+            // Kayıt yazılmaz; önceki eklemede not yazımı yarıda kaldıysa eksik blok tamamlanır.
+            const dup = findSharedDuplicate(res.book, quote);
+            if (dup) {
+              try {
+                const order = res.book.highlights.map((h) => h.id);
+                await syncBookNote(res.book.id, (t, b) =>
+                  blockState(t, dup.id) === "missing" ? insertHighlightBlock(t, b, dup, order, libraryNoteLabels()) : t,
+                );
+              } catch (e) {
+                await noteSyncFailed(e);
+              }
+            }
+            return { status: "duplicate", message: i18n.t("library.photo.duplicate", { name: res.book.title }) };
+          }
+          // Sessiz kayıt: hata penceredeki satırda görünür (ayrıntı konsolda), ikinci bildirim çıkmaz.
+          if (!(await bookCommit(res.book, true))) {
+            return { status: "error", message: i18n.t("library.photo.saveError") };
+          }
+          const book = res.book;
+          try {
+            const labels = libraryNoteLabels();
+            const order = book.highlights.map((h) => h.id);
+            const toInsert = res.created ? book.highlights : res.added ? [res.added] : [];
+            await syncBookNote(book.id, (t, b) => {
+              let txt = t;
+              for (const h of toInsert) {
+                if (blockState(txt, h.id) === "missing") txt = insertHighlightBlock(txt, b, h, order, labels);
+              }
+              return txt;
+            });
+          } catch (e) {
+            // Çizim kayıtta; not yazılamadı. Bildirilir, pencere kapanır (sonraki eklemede tamamlanır).
+            await noteSyncFailed(e);
+            return { status: "added" };
+          }
+          openId = book.id;
+          out = { status: "added", message: i18n.t("library.photo.added", { name: book.title }) };
+          return out;
+        } catch (e) {
+          console.error("[library] fotoğraftan alıntı eklenemedi:", e);
+          return { status: "error", message: i18n.t("library.photo.addError", { detail: errText(e) }) };
+        } finally {
+          set({ libraryBusy: false });
+          if (openId && backend === src && get().features.library) {
+            const id = openId;
+            const msg = out.message;
+            queueMicrotask(() => {
+              void get()
+                .libraryOpenNote(id)
+                .then(() => (msg ? notifyError(msg, "info") : undefined));
+            });
+          }
+        }
+      };
+      const next = shareChain.then(run, run);
+      shareChain = next.catch(() => {});
+      return next;
+    },
+
     readerSetPrefs: (patch) => set((s) => ({ readerPrefs: normalizeReaderPrefs({ ...s.readerPrefs, ...patch }) })),
 
     srsAnswer: async (g) => {
@@ -5525,6 +5765,8 @@ export const useAppStore = create<AppState>()(
           libraryFilter: isShelfFilter(p.libraryFilter) ? p.libraryFilter : current.libraryFilter,
           readerPrefs: p.readerPrefs === undefined ? current.readerPrefs : normalizeReaderPrefs(p.readerPrefs),
           readingLog: normalizeReadingLog(p.readingLog, habitDayKey(new Date())),
+          // Okuma istatistiği (LOM-87): bozuk gün/kimlik/sayı atılır, eski günler budanır.
+          readingStats: pruneReadingStats(normalizeReadingStats(p.readingStats), habitDayKey(new Date())),
           habitTodayCollapsed:
             typeof p.habitTodayCollapsed === "boolean" ? p.habitTodayCollapsed : current.habitTodayCollapsed,
           // Bozuk/aşırı kayıt paneli ekranı yutacak kadar büyütmesin (LOM-63).
@@ -5640,6 +5882,8 @@ export const useAppStore = create<AppState>()(
         readerPrefs: s.readerPrefs,
         // Okuma kütüğü (LOM-93): cihaza özel; yalnız bugünün kaydı anlamlı.
         readingLog: s.readingLog,
+        // Okuma istatistiği (LOM-87): cihaza özel, kasaya yazılmaz.
+        readingStats: s.readingStats,
       }),
     }
   )

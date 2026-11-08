@@ -27,6 +27,7 @@ import {
   type KoboAnchor,
   type KoreaderAnchor,
   type PdfRect,
+  type PhotoAnchor,
   type ShareApp,
   type SharedAnchor,
 } from "./types";
@@ -73,6 +74,11 @@ export function encodeAnchor(a: Anchor): Anchor {
   if (a.kind === "shared") {
     const out: SharedAnchor = { kind: "shared" };
     if (a.app) out.app = a.app;
+    if (a.page !== undefined) out.page = a.page;
+    return out;
+  }
+  if (a.kind === "photo") {
+    const out: PhotoAnchor = { kind: "photo" };
     if (a.page !== undefined) out.page = a.page;
     return out;
   }
@@ -130,6 +136,14 @@ export function decodeAnchor(v: unknown): Anchor | null {
     const out: SharedAnchor = { kind: "shared" };
     // Bilinmeyen uygulama adı (yeni sürümden gelmiş olabilir) çizimi bozmaz; yalnız alan düşer.
     if (v.app !== undefined && SHARE_APPS.includes(v.app as ShareApp)) out.app = v.app as ShareApp;
+    if (v.page !== undefined) {
+      if (!isInt(v.page, 1)) return null;
+      out.page = v.page;
+    }
+    return out;
+  }
+  if (v.kind === "photo") {
+    const out: PhotoAnchor = { kind: "photo" };
     if (v.page !== undefined) {
       if (!isInt(v.page, 1)) return null;
       out.page = v.page;

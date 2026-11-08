@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, BookMarked, HardDriveDownload, Import, Loader2, Plus, Tablet } from "lucide-react";
+import { AlertTriangle, BookMarked, Camera, HardDriveDownload, Import, Loader2, Plus, Tablet } from "lucide-react";
 import { SHELF_FILTERS, shelfBooks, shelfCounts, type Book } from "../../core/library";
+import { dayKey } from "../../core/habit";
+import { summarizeStats } from "../../core/library/stats";
 import { isTauri } from "../../core/vault";
 import { useAppStore } from "../../store/useAppStore";
 import { HabitConfirm } from "../Habits/HabitConfirm";
 import { BookCard } from "./BookCard";
+import { PhotoQuoteDialog } from "./PhotoQuoteDialog";
 
 /**
  * Kütüphane rafı (LOM-83): Okunuyor / Okunacak / Bitti süzgeci, içe aktarma ve kitap kartları.
@@ -18,6 +21,9 @@ import { BookCard } from "./BookCard";
  * Paylaş (LOM-96): rafta düğmesi yok; telefonda Paylaş menüsünden / Kısayol'dan gelen alıntı uygulama
  * düzeyinde alınır (useShareIntake, SharePickDialog). Eşleşmeyen başlık için açılan `shared` kayıt
  * rafta diğer kitaplar gibi görünür.
+ * Fotoğraf (LOM-87): "Fotoğraftan al" basılı kitap sayfasının fotoğrafını yapay zekâ sağlayıcısına
+ * okutur (PhotoQuoteDialog); seçilen metin raftaki kitaba ya da yeni basılı kitaba alıntı olur.
+ * Okuma özeti (LOM-87): son 7 günde okuma varsa rafın üstünde "Son 7 gün N sayfa · süre" şeridi.
  */
 export function LibraryScreen() {
   const { t } = useTranslation();
@@ -38,7 +44,9 @@ export function LibraryScreen() {
   const koboPath = useAppStore((s) => s.koboDevicePath);
   const probeKobo = useAppStore((s) => s.libraryProbeKobo);
   const importKobo = useAppStore((s) => s.libraryImportKobo);
+  const stats = useAppStore((s) => s.readingStats);
   const [confirm, setConfirm] = useState<Book | null>(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   useEffect(() => {
     if (!loaded) void load().catch((e) => console.error("[library] okunamadı:", e));
@@ -63,6 +71,19 @@ export function LibraryScreen() {
   const counts = useMemo(() => shelfCounts(books), [books]);
   const shown = useMemo(() => shelfBooks(books, filter), [books, filter]);
   const app = isTauri();
+  const week = useMemo(() => summarizeStats(stats, books, dayKey(new Date())).week, [stats, books]);
+  const weekMin = Math.round(week.seconds / 60);
+  const weekTime =
+    weekMin >= 60
+      ? t("reports.hoursMinutes", { h: Math.floor(weekMin / 60), m: weekMin % 60 })
+      : t("reports.minutes", { m: weekMin });
+
+  const photoBtn = (
+    <button type="button" className="lo-btn lo-lib-kindle-btn" onClick={() => setPhotoOpen(true)} disabled={!app}>
+      <Camera size={16} strokeWidth={2.2} aria-hidden />
+      <span>{t("library.photo.open")}</span>
+    </button>
+  );
 
   const addBtn = (
     <button type="button" className="lo-btn lo-btn--primary lo-lib-add" onClick={() => void doImport()} disabled={busy || !app}>
@@ -99,6 +120,7 @@ export function LibraryScreen() {
           <h1 className="lo-lib-head__title">{t("library.title")}</h1>
           {books.length > 0 && (
             <div className="lo-lib-head__actions">
+              {photoBtn}
               {kindleBtn}
               {koreaderBtn}
               {koboBtn}
@@ -129,6 +151,13 @@ export function LibraryScreen() {
           </div>
         )}
 
+        {loaded && (week.pages > 0 || week.seconds >= 60) && (
+          <div className="lo-lib-stats">
+            <BookMarked size={14} strokeWidth={2} aria-hidden />
+            <span>{t("library.statsStrip", { pages: week.pages, time: weekTime })}</span>
+          </div>
+        )}
+
         {broken.length > 0 && (
           <div className="lo-hab-warn" role="status">
             <AlertTriangle size={15} strokeWidth={2} aria-hidden />
@@ -151,6 +180,7 @@ export function LibraryScreen() {
             <p>{app ? t("library.emptyBody") : t("library.appOnly")}</p>
             <div className="lo-lib-head__actions">
               {addBtn}
+              {photoBtn}
               {kindleBtn}
               {koreaderBtn}
               {koboBtn}
@@ -185,6 +215,7 @@ export function LibraryScreen() {
           </>
         )}
       </div>
+      {photoOpen && <PhotoQuoteDialog onClose={() => setPhotoOpen(false)} />}
       {confirm && (
         <HabitConfirm
           title={t("library.removeTitle", { name: confirm.title })}

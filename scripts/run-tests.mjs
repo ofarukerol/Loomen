@@ -78,6 +78,9 @@ const suites = [
   ["src/core/__test__/shareTest.ts", []],
   ["src/core/__test__/libraryReviewTest.ts", []],
   ["src/core/__test__/inkTest.ts", []],
+  ["src/core/__test__/photoQuoteTest.ts", []],
+  ["src/core/__test__/aiLibraryTest.ts", []],
+  ["src/core/__test__/readingStatsTest.ts", []],
   // LOM-83 görüntüleyici parçaları (kaynağı gelince koşar).
   ["src/core/__test__/pdfAnchorTest.ts", []],
   ["src/core/__test__/zipTest.ts", []],

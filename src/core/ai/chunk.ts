@@ -7,6 +7,11 @@
 //     cevabı bozar.
 //
 // Not diske hiç dokunulmaz; girdi zaten bellekteki içeriktir (store.noteContents).
+//
+// Kitap notlarındaki gizli blok işaretleri (`<!-- loomen:hl … -->`, `<!-- loomen:ink p12 -->`,
+// LOM-87) parçaya girmez: okuma modunda görünmezler, asistanın cevabına da karışmamalılar.
+
+import { isHighlightMarkerLine } from "../library/links";
 
 export interface Chunk {
   /** Kaynak not yolu — alıntıda bu yol açılır. */
@@ -199,6 +204,8 @@ export function chunkNote(path: string, content: string, opts: ChunkOptions = {}
       section.push(line);
       continue;
     }
+    // Kitap notunun gizli işaret satırı (kod bloğu dışında) metne girmez.
+    if (!inFence && isHighlightMarkerLine(line)) continue;
     const h = !inFence && t.match(/^(#{1,6})\s+(.*)$/);
     if (h) {
       flushSection(headingPath());

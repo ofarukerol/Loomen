@@ -28,7 +28,18 @@
     "last7": "Son 7 Gün",
     "empty": "Henüz tamamlanmış Pomodoro seansı yok.",
     "hoursMinutes": "{{h}}s {{m}}dk",
-    "minutes": "{{m}}dk"
+    "minutes": "{{m}}dk",
+    "reading": {
+      "title": "Okuma",
+      "pagesToday": "Bugün okunan sayfa",
+      "pagesWeek": "Son 7 gün sayfa",
+      "timeWeek": "Son 7 gün süre",
+      "timeTotal": "Toplam okuma süresi",
+      "finished": "Biten kitap",
+      "last7": "Son 7 gün okunan sayfa",
+      "empty": "Henüz okuma kaydı yok. Kütüphane'den bir kitap açıp okudukça sayfalar ve süre burada görünür.",
+      "dayTip": "{{pages}} sayfa · {{time}}"
+    }
   },
   "review": {
     "title": "Tekrar",
@@ -1264,7 +1275,18 @@
     "propApply": "Uygula",
     "propDismiss": "Yoksay",
     "propApplied": "Nota işlendi.",
-    "propOpen": "Notu aç"
+    "propOpen": "Notu aç",
+    "library": {
+      "heading": "Raftaki kitaplar",
+      "chipsLabel": "Kitaplarına sor",
+      "chipHighlights": "{{name}} çizimlerimi özetle",
+      "chipHighlightsQ": "{{name}} kitabında çizdiğim yerleri özetle; öne çıkan fikirler neler?",
+      "chipTopic": "Bir konuda çizimlerim",
+      "chipTopicQ": "Kitaplarımda şu konuda neler çizmişim: ",
+      "chipShelf": "Rafımda ne var?",
+      "chipShelfQ": "Rafımdaki kitaplara göz at: neleri okuyorum, neleri bitirdim, sırada ne var?",
+      "loadError": "Kütüphane okunamadı, Asistan kitapları göremeyebilir: {{detail}}"
+    }
   },
   "rel": {
     "today": "bugün",
@@ -1606,7 +1628,9 @@
       "kobo": "Kobo",
       "progress": "%{{n}}",
       "ink": "Kalem notları",
-      "shared": "Paylaşıldı"
+      "shared": "Paylaşıldı",
+      "photo": "Fotoğraf",
+      "paper": "Basılı kitap"
     },
     "pickTitle": "Kitap seç",
     "pickFilter": "Kitaplar (PDF, EPUB)",
@@ -1699,6 +1723,44 @@
       "pickFrom": "Gelen kitap adı: {{name}}. Raftan bir kitap seç ya da yeni kayıt aç.",
       "create": "Yeni kayıt: {{name}}",
       "cancel": "Vazgeç"
+    },
+    "paper": {
+      "badge": "BASILI",
+      "openNote": "{{name}} kitabının notunu aç"
+    },
+    "statsStrip": "Son 7 gün {{pages}} sayfa · {{time}}",
+    "photo": {
+      "open": "Fotoğraftan al",
+      "title": "Fotoğraftan alıntı",
+      "sent": "Sayfanın fotoğrafı yazıyı okuması için {{name}} hizmetine gönderilir. Fotoğraf hiçbir yere kaydedilmez.",
+      "camera": "Fotoğraf çek",
+      "gallery": "Galeriden seç",
+      "choose": "Fotoğraf seç",
+      "pickTitle": "Sayfa fotoğrafı seç",
+      "pickFilter": "Görseller",
+      "pickError": "Fotoğraf açılamadı: {{detail}}",
+      "reading": "{{name}} yazıyı okuyor…",
+      "textLabel": "Okunan metin",
+      "selectHint": "Yalnız bir kısmını almak için o kısmı seçin; seçim yoksa metnin tamamı eklenir.",
+      "book": "Kitap",
+      "newBook": "Yeni basılı kitap…",
+      "titleLabel": "Kitabın adı",
+      "authorLabel": "Yazar",
+      "optional": "(isteğe bağlı)",
+      "page": "Sayfa",
+      "add": "Alıntıyı ekle",
+      "retake": "Başka fotoğraf",
+      "openSettings": "Ayarlar'a git",
+      "needAi": "Fotoğraftaki yazıyı okumak için Asistan'ın açık olması gerekiyor. Ayarlar'dan Asistan'ı açın.",
+      "needProvider": "Fotoğraftaki yazıyı okumak için Ayarlar'da bir yapay zekâ hizmeti eklenmiş olmalı.",
+      "empty": "Fotoğrafta okunabilir yazı bulunamadı. Sayfayı daha yakından ve aydınlıkta çekip yeniden deneyin.",
+      "error": "Fotoğraftaki yazı okunamadı: {{detail}}",
+      "needTitle": "Yeni kitap için kitabın adını yazın.",
+      "duplicate": "Bu alıntı {{name}} kitabında zaten var.",
+      "added": "Alıntı {{name}} kitabına eklendi.",
+      "saveError": "Alıntı kaydedilemedi. Kasaya yazılamadı.",
+      "addError": "Alıntı eklenemedi: {{detail}}",
+      "badImage": "Bu görsel açılamadı. JPEG ya da PNG bir fotoğrafla yeniden deneyin."
     }
   }
 }

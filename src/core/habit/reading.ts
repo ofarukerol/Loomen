@@ -68,6 +68,26 @@ export function logAdd(log: ReadingLog, today: string, bookId: string, unit: num
   return { log: { day: today, seen: { ...base.seen, [bookId]: next } }, added: true };
 }
 
+/**
+ * Oturan birimi bugünkü kütüğe işle ve bugün ilk kez görüldüyse onu döndür (LOM-87). Alışkanlıktan
+ * bağımsızdır: okuma istatistiği de alışkanlık turları da aynı "yeni sayfa" kararını buradan alır,
+ * böylece aynı sayfa ikisinde de en çok bir kez sayılır. Oturan birim yoksa kütük aynen döner.
+ */
+export function settleNewUnit(
+  log: ReadingLog,
+  today: string,
+  settled: SettledUnit | null,
+): { log: ReadingLog; fresh: SettledUnit | null } {
+  const ok =
+    settled !== null &&
+    READING_BOOK_ID_RE.test(settled.bookId) &&
+    Number.isInteger(settled.unit) &&
+    settled.unit >= 0;
+  if (!ok) return { log: log.day === today ? log : emptyLog(today), fresh: null };
+  const r = logAdd(log, today, settled.bookId, settled.unit);
+  return { log: r.log, fresh: r.added ? settled : null };
+}
+
 /** Ekranda bekleyen birim. */
 export interface Dwell {
   bookId: string;

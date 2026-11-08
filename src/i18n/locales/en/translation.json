@@ -25,7 +25,18 @@
     "last7": "Last 7 Days",
     "empty": "No completed Pomodoro sessions yet.",
     "hoursMinutes": "{{h}}h {{m}}m",
-    "minutes": "{{m}}m"
+    "minutes": "{{m}}m",
+    "reading": {
+      "title": "Reading",
+      "pagesToday": "Pages read today",
+      "pagesWeek": "Pages, last 7 days",
+      "timeWeek": "Time, last 7 days",
+      "timeTotal": "Total reading time",
+      "finished": "Books finished",
+      "last7": "Pages read, last 7 days",
+      "empty": "No reading yet. Open a book in the Library and your pages and time will show up here as you read.",
+      "dayTip": "{{pages}} pages · {{time}}"
+    }
   },
   "review": {
     "title": "Review",
@@ -1264,7 +1275,18 @@
     "propApply": "Apply",
     "propDismiss": "Dismiss",
     "propApplied": "Written to the note.",
-    "propOpen": "Open note"
+    "propOpen": "Open note",
+    "library": {
+      "heading": "Books on the shelf",
+      "chipsLabel": "Ask about your books",
+      "chipHighlights": "Summarize my {{name}} highlights",
+      "chipHighlightsQ": "Summarize what I highlighted in {{name}}; what are the main ideas?",
+      "chipTopic": "My highlights on a topic",
+      "chipTopicQ": "What did I highlight in my books about ",
+      "chipShelf": "What's on my shelf?",
+      "chipShelfQ": "Look at my shelf: what am I reading, what have I finished, what's next?",
+      "loadError": "Could not read the library; the Assistant may not see your books: {{detail}}"
+    }
   },
   "rel": {
     "today": "today",
@@ -1606,7 +1628,9 @@
       "kobo": "Kobo",
       "progress": "{{n}}%",
       "ink": "Pen notes",
-      "shared": "Shared"
+      "shared": "Shared",
+      "photo": "Photo",
+      "paper": "Printed book"
     },
     "pickTitle": "Choose a book",
     "pickFilter": "Books (PDF, EPUB)",
@@ -1699,6 +1723,44 @@
       "pickFrom": "Title received: {{name}}. Pick a book from your shelf or create a new entry.",
       "create": "New entry: {{name}}",
       "cancel": "Cancel"
+    },
+    "paper": {
+      "badge": "PRINTED",
+      "openNote": "Open the note for {{name}}"
+    },
+    "statsStrip": "Last 7 days {{pages}} pages · {{time}}",
+    "photo": {
+      "open": "From photo",
+      "title": "Quote from a photo",
+      "sent": "The photo of the page is sent to {{name}} to read the text. The photo is not saved anywhere.",
+      "camera": "Take photo",
+      "gallery": "Choose from gallery",
+      "choose": "Choose photo",
+      "pickTitle": "Choose a page photo",
+      "pickFilter": "Images",
+      "pickError": "Could not open the photo: {{detail}}",
+      "reading": "{{name}} is reading the text…",
+      "textLabel": "Recognized text",
+      "selectHint": "Select a part to add only that part; with no selection the whole text is added.",
+      "book": "Book",
+      "newBook": "New printed book…",
+      "titleLabel": "Book title",
+      "authorLabel": "Author",
+      "optional": "(optional)",
+      "page": "Page",
+      "add": "Add quote",
+      "retake": "Another photo",
+      "openSettings": "Open Settings",
+      "needAi": "Reading text from a photo needs the Assistant to be on. Turn it on in Settings.",
+      "needProvider": "Reading text from a photo needs an AI provider added in Settings.",
+      "empty": "No readable text was found in the photo. Take it closer and in better light, then try again.",
+      "error": "Could not read the text in the photo: {{detail}}",
+      "needTitle": "Enter the title for the new book.",
+      "duplicate": "This quote is already in {{name}}.",
+      "added": "Quote added to {{name}}.",
+      "saveError": "The quote could not be saved to the vault.",
+      "addError": "Could not add the quote: {{detail}}",
+      "badImage": "This image could not be opened. Try again with a JPEG or PNG photo."
     }
   }
 }

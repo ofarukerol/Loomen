@@ -18,6 +18,7 @@ function hue(id: string): number {
  * "Oku" ve ilerleme yok; rozet ve etiket biçimden (`library.<biçim>.badge` / `.openNote`) gelir.
  * Paylaş ile gelen ve raftaki kitapla eşleşmeyen alıntının kaydı (LOM-96, biçim `shared`) da böyledir:
  * rozeti "PAYLAŞILDI", karta dokununca notu açılır.
+ * Fotoğraftan alıntıyla açılan basılı kitap (LOM-87, biçim `paper`) da dosyasızdır: rozeti "BASILI".
  */
 export function BookCard({ book, onRemove }: { book: Book; onRemove: (b: Book) => void }) {
   const { t } = useTranslation();
