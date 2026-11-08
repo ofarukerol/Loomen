@@ -3,7 +3,7 @@ name: LOM-96 — Kütüphane: Paylaş menüsünden alıntı alma
 description: Testler kaldı: Android Paylaş menüsünden ve iPhone/iPad Kısayolu'ndan gelen metin Loomen'a alınır; alıntı, kitap adı ve yazar ayıklanıp raftaki kitabın notuna eklenir, eşleşme yoksa kitap seçtirilir, aynı alıntı ikinci kez eklenmez.
 type: project
 proje: loomen
-kaynak: kart LOM-96 · dal fix/LOM-96 · commit yok · test koşusu 4e0dc61d-1cc6-4f2a-9da2-64bdc41208e8 (Air)
+kaynak: kart LOM-96 · dal fix/LOM-96 · commit yok · test koşusu 8ace927d-6e02-47a2-86d6-41abdcb03a53 (Air)
 guven: iddia
 durum: gelistirildi
 ---
@@ -75,7 +75,7 @@ Testler KALDI; iş doğrulanmadı.
 ## Kanıt
 
 - Dal: `fix/LOM-96`
-- Test koşusu: `4e0dc61d-1cc6-4f2a-9da2-64bdc41208e8` (Air)
+- Test koşusu: `8ace927d-6e02-47a2-86d6-41abdcb03a53` (Air)
 
 ## Durum
 
