@@ -1615,6 +1615,11 @@
       "noFile": "Kindle kitabının bu cihazda dosyası yok; notu açılır.",
       "badge": "KINDLE",
       "openNote": "{{name}} kitabının notunu aç"
+    },
+    "review": {
+      "add": "Tekrar kartı yap",
+      "done": "Tekrar'da",
+      "saveError": "Tekrar kartı kaydedilemedi: {{detail}}"
     }
   }
 }

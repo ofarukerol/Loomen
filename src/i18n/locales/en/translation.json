@@ -1615,6 +1615,11 @@
       "noFile": "A Kindle book has no file on this device; its note opens instead.",
       "badge": "KINDLE",
       "openNote": "Open the note for {{name}}"
+    },
+    "review": {
+      "add": "Make a review card",
+      "done": "In Review",
+      "saveError": "The review card could not be saved: {{detail}}"
     }
   }
 }

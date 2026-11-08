@@ -1,21 +1,26 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Check, MessageSquarePlus, Trash2 } from "lucide-react";
+import { Check, MessageSquarePlus, Repeat, Trash2 } from "lucide-react";
 import { HIGHLIGHT_COLORS, type HighlightColor } from "../../core/library";
 import { useModalLayer } from "../../store/useAppStore";
 import { HIGHLIGHT_CSS, type ViewRect } from "./readerTypes";
 
+/** Tekrar kartı düğmesinin durumu (LOM-91): eklenebilir, zaten Tekrar'da, işlem sürüyor. */
+export type ReviewButtonState = "add" | "done" | "busy";
+
 /**
- * Seçimin ya da var olan çizimin yanında açılan küçük menü (LOM-83): renkler, not, sil.
+ * Seçimin ya da var olan çizimin yanında açılan küçük menü (LOM-83): renkler, not, Tekrar kartı, sil.
  * Seçimin üstünde durur; yer yoksa altına iner, ekrandan taşmaz.
  */
 export function HighlightMenu({
   rect,
   current,
   canDelete,
+  reviewState,
   onColor,
   onNote,
+  onReview,
   onDelete,
   onClose,
 }: {
@@ -25,6 +30,8 @@ export function HighlightMenu({
   canDelete: boolean;
   onColor: (c: HighlightColor) => void;
   onNote: () => void;
+  reviewState: ReviewButtonState;
+  onReview: () => void;
   onDelete?: () => void;
   onClose: () => void;
 }) {
@@ -48,7 +55,7 @@ export function HighlightMenu({
     if (top < gap) top = Math.min(vh - h - gap, rect.y + rect.h + gap);
     const left = Math.max(gap, Math.min(vw - w - gap, rect.x + rect.w / 2 - w / 2));
     setPos({ left, top: Math.max(gap, top) });
-  }, [rect.x, rect.y, rect.w, rect.h]);
+  }, [rect.x, rect.y, rect.w, rect.h, canDelete, reviewState]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
@@ -92,6 +99,21 @@ export function HighlightMenu({
       <span className="lo-hlmenu__sep" aria-hidden />
       <button type="button" className="lo-lib-iconbtn" onClick={onNote} title={t("library.reader.addNote")} aria-label={t("library.reader.addNote")}>
         <MessageSquarePlus size={16} strokeWidth={2} />
+      </button>
+      <button
+        type="button"
+        className={"lo-hlmenu__review" + (reviewState === "done" ? " is-done" : "")}
+        // disabled DEĞİL: devre dışı düğmede pointerdown kapsayıcıya ulaşmayabilir ve seçim
+        // kaybolurdu; odak da düğmede kalır. Tıklama aşağıda yoksayılır.
+        aria-disabled={reviewState !== "add"}
+        aria-pressed={reviewState === "done"}
+        aria-busy={reviewState === "busy" || undefined}
+        onClick={() => reviewState === "add" && onReview()}
+        title={t(reviewState === "done" ? "library.review.done" : "library.review.add")}
+        aria-label={t(reviewState === "done" ? "library.review.done" : "library.review.add")}
+      >
+        {reviewState === "done" ? <Check size={14} strokeWidth={2.4} aria-hidden /> : <Repeat size={14} strokeWidth={2} aria-hidden />}
+        <span>{t(reviewState === "done" ? "library.review.done" : "library.review.add")}</span>
       </button>
       {canDelete && onDelete && (
         <button

@@ -1,9 +1,9 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, FileQuestion, Loader2 } from "lucide-react";
-import { clampFontScale, positionOfAnchor, type BookFormat, type Highlight, type HighlightColor, type NoteLabels } from "../../core/library";
+import { bookListId, clampFontScale, positionOfAnchor, quoteInList, type BookFormat, type Highlight, type HighlightColor, type NoteLabels } from "../../core/library";
 import { useAppStore } from "../../store/useAppStore";
-import { HighlightMenu } from "./HighlightMenu";
+import { HighlightMenu, type ReviewButtonState } from "./HighlightMenu";
 import { HighlightNoteDialog } from "./HighlightNoteDialog";
 import { HighlightsPanel } from "./HighlightsPanel";
 import { ReaderToolbar } from "./ReaderToolbar";
@@ -81,6 +81,10 @@ export function ReaderScreen() {
   const flushPosition = useAppStore((s) => s.libraryFlushPosition);
   const setMeta = useAppStore((s) => s.librarySetMeta);
   const openNote = useAppStore((s) => s.libraryOpenNote);
+  const toReview = useAppStore((s) => s.libraryHighlightToReview);
+  const ensureLists = useAppStore((s) => s.srsEnsureLists);
+  // Kitabın Tekrar listesi (LOM-91): düğme "Tekrar'da" mı, buradan anlaşılır.
+  const bookList = useAppStore((s) => (s.readerBookId ? s.srsLists.find((l) => l.id === bookListId(s.readerBookId!)) : undefined));
 
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [reloadTick, setReloadTick] = useState(0);
@@ -89,6 +93,15 @@ export function ReaderScreen() {
   const [noteEdit, setNoteEdit] = useState<NoteEdit | null>(null);
   const [panel, setPanel] = useState(false);
   const [relinking, setRelinking] = useState(false);
+  /** Tekrar'a eklenmekte olan: çizim kimliği ya da seçim için "selection". */
+  const [reviewBusy, setReviewBusy] = useState<string | null>(null);
+  const menuRef = useRef<Menu | null>(null);
+  menuRef.current = menu;
+
+  // Okuyucu açılınca Tekrar listeleri hazır olsun: düğme durumu ilk anda doğru görünsün.
+  useEffect(() => {
+    void ensureLists();
+  }, [ensureLists]);
 
   const format = book?.format;
   // Dosyayı yalnız kitap değişince oku: çizim eklemek kaydı değiştirir ama dosyayı değil.
@@ -181,6 +194,50 @@ export function ReaderScreen() {
     } else {
       await updateHl(noteEdit.id, { note: text });
     }
+  };
+
+  const reviewState: ReviewButtonState = !menu
+    ? "add"
+    : quoteInList(bookList, menu.kind === "selection" ? menu.sel.text : (currentHl?.text ?? ""))
+      ? "done"
+      : reviewBusy && (menu.kind === "selection" ? reviewBusy === "selection" : reviewBusy === menu.id)
+        ? "busy"
+        : "add";
+
+  /** Çizimi Tekrar'a ekle; seçimdeyse önce çizim oluşturulur, menü o çizime geçer (açık kalır). */
+  const sendToReview = async (hlId: string) => {
+    setReviewBusy(hlId);
+    try {
+      await toReview(hlId);
+    } finally {
+      setReviewBusy((b) => (b === hlId ? null : b));
+    }
+  };
+
+  const reviewFromMenu = async () => {
+    if (!menu || reviewBusy) return;
+    if (menu.kind === "highlight") {
+      if (currentHl) await sendToReview(currentHl.id);
+      return;
+    }
+    const sel = menu.sel;
+    setReviewBusy("selection");
+    let created: Highlight | null = null;
+    try {
+      created = await addHl({ text: sel.text, anchor: sel.anchor, color: prefs.color, chapter: sel.chapter });
+    } finally {
+      setReviewBusy(null);
+    }
+    if (!created) return;
+    const id = created.id;
+    // Menü yeni çizime geçer, sonra seçim kalkar: seçimin kalkması menüyü kapatmasın.
+    // Kullanıcı bu arada başka yer seçtiyse menüye de seçime de dokunulmaz.
+    const m = menuRef.current;
+    if (m?.kind === "selection" && m.sel === sel) {
+      setMenu({ kind: "highlight", id, rect: sel.rect });
+      window.getSelection()?.removeAllRanges();
+    }
+    await sendToReview(id);
   };
 
   const noteQuote =
@@ -284,6 +341,9 @@ export function ReaderScreen() {
             labels={labels}
             activeId={target?.highlightId}
             onJump={(h) => jump({ anchor: h.anchor, position: positionOfAnchor(h.anchor), highlightId: h.id })}
+            inReview={(h) => quoteInList(bookList, h.text)}
+            busyId={reviewBusy}
+            onReview={(h) => void sendToReview(h.id)}
             onClose={() => setPanel(false)}
           />
         )}
@@ -295,6 +355,8 @@ export function ReaderScreen() {
           canDelete={menu.kind === "highlight"}
           onColor={(c) => void pickColor(c)}
           onNote={startNote}
+          reviewState={reviewState}
+          onReview={() => void reviewFromMenu()}
           onDelete={() => {
             const id = currentHl?.id;
             setMenu(null);

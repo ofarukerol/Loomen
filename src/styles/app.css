@@ -5224,6 +5224,21 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
 }
 .lo-hlmenu__color.is-on { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 3.5px var(--accent); }
 .lo-hlmenu__sep { width: 1px; height: 20px; margin: 0 2px; background: var(--line); }
+/* Tekrar kartı düğmesi (LOM-91): ikon + kısa metin */
+.lo-hlmenu { max-width: calc(100vw - 16px); }
+.lo-hlmenu__review,
+.lo-hlpanel__review {
+  display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; white-space: nowrap;
+  font: inherit; font-weight: 500; color: var(--fg2); background: none; border: 1px solid var(--line);
+  cursor: pointer;
+}
+.lo-hlmenu__review { height: 30px; padding: 0 9px; font-size: 12px; border-radius: 8px; }
+.lo-hlmenu__review:hover:not([aria-disabled="true"]),
+.lo-hlpanel__review:hover:not(:disabled) { color: var(--fg1); background: var(--bg-sunken); }
+.lo-hlmenu__review[aria-disabled="true"],
+.lo-hlpanel__review:disabled { cursor: default; opacity: 0.6; }
+.lo-hlmenu__review.is-done,
+.lo-hlpanel__review.is-done { opacity: 1; color: var(--accent); border-color: transparent; background: var(--accent-soft); }
 
 /* — Çizim notu penceresi — */
 .lo-hlnote {
@@ -5267,6 +5282,8 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
 }
 .lo-hlpanel__note { font-size: 12.5px; line-height: 1.5; color: var(--fg2); font-style: italic; overflow-wrap: anywhere; }
 .lo-hlpanel__loc { font-size: 11px; color: var(--fg3); }
+.lo-hlpanel__row { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.lo-hlpanel__review { align-self: flex-end; height: 26px; padding: 0 8px; font-size: 11.5px; border-radius: 7px; }
 
 /* — Nottaki kitap bağlantısı (okuma modu) — */
 .lo-booklink {
@@ -5281,9 +5298,14 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
   .lo-lib-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 20px 14px; }
   .lo-reader-bar { padding: 6px 6px; gap: 4px; }
   .lo-reader-bar__scale { display: none; }
+  .lo-hlmenu__review { padding: 0 7px; }
   .lo-hlpanel {
     position: absolute; inset-inline-end: 0; top: 0; bottom: 0; width: min(88vw, 340px); z-index: 30; box-shadow: var(--sh3);
   }
+}
+@media (max-width: 380px) {
+  /* Çok dar ekranda menü tek satıra sığsın: metin gizlenir, ad aria-label'da kalır. */
+  .lo-hlmenu__review span { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .lo-book__cover { transition: none; }

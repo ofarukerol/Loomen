@@ -196,6 +196,9 @@ import {
   setPosition as bookSetPosition,
   setStatus as bookSetStatus,
   sha256Hex,
+  addHighlightRow,
+  bookListId,
+  newBookReviewList,
   updateHighlight as bookUpdateHighlight,
   updateHighlightBlock,
   type Book,
@@ -714,6 +717,8 @@ interface AppState {
   srsListSave: (list: ReviewList) => Promise<void>;
   /** Tekrar listesini çöp kutusuna taşı; kartlarının ilerlemesi de silinir. */
   srsListDelete: (id: string) => Promise<void>;
+  /** Tekrar listeleri hiç okunmadıysa kasadan oku (ör. okuyucu açılınca, LOM-91). */
+  srsEnsureLists: () => Promise<void>;
   /** Yalnız bu listeden oturum aç (listenin ve genel günlük sınırla). */
   srsStartList: (id: string) => void;
   /** Liste ayrıntısını aç ya da kapat (null). */
@@ -774,6 +779,9 @@ interface AppState {
   libraryAddHighlight: (input: NewHighlightInput) => Promise<Highlight | null>;
   libraryUpdateHighlight: (hlId: string, patch: HighlightPatch) => Promise<void>;
   libraryRemoveHighlight: (hlId: string) => Promise<void>;
+  /** Açık kitaptaki çizimi kitabın Tekrar listesine kart olarak ekle (LOM-91). Not dosyasına
+   *  dokunmaz. 'exists' = cümle listede zaten vardı; null = kaydedilemedi (kullanıcıya söylenir). */
+  libraryHighlightToReview: (hlId: string) => Promise<"added" | "exists" | null>;
   /** Okuyucuyu bir çizime/konuma götür. */
   libraryJump: (target: Omit<ReaderTarget, "seq">) => void;
   /** Kalınan yer (gecikmeli yazılır). */
@@ -966,6 +974,9 @@ const POSITION_SAVE_MS = 2000;
 let readerSeq = 0;
 /** Süren Kindle araması (odak ve açılış aynı anda tetikleyebilir). */
 let kindleProbing: Promise<void> | null = null;
+/** Çizimden Tekrar kartı işlemleri sırayla (LOM-91): peş peşe iki basış aynı eski listeyi okuyup
+ *  birbirinin satırını ezmesin. */
+let reviewChain: Promise<unknown> = Promise.resolve();
 
 /** Notta görünen yazılar etkin dilden. */
 function libraryNoteLabels(): NoteLabels {
@@ -1365,11 +1376,12 @@ export const useAppStore = create<AppState>()(
    * Tekrar listelerini kasadan yeniden oku (senkronla gelen değişiklik görünsün).
    * Okuma başarısızsa eldeki listeler kalır: listeler kaybolup ilerlemeleri atılmasın.
    */
-  async function reloadSrsLists(fresh = false): Promise<void> {
+  async function reloadSrsLists(fresh = false): Promise<boolean> {
     try {
       const loaded = await loadLists(backend);
       srsListVault = { raw: loaded.raw, broken: loaded.broken };
       set({ srsLists: loaded.lists });
+      return true;
     } catch (err) {
       console.error("[srs] tekrar listeleri okunamadı:", err);
       // Kasa değiştiyse eski kasanın listeleri kalmasın (durumlarını keepListStates korur).
@@ -1377,6 +1389,31 @@ export const useAppStore = create<AppState>()(
         srsListVault = null;
         set({ srsLists: [] });
       }
+      return false;
+    }
+  }
+
+  /** Açık kitaptaki çizimi kitabın Tekrar listesine ekle (LOM-91). Sırayla çağrılır (reviewChain). */
+  async function highlightToReview(hlId: string): Promise<"added" | "exists" | null> {
+    const book = bookById(get().readerBookId);
+    const h = book?.highlights.find((x) => x.id === hlId);
+    if (!book || !h) return null;
+    try {
+      // Karar vermeden önce listeleri diskten oku: başka cihazdan gelen ya da değişen liste
+      // dosyası eski bellekle ezilmesin. Okunamazsa yazma (saveList yalnız hiç okunmamış dosyayı korur).
+      if (!get().srsLoaded) await get().srsLoad();
+      else if (!(await reloadSrsLists())) throw new Error("Tekrar listeleri okunamadı");
+      if (!srsListVault) throw new Error("Tekrar listeleri okunamadı");
+      const id = bookListId(book.id);
+      const current = get().srsLists.find((l) => l.id === id) ?? newBookReviewList(book, Date.now());
+      const res = addHighlightRow(current, book, h, libraryNoteLabels());
+      if (!res.added) return "exists";
+      await get().srsListSave(res.list);
+      return "added";
+    } catch (e) {
+      console.error("[library] Tekrar kartı kaydedilemedi:", e);
+      await notifyError(i18n.t("library.review.saveError", { detail: e instanceof Error ? e.message : String(e) }));
+      return null;
     }
   }
 
@@ -4071,6 +4108,10 @@ export const useAppStore = create<AppState>()(
       if (get().srsSettings.enabled) await saveStates(backend, states, get().srsDaily);
     },
 
+    srsEnsureLists: async () => {
+      if (!srsListVault) await reloadSrsLists();
+    },
+
     srsReveal: () => set({ srsShow: true }),
 
     srsEndSession: () => set({ srsQueue: [], srsIndex: 0, srsShow: false }),
@@ -4568,6 +4609,12 @@ export const useAppStore = create<AppState>()(
         await noteSyncFailed(e);
       }
       return res.highlight;
+    },
+
+    libraryHighlightToReview: (hlId) => {
+      const run = reviewChain.then(() => highlightToReview(hlId));
+      reviewChain = run.catch(() => {});
+      return run;
     },
 
     libraryUpdateHighlight: async (hlId, patch) => {
