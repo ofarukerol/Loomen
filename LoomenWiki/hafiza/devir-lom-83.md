@@ -1,11 +1,12 @@
 ---
 name: LOM-83 — Kütüphane 1: kitap okuma ve çizimleri kasaya kaydetme
-description: Testler kaldı: Loomen'a Kütüphane bölümü: PDF ve EPUB kitaplar uygulama klasöründe durur, kasada kitap kaydı ve düz not tutulur; okuyucuda seçilen metin renkle çizilir, alıntı sayfa/bölüm bilgisi ve kitabı o yerde açan bağlantıyla nota düşer; kalınan yer, yazı boyutu ve tema hatırlanır. İş üç alt karta bölünür: raf ve ortak altyapı, PDF okuyucu, EPUB okuyucu.
+description: Loomen'a Kütüphane bölümü: PDF ve EPUB kitaplar uygulama klasöründe durur, kasada kitap kaydı ve düz not tutulur; okuyucuda seçilen metin renkle çizilir, alıntı sayfa/bölüm bilgisi ve kitabı o yerde açan bağlantıyla nota düşer; kalınan yer, yazı boyutu ve tema hatırlanır. İş üç alt karta bölünür: raf ve ortak altyapı, PDF okuyucu, EPUB okuyucu.
 type: project
 proje: loomen
-kaynak: kart LOM-83 · dal fix/LOM-83 · commit yok · test koşusu 7b1c5e2a-1b1a-4e82-b200-defa262ed457 (Excalibur)
-guven: iddia
-durum: gelistirildi
+kaynak: kart LOM-83 · dal fix/LOM-83 · Loomen@73dd3d1e68ba1485495b8303588f2143c982bb9f · test koşusu 982277b5-694e-49e8-b349-41a05b89edad (Excalibur)
+guven: dogrulandi
+durum: test_gecti
+dogrulama_tarihi: 2026-11-08
 ---
 
 # LOM-83 — Kütüphane 1: kitap okuma ve çizimleri kasaya kaydetme
@@ -88,15 +89,16 @@ Loomen'a Kütüphane bölümü: PDF ve EPUB kitaplar uygulama klasöründe durur
 
 ## Test
 
-Testler KALDI; iş doğrulanmadı.
+Testler geçti.
 
-> Tip denetimi, birim testleri (46 dosya) ve derleme hatasız geçti. Canlı doğrulama insana kaldı. Kokpit: `insana_kalan` yalnız insanın fiziksel olarak bakması gereken işler içindir (yazıcı fişi, para çekmecesi, terazi, kart/barkod okuyucu, POS/kasa cihazı, kiosk, dokunmatik ekran, ekranda gözle bakış). Her madde tek cümlecik (virgül, nokta, 'ama' yok; 've' yalnız isimleri bağlar, iki eylemi bağlama
+> Tip denetimi, birim testleri (48 dosya) ve derleme hatasız geçti. Canlı doğrulama insana kaldı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-83`
-- Test koşusu: `7b1c5e2a-1b1a-4e82-b200-defa262ed457` (Excalibur)
+- Commit: `Loomen@73dd3d1e68ba1485495b8303588f2143c982bb9f`
+- Test koşusu: `982277b5-694e-49e8-b349-41a05b89edad` (Excalibur)
 
 ## Durum
 
-Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
+Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.

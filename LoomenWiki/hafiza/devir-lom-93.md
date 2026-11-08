@@ -3,7 +3,7 @@ name: LOM-93 — Okuma alışkanlığı: günlük sayfa hedefi kendiliğinden i�
 description: Alışkanlığa günlük sayfa hedefi ve isteğe bağlı kitap eklenir; okuyucuda okunan sayfalar sayılır, hedef dolunca gün kendiliğinden yapıldı olur; okuyucu üst çubuğuna Pomodoro başlat/duraklat düğmesi ve kalan süre gelir.
 type: project
 proje: loomen
-kaynak: kart LOM-93 · dal fix/LOM-93 · Loomen@39385f0dd25efe192e0f42b14bc1e6cc0234bfbe · test koşusu f220037e-7428-4d87-bb9c-6420cf8f9040 (Excalibur)
+kaynak: kart LOM-93 · dal fix/LOM-93 · Loomen@96c7da050a55f47f8d67fe2b73eb53eba06c8418 · test koşusu a152ba4a-e05f-4a55-b2b9-fbec78d6620f (Excalibur)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-11-08
@@ -56,13 +56,13 @@ Alışkanlığa günlük sayfa hedefi ve isteğe bağlı kitap eklenir; okuyucud
 
 Testler geçti.
 
-> Tip denetimi hatasız geçti. npm test ile 51 test dosyasının hepsi geçti; okuma hedefi ve okuma sayımı testleri de içinde. Canlı doğrulama insana kaldı.
+> Tip denetimi hatasız geçti. npm test ile 52 test dosyasının tümü geçti, okuma hedefi ve okuma sayımı testleri de içinde. Canlı doğrulama insana kaldı. Kokpit uyarısı: biçim kapısı onaylandı; şu `insana_kalan` maddeleri biçim kuralına uymadığı hâlde ham haliyle kabul edildi, insanın bakması gerekiyor (DAT-1935): "Alışkanlık kartında Bugün X / Y sayfa satırına gözle bakılmalı".
 
 ## Kanıt
 
 - Dal: `fix/LOM-93`
-- Commit: `Loomen@39385f0dd25efe192e0f42b14bc1e6cc0234bfbe`
-- Test koşusu: `f220037e-7428-4d87-bb9c-6420cf8f9040` (Excalibur)
+- Commit: `Loomen@96c7da050a55f47f8d67fe2b73eb53eba06c8418`
+- Test koşusu: `a152ba4a-e05f-4a55-b2b9-fbec78d6620f` (Excalibur)
 
 ## Durum
 
