@@ -308,6 +308,38 @@ check("bozuk JSON null", decodeBook("{ yarım") === null);
 check("bilinmeyen sürüm null", decodeBook(text.replace('"v": 1', '"v": 2')) === null);
 check("bozuk özet null", decodeBook(text.replace(hash, "zz")) === null);
 check("tek bozuk çizim → dosya null", decodeBook(text.replace('"page": 1,', '"page": 0,')) === null);
+// Kalem verisi yaz-oku (LOM-97)
+{
+  const inked: Book = {
+    ...full,
+    ink: [
+      { page: 5, updatedAt: NOW + 12, strokes: [{ id: "s2", createdAt: NOW + 12, points: [{ x: 0.5, y: 0.5 }] }] },
+      { page: 2, updatedAt: NOW + 11, strokes: [{ id: "s1", createdAt: NOW + 11, points: [{ x: 0.123456789, y: 0.2 }, { x: 0.3, y: 0.4 }] }] },
+    ],
+  };
+  const it = encodeBook(inked);
+  const ib = decodeBook(it);
+  check("kalem yaz-oku aynı metni üretir", !!ib && encodeBook(ib) === it);
+  check("kalem sayfaları sıralı yazılır", !!ib && ib.ink?.map((p) => p.page).join(",") === "2,5");
+  check("kalem noktası 5 haneye yuvarlanır, tek metin", it.includes('"points": "0.12346,0.2 0.3,0.4"'));
+  check("kalem noktası okununca aynı yer", ib?.ink?.[0].strokes[0].points[1].x === 0.3 && ib?.ink?.[0].strokes[0].points[1].y === 0.4);
+  check("kalemsiz kayıtta ink alanı yazılmaz", !text.includes('"ink"') && decodeBook(text)?.ink === undefined);
+  check("boş ink dizisi yazılmaz", encodeBook({ ...full, ink: [] }) === text);
+  const nan: Book = { ...full, ink: [{ page: 1, updatedAt: 0, strokes: [{ id: "n", createdAt: 0, points: [{ x: NaN, y: 0 }] }] }] };
+  check("geçersiz noktalı çizgi yazılmaz, dosya okunur kalır", encodeBook(nan) === text);
+  check("kalem alanı en sonda", it.indexOf('"ink"') > it.indexOf('"highlights"'));
+  const bad = (from: string, to: string) => decodeBook(it.replace(from, to)) === null;
+  check("bozuk nokta metni → dosya null", bad('"0.12346,0.2 0.3,0.4"', '"0.1,x"'));
+  check("boş nokta → dosya null", bad('"0.12346,0.2 0.3,0.4"', '""'));
+  check("eksik koordinat → dosya null", bad('"0.12346,0.2 0.3,0.4"', '"0.1 0.2"'));
+  check("dizi olmayan ink → dosya null", decodeBook(encodeBook(full).replace('"highlights": [', '"ink": 3,\n    "highlights": [')) === null);
+  check("sıfır sayfa → dosya null", bad('"page": 2,\n        "updatedAt"', '"page": 0,\n        "updatedAt"'));
+  check("bozuk çizgi kimliği → dosya null", bad('"id": "s1"', '"id": "s/1"'));
+  check("aynı sayfa iki kez → dosya null", bad('"page": 5,', '"page": 2,'));
+  const neg = decodeBook(it.replace('"0.12346,0.2 0.3,0.4"', '"1.5,0.2 0.3,0.4"'));
+  check("aralık dışı nokta kırpılır", neg?.ink?.[0].strokes[0].points[0].x === 1);
+  check("eksi işaretli nokta → dosya null", bad('"0.12346,0.2 0.3,0.4"', '"-0.1,0.2"'));
+}
 check("geçersiz durum okunacak olur", decodeBook(text.replace('"status": "done"', '"status": "x"'))?.status === "toread");
 
 // ─── Raf ───

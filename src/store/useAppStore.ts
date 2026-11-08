@@ -179,6 +179,16 @@ import {
   bookIdFromHash,
   bookNoteTemplate,
   coverFileName,
+  addInkStroke,
+  clearInkPage,
+  inkForPage,
+  restoreInkPage,
+  inkImagePath,
+  insertInkBlock,
+  inkBlockState,
+  newInkStrokeId,
+  removeInkBlock,
+  undoInkStroke,
   createMemoryBookFiles,
   createTauriBookFiles,
   detectFormat,
@@ -224,6 +234,8 @@ import {
   type BookStatus,
   type Highlight,
   type HighlightPatch,
+  type InkPoint,
+  type InkStroke,
   type LibraryVault,
   type NewHighlightInput,
   type NoteLabels,
@@ -829,6 +841,24 @@ interface AppState {
   librarySavePosition: (pos: BookPosition, progress: number) => void;
   /** Bekleyen konum kaydını hemen yaz. */
   libraryFlushPosition: () => Promise<void>;
+  /**
+   * Kalem (LOM-97, yalnız PDF): açık kitabın sayfasına çizgi ekle (noktalar 0..1 oranı). Kayıt
+   * bellekte hemen güncellenir, dosyaya gecikmeli yazılır. Eklenemezse false.
+   */
+  libraryInkAddStroke: (page: number, points: InkPoint[]) => boolean;
+  /** Sayfadaki son kalem çizgisini kaldır. */
+  libraryInkUndo: (page: number) => void;
+  /** Sayfadaki bütün kalem çizgilerini kaldır; kaldırılan çizgiler döner (geri almak için). */
+  libraryInkClear: (page: number) => InkStroke[];
+  /** Temizlenen sayfanın çizgilerini geri koy (sayfayı temizle'yi geri al). */
+  libraryInkRestore: (page: number, strokes: readonly InkStroke[]) => void;
+  /** Bekleyen kalem kaydını hemen yaz; temizlenen sayfaların not bloğunu kaldır. */
+  libraryInkFlush: () => Promise<void>;
+  /**
+   * Kalemli sayfanın not resmi hazır: PNG kasaya (`Kütüphane/Kalem/…`) yazılır, kitabın notunda
+   * "Kalem notları" bloğu eklenir/yenilenir. Okuyucu kapandıktan sonra da çağrılabilir.
+   */
+  libraryInkSnapshot: (bookId: string, page: number, png: Blob) => Promise<void>;
   /** Okuyucunun bildirdiği başlık/yazar/sayfa ve kapak. */
   librarySetMeta: (meta: BookMeta) => Promise<void>;
   /** `loomen://book/...` bağlantısını aç; tanınmazsa false. */
@@ -1012,6 +1042,16 @@ const getBookFiles = (): BookFileStore => (bookFiles ??= isTauri() ? createTauri
 let pendingPosition: { id: string; pos: BookPosition; progress: number; at: number } | null = null;
 let positionTimer: ReturnType<typeof setTimeout> | null = null;
 const POSITION_SAVE_MS = 2000;
+/**
+ * Kalem (LOM-97): bellekte güncellenmiş ama dosyaya henüz yazılmamış çizgiler. Her çizgide
+ * dosya yazılmasın diye kayıt gecikmeli; bu arada kasa yeniden okunursa (eşitleme) bellekteki
+ * çizgiler kaybolmasın diye burada da tutulur. `pages`: değişen sayfalar (not bloğu için).
+ */
+let pendingInk: { id: string; ink: Book["ink"]; pages: Set<number> } | null = null;
+let inkTimer: ReturnType<typeof setTimeout> | null = null;
+const INK_SAVE_MS = 2000;
+/** Kalem resmi + not bloğu yazımları sırayla (aynı sayfanın iki resmi yarışmasın). */
+let inkChain: Promise<unknown> = Promise.resolve();
 let readerSeq = 0;
 /** Süren Kindle araması (odak ve açılış aynı anda tetikleyebilir). */
 let kindleProbing: Promise<void> | null = null;
@@ -1033,7 +1073,17 @@ function libraryNoteLabels(): NoteLabels {
     koreader: i18n.t("library.note.koreader"),
     kobo: i18n.t("library.note.kobo"),
     progress: i18n.t("library.note.progress", { n: "{n}" }),
+    ink: i18n.t("library.note.ink"),
   };
+}
+
+/** Bekleyen (yazılmamış) kalem çizgilerini kayda geri işle (araya kasa okuması girdiyse). */
+function withPendingInk(b: Book, p: NonNullable<typeof pendingInk>): Book {
+  if (p.id !== b.id || b.ink === p.ink) return b;
+  const next: Book = { ...b, updatedAt: Math.max(b.updatedAt, Date.now()) };
+  if (p.ink?.length) next.ink = p.ink;
+  else delete next.ink;
+  return next;
 }
 
 /**
@@ -1209,6 +1259,12 @@ export const useAppStore = create<AppState>()(
         if (positionTimer) clearTimeout(positionTimer);
         positionTimer = null;
       }
+      if (pendingInk) {
+        // Eski kasanın bekleyen kalem çizgileri yeni kasaya yazılmasın.
+        pendingInk = null;
+        if (inkTimer) clearTimeout(inkTimer);
+        inkTimer = null;
+      }
       const st = get();
       set({
         books: [],
@@ -1252,6 +1308,21 @@ export const useAppStore = create<AppState>()(
   }
 
   const bookById = (id: string | null) => (id ? (get().books.find((b) => b.id === id) ?? null) : null);
+
+  /**
+   * Kalem değişikliğini bellekte hemen uygula, dosyaya gecikmeli yaz (LOM-97). libraryGen artar:
+   * bu arada biten kasa okuması bellekteki kaydı eskisiyle ezmez.
+   */
+  function inkSet(next: Book, page: number): void {
+    if (pendingInk && pendingInk.id !== next.id) void get().libraryInkFlush();
+    libraryGen++;
+    set((st) => ({ books: st.books.map((b) => (b.id === next.id ? next : b)) }));
+    const pages = pendingInk?.id === next.id ? pendingInk.pages : new Set<number>();
+    pages.add(page);
+    pendingInk = { id: next.id, ink: next.ink, pages };
+    if (inkTimer) clearTimeout(inkTimer);
+    inkTimer = setTimeout(() => void get().libraryInkFlush(), INK_SAVE_MS);
+  }
 
   /**
    * Kitabın notunu değiştir (çizim bloğu ekle/güncelle/sil). Aktif notun taslağı önce yazılır,
@@ -4428,6 +4499,9 @@ export const useAppStore = create<AppState>()(
           // kalınan yer (başka cihazdan eşitlenen) kaybolmaz (LOM-92).
           books = [...disk.map((b) => { const m = mem.get(b.id); return m ? newerPosition(m, b) : b; }), ...[...mem.values()].filter((b) => !disk.some((d) => d.id === b.id))];
         }
+        // Yazılmamış kalem çizgileri diskten okunan eski kayıtla kaybolmaz (LOM-97).
+        const ink = pendingInk;
+        if (ink) books = books.map((b) => withPendingInk(b, ink));
         libraryVault = vault;
         libraryVaultOf = src;
         const open = get().readerBookId;
@@ -4802,7 +4876,10 @@ export const useAppStore = create<AppState>()(
         void get().libraryOpenNote(id);
         return;
       }
-      if (s.readerBookId && s.readerBookId !== id) void get().libraryFlushPosition();
+      if (s.readerBookId && s.readerBookId !== id) {
+        void get().libraryFlushPosition();
+        void get().libraryInkFlush();
+      }
       let readerTarget: ReaderTarget | null = null;
       if (target?.highlightId) {
         const h = book.highlights.find((x) => x.id === target.highlightId);
@@ -4823,6 +4900,7 @@ export const useAppStore = create<AppState>()(
 
     libraryCloseReader: () => {
       void get().libraryFlushPosition();
+      void get().libraryInkFlush();
       const s = get();
       if (!s.readerBookId) return;
       const back = s.readerReturn === "reader" ? "library" : s.readerReturn;
@@ -4930,6 +5008,112 @@ export const useAppStore = create<AppState>()(
       // okuyucunun son bildirdiğinden eski kalır ve "başka cihazdan" sanılmaz.
       const next = bookSetPosition(book, p.pos, p.progress, p.at);
       if (next !== book) await bookCommit(next, true);
+    },
+
+    libraryInkAddStroke: (page, points) => {
+      const book = bookById(get().readerBookId);
+      if (!book) return false;
+      let next: Book;
+      try {
+        next = addInkStroke(book, page, points, Date.now(), newInkStrokeId(book)).book;
+      } catch (e) {
+        console.warn("[library] kalem çizgisi eklenemedi:", e);
+        return false;
+      }
+      inkSet(next, page);
+      return true;
+    },
+
+    libraryInkUndo: (page) => {
+      const book = bookById(get().readerBookId);
+      if (!book) return;
+      const next = undoInkStroke(book, page, Date.now());
+      if (next !== book) inkSet(next, page);
+    },
+
+    libraryInkClear: (page) => {
+      const book = bookById(get().readerBookId);
+      if (!book) return [];
+      const removed = inkForPage(book, page);
+      const next = clearInkPage(book, page, Date.now());
+      if (next === book) return [];
+      inkSet(next, page);
+      return [...removed];
+    },
+
+    libraryInkRestore: (page, strokes) => {
+      const book = bookById(get().readerBookId);
+      if (!book) return;
+      const next = restoreInkPage(book, page, strokes, Date.now());
+      if (next !== book) inkSet(next, page);
+    },
+
+    libraryInkFlush: async () => {
+      if (inkTimer) clearTimeout(inkTimer);
+      inkTimer = null;
+      const p = pendingInk;
+      pendingInk = null;
+      if (!p) return;
+      const cur = bookById(p.id);
+      if (!cur) return;
+      const book = withPendingInk(cur, p);
+      const src = backend;
+      if (!(await bookCommit(book))) {
+        // Yazılamadı (kullanıcıya söylendi): çizgiler bellekte kalır, sonraki çizgide ya da
+        // okuyucu kapanınca yeniden denenir. Kasa değiştiyse eski kasanın çizgileri atılır.
+        if (backend === src && libraryVaultOf === src && !pendingInk && bookById(p.id)) {
+          pendingInk = p;
+          set((st) => ({ books: st.books.map((b) => withPendingInk(b, p)) }));
+        }
+        return;
+      }
+      // Temizlenen sayfaların (Loomen'ın yazdığı hâldeki) not bloğu kalkar; resmi kasada kalır.
+      const cleared = [...p.pages].filter((pg) => !inkForPage(book, pg).length);
+      if (!cleared.length) return;
+      try {
+        let edited = false;
+        await syncBookNote(book.id, (text, b) => {
+          let out = text;
+          for (const pg of cleared) {
+            if (inkForPage(b, pg).length) continue; // bu arada yeniden çizildi
+            const after = removeInkBlock(out, pg, { book: b, labels: libraryNoteLabels() });
+            if (after === out && inkBlockState(out, pg) === "ok") edited = true;
+            out = after;
+          }
+          return out;
+        });
+        if (edited) await notifyError(i18n.t("library.blockEdited"), "info");
+      } catch (e) {
+        await noteSyncFailed(e);
+      }
+    },
+
+    libraryInkSnapshot: (bookId, page, png) => {
+      const run = inkChain.then(async () => {
+        const src = backend;
+        const book = bookById(bookId);
+        // Kitap kalktıysa, kasa değiştiyse ya da sayfa bu arada temizlendiyse resim yazılmaz.
+        if (!book || !inkForPage(book, page).length) return;
+        let path: string;
+        try {
+          path = inkImagePath(book.id, page);
+          const bytes = new Uint8Array(await png.arrayBuffer());
+          if (backend !== src) return;
+          await src.writeBinary(path, bytes);
+        } catch (e) {
+          console.error("[library] kalem resmi yazılamadı:", e);
+          await notifyError(i18n.t("library.saveError", { detail: errText(e) }));
+          return;
+        }
+        try {
+          // Resim her çizgide yenilenir; elle değiştirilmiş blok sessizce korunur (her çizgide uyarı çıkmasın).
+          await syncBookNote(book.id, (text, b) => (inkForPage(b, page).length ? insertInkBlock(text, b, page, libraryNoteLabels()) : text));
+        } catch (e) {
+          await noteSyncFailed(e);
+        }
+      });
+      inkChain = run.catch(() => {});
+      return run;
     },
 
     librarySetMeta: async (meta) => {

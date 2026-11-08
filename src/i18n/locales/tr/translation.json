@@ -1575,6 +1575,10 @@
       "relink": "Dosyayı seç",
       "noViewer": "{{format}} okuyucusu bu sürümde yok.",
       "openError": "Kitap açılamadı.",
+      "pen": "Kalem",
+      "penUndo": "Son çizgiyi geri al",
+      "penClear": "Bu sayfadaki kalem çizgilerini temizle",
+      "penClearPage": "Sayfa {{page}}: kalem çizgilerini temizle (geri alınabilir)",
       "pomoStart": "Pomodoro'yu başlat",
       "pomoPause": "Pomodoro'yu duraklat",
       "pomoBreak": "Mola — dokun, yeni odak başlasın"
@@ -1588,7 +1592,8 @@
       "kindle": "Kindle",
       "koreader": "KOReader",
       "kobo": "Kobo",
-      "progress": "%{{n}}"
+      "progress": "%{{n}}",
+      "ink": "Kalem notları"
     },
     "pickTitle": "Kitap seç",
     "pickFilter": "Kitaplar (PDF, EPUB)",

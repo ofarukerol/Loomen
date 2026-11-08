@@ -9,11 +9,25 @@
 //
 // Çizim yeri sayfaya göre 0..1 oranıdır (core/library/pdfAnchor.ts): yazı boyutu = yakınlaştırma
 // değişince çizimler ve kalınan yer kaymaz (K5).
+//
+// Kalem (LOM-97): her sayfada çizimlerin üstünde, metnin altında ayrı bir tuval (`.lo-pdf__ink`)
+// kayıttaki çizgileri çizer; tema süzgeci ona uygulanmaz. Kalem açıkken sayfanın en üstüne bir
+// yakalama katmanı (`.lo-pdf__pen`) gelir: kalem ve fare çizer, parmak kaydırır. Kalemli sayfanın
+// not resmi (açık sayfa + çizgiler, ~800 px PNG) ayrı, ekran dışı bir tuvalde üretilir.
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
-import type { BookPosition, Highlight, PdfAnchor, ReaderTheme } from "../../../core/library/types";
+import type { BookPosition, Highlight, InkPoint, InkStroke, PdfAnchor, ReaderTheme } from "../../../core/library/types";
+import {
+  INK_COLOR,
+  drawInkPolyline,
+  drawInkStrokes,
+  inkLineWidth,
+  shouldAddPoint,
+  strokeFromPixels,
+  type PixelPoint,
+} from "../../../core/library/ink";
 import {
   anchorBounds,
   anchorFromClientRects,
@@ -126,6 +140,19 @@ function freeCanvases(host: HTMLElement | null) {
 const FLASH_MS = 1800;
 const COVER_WIDTH = 300;
 
+/** Kalem tuvali için cihaz pikseli sınırı (sayfa tuvalinden ayrı; kalem için 2× yeter). */
+const INK_MAX_DPR = 2;
+const INK_MAX_CANVAS_PIXELS = 4_000_000;
+/** Karanlık temada koyu mavi okunmaz: ekranda açık mavi çizilir (kayıt ve not resmi aynı kalır). */
+const INK_COLOR_DARK = "#9db8ff";
+/** Not resmi genişliği ve piksel sınırı (iOS ekran dışı tuval belleği). */
+const SNAPSHOT_WIDTH = 800;
+const SNAPSHOT_MAX_PIXELS = 3_000_000;
+/** Son değişiklikten bu kadar sonra not resmi üretilir (art arda çizgilerde tek resim). */
+const SNAPSHOT_DELAY_MS = 1500;
+/** Kapanışta bekleyen resimler için belgeyi en çok bu kadar açık tut. */
+const SNAPSHOT_CLOSE_WAIT_MS = 10_000;
+
 const isCancel = (e: unknown) =>
   !!e && typeof e === "object" && "name" in e && (e as { name?: string }).name === "RenderingCancelledException";
 
@@ -167,6 +194,40 @@ async function outlineToToc(doc: PdfDocProxy, nodes: PdfOutlineNode[]): Promise<
   return out;
 }
 
+/** Kalemli sayfanın not resmi: açık sayfa (süzgeçsiz) + çizgiler, PNG. */
+async function renderInkSnapshot(doc: PdfDocProxy, num: number, strokes: readonly InkStroke[]): Promise<Blob | undefined> {
+  const page = await doc.getPage(num);
+  const vp1 = page.getViewport({ scale: 1 });
+  let scale = SNAPSHOT_WIDTH / vp1.width;
+  if (vp1.width * vp1.height * scale * scale > SNAPSHOT_MAX_PIXELS) scale = Math.sqrt(SNAPSHOT_MAX_PIXELS / (vp1.width * vp1.height));
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.floor(viewport.width));
+  canvas.height = Math.max(1, Math.floor(viewport.height));
+  try {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return undefined;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, canvas, viewport }).promise;
+    drawInkStrokes(ctx, strokes, canvas.width, canvas.height, INK_COLOR);
+    return await new Promise<Blob | undefined>((res) => canvas.toBlob((b) => res(b ?? undefined), "image/png"));
+  } finally {
+    freeCanvas(canvas);
+  }
+}
+
+/**
+ * Bekleyen resim işleri. Belge, çizgiler ve geri çağrı İŞ KURULURKEN yakalanır: kitap değişip
+ * belge kapanırken üretilen resim yeni kitabın çizgisiyle ya da kabuğuyla karışmasın.
+ */
+interface SnapJob {
+  tm: ReturnType<typeof setTimeout>;
+  doc: PdfDocProxy;
+  strokes: readonly InkStroke[];
+  emit: (page: number, png: Blob) => void;
+}
+
 async function renderCover(doc: PdfDocProxy): Promise<Blob | undefined> {
   const page = await doc.getPage(1);
   const vp1 = page.getViewport({ scale: 1 });
@@ -200,11 +261,215 @@ interface PageProps {
   active: boolean;
   highlights: Highlight[];
   flashId: string | null;
+  /** Bu sayfanın kayıttaki kalem çizgileri. */
+  strokes: readonly InkStroke[];
+  penMode: boolean;
+  dark: boolean;
+  /** Çizgi bitti: noktalar 0..1 oranı. Kararlı (değişmeyen) işlev verilmeli. */
+  onStroke: (page: number, points: InkPoint[]) => void;
 }
 
-const PdfPage = memo(function PdfPage({ doc, lib, num, left, top, width, height, scale, active, highlights, flashId }: PageProps) {
+/** Bu dokunuş Apple Pencil mi? (iOS `Touch.touchType`; Chromium da destekler.) */
+const isStylusTouch = (t: Touch) => (t as Touch & { touchType?: string }).touchType === "stylus";
+
+const PdfPage = memo(function PdfPage({
+  doc,
+  lib,
+  num,
+  left,
+  top,
+  width,
+  height,
+  scale,
+  active,
+  highlights,
+  flashId,
+  strokes,
+  penMode,
+  dark,
+  onStroke,
+}: PageProps) {
   const canvasHost = useRef<HTMLDivElement>(null);
   const textHost = useRef<HTMLDivElement>(null);
+  const inkRef = useRef<HTMLCanvasElement>(null);
+  const penRef = useRef<HTMLDivElement>(null);
+  /** Kalem tuvali yalnız görünür sayfada ve çizgi varken ya da kalem açıkken (bellek). */
+  const showInk = active && (strokes.length > 0 || penMode);
+  const inkColor = dark ? INK_COLOR_DARK : INK_COLOR;
+
+  // ── Kalem tuvali: kayıttaki çizgiler ──
+  useLayoutEffect(() => {
+    const c = inkRef.current;
+    if (!showInk || !c) return;
+    let dpr = Math.min(INK_MAX_DPR, window.devicePixelRatio || 1);
+    if (width * height * dpr * dpr > INK_MAX_CANVAS_PIXELS) dpr = Math.max(0.5, Math.sqrt(INK_MAX_CANVAS_PIXELS / (width * height)));
+    const w = Math.max(1, Math.floor(width * dpr));
+    const h = Math.max(1, Math.floor(height * dpr));
+    if (c.width !== w) c.width = w;
+    if (c.height !== h) c.height = h;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.setTransform(w / width, 0, 0, h / height, 0, 0);
+    drawInkStrokes(ctx, strokes, width, height, inkColor);
+  }, [showInk, strokes, width, height, inkColor]);
+
+  // Gizlenen kalem tuvalinin belleğini bırak (Safari).
+  useEffect(() => {
+    if (!showInk) return;
+    const c = inkRef.current;
+    return () => freeCanvas(c);
+  }, [showInk]);
+
+  // ── Kalem yakalama: kalem ve fare çizer; parmak (avuç) kaydırır ──
+  const strokeRef = useRef<{ id: number; pts: PixelPoint[] } | null>(null);
+  const redrawRef = useRef<() => void>(() => {});
+  redrawRef.current = () => {
+    const c = inkRef.current;
+    const ctx = c?.getContext("2d");
+    if (!c || !ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.setTransform(c.width / width, 0, 0, c.height / height, 0, 0);
+    drawInkStrokes(ctx, strokes, width, height, inkColor);
+  };
+  const liveRef = useRef({ width, height, inkColor, num, onStroke });
+  liveRef.current = { width, height, inkColor, num, onStroke };
+
+  useEffect(() => {
+    const el = penRef.current;
+    if (!penMode || !active || !el) return;
+
+    const ctxFor = () => {
+      const c = inkRef.current;
+      const ctx = c?.getContext("2d");
+      if (!c || !ctx) return null;
+      const { width: w, height: h, inkColor: color } = liveRef.current;
+      ctx.setTransform(c.width / w, 0, 0, c.height / h, 0, 0);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = inkLineWidth(w);
+      return ctx;
+    };
+    // Kutu her olayda yeniden okunur: çizerken parmak sayfayı kaydırırsa nokta kaymasın.
+    const local = (e: PointerEvent, box: DOMRect): PixelPoint => ({
+      x: ((e.clientX - box.left) * liveRef.current.width) / (box.width || 1),
+      y: ((e.clientY - box.top) * liveRef.current.height) / (box.height || 1),
+    });
+
+    // Windows/Android kalemi dokunuş olayı vermeyebilir; `touch-action` dokunuşta değiştirilemez.
+    // Kalem yaklaşınca (havada) kaydırma kapatılır, parmak dokununca ya da kalem uzaklaşınca açılır.
+    const penNear = (on: boolean) => {
+      el.style.touchAction = on ? "none" : "";
+    };
+    const onHover = (e: PointerEvent) => {
+      if (e.pointerType === "pen" && e.buttons === 0) penNear(true);
+    };
+    const onLeave = (e: PointerEvent) => {
+      if (e.pointerType === "pen" && !strokeRef.current) penNear(false);
+    };
+
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType === "touch") {
+        if (!strokeRef.current) penNear(false);
+        return; // parmak: kaydırma
+      }
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (strokeRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* yakalama desteklenmezse olaylar yine gelir */
+      }
+      const p = local(e, el.getBoundingClientRect());
+      strokeRef.current = { id: e.pointerId, pts: [p] };
+      const ctx = ctxFor();
+      if (ctx) drawInkPolyline(ctx, [p], ctx.lineWidth);
+    };
+    const onMove = (e: PointerEvent) => {
+      const s = strokeRef.current;
+      if (!s || s.id !== e.pointerId) return;
+      e.preventDefault();
+      const events = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : [];
+      const ctx = ctxFor();
+      const box = el.getBoundingClientRect();
+      for (const ev of events.length ? events : [e]) {
+        const p = local(ev, box);
+        const last = s.pts[s.pts.length - 1];
+        if (!shouldAddPoint(last, p)) continue;
+        s.pts.push(p);
+        if (ctx) drawInkPolyline(ctx, [last, p], ctx.lineWidth);
+      }
+    };
+    const onUp = (e: PointerEvent) => {
+      const s = strokeRef.current;
+      if (!s || s.id !== e.pointerId) return;
+      strokeRef.current = null;
+      try {
+        el.releasePointerCapture(e.pointerId);
+      } catch {
+        /* zaten bırakılmış */
+      }
+      const last = local(e, el.getBoundingClientRect());
+      const prev = s.pts[s.pts.length - 1];
+      if (shouldAddPoint(prev, last)) {
+        s.pts.push(last);
+        const ctx = ctxFor();
+        if (ctx) drawInkPolyline(ctx, [prev, last], ctx.lineWidth);
+      }
+      const { width: w, height: h, num: page, onStroke: emit } = liveRef.current;
+      const points = strokeFromPixels(s.pts, w, h);
+      if (points.length) emit(page, points);
+      else redrawRef.current();
+    };
+    const onCancel = (e: PointerEvent) => {
+      const s = strokeRef.current;
+      if (!s || s.id !== e.pointerId) return;
+      // Sistem dokunuşu aldı (kaydırma, hareket): yarım çizgi kaydedilmez.
+      strokeRef.current = null;
+      redrawRef.current();
+    };
+    // iOS: Apple Pencil dokunuşunda kaydırmayı durdur; parmak dokunuşuna dokunma.
+    const onTouch = (e: TouchEvent) => {
+      for (const t of Array.from(e.changedTouches)) {
+        if (isStylusTouch(t)) {
+          if (e.cancelable) e.preventDefault();
+          return;
+        }
+      }
+    };
+
+    el.addEventListener("pointerover", onHover);
+    el.addEventListener("pointerleave", onLeave);
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onCancel);
+    el.addEventListener("lostpointercapture", onCancel);
+    el.addEventListener("touchstart", onTouch, { passive: false });
+    el.addEventListener("touchmove", onTouch, { passive: false });
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onCancel);
+      el.removeEventListener("lostpointercapture", onCancel);
+      el.removeEventListener("touchstart", onTouch);
+      el.removeEventListener("touchmove", onTouch);
+      el.removeEventListener("pointerover", onHover);
+      el.removeEventListener("pointerleave", onLeave);
+      penNear(false);
+      if (strokeRef.current) {
+        strokeRef.current = null;
+        redrawRef.current();
+      }
+    };
+  }, [penMode, active]);
 
   useEffect(() => {
     const host = canvasHost.current;
@@ -314,7 +579,9 @@ const PdfPage = memo(function PdfPage({ doc, lib, num, left, top, width, height,
           })
         )}
       </div>
+      {showInk && <canvas ref={inkRef} className="lo-pdf__ink" aria-hidden />}
       <div ref={textHost} className="textLayer lo-pdf__text" />
+      {penMode && active && <div ref={penRef} className="lo-pdf__pen" aria-hidden />}
     </div>
   );
 });
@@ -336,6 +603,10 @@ export default function PdfView({
   onMeta,
   onToc,
   onError,
+  ink,
+  penMode = false,
+  onInkStroke,
+  onInkSnapshot,
 }: ReaderViewProps) {
   const { t } = useTranslation();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -347,8 +618,14 @@ export default function PdfView({
   const [flashId, setFlashId] = useState<string | null>(null);
 
   // Geri çağrılar her çizimde değişebilir; etkileri yeniden kurmamak için ref'te tutulur.
-  const cb = useRef({ onPosition, onSelection, onHighlightClick, onMeta, onToc, onError });
-  cb.current = { onPosition, onSelection, onHighlightClick, onMeta, onToc, onError };
+  const cb = useRef({ onPosition, onSelection, onHighlightClick, onMeta, onToc, onError, onInkStroke, onInkSnapshot });
+  cb.current = { onPosition, onSelection, onHighlightClick, onMeta, onToc, onError, onInkStroke, onInkSnapshot };
+  const penRef = useRef(penMode);
+  penRef.current = penMode;
+  /** Bekleyen not resimlerini hemen üret (kapanış, arka plana geçiş). Kalem bölümünde atanır. */
+  const flushSnapshotsRef = useRef<() => void>(() => {});
+  /** Üretilmekte olan not resimleri: belge bunlar bitmeden kapatılmaz. */
+  const snapQueueRef = useRef<Promise<void>>(Promise.resolve());
   const hlRef = useRef(highlights);
   hlRef.current = highlights;
   const tRef = useRef(t);
@@ -431,8 +708,14 @@ export default function PdfView({
     });
     return () => {
       alive = false;
-      if (destroy) void destroy().catch(() => {});
-      else if (docRef) void docRef.destroy().catch(() => {});
+      // Bekleyen kalem resimleri bu belgeyle üretilir: önce onlar bitsin, sonra belge kapansın.
+      flushSnapshotsRef.current();
+      const close = () => {
+        if (destroy) void destroy().catch(() => {});
+        else if (docRef) void docRef.destroy().catch(() => {});
+      };
+      // Takılan bir çizim belgeyi sonsuza dek açık tutmasın.
+      void Promise.race([snapQueueRef.current, new Promise((r) => setTimeout(r, SNAPSHOT_CLOSE_WAIT_MS))]).then(close, close);
     };
   }, [data]);
 
@@ -632,6 +915,7 @@ export default function PdfView({
 
     // Var olan çizime dokunma: seçim yoksa noktayı çizimlerle karşılaştır.
     const onClick = (e: MouseEvent) => {
+      if (penRef.current) return;
       const sel = window.getSelection();
       if (sel && !sel.isCollapsed) return;
       const pageEl = (e.target as HTMLElement).closest?.<HTMLElement>(".lo-pdf__page");
@@ -682,13 +966,116 @@ export default function PdfView({
     return m;
   }, [highlights]);
 
+  // ── Kalem ──
+  // Kasa yeniden okununca kayıt yeni nesnelerle gelir; içerik (çizgi kimlikleri) aynıysa
+  // eski diziyi/haritayı koru ki not resmi ve katman çizimi boş yere yeniden tetiklenmesin.
+  const inkStableRef = useRef<Map<number, readonly InkStroke[]>>(new Map());
+  const inkByPage = useMemo(() => {
+    const prev = inkStableRef.current;
+    const m = new Map<number, readonly InkStroke[]>();
+    let same = true;
+    for (const p of ink ?? []) {
+      if (!p.strokes.length) continue;
+      const old = prev.get(p.page);
+      if (old && sameStrokeIds(old, p.strokes)) m.set(p.page, old);
+      else {
+        m.set(p.page, p.strokes);
+        same = false;
+      }
+    }
+    if (same && m.size === prev.size) return prev;
+    inkStableRef.current = m;
+    return m;
+  }, [ink]);
+  const inkMapRef = useRef(inkByPage);
+  inkMapRef.current = inkByPage;
+
+  // Kalem açılınca metin seçimi kalksın (renk menüsü kapanır).
+  useEffect(() => {
+    if (penMode) window.getSelection()?.removeAllRanges();
+  }, [penMode]);
+
+  /** Bu oturumda çizilen sayfalar: yalnız bunların (ve o an okunan sayfanın) resmi üretilir. */
+  const touchedRef = useRef(new Set<number>());
+  const onStroke = useCallback((page: number, points: InkPoint[]) => {
+    touchedRef.current.add(page);
+    cb.current.onInkStroke?.(page, points);
+  }, []);
+
+  const docRefForInk = useRef<PdfDocProxy | null>(null);
+  docRefForInk.current = status.kind === "ready" ? status.doc : null;
+  const snapJobs = useRef(new Map<number, SnapJob>());
+
+  const runSnapshot = useCallback((page: number, job: Omit<SnapJob, "tm">) => {
+    // Sırayla: aynı anda tek ekran dışı tuval (iOS belleği).
+    snapQueueRef.current = snapQueueRef.current.then(async () => {
+      try {
+        const png = await renderInkSnapshot(job.doc, page, job.strokes);
+        if (png) job.emit(page, png);
+      } catch (e) {
+        if (!isCancel(e)) console.warn(`[pdf] sayfa ${page} kalem resmi üretilemedi:`, e);
+      }
+    });
+  }, []);
+
+  flushSnapshotsRef.current = () => {
+    const jobs = [...snapJobs.current.entries()];
+    snapJobs.current.clear();
+    for (const [page, job] of jobs) {
+      clearTimeout(job.tm);
+      runSnapshot(page, job);
+    }
+  };
+
+  // Sayfanın çizgileri değişince (çizgi, geri al) gecikmeli not resmi.
+  const prevInkRef = useRef<Map<number, readonly InkStroke[]> | null>(null);
+  useEffect(() => {
+    const prev = prevInkRef.current;
+    prevInkRef.current = inkByPage;
+    if (!prev) return; // açılıştaki kayıt: resmi zaten var
+    const pages = new Set([...prev.keys(), ...inkByPage.keys()]);
+    for (const page of pages) {
+      if (prev.get(page) === inkByPage.get(page)) continue;
+      const own = touchedRef.current.has(page) || posRef.current?.page === page;
+      const old = snapJobs.current.get(page);
+      if (old) clearTimeout(old.tm);
+      snapJobs.current.delete(page);
+      const strokes = inkByPage.get(page);
+      const doc = docRefForInk.current;
+      const emit = cb.current.onInkSnapshot;
+      if (!own || !strokes?.length || !doc || !emit) continue;
+      const job: SnapJob = {
+        doc,
+        strokes,
+        emit,
+        tm: setTimeout(() => {
+          snapJobs.current.delete(page);
+          runSnapshot(page, job);
+        }, SNAPSHOT_DELAY_MS),
+      };
+      snapJobs.current.set(page, job);
+    }
+  }, [inkByPage, runSnapshot]);
+
+  // Uygulama arka plana geçince / sayfa kapanırken bekleyen resimleri hemen üret.
+  useEffect(() => {
+    const onVis = () => document.visibilityState === "hidden" && flushSnapshotsRef.current();
+    const onHide = () => flushSnapshotsRef.current();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pagehide", onHide);
+    };
+  }, []);
+
   const ready = status.kind === "ready" ? status : null;
   const from = Math.max(0, range[0] - OVERSCAN);
   const to = range[1] + OVERSCAN;
   const themeClass: Record<ReaderTheme, string> = { light: "", dark: " is-dark", sepia: " is-sepia" };
 
   return (
-    <div ref={rootRef} className={"lo-pdf" + themeClass[theme]} dir="ltr">
+    <div ref={rootRef} className={"lo-pdf" + themeClass[theme] + (penMode ? " is-pen" : "")} dir="ltr">
       {status.kind === "loading" && (
         <div className="lo-reader__state">
           <Loader2 size={24} strokeWidth={2} className="lo-spin" aria-hidden />
@@ -711,6 +1098,10 @@ export default function PdfView({
               active={i >= from && i <= to}
               highlights={byPage.get(i + 1) ?? EMPTY}
               flashId={flashId}
+              strokes={inkByPage.get(i + 1) ?? NO_STROKES}
+              penMode={penMode}
+              dark={theme === "dark"}
+              onStroke={onStroke}
             />
           ))}
         </div>
@@ -720,3 +1111,11 @@ export default function PdfView({
 }
 
 const EMPTY: Highlight[] = [];
+/** Çizgiler değişmez nesnelerdir: aynı kimlik sırası = aynı içerik. */
+function sameStrokeIds(a: readonly InkStroke[], b: readonly InkStroke[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i].id !== b[i].id) return false;
+  return true;
+}
+
+const NO_STROKES: readonly InkStroke[] = [];

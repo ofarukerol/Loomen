@@ -3,7 +3,7 @@
 // Kayıtlar değişmez (immutable) tutulur: her değişiklik yeni nesne döner; değişiklik yoksa
 // aynı nesne döner (store bununla gereksiz yazımı atlar).
 
-import { BOOK_ID_RE, HIGHLIGHT_ID_RE } from "./codec";
+import { BOOK_ID_RE, HIGHLIGHT_ID_RE, INK_STROKE_ID_RE } from "./codec";
 import {
   BOOK_STATUSES,
   DEFAULT_READER_PREFS,
@@ -21,6 +21,9 @@ import {
   type FileBookFormat,
   type Highlight,
   type HighlightColor,
+  type InkPage,
+  type InkPoint,
+  type InkStroke,
   type ReaderPrefs,
   type ReaderTheme,
 } from "./types";
@@ -414,6 +417,97 @@ export function positionOfAnchor(a: Anchor): BookPosition {
   if (a.kind === "koreader") return { kind: "koreader", location: a.page };
   if (a.kind === "kobo") return { kind: "kobo", location: koboLocation(a) };
   return { kind: "epub", spine: a.spine, href: a.href, offset: a.start };
+}
+
+// ─── Kalem (LOM-97) ───────────────────────────────────────────────────────────────
+
+/** Tek çizgideki en çok nokta; fazlası eşit aralıkla seyreltilir (dosya ve bellek şişmesin). */
+export const INK_MAX_POINTS = 2000;
+
+const NO_STROKES: readonly InkStroke[] = Object.freeze([]);
+
+/** Sayfanın kalem çizgileri (çizim sırasıyla). Yoksa boş dizi (paylaşılan, değiştirme). */
+export function inkForPage(b: Pick<Book, "ink">, page: number): readonly InkStroke[] {
+  return b.ink?.find((p) => p.page === page)?.strokes ?? NO_STROKES;
+}
+
+/** Kalemle çizilmiş sayfalar, küçükten büyüğe. */
+export function inkPages(b: Pick<Book, "ink">): number[] {
+  return (b.ink ?? []).filter((p) => p.strokes.length).map((p) => p.page).sort((x, y) => x - y);
+}
+
+/** Kitap içinde tekil, kısa çizgi kimliği. `rand` testte sabitlenir. */
+export function newInkStrokeId(b: Pick<Book, "ink">, rand: () => number = Math.random): string {
+  const taken = (b.ink ?? []).flatMap((p) => p.strokes.map((s) => s.id));
+  return newHighlightId(taken, rand);
+}
+
+function cleanInkPoints(points: InkPoint[]): InkPoint[] {
+  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+  const ok = points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)).map((p) => ({ x: clamp(p.x), y: clamp(p.y) }));
+  if (ok.length <= INK_MAX_POINTS) return ok;
+  const out: InkPoint[] = [];
+  const step = (ok.length - 1) / (INK_MAX_POINTS - 1);
+  for (let i = 0; i < INK_MAX_POINTS; i++) out.push(ok[Math.round(i * step)]);
+  return out;
+}
+
+function withInkPage(b: Book, page: number, strokes: InkStroke[], now: number): Book {
+  const rest = (b.ink ?? []).filter((p) => p.page !== page);
+  const ink: InkPage[] = strokes.length ? [...rest, { page, strokes, updatedAt: now }].sort((x, y) => x.page - y.page) : rest;
+  const next: Book = { ...b, updatedAt: Math.max(b.updatedAt, now) };
+  if (ink.length) next.ink = ink;
+  else delete next.ink;
+  return next;
+}
+
+/**
+ * Sayfaya kalem çizgisi ekle (sayfa sonuna). Yalnız PDF kitapta; sayfa 1'den başlar; noktalar
+ * 0..1 oranıdır (kırpılır), geçersiz noktalar atılır. Nokta kalmazsa, kimlik geçersiz ya da
+ * kitapta zaten varsa hata atar.
+ */
+export function addInkStroke(
+  b: Book,
+  page: number,
+  points: InkPoint[],
+  now: number,
+  id: string,
+): { book: Book; stroke: InkStroke } {
+  if (b.format !== "pdf") throw new Error("Kalem yalnız PDF kitapta");
+  if (!Number.isInteger(page) || page < 1) throw new Error("Geçersiz sayfa");
+  if (!INK_STROKE_ID_RE.test(id) || (b.ink ?? []).some((p) => p.strokes.some((s) => s.id === id))) {
+    throw new Error("Geçersiz çizgi kimliği");
+  }
+  const pts = cleanInkPoints(points);
+  if (!pts.length) throw new Error("Boş çizgi kaydedilmez");
+  const stroke: InkStroke = { id, points: pts, createdAt: now };
+  return { book: withInkPage(b, page, [...inkForPage(b, page), stroke], now), stroke };
+}
+
+/** Sayfadaki son çizgiyi kaldır. Sayfada çizgi yoksa aynı kitap döner. */
+export function undoInkStroke(b: Book, page: number, now: number): Book {
+  const cur = inkForPage(b, page);
+  if (!cur.length) return b;
+  return withInkPage(b, page, cur.slice(0, -1), now);
+}
+
+/** Sayfadaki bütün çizgileri kaldır. Sayfada çizgi yoksa aynı kitap döner. */
+export function clearInkPage(b: Book, page: number, now: number): Book {
+  if (!inkForPage(b, page).length) return b;
+  return withInkPage(b, page, [], now);
+}
+
+/**
+ * Temizlenen sayfanın çizgilerini geri koy (sayfayı temizle'yi geri al). O arada sayfaya yeni
+ * çizgi çizildiyse geri gelenler onların önüne girer; kitapta zaten olan kimlikler atlanır.
+ * Eklenecek çizgi yoksa aynı kitap döner.
+ */
+export function restoreInkPage(b: Book, page: number, strokes: readonly InkStroke[], now: number): Book {
+  if (b.format !== "pdf" || !Number.isInteger(page) || page < 1) return b;
+  const have = new Set((b.ink ?? []).flatMap((p) => p.strokes.map((s) => s.id)));
+  const back = strokes.filter((s) => INK_STROKE_ID_RE.test(s.id) && s.points.length && !have.has(s.id));
+  if (!back.length) return b;
+  return withInkPage(b, page, [...back, ...inkForPage(b, page)], now);
 }
 
 // ─── Raf ──────────────────────────────────────────────────────────────────────────

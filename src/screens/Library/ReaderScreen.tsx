@@ -5,6 +5,7 @@ import {
   bookListId,
   clampFontScale,
   comparePosition,
+  inkForPage,
   positionOfAnchor,
   quoteInList,
   remotePositionAhead,
@@ -12,6 +13,8 @@ import {
   type BookPosition,
   type Highlight,
   type HighlightColor,
+  type InkPoint,
+  type InkStroke,
   type NoteLabels,
 } from "../../core/library";
 import { useAppStore } from "../../store/useAppStore";
@@ -75,6 +78,12 @@ function errText(e: unknown): string {
  * menüsü, not penceresi ve çizim listesi buradadır. Kalınan yer gecikmeli kaydedilir; ekran
  * gizlenince ve kapanınca hemen yazılır (K6).
  */
+/** Oturumdaki bir kalem işi: çizgi (yalnız sayfa) ya da temizleme (kaldırılan çizgilerle). */
+interface InkAct {
+  page: number;
+  cleared?: InkStroke[];
+}
+
 export function ReaderScreen() {
   const { t } = useTranslation();
   const bookId = useAppStore((s) => s.readerBookId);
@@ -91,6 +100,12 @@ export function ReaderScreen() {
   const jump = useAppStore((s) => s.libraryJump);
   const savePosition = useAppStore((s) => s.librarySavePosition);
   const flushPosition = useAppStore((s) => s.libraryFlushPosition);
+  const inkAdd = useAppStore((s) => s.libraryInkAddStroke);
+  const inkUndo = useAppStore((s) => s.libraryInkUndo);
+  const inkClear = useAppStore((s) => s.libraryInkClear);
+  const inkRestore = useAppStore((s) => s.libraryInkRestore);
+  const inkFlush = useAppStore((s) => s.libraryInkFlush);
+  const inkSnapshot = useAppStore((s) => s.libraryInkSnapshot);
   const trackReading = useAppStore((s) => s.habitTrackReading);
   const flushReading = useAppStore((s) => s.habitFlushReading);
   const setMeta = useAppStore((s) => s.librarySetMeta);
@@ -111,6 +126,17 @@ export function ReaderScreen() {
   const [reviewBusy, setReviewBusy] = useState<string | null>(null);
   const menuRef = useRef<Menu | null>(null);
   menuRef.current = menu;
+  // Kalem (LOM-97, yalnız PDF): açıkken metin seçilmez, çizim menüsü açılmaz.
+  const [penMode, setPenMode] = useState(false);
+  const penRef = useRef(false);
+  penRef.current = penMode;
+  /** Okunan (ekrandaki) PDF sayfası: sayfayı temizle bunu temizler. */
+  const [curPage, setCurPage] = useState<number | null>(null);
+  /**
+   * Bu oturumdaki kalem işleri (sırayla): çizgi ya da sayfa temizleme. Geri al sondakini geri
+   * çevirir; temizlenen sayfanın çizgileri burada tutulur ki temizlemek de geri alınabilsin.
+   */
+  const inkActsRef = useRef<InkAct[]>([]);
 
   // Okuyucu açılınca Tekrar listeleri hazır olsun: düğme durumu ilk anda doğru görünsün.
   useEffect(() => {
@@ -125,6 +151,9 @@ export function ReaderScreen() {
     setLoad({ state: "loading" });
     setViewError(null);
     setMenu(null);
+    setPenMode(false);
+    setCurPage(null);
+    inkActsRef.current = [];
     readFile(bookId)
       .then((data) => alive && setLoad({ state: "ready", data }))
       .catch((e) => alive && setLoad({ state: "missing", detail: errText(e) }));
@@ -138,6 +167,7 @@ export function ReaderScreen() {
     const onVis = () => {
       if (document.visibilityState !== "hidden") return;
       void flushPosition();
+      void inkFlush(); // kalem çizgileri (LOM-97)
       flushReading(); // okuma alışkanlığı: ekranda bekleyen sayfa (LOM-93)
     };
     document.addEventListener("visibilitychange", onVis);
@@ -146,9 +176,10 @@ export function ReaderScreen() {
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("pagehide", onVis);
       void flushPosition();
+      void inkFlush();
       flushReading();
     };
-  }, [flushPosition, flushReading]);
+  }, [flushPosition, flushReading, inkFlush]);
 
   // İlk açılıştaki kalınan yer: kitap açıldığı andaki konum (okurken değişen kayıt görüntüleyiciyi sıfırlamasın).
   const initialRef = useRef<{ id: string | null; pos: ReaderViewProps["initialPosition"] }>({ id: null, pos: undefined });
@@ -185,9 +216,25 @@ export function ReaderScreen() {
   );
 
   const onSelection = useCallback((sel: ReaderSelection | null) => {
+    if (sel && penRef.current) return; // kalem açıkken seçim menüsü yok
     setMenu((m) => (sel ? { kind: "selection", sel } : m?.kind === "selection" ? null : m));
   }, []);
-  const onHighlightClick = useCallback((id: string, rect: ViewRect) => setMenu({ kind: "highlight", id, rect }), []);
+  const onHighlightClick = useCallback((id: string, rect: ViewRect) => {
+    if (!penRef.current) setMenu({ kind: "highlight", id, rect });
+  }, []);
+  const onInkStroke = useCallback(
+    (page: number, points: InkPoint[]) => {
+      if (inkAdd(page, points)) inkActsRef.current.push({ page });
+    },
+    [inkAdd]
+  );
+  // Resim, görüntüleyici kapandıktan sonra da gelebilir: kitap kimliği bu çağrıya bağlı kalır.
+  const onInkSnapshot = useCallback(
+    (page: number, png: Blob) => {
+      if (bookId) void inkSnapshot(bookId, page, png);
+    },
+    [bookId, inkSnapshot]
+  );
   const onError = useCallback((e: unknown) => setViewError(errText(e)), []);
   // EPUB bölüm boyutu: okuma alışkanlığında sanal sayfa sayısı (LOM-93). Kitap kaydına yazılmaz.
   const textBytesRef = useRef<{ id: string | null; bytes?: number }>({ id: null });
@@ -206,6 +253,7 @@ export function ReaderScreen() {
       // Okur o yere kendisi vardıysa şerit gereksiz.
       setRemoteHint((h) => (h && h.pos.kind === pos.kind && comparePosition(pos, h.pos) >= 0 ? null : h));
       savePosition(pos, progress);
+      if (pos.kind === "pdf") setCurPage(pos.page);
       const id = bookIdRef.current;
       if (!id) return;
       const tb = textBytesRef.current.id === id ? textBytesRef.current.bytes : undefined;
@@ -306,6 +354,42 @@ export function ReaderScreen() {
     noteEdit?.kind === "selection" ? noteEdit.sel.text : noteEdit ? (book.highlights.find((h) => h.id === noteEdit.id)?.text ?? "") : "";
   const noteInitial = noteEdit?.kind === "highlight" ? book.highlights.find((h) => h.id === noteEdit.id)?.note : undefined;
 
+  // Kalem: geri al bu oturumdaki son işi (çizgi ya da temizleme) geri çevirir; geçersizleşen
+  // (başka yoldan silinmiş çizgi) işler atlanır. İş yoksa okunan sayfanın son çizgisi alınır.
+  const lastAct = (() => {
+    const st = inkActsRef.current;
+    for (let i = st.length - 1; i >= 0; i--) if (st[i].cleared || inkForPage(book, st[i].page).length) return i;
+    return -1;
+  })();
+  const undoAct = lastAct >= 0 ? inkActsRef.current[lastAct] : null;
+  const undoPage = undoAct ? undoAct.page : curPage;
+  // Temizlenecek sayfa: en son çizilen (hâlâ çizgisi olan) sayfa; yoksa okunan sayfa. Böylece
+  // alttaki sayfaya çizerken ekranın üstündeki başka sayfa temizlenmez.
+  const clearPage = (() => {
+    const st = inkActsRef.current;
+    for (let i = st.length - 1; i >= 0; i--) if (!st[i].cleared && inkForPage(book, st[i].page).length) return st[i].page;
+    return curPage;
+  })();
+  const togglePen = () => {
+    setPenMode((on) => !on);
+    setMenu(null);
+    window.getSelection()?.removeAllRanges();
+  };
+  const undoInk = () => {
+    if (undoAct) {
+      inkActsRef.current = inkActsRef.current.slice(0, lastAct);
+      if (undoAct.cleared) inkRestore(undoAct.page, undoAct.cleared);
+      else inkUndo(undoAct.page);
+      return;
+    }
+    if (undoPage != null) inkUndo(undoPage);
+  };
+  const clearInk = () => {
+    if (clearPage == null) return;
+    const removed = inkClear(clearPage);
+    if (removed.length) inkActsRef.current = [...inkActsRef.current, { page: clearPage, cleared: removed }];
+  };
+
   const doRelink = async () => {
     setRelinking(true);
     try {
@@ -382,6 +466,7 @@ export function ReaderScreen() {
             onHighlightClick={onHighlightClick}
             onMeta={onMeta}
             onError={onError}
+            {...(book.format === "pdf" ? { ink: book.ink, penMode, onInkStroke, onInkSnapshot } : {})}
           />
         </Suspense>
       </ViewBoundary>
@@ -401,6 +486,19 @@ export function ReaderScreen() {
         onTheme={(th) => setPrefs({ theme: th })}
         onPanel={() => setPanel((p) => !p)}
         onNote={() => void openNote(book.id)}
+        pen={
+          book.format === "pdf" && load.state === "ready" && !!View && !viewError
+            ? {
+                on: penMode,
+                canUndo: !!undoAct || (undoPage != null && inkForPage(book, undoPage).length > 0),
+                canClear: clearPage != null && inkForPage(book, clearPage).length > 0,
+                clearPage: clearPage ?? undefined,
+                onToggle: togglePen,
+                onUndo: undoInk,
+                onClear: clearInk,
+              }
+            : undefined
+        }
       />
       <div className="lo-reader__main">
         <div className="lo-reader__view">{body}</div>

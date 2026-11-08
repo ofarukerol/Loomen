@@ -19,9 +19,24 @@
 // İşaretler (HTML yorumu) başka Markdown uygulamalarında görünmez; Loomen okuma modunda da
 // gizler. Kural: yalnız işaretler ARASINA dokunulur. Kullanıcının nota yazdığı başka her şey
 // olduğu gibi kalır. Bitiş işareti kaybolmuş (elle bozulmuş) bloğa hiç dokunulmaz.
+//
+// Kalem notları (LOM-97, yalnız PDF): kalemle yazılan her sayfa "Kalem notları" bölümünde
+// bir blok olur. Blok sayfanın resmini (kasada `Kütüphane/Kalem/<id>-s<N>.png`) ve o sayfayı
+// açan bağlantıyı taşır:
+//
+//   <!-- loomen:ink p12 -->
+//   ![[Kütüphane/Kalem/<id>-s12.png]]
+//
+//   ✏️ [s. 12](loomen://book/<id>?page=12)
+//   <!-- /loomen:ink p12 -->
+//
+// Aynı kural geçerli: yalnız işaretler arasına dokunulur, elle değiştirilmiş ya da bitişi
+// kaybolmuş bloğa yazılmaz. Bölüm başlığını Loomen ekler ama hiç silmez.
 
+import { BOOK_ID_RE } from "./codec";
 import { bookLink } from "./links";
 import { hasBookFile } from "./model";
+import { inkPages } from "./model";
 import type { Book, Highlight, HighlightColor } from "./types";
 
 /** Notta görünen yazılar (uygulama dili). Varsayılan Türkçe. */
@@ -42,6 +57,8 @@ export interface NoteLabels {
   kobo?: string;
   /** Kobo yer etiketi bölüm bilinmediğinde: `{n}` bölüm içi yüzdeyle değişir. Yoksa varsayılan. */
   progress?: string;
+  /** Kalem notları bölümünün başlığı (LOM-97). Yoksa varsayılan. */
+  ink?: string;
 }
 
 export const DEFAULT_NOTE_LABELS: Readonly<Required<NoteLabels>> = Object.freeze({
@@ -54,6 +71,7 @@ export const DEFAULT_NOTE_LABELS: Readonly<Required<NoteLabels>> = Object.freeze
   koreader: "KOReader",
   kobo: "Kobo",
   progress: "%{n}",
+  ink: "Kalem notları",
 });
 
 export const COLOR_MARK: Record<HighlightColor, string> = {
@@ -68,6 +86,17 @@ export const NOTE_BOOK_KEY = "loomen-book";
 
 const START_RE = /^<!--\s*loomen:hl\s+([A-Za-z0-9_-]+)\s*-->$/;
 const END_RE = /^<!--\s*\/loomen:hl\s+([A-Za-z0-9_-]+)\s*-->$/;
+const INK_START_RE = /^<!--\s*loomen:ink\s+p([1-9][0-9]{0,5})\s*-->$/;
+const INK_END_RE = /^<!--\s*\/loomen:ink\s+p([1-9][0-9]{0,5})\s*-->$/;
+/** Herhangi bir blok başlangıcı (çizim ya da kalem): bitişi olmayan bloğun sınırı. */
+const ANY_START_RE = /^<!--\s*loomen:(?:hl|ink)\s+[A-Za-z0-9_-]+\s*-->$/;
+
+interface Markers {
+  start: RegExp;
+  end: RegExp;
+}
+const HL_MARKERS: Markers = { start: START_RE, end: END_RE };
+const INK_MARKERS: Markers = { start: INK_START_RE, end: INK_END_RE };
 
 /** Kullanıcı metninin işaret gibi görünmesini ve yorumu kapatmasını engelle. */
 function neutralize(s: string): string {
@@ -129,6 +158,11 @@ export function bookNoteTemplate(book: Book, labels: NoteLabels = DEFAULT_NOTE_L
   } else lines.push(`[${labelSafe(labels.openBook)}](${bookLink({ bookId: book.id })})`);
   lines.push("", `## ${labels.quotes}`, "");
   for (const h of book.highlights) lines.push(...highlightBlockLines(book, h, labels), "");
+  const ink = inkSectionLines(book, labels);
+  if (ink.length) {
+    while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+    lines.push("", ...ink);
+  }
   return lines.join("\n").replace(/\n+$/, "") + "\n";
 }
 
@@ -151,23 +185,25 @@ interface Block {
   end: number;
 }
 
-/** Notun bütün blokları (id → konum). Aynı kimlik iki kez varsa ilki geçerli. */
-function scanBlocks(lines: string[]): Map<string, Block> {
+/**
+ * Notun bütün blokları (id → konum). Aynı kimlik iki kez varsa ilki geçerli. Varsayılan çizim
+ * blokları; kalem blokları için `INK_MARKERS` (kimlik sayfa numarasıdır).
+ */
+function scanBlocks(lines: string[], mk: Markers = HL_MARKERS): Map<string, Block> {
   const out = new Map<string, Block>();
   for (let i = 0; i < lines.length; i++) {
-    const m = START_RE.exec(lines[i].trim());
+    const m = mk.start.exec(lines[i].trim());
     if (!m || out.has(m[1])) continue;
     const id = m[1];
     let end = -1;
     for (let j = i + 1; j < lines.length; j++) {
       const t = lines[j].trim();
-      const e = END_RE.exec(t);
+      const e = mk.end.exec(t);
       if (e && e[1] === id) {
         end = j;
         break;
       }
-      const s = START_RE.exec(t);
-      if (s) break; // başka blok başladı: bu bloğun bitişi yok
+      if (ANY_START_RE.test(t)) break; // başka blok başladı: bu bloğun bitişi yok
     }
     out.set(id, { start: i, end });
     if (end > i) i = end;
@@ -243,6 +279,14 @@ export function insertHighlightBlock(
       }
     }
   }
+  // Kalem notları bölümü varsa çizim onun önüne girer (alıntılar kalem bölümüne karışmasın).
+  const inkAt = inkSectionStart(lines, labels);
+  if (inkAt >= 0) {
+    let at = inkAt;
+    while (at > 0 && isBlank(lines[at - 1])) at--;
+    lines.splice(at, inkAt - at, ...(at > 0 ? [""] : []), ...block, "");
+    return join(lines, eol);
+  }
   while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
   if (lines.length) lines.push("");
   lines.push(...block);
@@ -309,4 +353,166 @@ export function removeHighlightBlock(
   }
   lines.splice(from, count);
   return join(lines, eol);
+}
+
+// ---------------------------------------------------------------------------
+// Kalem notları (LOM-97)
+
+/** Kalem resimlerinin kasadaki klasörü. */
+export const INK_IMAGE_DIR = "Kütüphane/Kalem";
+/** Kalem bloğunun bağlantı satırındaki simge. */
+export const INK_MARK = "✏️";
+
+const validPage = (page: number) => Number.isInteger(page) && page > 0 && page < 1_000_000;
+
+/** Kalemli sayfanın kasadaki resim yolu: `Kütüphane/Kalem/<kitapId>-s<sayfa>.png`. */
+export function inkImagePath(bookId: string, page: number): string {
+  if (!validPage(page)) throw new Error(`Geçersiz sayfa: ${page}`);
+  // Yol kaçırmayı önlemek için kimlik sıkı kalıptan geçer.
+  if (!BOOK_ID_RE.test(bookId)) throw new Error(`Geçersiz kitap kimliği: ${bookId}`);
+  return `${INK_IMAGE_DIR}/${bookId}-s${page}.png`;
+}
+
+/** Kalem notları bölümünün başlığı (etiketsiz eski nesnede varsayılan). */
+function inkHeading(labels: NoteLabels): string {
+  return `## ${labels.ink || DEFAULT_NOTE_LABELS.ink}`;
+}
+
+/** Bir kalemli sayfanın blok satırları (işaretler dahil). */
+export function inkBlockLines(book: Pick<Book, "id">, page: number, labels: NoteLabels = DEFAULT_NOTE_LABELS): string[] {
+  const href = bookLink({ bookId: book.id, page });
+  return [
+    `<!-- loomen:ink p${page} -->`,
+    `![[${inkImagePath(book.id, page)}]]`,
+    "",
+    `${INK_MARK} [${labelSafe(labels.page.replace("{n}", String(page)))}](${href})`,
+    `<!-- /loomen:ink p${page} -->`,
+  ];
+}
+
+/** Bölümün tam satırları (başlık + bloklar); kalemli sayfa yoksa boş. */
+function inkSectionLines(book: Pick<Book, "id" | "ink">, labels: NoteLabels): string[] {
+  const pages = inkPages(book);
+  if (!pages.length) return [];
+  const out = [inkHeading(labels), ""];
+  for (const p of pages) out.push(...inkBlockLines(book, p, labels), "");
+  return out;
+}
+
+/** Notta bu sayfanın kalem bloğu var mı: "ok", "broken" (bitişi yok) ya da "missing". */
+export function inkBlockState(text: string, page: number): "ok" | "broken" | "missing" {
+  const b = scanBlocks(split(text).lines, INK_MARKERS).get(String(page));
+  return !b ? "missing" : b.end < 0 ? "broken" : "ok";
+}
+
+/** Notta (sağlam) kalem bloğu olan sayfalar, notta göründüğü sırayla. */
+export function inkBlockPages(text: string): number[] {
+  return [...scanBlocks(split(text).lines, INK_MARKERS).entries()]
+    .filter(([, b]) => b.end >= 0)
+    .sort((a, b) => a[1].start - b[1].start)
+    .map(([p]) => Number(p));
+}
+
+/** Bölüm başlığının satırı: uygulama dilindeki ya da varsayılan Türkçe başlık; yoksa -1. */
+function findInkHeading(lines: string[], labels: NoteLabels): number {
+  const want = new Set([inkHeading(labels), inkHeading(DEFAULT_NOTE_LABELS)].map((h) => h.toLocaleLowerCase("tr")));
+  return lines.findIndex((l) => want.has(l.trim().replace(/\s+/g, " ").toLocaleLowerCase("tr")));
+}
+
+/** Kalem bölümünün başladığı satır: başlık, başlık silinmişse ilk kalem bloğu; yoksa -1. */
+function inkSectionStart(lines: string[], labels: NoteLabels): number {
+  const h = findInkHeading(lines, labels);
+  if (h >= 0) return h;
+  const starts = [...scanBlocks(lines, INK_MARKERS).values()].map((b) => b.start);
+  return starts.length ? Math.min(...starts) : -1;
+}
+
+/**
+ * Kalemli sayfanın bloğunu ekle ya da yenile. Bloklar sayfa sırasıyla durur: blok, kendinden
+ * büyük sayfanın bloğunun önüne; yoksa küçük sayfanın arkasına; hiç blok yoksa "Kalem notları"
+ * başlığının altına girer. Başlık da yoksa notun sonuna başlıkla birlikte eklenir.
+ * Blok zaten varsa yalnız Loomen'ın yazdığı hâldeyse yeniden yazılır (dil değişmişse etiket
+ * güncellenir); kullanıcı bloğa yazdıysa ya da bitişi kaybolduysa metin aynı kalır.
+ */
+export function insertInkBlock(text: string, book: Pick<Book, "id">, page: number, labels: NoteLabels = DEFAULT_NOTE_LABELS): string {
+  if (!validPage(page) || !BOOK_ID_RE.test(book.id)) return text;
+  const { lines, eol } = split(text);
+  const blocks = scanBlocks(lines, INK_MARKERS);
+  const block = inkBlockLines(book, page, labels);
+  const have = blocks.get(String(page));
+  if (have) {
+    if (have.end < 0) return text;
+    if (!blockMatches(lines, have, block)) return text;
+    return replaceAt(lines, eol, have, block);
+  }
+  const others = [...blocks.entries()].filter(([, b]) => b.end >= 0).map(([p, b]) => ({ page: Number(p), b }));
+  const next = others.filter((o) => o.page > page).sort((x, y) => x.page - y.page)[0];
+  if (next) {
+    lines.splice(next.b.start, 0, ...block, "");
+    return join(lines, eol);
+  }
+  const prev = others.filter((o) => o.page < page).sort((x, y) => y.page - x.page)[0];
+  if (prev) {
+    lines.splice(prev.b.end + 1, 0, "", ...block);
+    return join(lines, eol);
+  }
+  const h = findInkHeading(lines, labels);
+  if (h >= 0) {
+    // Başlığın hemen altına (aradaki boş satırlar korunur, bir boş satırla ayrılır).
+    let at = h + 1;
+    while (at < lines.length && isBlank(lines[at])) at++;
+    const tail = at < lines.length ? [""] : [];
+    lines.splice(h + 1, at - (h + 1), "", ...block, ...tail);
+    return join(lines, eol);
+  }
+  while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+  if (lines.length) lines.push("");
+  lines.push(inkHeading(labels), "", ...block);
+  return join(lines, eol);
+}
+
+/** Kalem bloğunu yeniden yaz; yoksa ekler (bkz. insertInkBlock). */
+export function updateInkBlock(text: string, book: Pick<Book, "id">, page: number, labels: NoteLabels = DEFAULT_NOTE_LABELS): string {
+  return insertInkBlock(text, book, page, labels);
+}
+
+/**
+ * Kalem bloğunu kaldır (sayfa temizlendi): yalnız işaretler arası ve bir boş satır gider.
+ * Bozuk ya da yoksa metin aynı kalır. `expected` verilirse blok yalnız hâlâ Loomen'ın yazdığı
+ * hâldeyse silinir. Bölüm başlığı yerinde kalır.
+ */
+export function removeInkBlock(
+  text: string,
+  page: number,
+  expected?: { book: Pick<Book, "id">; labels?: NoteLabels },
+): string {
+  const { lines, eol } = split(text);
+  const b = scanBlocks(lines, INK_MARKERS).get(String(page));
+  if (!b || b.end < 0) return text;
+  if (expected && !BOOK_ID_RE.test(expected.book.id)) return text;
+  if (expected && !blockMatches(lines, b, inkBlockLines(expected.book, page, expected.labels ?? DEFAULT_NOTE_LABELS))) {
+    return text;
+  }
+  let from = b.start;
+  let count = b.end - b.start + 1;
+  if (isBlank(lines[b.end + 1])) count++;
+  else if (from > 0 && isBlank(lines[from - 1])) {
+    from--;
+    count++;
+  }
+  lines.splice(from, count);
+  return join(lines, eol);
+}
+
+/**
+ * Notun kalem bloklarını kitabın kalem kaydıyla eşitle: kalemli her sayfanın bloğu olur,
+ * kaydı boşalan sayfanın (Loomen'ın yazdığı hâldeki) bloğu kalkar. Elle değiştirilmiş ya da
+ * bozuk bloklara dokunulmaz.
+ */
+export function syncInkBlocks(text: string, book: Pick<Book, "id" | "ink">, labels: NoteLabels = DEFAULT_NOTE_LABELS): string {
+  const want = new Set(inkPages(book));
+  let out = text;
+  for (const p of inkBlockPages(out)) if (!want.has(p)) out = removeInkBlock(out, p, { book, labels });
+  for (const p of want) out = insertInkBlock(out, book, p, labels);
+  return out;
 }

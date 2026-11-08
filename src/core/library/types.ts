@@ -155,6 +155,31 @@ export interface Highlight {
   updatedAt: number;
 }
 
+/**
+ * Kalem noktası (LOM-97): PDF sayfasına göre 0..1 oranı (sol üst köşe başlangıç). Yakınlaştırma
+ * ve ekran boyundan bağımsızdır; her cihazda aynı yere çizilir.
+ */
+export interface InkPoint {
+  x: number;
+  y: number;
+}
+
+/** Tek kalem çizgisi: kalem değip kalkana kadar toplanan noktalar (en az 1). */
+export interface InkStroke {
+  /** Kitap içinde tekil; yalnız [A-Za-z0-9_-]. */
+  id: string;
+  points: InkPoint[];
+  createdAt: number;
+}
+
+/** Bir PDF sayfasındaki kalem çizgileri (çizim sırasıyla; geri al sondakini kaldırır). */
+export interface InkPage {
+  /** 1'den başlayan sayfa. */
+  page: number;
+  strokes: InkStroke[];
+  updatedAt: number;
+}
+
 export interface Book {
   /** Dosya adı da budur: `Kütüphane/<id>.json`. İçerik özetinin ilk 16 hanesi. */
   id: string;
@@ -187,6 +212,11 @@ export interface Book {
   positionSavedAt?: number;
   /** Kitap sırasına göre çizimler. */
   highlights: Highlight[];
+  /**
+   * Kalem çizimleri (LOM-97, yalnız PDF): sayfa sırasıyla, boş sayfa tutulmaz. Eski kayıtlarda
+   * yoktur; boşsa dosyaya yazılmaz (eski kayıt aynı metni üretir, dosya sürümü v:1 kalır).
+   */
+  ink?: InkPage[];
 }
 
 export interface BookFile {

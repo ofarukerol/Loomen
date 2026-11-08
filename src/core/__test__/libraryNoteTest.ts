@@ -1,6 +1,16 @@
 // Kitap notundaki çizim bloklarının testi (LOM-83, K3).
 import {
   addHighlight,
+  addInkStroke,
+  clearInkPage,
+  inkBlockLines,
+  inkBlockPages,
+  inkBlockState,
+  inkImagePath,
+  insertInkBlock,
+  removeInkBlock,
+  syncInkBlocks,
+  updateInkBlock,
   blockIds,
   blockState,
   bookNoteTemplate,
@@ -184,6 +194,105 @@ check("şablon bütün çizimleri sırayla içerir", blockIds(tpl).join(",") ===
   const full = bookNoteTemplate(r3.book);
   check("kobo blok biçimi aynı", full.includes(`<!-- loomen:hl ka -->\n> Adsız bölüm\n\nnotum\n\n🟨 [Bölüm 1](loomen://book/${k0.id}?hl=ka)\n<!-- /loomen:hl ka -->`));
   check("kobo şablon sırası bölüm, bölümsüz sonda", blockIds(full).join(",") === "ka,kb,kc");
+}
+
+// --- Kalem notları (LOM-97, K6) ---
+{
+  const ib = { ...b0, id: "1111222233334444" };
+  const href = (p: number) => `loomen://book/${ib.id}?page=${p}`;
+  check("kalem resim yolu", inkImagePath(ib.id, 12) === `Kütüphane/Kalem/${ib.id}-s12.png`);
+  let threw = false;
+  try {
+    inkImagePath("../x", 1);
+  } catch {
+    threw = true;
+  }
+  check("kalem resim yolu kimliği denetler", threw);
+  const bl = inkBlockLines(ib, 12);
+  check(
+    "kalem blok biçimi",
+    bl.join("\n") === `<!-- loomen:ink p12 -->\n![[Kütüphane/Kalem/${ib.id}-s12.png]]\n\n✏️ [s. 12](${href(12)})\n<!-- /loomen:ink p12 -->`,
+    bl.join(" | "),
+  );
+
+  const base = bookNoteTemplate(ib);
+  check("kalemsiz şablonda bölüm yok", !base.includes("Kalem notları") && !base.includes("loomen:ink"));
+  const t1 = insertInkBlock(base, ib, 12);
+  check("ilk kalem bloğu başlıkla sona eklenir", t1.includes(`## Kalem notları\n\n<!-- loomen:ink p12 -->`) && t1.endsWith("<!-- /loomen:ink p12 -->\n"));
+  check("alıntılar bölümü yerinde", t1.indexOf("## Alıntılar") < t1.indexOf("## Kalem notları"));
+  check("kalem durumu ok", inkBlockState(t1, 12) === "ok" && inkBlockState(t1, 3) === "missing");
+  const t2 = insertInkBlock(insertInkBlock(t1, ib, 30), ib, 3);
+  check("kalem blokları sayfa sırasıyla", inkBlockPages(t2).join(",") === "3,12,30", inkBlockPages(t2).join(","));
+  check("başlık tek", t2.split("## Kalem notları").length === 2);
+  check("ekleme iki kez aynı", insertInkBlock(t2, ib, 12) === t2 && updateInkBlock(t2, ib, 12) === t2);
+  check("çizim blokları kalem bloğu sayılmaz", blockIds(t2).length === 0);
+
+  // Başlık var, blok yok (kullanıcı başlığı önceden yazmış ya da bloklar silinmiş).
+  const withHead = base.replace(/\n$/, "") + "\n\n## Kalem notları\n\nKendi yazım\n";
+  const t3 = insertInkBlock(withHead, ib, 5);
+  check("var olan başlığın altına girer", t3.includes("## Kalem notları\n\n<!-- loomen:ink p5 -->") && t3.includes("<!-- /loomen:ink p5 -->\n\nKendi yazım"));
+  check("başlık çoğalmaz", t3.split("## Kalem notları").length === 2);
+
+  // Kullanıcı bloğa yazdıysa ezilmez; bozuk bloğa dokunulmaz.
+  const edited = t2.replace(`✏️ [s. 12](${href(12)})`, `✏️ [s. 12](${href(12)}) benim notum`);
+  check("elle değişen kalem bloğu yeniden yazılmaz", insertInkBlock(edited, ib, 12) === edited);
+  check("elle değişen kalem bloğu beklenenle silinmez", removeInkBlock(edited, 12, { book: ib }) === edited);
+  const broken = t2.replace("<!-- /loomen:ink p12 -->", "");
+  check("bitişi olmayan kalem bloğu bozuk", inkBlockState(broken, 12) === "broken");
+  check("bozuk kalem bloğuna eklenmez", insertInkBlock(broken, ib, 12) === broken && removeInkBlock(broken, 12) === broken);
+  check("bozuk blok sonrakini yutmaz", inkBlockState(broken, 30) === "ok");
+
+  // Dil değişince etiket güncellenir (blok "elle değişmiş" sayılmaz).
+  const EN = { page: "p. {n}", section: "Section {n}", openBook: "Open book", quotes: "Highlights", ink: "Pen notes" };
+  const en = updateInkBlock(t2, ib, 12, EN);
+  check("kalem etiketi dile göre güncellenir", en.includes(`✏️ [p. 12](${href(12)})`) && en.includes(`✏️ [s. 3](${href(3)})`));
+  check("İngilizce notta Türkçe başlık tanınır", insertInkBlock(en, ib, 40, EN).split("Kalem notları").length === 2 && !insertInkBlock(en, ib, 40, EN).includes("Pen notes"));
+  check("İngilizce başlık", insertInkBlock(base, ib, 1, EN).includes("## Pen notes\n\n<!-- loomen:ink p1 -->"));
+  check("etiketsiz eski nesnede varsayılan başlık", insertInkBlock(base, ib, 1, { page: "p. {n}", section: "S {n}", openBook: "O", quotes: "Q" }).includes("## Kalem notları"));
+
+  // Kaldırma: blok ve bir boş satır gider, başlık kalır.
+  const r = removeInkBlock(t2, 12, { book: ib });
+  check("kalem bloğu kaldırılır", inkBlockPages(r).join(",") === "3,30" && !r.includes("\n\n\n"));
+  const r0 = removeInkBlock(removeInkBlock(r, 3), 30);
+  check("son blok gidince başlık kalır", inkBlockPages(r0).length === 0 && r0.includes("## Kalem notları") && r0.endsWith("## Kalem notları\n"));
+  check("olmayan bloğu kaldırmak metni değiştirmez", removeInkBlock(base, 9) === base);
+
+  // CRLF korunur.
+  const crlf = t1.replace(/\n/g, "\r\n");
+  const c2 = insertInkBlock(crlf, ib, 20);
+  check("CRLF korunur", !/[^\r]\n/.test(c2) && inkBlockPages(c2).join(",") === "12,20");
+
+  // Çizim ve kalem blokları birbirini bozmaz.
+  let hb = ib;
+  hb = addHighlight(hb, { text: "Bir alıntı", anchor: pdfAt(2), color: "green" }, NOW, "h1").book;
+  const mixed = insertInkBlock(bookNoteTemplate(hb), hb, 2);
+  check("çizim bloğu kalem ekleyince sağlam", blockState(mixed, "h1") === "ok" && blockIds(mixed).join(",") === "h1");
+  const mixed2 = insertHighlightBlock(mixed, hb, { ...hb.highlights[0], id: "h2" }, ["h1", "h2"]);
+  check("çizim eklemek kalem bloğunu bozmaz", inkBlockState(mixed2, 2) === "ok" && mixed2.indexOf("loomen:hl h2") < mixed2.indexOf("## Kalem notları"));
+  // Kalem bölümü varken ilk alıntı Alıntılar bölümüne girer, kalem bölümüne karışmaz.
+  const inkOnly = insertInkBlock(bookNoteTemplate(ib), ib, 3);
+  const firstHl = insertHighlightBlock(inkOnly, ib, { ...hb.highlights[0], id: "h9" }, ["h9"]);
+  check("ilk alıntı kalem başlığının önüne girer", firstHl.indexOf("loomen:hl h9") > firstHl.indexOf("## Alıntılar") && firstHl.indexOf("<!-- /loomen:hl h9 -->") < firstHl.indexOf("## Kalem notları") && firstHl.includes("<!-- /loomen:hl h9 -->\n\n## Kalem notları") && !firstHl.includes("\n\n\n"));
+  const noHead = inkOnly.replace("## Kalem notları\n\n", "");
+  const firstHl2 = insertHighlightBlock(noHead, ib, { ...hb.highlights[0], id: "h9" }, ["h9"]);
+  check("başlık silinmişse ilk kalem bloğunun önüne girer", firstHl2.indexOf("<!-- /loomen:hl h9 -->") < firstHl2.indexOf("loomen:ink p3"));
+  check("geçersiz kimlikte kalem eşitlemesi hata atmaz", insertInkBlock(base, { id: "../x" }, 1) === base && removeInkBlock(t1, 12, { book: { id: "../x" } }) === t1);
+  const hlBroken = mixed.replace("<!-- /loomen:hl h1 -->", "");
+  check("bitişi olmayan çizim bloğu kalem bloğunu yutmaz", blockState(hlBroken, "h1") === "broken" && inkBlockState(hlBroken, 2) === "ok");
+
+  // Şablon ve eşitleme kitabın kalem kaydından.
+  let kb = ib;
+  kb = addInkStroke(kb, 7, [{ x: 0.1, y: 0.1 }], NOW, "s1").book;
+  kb = addInkStroke(kb, 2, [{ x: 0.2, y: 0.2 }], NOW, "s2").book;
+  const tpl = bookNoteTemplate(kb);
+  check("şablonda kalem bölümü sayfa sırasıyla", inkBlockPages(tpl).join(",") === "2,7" && tpl.includes("## Alıntılar\n\n## Kalem notları") && !tpl.includes("\n\n\n"));
+  check("şablon eşitlemeyle aynı", syncInkBlocks(tpl, kb) === tpl);
+  check("eşitleme eksik blokları ekler", inkBlockPages(syncInkBlocks(base, kb)).join(",") === "2,7");
+  const cleared = clearInkPage(kb, 7, NOW + 1);
+  const synced = syncInkBlocks(tpl, cleared);
+  check("temizlenen sayfanın bloğu eşitlemede kalkar", inkBlockPages(synced).join(",") === "2");
+  const editedTpl = tpl.replace(`✏️ [s. 7](${href(7)})`, "elle");
+  check("eşitleme elle değişen bloğu silmez", inkBlockState(syncInkBlocks(editedTpl, cleared), 7) === "ok");
 }
 
 if (fails) {

@@ -6,7 +6,7 @@
 // kayıt, not eşitleme, renk menüsü, not penceresi ve çizim listesi kabuktadır.
 
 import type { ReactNode } from "react";
-import type { Anchor, Book, BookPosition, Highlight, HighlightColor, ReaderTheme } from "../../core/library/types";
+import type { Anchor, Book, BookPosition, Highlight, HighlightColor, InkPage, InkPoint, ReaderTheme } from "../../core/library/types";
 
 /** Ekran (viewport) koordinatlarında dikdörtgen — renk menüsünü konumlamak için. */
 export interface ViewRect {
@@ -77,6 +77,30 @@ export interface ReaderViewProps {
   onToc?: (items: TocItem[]) => void;
   /** Dosya açılamadı (bozuk, şifreli…). */
   onError: (err: unknown) => void;
+
+  // ── Kalem (LOM-97; yalnız PDF görüntüleyici kullanır, EPUB yok sayar) ──
+
+  /** Çizilecek kalem çizgileri, sayfa sayfa (noktalar sayfaya göre 0..1 oranı). */
+  ink?: readonly InkPage[];
+  /**
+   * Kalem açık: kalem (Apple Pencil) ve fare sayfaya çizer, metin seçilmez, çizime dokunma
+   * menüsü açılmaz. Parmak sayfayı kaydırmaya devam eder (avuç içi çizgi bırakmaz).
+   */
+  penMode?: boolean;
+  /**
+   * Bir çizgi bitti (kalem kalktı). Noktalar sadeleştirilmiş, 0..1 oranıdır, en az 1 nokta.
+   * Kabuk çizgiyi kayda ekler ve `ink`'i günceller; görüntüleyici çizgiyi o zamana dek canlı
+   * çizimden gösterir.
+   */
+  onInkStroke?: (page: number, points: InkPoint[]) => void;
+  /**
+   * Kalemli sayfanın not resmi hazır: açık (ters çevrilmemiş) sayfa + çizgiler, ~800 px genişlik,
+   * PNG. Bu oturumda çizilen ya da o an okunan sayfanın `ink`'i değişince (çizgi, geri al)
+   * kısa gecikmeyle çağrılır; sayfa temizlenince (çizgi kalmayınca) çağrılmaz. Görüntüleyici
+   * kapanırken ya da uygulama arka plana geçerken bekleyen resimler hemen üretilir: çağrı
+   * görüntüleyici kapandıktan SONRA da gelebilir.
+   */
+  onInkSnapshot?: (page: number, png: Blob) => void;
 }
 
 /** Görüntüleyici modülünün biçimi. */

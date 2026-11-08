@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, AArrowDown, AArrowUp, Coffee, Highlighter, NotebookText, Palette, Pause, Play, Timer } from "lucide-react";
+import { ArrowLeft, AArrowDown, AArrowUp, Coffee, Highlighter, NotebookText, Palette, Pause, PenLine, Play, Timer, Trash2, Undo2 } from "lucide-react";
 import { FONT_SCALE_MAX, FONT_SCALE_MIN, FONT_SCALE_STEP, READER_THEMES, type Book, type ReaderTheme } from "../../core/library";
 import { useAppStore } from "../../store/useAppStore";
 
@@ -43,7 +43,22 @@ function ReaderPomoButton() {
   );
 }
 
-/** Okuyucunun üst çubuğu (LOM-83): geri, başlık, yazı boyutu, tema, çizimler, Pomodoro (LOM-93) ve not. */
+/** Kalem düğmeleri (LOM-97). Verilmezse (EPUB, görüntüleyici hazır değil) kalem düğmesi çıkmaz. */
+export interface ReaderPenControls {
+  on: boolean;
+  canUndo: boolean;
+  canClear: boolean;
+  /** Sayfayı temizle'nin hedef sayfası (düğme yazısında görünür). */
+  clearPage?: number;
+  onToggle: () => void;
+  onUndo: () => void;
+  onClear: () => void;
+}
+
+/**
+ * Okuyucunun üst çubuğu (LOM-83): geri, başlık, yazı boyutu, tema, kalem (LOM-97, yalnız PDF),
+ * çizimler, Pomodoro (LOM-93) ve not.
+ */
 export function ReaderToolbar({
   book,
   fontScale,
@@ -55,6 +70,7 @@ export function ReaderToolbar({
   onTheme,
   onPanel,
   onNote,
+  pen,
 }: {
   book: Book;
   fontScale: number;
@@ -67,6 +83,7 @@ export function ReaderToolbar({
   onTheme: (next: ReaderTheme) => void;
   onPanel: () => void;
   onNote: () => void;
+  pen?: ReaderPenControls;
 }) {
   const { t } = useTranslation();
   const nextTheme = READER_THEMES[(READER_THEMES.indexOf(theme) + 1) % READER_THEMES.length];
@@ -113,6 +130,44 @@ export function ReaderToolbar({
         >
           <Palette size={18} strokeWidth={2} />
         </button>
+        {pen && (
+          <div className={"lo-reader-bar__pen" + (pen.on ? " is-on" : "")} role="group" aria-label={t("library.reader.pen")}>
+            <button
+              type="button"
+              className={"lo-lib-iconbtn" + (pen.on ? " is-on" : "")}
+              onClick={pen.onToggle}
+              aria-pressed={pen.on}
+              title={t("library.reader.pen")}
+              aria-label={t("library.reader.pen")}
+            >
+              <PenLine size={18} strokeWidth={2} />
+            </button>
+            {pen.on && (
+              <>
+                <button
+                  type="button"
+                  className="lo-lib-iconbtn"
+                  disabled={!pen.canUndo}
+                  onClick={pen.onUndo}
+                  title={t("library.reader.penUndo")}
+                  aria-label={t("library.reader.penUndo")}
+                >
+                  <Undo2 size={18} strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  className="lo-lib-iconbtn"
+                  disabled={!pen.canClear}
+                  onClick={pen.onClear}
+                  title={pen.clearPage ? t("library.reader.penClearPage", { page: pen.clearPage }) : t("library.reader.penClear")}
+                  aria-label={pen.clearPage ? t("library.reader.penClearPage", { page: pen.clearPage }) : t("library.reader.penClear")}
+                >
+                  <Trash2 size={18} strokeWidth={2} />
+                </button>
+              </>
+            )}
+          </div>
+        )}
         <button
           type="button"
           className={"lo-lib-iconbtn lo-reader-bar__hl" + (panelOpen ? " is-on" : "")}

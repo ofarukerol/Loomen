@@ -1,5 +1,5 @@
 // Kitap bağlantılarının testi (LOM-83, K4).
-import { bookLink, findBookLinks, highlightBlockLines, isHighlightMarkerLine, parseBookLink, type Highlight } from "../library";
+import { bookLink, findBookLinks, highlightBlockLines, inkBlockLines, isHighlightMarkerLine, parseBookLink, type Highlight } from "../library";
 
 let fails = 0;
 function check(name: string, cond: boolean, detail = "") {
@@ -53,6 +53,11 @@ check("ters bölülü etiket gidiş-dönüş", round.length === 1 && round[0].la
 
 check("işaret satırı tanınır", isHighlightMarkerLine("<!-- loomen:hl h1 -->") && isHighlightMarkerLine("  <!-- /loomen:hl h1 -->"));
 check("sıradan yorum işaret değil", !isHighlightMarkerLine("<!-- not -->"));
+check("kalem işaret satırı tanınır", isHighlightMarkerLine("<!-- loomen:ink p12 -->") && isHighlightMarkerLine("  <!-- /loomen:ink p12 -->  "));
+check("başka loomen yorumu işaret değil", !isHighlightMarkerLine("<!-- loomen:other p1 -->") && !isHighlightMarkerLine("<!-- loomen:ink -->"));
+const inkLine = inkBlockLines({ id }, 12).find((l) => l.includes("loomen://book/")) ?? "";
+const inkFound = findBookLinks(inkLine);
+check("kalem bağlantısı sayfayı açar", inkFound.length === 1 && inkFound[0].link.page === 12 && !inkFound[0].link.highlightId && inkFound[0].label === "s. 12", inkLine);
 
 if (fails) {
   console.error(`\n${fails} kontrol başarısız`);

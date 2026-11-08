@@ -70,8 +70,8 @@ export function findBookLinks(text: string): BookLinkMatch[] {
   return out;
 }
 
-/** Not içindeki çizim işaretleri (`<!-- loomen:hl … -->`) okuma modunda gizlenir. */
-export const HL_MARKER_LINE_RE = /^\s*<!--\s*\/?loomen:hl\s+[A-Za-z0-9_-]+\s*-->\s*$/;
+/** Not içindeki çizim ve kalem işaretleri (`<!-- loomen:hl … -->`, `<!-- loomen:ink p12 -->`) okuma modunda gizlenir. */
+export const HL_MARKER_LINE_RE = /^\s*<!--\s*\/?loomen:(?:hl|ink)\s+[A-Za-z0-9_-]+\s*-->\s*$/;
 
 export function isHighlightMarkerLine(line: string): boolean {
   return HL_MARKER_LINE_RE.test(line);

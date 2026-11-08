@@ -26,6 +26,31 @@
 .lo-pdf__canvas { display: block; width: 100%; height: 100%; }
 .lo-pdf__hl { pointer-events: none; z-index: 1; mix-blend-mode: multiply; }
 
+/* Kalem (LOM-97). Katman sırası: sayfa resmi < çizimler (1) < kalem (2) < metin (3) < yakalama (4).
+   Kalem tuvali tema süzgecinin dışındadır: karanlıkta ters çevrilmez. */
+.lo-pdf__ink {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+/* Yakalama katmanı yalnız kalem açıkken vardır. Parmak kaydırsın diye `touch-action` kapatılmaz;
+   Apple Pencil dokunuşunda kaydırmayı betik durdurur (dokunuş türü "stylus"). */
+.lo-pdf__pen {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  touch-action: pan-x pan-y pinch-zoom;
+  cursor: crosshair;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.lo-pdf.is-pen .textLayer { pointer-events: none; -webkit-user-select: none; user-select: none; }
+
 /* Çizimler: açık/sepya temada çarpma kipi, metin koyu kalır. */
 .lo-pdf__mark { position: absolute; border-radius: 2px; transition: box-shadow 0.2s ease; }
 .lo-pdf__mark.has-note { box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.28); }
@@ -59,7 +84,7 @@
   forced-color-adjust: none;
   transform-origin: 0 0;
   caret-color: CanvasText;
-  z-index: 2;
+  z-index: 3;
   --min-font-size: 1;
   --text-scale-factor: calc(var(--total-scale-factor, var(--scale-factor)) * var(--min-font-size));
   --min-font-size-inv: calc(1 / var(--min-font-size));

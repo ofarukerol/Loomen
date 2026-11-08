@@ -19,6 +19,9 @@ import {
   type BookStatus,
   type Highlight,
   type HighlightColor,
+  type InkPage,
+  type InkPoint,
+  type InkStroke,
   type KindleAnchor,
   type KoboAnchor,
   type KoreaderAnchor,
@@ -29,6 +32,8 @@ import {
 export const BOOK_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 /** Çizim kimliği (bağlantıda geçer). */
 export const HIGHLIGHT_ID_RE = /^[A-Za-z0-9_-]{1,32}$/;
+/** Kalem çizgisi kimliği. */
+export const INK_STROKE_ID_RE = /^[A-Za-z0-9_-]{1,32}$/;
 const HASH_RE = /^[0-9a-f]{64}$/;
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
@@ -168,6 +173,83 @@ function decodeHighlight(v: unknown): Highlight | null {
   return h;
 }
 
+// ─── Kalem (LOM-97) ───────────────────────────────────────────────────────────────
+//
+// Noktalar dosyada tek metin olarak durur: "x,y x,y …" (5 haneye yuvarlı oranlar). Dizi olarak
+// yazılsaydı girintili JSON her sayıyı ayrı satıra koyar, dosya ve git farkı şişerdi.
+
+const NUM_RE = /^\d+(?:\.\d+)?(?:e-?\d+)?$/;
+
+/** Noktaları dosyadaki metne çevir (0..1'e kırpılır, 5 haneye yuvarlanır). */
+export function encodeInkPoints(points: InkPoint[]): string {
+  return points
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+    .map((p) => `${r5(unit(p.x))},${r5(unit(p.y))}`)
+    .join(" ");
+}
+
+/** Dosyadaki nokta metnini oku; boş ya da bozuksa null. Aralık dışı değer 0..1'e kırpılır. */
+export function decodeInkPoints(v: unknown): InkPoint[] | null {
+  if (typeof v !== "string" || !v.trim()) return null;
+  const out: InkPoint[] = [];
+  for (const pair of v.trim().split(/\s+/)) {
+    const xy = pair.split(",");
+    if (xy.length !== 2 || !NUM_RE.test(xy[0]) || !NUM_RE.test(xy[1])) return null;
+    const x = Number(xy[0]);
+    const y = Number(xy[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    out.push({ x: unit(x), y: unit(y) });
+  }
+  return out;
+}
+
+function encodeInkPage(p: InkPage): Record<string, unknown> {
+  return {
+    page: p.page,
+    updatedAt: p.updatedAt,
+    // Geçerli noktası kalmayan çizgi yazılmaz (yazılsaydı dosya okunurken bozuk sayılırdı).
+    strokes: p.strokes
+      .map((s) => ({ id: s.id, createdAt: s.createdAt, points: encodeInkPoints(s.points) }))
+      .filter((s) => s.points),
+  };
+}
+
+function decodeInkStroke(v: unknown): InkStroke | null {
+  if (!isObj(v) || typeof v.id !== "string" || !INK_STROKE_ID_RE.test(v.id)) return null;
+  const points = decodeInkPoints(v.points);
+  if (!points) return null;
+  return { id: v.id, points, createdAt: isNum(v.createdAt) ? v.createdAt : 0 };
+}
+
+/**
+ * Kalem verisini oku. Alan yoksa [] (eski kayıt). Herhangi bir sayfa ya da çizgi bozuksa,
+ * aynı sayfa iki kez geçiyorsa ya da bir sayfada kimlik tekrarlanıyorsa null: dosya bozuk sayılır,
+ * üstüne yazılmaz (çizimlerle aynı katılık). Boş sayfa atlanır; sayfalar sıraya dizilir.
+ */
+export function decodeInk(v: unknown): InkPage[] | null {
+  if (v === undefined) return [];
+  if (!Array.isArray(v)) return null;
+  const pages: InkPage[] = [];
+  const seen = new Set<number>();
+  for (const x of v) {
+    if (!isObj(x) || !isInt(x.page, 1) || !Array.isArray(x.strokes)) return null;
+    if (seen.has(x.page)) return null;
+    seen.add(x.page);
+    const strokes: InkStroke[] = [];
+    const ids = new Set<string>();
+    for (const sv of x.strokes) {
+      const st = decodeInkStroke(sv);
+      if (!st || ids.has(st.id)) return null;
+      ids.add(st.id);
+      strokes.push(st);
+    }
+    if (!strokes.length) continue;
+    const last = strokes.reduce((m, s) => Math.max(m, s.createdAt), 0);
+    pages.push({ page: x.page, strokes, updatedAt: isNum(x.updatedAt) ? x.updatedAt : last });
+  }
+  return pages.sort((a, b) => a.page - b.page);
+}
+
 /** Kaydı dosya metnine çevir. */
 export function encodeBook(b: Book): string {
   const book: Record<string, unknown> = { id: b.id, title: b.title };
@@ -186,6 +268,11 @@ export function encodeBook(b: Book): string {
   if (b.position) book.position = encodePosition(b.position);
   if (b.positionSavedAt !== undefined) book.positionSavedAt = b.positionSavedAt;
   book.highlights = b.highlights.map(encodeHighlight);
+  const ink = [...(b.ink ?? [])]
+    .sort((x, y) => x.page - y.page)
+    .map(encodeInkPage)
+    .filter((p) => (p.strokes as unknown[]).length);
+  if (ink.length) book.ink = ink;
   return JSON.stringify({ v: BOOK_FILE_VERSION, book }, null, 2) + "\n";
 }
 
@@ -215,6 +302,8 @@ export function decodeBook(raw: string): Book | null {
       highlights.push(h);
     }
   }
+  const ink = decodeInk(b.ink);
+  if (!ink) return null; // bozuk kalem verisi → dosya bozuk (sessizce silinmesin)
   const addedAt = isNum(b.addedAt) ? b.addedAt : 0;
   const book: Book = {
     id: b.id,
@@ -236,5 +325,6 @@ export function decodeBook(raw: string): Book | null {
   const pos = decodePosition(b.position);
   if (pos) book.position = pos;
   if (isNum(b.positionSavedAt)) book.positionSavedAt = b.positionSavedAt;
+  if (ink.length) book.ink = ink;
   return book;
 }

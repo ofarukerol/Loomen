@@ -1575,6 +1575,10 @@
       "relink": "Choose file",
       "noViewer": "The {{format}} reader isn't in this version yet.",
       "openError": "The book could not be opened.",
+      "pen": "Pen",
+      "penUndo": "Undo last stroke",
+      "penClear": "Clear pen strokes on this page",
+      "penClearPage": "Clear pen strokes on page {{page}} (can be undone)",
       "pomoStart": "Start Pomodoro",
       "pomoPause": "Pause Pomodoro",
       "pomoBreak": "Break — tap to start a new focus session"
@@ -1588,7 +1592,8 @@
       "kindle": "Kindle",
       "koreader": "KOReader",
       "kobo": "Kobo",
-      "progress": "{{n}}%"
+      "progress": "{{n}}%",
+      "ink": "Pen notes"
     },
     "pickTitle": "Choose a book",
     "pickFilter": "Books (PDF, EPUB)",
