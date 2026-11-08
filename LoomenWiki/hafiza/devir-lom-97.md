@@ -1,12 +1,11 @@
 ---
 name: LOM-97 — Kütüphane: iPad'de kalemle kenara not
-description: PDF okuyucuya kalem modu gelir: Apple Pencil (ve masaüstünde fare) ile sayfa üstüne çizilir, geri al ve sayfayı temizle olur; çizgiler kitap kaydına sayfa oranıyla yazılır, kitabın notunda "Kalem notları" bölümünde sayfa resmi ve sayfa bağlantısıyla görünür.
+description: Testler kaldı: PDF okuyucuya kalem modu gelir: Apple Pencil (ve masaüstünde fare) ile sayfa üstüne çizilir, geri al ve sayfayı temizle olur; çizgiler kitap kaydına sayfa oranıyla yazılır, kitabın notunda "Kalem notları" bölümünde sayfa resmi ve sayfa bağlantısıyla görünür.
 type: project
 proje: loomen
-kaynak: kart LOM-97 · dal fix/LOM-97 · Loomen@66ab652a8e4209b77657eb441d2adca514742c76 · test koşusu b6f91529-5753-4ceb-87aa-7d30f37f0408 (Excalibur)
-guven: dogrulandi
-durum: test_gecti
-dogrulama_tarihi: 2026-11-08
+kaynak: kart LOM-97 · dal fix/LOM-97 · commit yok · test koşusu 9bdd1e57-2de4-430d-91c1-791900a28b14 (Air)
+guven: iddia
+durum: gelistirildi
 ---
 
 # LOM-97 — Kütüphane: iPad'de kalemle kenara not
@@ -56,16 +55,15 @@ PDF okuyucuya kalem modu gelir: Apple Pencil (ve masaüstünde fare) ile sayfa �
 
 ## Test
 
-Testler geçti.
+Testler KALDI; iş doğrulanmadı.
 
-> Tip denetimi hatasız geçti. npm test ile 53 test dosyasının tümü geçti, kalem testleri de bunların içinde. Canlı doğrulama insana kaldı.
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-97`
-- Commit: `Loomen@66ab652a8e4209b77657eb441d2adca514742c76`
-- Test koşusu: `b6f91529-5753-4ceb-87aa-7d30f37f0408` (Excalibur)
+- Test koşusu: `9bdd1e57-2de4-430d-91c1-791900a28b14` (Air)
 
 ## Durum
 
-Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.
+Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
