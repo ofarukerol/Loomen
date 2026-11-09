@@ -9,13 +9,10 @@ import {
   sessionLine, type PomoActive, type PomoSession,
 } from "./pomoSync";
 
+/** Yalnız "dosya yok" boş sayılır; başka okuma hatası yukarı fırlar (hata = boş günlük DEĞİL). */
 async function readOrEmpty(be: VaultBackend, path: string): Promise<string> {
-  try {
-    if (!(await be.exists(path))) return "";
-    return await be.readNote(path);
-  } catch {
-    return "";
-  }
+  if (!(await be.exists(path))) return "";
+  return await be.readNote(path);
 }
 
 export async function readActive(be: VaultBackend): Promise<PomoActive | null> {
@@ -31,12 +28,19 @@ export async function readSessions(be: VaultBackend): Promise<PomoSession[]> {
   return parseSessions(await readOrEmpty(be, SESSIONS_FILE));
 }
 
-/** Oturum satırlarını ekle; dosya yarım satırla bitiyorsa önce satır sonu koy. */
+/**
+ * Oturum satırlarını ekle; dosya yarım satırla bitiyorsa önce satır sonu koy. Okuma hatasında
+ * fırlatır (yazılmaz). Yalnız-ekle destekli değilse günlüğe yazılmaz: oku-birleştir-yaz başka
+ * cihazın satırını ezebilir.
+ */
 export async function appendSessions(be: VaultBackend, list: PomoSession[]): Promise<void> {
   if (list.length === 0) return;
+  if (!be.appendText) {
+    console.warn("Pomodoro: kasa arka ucu appendText desteklemiyor, oturum günlüğüne yazılmadı");
+    return;
+  }
   await be.ensureDir(POMO_DIR);
   const existing = await readOrEmpty(be, SESSIONS_FILE);
   const text = (needsLeadingNewline(existing) ? "\n" : "") + list.map(sessionLine).join("");
-  if (be.appendText) await be.appendText(SESSIONS_FILE, text);
-  else await be.writeNote(SESSIONS_FILE, existing + text);
+  await be.appendText(SESSIONS_FILE, text);
 }

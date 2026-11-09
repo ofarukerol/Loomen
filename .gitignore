@@ -100,3 +100,5 @@ keystore.properties
 
 # Güncelleme imza anahtarları depoya girmez (yedeği ~/.loomen-keys)
 *.key
+
+node_modules

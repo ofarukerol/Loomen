@@ -256,7 +256,7 @@ import {
 } from "../core/library";
 import {
   adoptPatch, dailyFocusCounts, deviceName, hasNearTwin, importLocalHistory, mergeHistory, mergeSessions,
-  shouldAdopt, timerSignature, toActive, type LocalTimer, type PomoSession,
+  preserveTask, sessionId, shouldAdopt, timerSignature, toActive, type LocalTimer, type PomoSession,
 } from "../core/pomodoro/pomoSync";
 import { appendSessions, readActive, readSessions, writeActive } from "../core/pomodoro/pomoVaultIO";
 import { findKindleClippings, readClippingsText } from "../core/library/kindleDevice";
@@ -1060,14 +1060,15 @@ function pomoPushActive(): void {
   pomoUpdatedAt = Math.max(pomoUpdatedAt + 1, a.updatedAt);
   a.updatedAt = pomoUpdatedAt;
   const be = backend;
-  pomoEnqueue(() => writeActive(be, a));
+  // Uzaktaki görev adı korunur (okuma hatasında yazılmaz, enqueue uyarır).
+  pomoEnqueue(async () => writeActive(be, preserveTask(a, await readActive(be))));
 }
 
 function pomoRecord(mode: PomoSession["mode"], endsAt: number, minutes: number): void {
   const be = backend;
   const adopted = pomoAdoptedEnd === endsAt;
   const s: PomoSession = {
-    id: crypto.randomUUID(),
+    id: sessionId(mode, endsAt),
     mode,
     start: endsAt - minutes * 60000,
     end: endsAt,
@@ -1096,7 +1097,18 @@ function pomoSyncReset(): void {
 }
 
 /** aktif.json + oturumlar.jsonl yokla: yeni uzak durumu benimse, geçmişi birleştir. */
+let pomoPulling = false;
 export async function pullPomoFromVault(): Promise<void> {
+  if (pomoPulling) return;
+  pomoPulling = true;
+  try {
+    await pullPomoOnce();
+  } finally {
+    pomoPulling = false;
+  }
+}
+
+async function pullPomoOnce(): Promise<void> {
   const be = backend;
   try {
     const remote = await readActive(be);
@@ -1122,7 +1134,7 @@ export async function pullPomoFromVault(): Promise<void> {
 
     let sessions = await readSessions(be);
     const vault = useAppStore.getState().vaultPath;
-    if (vault && !pomoReady) {
+    if (vault && !pomoReady && be.appendText) {
       // Tek seferlik: yerel geçmiş günlükte yoksa sabit kimlikli sentetik oturum olarak eklenir.
       try {
         if (!localStorage.getItem(pomoImportKey(vault))) {

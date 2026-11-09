@@ -2,8 +2,10 @@
 import {
   adoptPatch, dailyFocusCounts, dayOf, deviceName, hasNearTwin, importLocalHistory, mergeHistory,
   mergeSessions, needsLeadingNewline, parseActive, parseSessions, serializeActive, sessionLine,
-  shouldAdopt, timerSignature, toActive, type LocalTimer, type PomoSession,
+  preserveTask, sessionId, shouldAdopt, timerSignature, toActive, type LocalTimer, type PomoSession,
 } from "../pomodoro/pomoSync";
+import { appendSessions, readActive, readSessions } from "../pomodoro/pomoVaultIO";
+import type { VaultBackend } from "../vault/types";
 
 let fails = 0;
 let ran = 0;
@@ -77,6 +79,62 @@ eq("ayarlar uzaktan gelir", [p1.focusMin, p1.shortBreak, p1.longBreak], [25, 5, 
 eq("tik imzayı değiştirmez", timerSignature(t) === timerSignature({ ...t, remaining: 50 }), true);
 eq("duraklatma imzayı değiştirir", timerSignature(t) !== timerSignature({ ...t, running: false, endsAt: null }), true);
 eq("cihaz adı", [deviceName("Mozilla (Macintosh; Intel Mac OS X)"), deviceName("Android 14"), deviceName("iPhone")], ["loomen-macos", "loomen-android", "loomen-ios"]);
+
+// kimlik, görev koruma, ISO toleransı
+eq("deterministik id", sessionId("focus", 1_700_000_000_000), "focus-1700000000000");
+check("görev korunur", preserveTask({ ...act, task: null }, { ...act, task: "Rapor" }).task === "Rapor");
+check("yerel görev ezilmez", preserveTask({ ...act, task: "A" }, { ...act, task: "B" }).task === "A");
+const iso = "2026-11-03T10:00:00.000Z", isoMs = Date.parse(iso);
+const warns: unknown[] = [];
+const origWarn = console.warn;
+console.warn = (...a: unknown[]) => { warns.push(a); };
+const pa = parseActive(JSON.stringify({ phase: "focus", updatedAt: iso, endsAt: iso, pausedRemainingMs: null, focusMin: 25, shortMin: 5, longMin: 15 }));
+eq("ISO aktif.json sayıya çevrilir", [pa?.updatedAt, pa?.endsAt], [isoMs, isoMs]);
+check("ISO yazılırken sayı", JSON.parse(serializeActive(pa!)).endsAt === isoMs);
+const ps = parseSessions(JSON.stringify({ id: "x", mode: "focus", start: iso, end: isoMs + 1500000 }) + "\n");
+eq("ISO oturum çevrilir", [ps[0]?.start, ps[0]?.seconds], [isoMs, 1500]);
+warns.length = 0;
+parseSessions('{"id":"a","mode":"zzz","start":1,"end":2}\nbozuk\n');
+check("atılan satırda uyarı", warns.length === 1);
+warns.length = 0;
+parseActive('{"phase":"x"}');
+check("atılan aktif.json'da uyarı", warns.length === 1);
+console.warn = origWarn;
+
+// vault IO: hata yayılır, boş sayılmaz
+function fakeBE(o: { exists?: () => Promise<boolean>; read?: () => Promise<string>; append?: boolean }): VaultBackend & { appended: string[] } {
+  const appended: string[] = [];
+  const be: any = {
+    exists: o.exists ?? (async () => true),
+    readNote: o.read ?? (async () => ""),
+    ensureDir: async () => {},
+    writeNote: async () => { throw new Error("writeNote çağrılmamalı"); },
+    appended,
+  };
+  if (o.append !== false) be.appendText = async (_p: string, t: string) => { appended.push(t); };
+  return be;
+}
+async function rejects(f: () => Promise<unknown>): Promise<boolean> {
+  try { await f(); return false; } catch { return true; }
+}
+async function ioTests(): Promise<void> {
+  check("dosya yok = boş", (await readSessions(fakeBE({ exists: async () => false }))).length === 0);
+  check("okuma hatası fırlar (boş değil)", await rejects(() => readSessions(fakeBE({ read: async () => { throw new Error("EIO"); } }))));
+  check("exists hatası fırlar", await rejects(() => readActive(fakeBE({ exists: async () => { throw new Error("EIO"); } }))));
+  check("append: okuma hatasında yazmaz", await (async () => {
+    const be = fakeBE({ read: async () => { throw new Error("EIO"); } });
+    return (await rejects(() => appendSessions(be, [S("a", 1e12)]))) && be.appended.length === 0;
+  })());
+  const be2 = fakeBE({ append: false, read: async () => "mevcut\n" });
+  console.warn = () => {};
+  await appendSessions(be2, [S("a", 1e12)]); // writeNote çağrılsa fırlatır
+  console.warn = origWarn;
+  check("appendText yoksa yazılmaz, ezme yok", true);
+  const be3 = fakeBE({ read: async () => '{"id":"yarım' });
+  await appendSessions(be3, [S("a", 1e12)]);
+  check("yarım satırdan sonra satır sonu eklenir", be3.appended[0].startsWith("\n{"));
+}
+await ioTests();
 
 console.log(fails === 0 ? `\n✅ ${ran} kontrolün tümü geçti` : `\n❌ ${fails}/${ran} kontrol başarısız`);
 process.exit(fails === 0 ? 0 : 1);

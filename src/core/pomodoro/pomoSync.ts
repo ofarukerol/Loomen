@@ -36,7 +36,30 @@ export interface PomoSession {
 const PHASES: SyncPhase[] = ["focus", "short", "long", "idle"];
 const MODES = ["focus", "short", "long"];
 const isNum = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
-const numOrNull = (x: unknown): number | null => (isNum(x) ? x : null);
+
+/**
+ * Sözleşme epoch ms SAYIDIR. Tolerans: ISO tarih metni de kabul edilir (ms'ye çevrilir); yazarken
+ * hep sayı yazılır. Çevrilemeyen değer null döner.
+ */
+export function toMs(x: unknown): number | null {
+  if (isNum(x)) return x;
+  if (typeof x === "string" && x.trim()) {
+    const t = Date.parse(x);
+    if (Number.isFinite(t)) return t;
+  }
+  return null;
+}
+const numOrNull = (x: unknown): number | null => toMs(x);
+
+/** Deterministik oturum kimliği: iki cihaz aynı fazı kaydederse aynı id çıkar. */
+export function sessionId(mode: PomoSession["mode"], end: number): string {
+  return `${mode}-${end}`;
+}
+
+/** Yazılacak aktif durumda, uzaktaki dosyada zaten olan görev adını koru (null ile ezme). */
+export function preserveTask(a: PomoActive, existing: PomoActive | null): PomoActive {
+  return a.task == null && existing?.task != null ? { ...a, task: existing.task } : a;
+}
 
 /** aktif.json metnini doğrula; bozuk/yarım ise null. */
 export function parseActive(text: string): PomoActive | null {
@@ -44,21 +67,37 @@ export function parseActive(text: string): PomoActive | null {
   try {
     o = JSON.parse(text);
   } catch {
+    console.warn("Pomodoro aktif.json: bozuk JSON, atlandı");
     return null;
   }
-  if (!o || typeof o !== "object") return null;
+  if (!o || typeof o !== "object") {
+    console.warn("Pomodoro aktif.json: nesne değil, atlandı");
+    return null;
+  }
   const r = o as Record<string, unknown>;
-  if (!PHASES.includes(r.phase as SyncPhase) || !isNum(r.updatedAt)) return null;
-  if (!isNum(r.focusMin) || !isNum(r.shortMin) || !isNum(r.longMin)) return null;
+  const updatedAt = toMs(r.updatedAt);
+  if (!PHASES.includes(r.phase as SyncPhase) || updatedAt == null) {
+    console.warn("Pomodoro aktif.json: geçersiz faz/updatedAt, atlandı");
+    return null;
+  }
+  if (!isNum(r.focusMin) || !isNum(r.shortMin) || !isNum(r.longMin)) {
+    console.warn("Pomodoro aktif.json: geçersiz süre alanları, atlandı");
+    return null;
+  }
+  const endsAt = numOrNull(r.endsAt);
+  const pausedRemainingMs = numOrNull(r.pausedRemainingMs);
+  if ((r.endsAt != null && endsAt == null) || (r.pausedRemainingMs != null && pausedRemainingMs == null)) {
+    console.warn("Pomodoro aktif.json: sayıya çevrilemeyen alan null sayıldı");
+  }
   return {
     v: 1,
     phase: r.phase as SyncPhase,
-    endsAt: numOrNull(r.endsAt),
-    pausedRemainingMs: numOrNull(r.pausedRemainingMs),
+    endsAt,
+    pausedRemainingMs,
     focusMin: r.focusMin,
     shortMin: r.shortMin,
     longMin: r.longMin,
-    updatedAt: r.updatedAt,
+    updatedAt,
     device: typeof r.device === "string" ? r.device : "",
     task: typeof r.task === "string" ? r.task : null,
   };
@@ -81,6 +120,7 @@ export function shouldAdopt(remote: PomoActive | null, localUpdatedAt: number): 
 /** oturumlar.jsonl: satır satır oku; bozuk (ör. yarım kalmış son) satırlar atlanır. */
 export function parseSessions(text: string): PomoSession[] {
   const out: PomoSession[] = [];
+  let dropped = 0;
   for (const line of text.split("\n")) {
     const t = line.trim();
     if (!t) continue;
@@ -88,22 +128,30 @@ export function parseSessions(text: string): PomoSession[] {
     try {
       o = JSON.parse(t);
     } catch {
+      dropped++;
       continue;
     }
-    if (!o || typeof o !== "object") continue;
+    if (!o || typeof o !== "object") {
+      dropped++;
+      continue;
+    }
     const r = o as Record<string, unknown>;
-    if (typeof r.id !== "string" || !r.id) continue;
-    if (!MODES.includes(r.mode as string) || !isNum(r.start) || !isNum(r.end)) continue;
+    const start = toMs(r.start), end = toMs(r.end);
+    if (typeof r.id !== "string" || !r.id || !MODES.includes(r.mode as string) || start == null || end == null) {
+      dropped++;
+      continue;
+    }
     out.push({
       id: r.id,
       mode: r.mode as PomoSession["mode"],
-      start: r.start,
-      end: r.end,
-      seconds: isNum(r.seconds) ? r.seconds : Math.round((r.end - r.start) / 1000),
+      start,
+      end,
+      seconds: isNum(r.seconds) ? r.seconds : Math.round((end - start) / 1000),
       device: typeof r.device === "string" ? r.device : "",
       task: typeof r.task === "string" ? r.task : null,
     });
   }
+  if (dropped > 0) console.warn(`Pomodoro oturumlar.jsonl: ${dropped} geçersiz satır atlandı`);
   return out;
 }
 
