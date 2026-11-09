@@ -4,8 +4,18 @@
 // Excel gibi fonksiyon (TOPLA/SUM…) ve sütun (B · Tutar) önerir. Tek kelimelik başlıklı
 // sütunda seçilince başlık adı, diğerlerinde harf yazılır. Ekrandaki liste
 // tableWidget.ts openCellEditor içinde; açıklama metinleri i18n anahtarıyla gelir.
+//
+// Otomatik aralık (LOM-99): toplu fonksiyon (TOPLA, ORTALAMA, MIN, MAX, SAY) Tab ile
+// seçilince hücrenin üstündeki kesintisiz sayı dizisi (yoksa soldaki) Excel'deki otomatik
+// toplam gibi kendiliğinden yazılır: =TOPLA(B2:B5). Hesap autoRangeRef'te.
 
-import { columnDisplayName, isPlainColumnName, normalizeColumnName } from "./tableFormula";
+import {
+  columnDisplayName,
+  isFormulaCell,
+  isPlainColumnName,
+  normalizeColumnName,
+  parseLocalizedNumber,
+} from "./tableFormula";
 
 export interface FormulaSuggestion {
   kind: "fn" | "column";
@@ -23,6 +33,8 @@ export interface FormulaSuggestion {
   descParam: string;
   /** Örnek yazım: "=TOPLA(B2:B9)". */
   example: string;
+  /** Toplu fonksiyon mu (TOPLA, ORTALAMA…): Tab ile aralık kendiliğinden gelir (LOM-99). */
+  aggregate: boolean;
 }
 
 export interface FormulaSuggestResult {
@@ -38,17 +50,19 @@ interface FnEntry {
   descKey: string;
   /** Örnek; {F} fonksiyon adıyla değişir. */
   example: string;
+  /** Aralık alan toplu fonksiyon (LOM-99). */
+  aggregate: boolean;
 }
 
 /** Formül motorunun (tableFormula.ts) tanıdığı yedi fonksiyon. */
 export const FORMULA_FUNCTIONS: readonly FnEntry[] = [
-  { tr: "TOPLA", en: "SUM", descKey: "tableFormula.fnSum", example: "={F}(B2:B9)" },
-  { tr: "ORTALAMA", en: "AVERAGE", descKey: "tableFormula.fnAverage", example: "={F}(B:B)" },
-  { tr: "MIN", en: "MIN", descKey: "tableFormula.fnMin", example: "={F}(B2:B9)" },
-  { tr: "MAX", en: "MAX", descKey: "tableFormula.fnMax", example: "={F}(B2:B9)" },
-  { tr: "SAY", en: "COUNT", descKey: "tableFormula.fnCount", example: "={F}(B:B)" },
-  { tr: "YUVARLA", en: "ROUND", descKey: "tableFormula.fnRound", example: "={F}(B2;2)" },
-  { tr: "ABS", en: "ABS", descKey: "tableFormula.fnAbs", example: "={F}(B2)" },
+  { tr: "TOPLA", en: "SUM", descKey: "tableFormula.fnSum", example: "={F}(B2:B9)", aggregate: true },
+  { tr: "ORTALAMA", en: "AVERAGE", descKey: "tableFormula.fnAverage", example: "={F}(B:B)", aggregate: true },
+  { tr: "MIN", en: "MIN", descKey: "tableFormula.fnMin", example: "={F}(B2:B9)", aggregate: true },
+  { tr: "MAX", en: "MAX", descKey: "tableFormula.fnMax", example: "={F}(B2:B9)", aggregate: true },
+  { tr: "SAY", en: "COUNT", descKey: "tableFormula.fnCount", example: "={F}(B:B)", aggregate: true },
+  { tr: "YUVARLA", en: "ROUND", descKey: "tableFormula.fnRound", example: "={F}(B2;2)", aggregate: false },
+  { tr: "ABS", en: "ABS", descKey: "tableFormula.fnAbs", example: "={F}(B2)", aggregate: false },
 ];
 
 /** 0 → A, 25 → Z, 26 → AA (tableFormula.ts colIndex'in tersi). */
@@ -114,6 +128,7 @@ export function suggestFormula(
       descKey: f.descKey,
       descParam: "",
       example: f.example.replace("{F}", label),
+      aggregate: f.aggregate,
     });
   }
 
@@ -138,6 +153,7 @@ export function suggestFormula(
       descKey: plain || !name ? "tableFormula.column" : "tableFormula.columnLetterOnly",
       descParam: name || letter,
       example: plain ? `=${name} · =${sumName}(${name})` : `=${letter}2 · =${letter}:${letter}`,
+      aggregate: false,
     });
   });
 
@@ -160,4 +176,51 @@ export function applySuggestion(
   insert: string,
 ): { text: string; caret: number } {
   return { text: text.slice(0, from) + insert + text.slice(to), caret: from + insert.length };
+}
+
+/** Hücre aralığa girebilecek bir sayı mı: yerel sayı ya da formül (sonucu sayıdır). */
+function isNumericCell(raw: string | undefined): boolean {
+  if (raw == null) return false;
+  return parseLocalizedNumber(raw) !== null || isFormulaCell(raw);
+}
+
+/**
+ * Excel'deki otomatik toplam gibi (LOM-99): `rows` gövde satırları, (row, col) gövdedeki hücre.
+ * Hücrenin üstündeki boş hücreler atlanır, sonra yukarı doğru kesintisiz sayı dizisi alınır
+ * (metin ya da boş hücrede durur). Üstte sayı yoksa aynı kural sola uygulanır. Satır numarası
+ * Excel gibidir: başlık 1, ilk gövde satırı 2. Sonuç "B2:B5", tek hücrede "B2"; yoksa null.
+ */
+export function autoRangeRef(rows: string[][], row: number, col: number): string | null {
+  if (!Number.isInteger(row) || !Number.isInteger(col) || row < 0 || col < 0) return null;
+  if (row >= rows.length || col >= (rows[row]?.length ?? 0)) return null;
+  const blank = (v: string | undefined) => (v ?? "").trim() === "";
+
+  // Yukarı
+  let r = row - 1;
+  while (r >= 0 && blank(rows[r]?.[col])) r--;
+  let top = r;
+  while (top >= 0 && isNumericCell(rows[top]?.[col])) top--;
+  top++;
+  if (r >= 0 && top <= r) {
+    const L = colLetter(col);
+    return top === r ? `${L}${r + 2}` : `${L}${top + 2}:${L}${r + 2}`;
+  }
+
+  // Sola
+  const cells = rows[row];
+  let c = col - 1;
+  while (c >= 0 && blank(cells[c])) c--;
+  let left = c;
+  while (left >= 0 && isNumericCell(cells[left])) left--;
+  left++;
+  if (c >= 0 && left <= c) {
+    const n = row + 2;
+    return left === c ? `${colLetter(c)}${n}` : `${colLetter(left)}${n}:${colLetter(c)}${n}`;
+  }
+  return null;
+}
+
+/** Otomatik aralıkla fonksiyon metni: ("TOPLA", "B2:B5") → "TOPLA(B2:B5)". */
+export function autoFunctionInsert(label: string, ref: string): string {
+  return `${label}(${ref})`;
 }

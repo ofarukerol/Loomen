@@ -5,7 +5,15 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { applySuggestion, colLetter, suggestFormula } from "../markdown/formulaSuggest";
+import {
+  applySuggestion,
+  autoFunctionInsert,
+  autoRangeRef,
+  colLetter,
+  FORMULA_FUNCTIONS,
+  suggestFormula,
+} from "../markdown/formulaSuggest";
+import { evaluateTable } from "../markdown/tableFormula";
 
 let fails = 0;
 let ran = 0;
@@ -123,6 +131,41 @@ check("colLetter(25) = Z", colLetter(25) === "Z");
 check("colLetter(26) = AA", colLetter(26) === "AA");
 check("colLetter(27) = AB", colLetter(27) === "AB");
 
+// ─── Otomatik aralık (LOM-99) ───────────────────────────────────────────────
+const bills = [["Kira", "1.200"], ["Su", "300"], ["Elektrik", "=B2*2"], ["Toplam", ""]];
+check("autoRangeRef üstteki sayılar → B2:B4", autoRangeRef(bills, 3, 1) === "B2:B4", String(autoRangeRef(bills, 3, 1)));
+const broken = [["Kira", "1.200"], ["Not", "x"], ["Su", "300"], ["Gaz", "50"], ["Toplam", ""]];
+check("araya metin girince yalnız alttaki kesintisiz kısım → B4:B5", autoRangeRef(broken, 4, 1) === "B4:B5", String(autoRangeRef(broken, 4, 1)));
+const gap = [["Kira", "1.200"], ["Su", "300"], ["", ""], ["Toplam", ""]];
+check("hemen üstteki boş hücre atlanıyor → B2:B3", autoRangeRef(gap, 3, 1) === "B2:B3", String(autoRangeRef(gap, 3, 1)));
+const gapMid = [["Kira", "1.200"], ["", ""], ["Su", "300"], ["Toplam", ""]];
+check("dizi arada boş hücrede duruyor → B4", autoRangeRef(gapMid, 3, 1) === "B4", String(autoRangeRef(gapMid, 3, 1)));
+check("tek sayı → B2", autoRangeRef([["Kira", "1.200"], ["Toplam", ""]], 1, 1) === "B2");
+const rowSum = [["Ocak", "10", "20", "30", ""]];
+check("üstte yok solda var → B2:D2", autoRangeRef(rowSum, 0, 4) === "B2:D2", String(autoRangeRef(rowSum, 0, 4)));
+check("başlık satırı (row -1) → null", autoRangeRef(bills, -1, 1) === null);
+check("col 0 row 0 → null", autoRangeRef(bills, 0, 0) === null);
+check("üstte metin, solda metin → null", autoRangeRef([["a", "b"], ["c", ""]], 1, 1) === null);
+check("geçersiz konum → null", autoRangeRef(bills, 9, 1) === null && autoRangeRef(bills, 0, 9) === null);
+check("autoFunctionInsert → TOPLA(B2:B4)", autoFunctionInsert("TOPLA", "B2:B4") === "TOPLA(B2:B4)");
+{
+  const ref = autoRangeRef(bills, 3, 1) ?? "";
+  const rows = bills.map((r) => [...r]);
+  rows[3][1] = `=${autoFunctionInsert("TOPLA", ref)}`;
+  const res = evaluateTable(["Kalem", "Tutar"], rows);
+  check("otomatik TOPLA hesabı 1200+300+2400 = 3900", res[3]?.[1]?.value === 3900, JSON.stringify(res[3]?.[1]));
+}
+const fnAgg = (tr: string) => FORMULA_FUNCTIONS.find((f) => f.tr === tr)?.aggregate;
+check("TOPLA/ORTALAMA/MIN/MAX/SAY toplu", ["TOPLA", "ORTALAMA", "MIN", "MAX", "SAY"].every((f) => fnAgg(f) === true));
+check("YUVARLA/ABS toplu değil", fnAgg("YUVARLA") === false && fnAgg("ABS") === false);
+{
+  const r = suggestFormula("=TOPLA", 6, ["Kalem", "Tutar"], "tr");
+  const top = r?.items.find((x) => x.label === "TOPLA");
+  check("öneride TOPLA aggregate true", top?.aggregate === true);
+  const col = r?.items.find((x) => x.kind === "column");
+  check("sütun önerisi aggregate false", !col || col.aggregate === false);
+}
+
 // ─── Kaynak denetimi ────────────────────────────────────────────────────────
 const tw = read("src/screens/Editor/tableWidget.ts");
 check("widget suggestFormula( çağırıyor", tw.includes("suggestFormula("));
@@ -152,6 +195,16 @@ for (const lng of ["tr", "en", "ar"]) {
   check(`i18n ${lng}: column {{name}} içeriyor`, typeof t.column === "string" && t.column.includes("{{name}}"));
   check(`i18n ${lng}: columnLetterOnly dolu`, typeof t.columnLetterOnly === "string" && t.columnLetterOnly.length > 0);
 }
+check("widget autoRangeRef( kullanıyor", tw.includes("autoRangeRef("));
+check("widget Tab dalında otomatik aralık", /e\.key === "Tab" && !e\.shiftKey && applyAutoRange\(\)/.test(tw));
+const autoBlock = tw.slice(tw.indexOf("const applyAutoRange"), tw.indexOf("function refreshSuggest"));
+check("applyAutoRange autoRangeRef + toplu kontrolü", autoBlock.includes("autoRangeRef(") && autoBlock.includes("it.aggregate"));
+check("widget is-formula sınıfı", tw.includes('"is-formula"'));
+check("widget dataset.letter ve dataset.rowno", tw.includes("dataset.letter") && tw.includes("dataset.rowno"));
+check("kutu kapanınca is-formula kalkıyor", tw.includes('coordsWrap?.classList.remove("is-formula")'));
+const cme = read("src/screens/Editor/CodeMirrorEditor.tsx");
+check("tema attr(data-letter) ve attr(data-rowno)", cme.includes("attr(data-letter)") && cme.includes("attr(data-rowno)"));
+check("koordinat kuralları .is-formula altında", cme.includes(".cm-tablewrap.is-formula .cm-table th::before"));
 check("run-tests.mjs'de test kayıtlı", read("scripts/run-tests.mjs").includes("src/core/__test__/formulaSuggestTest.ts"));
 
 console.log(`\n${ran - fails}/${ran} kontrol geçti`);

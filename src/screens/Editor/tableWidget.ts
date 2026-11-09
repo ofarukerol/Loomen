@@ -18,7 +18,14 @@ import {
 import i18n from "../../i18n";
 import { evaluateTable, formatFormulaResult, type CellResult } from "../../core/markdown/tableFormula";
 import { createTapTracker, isTapInput } from "./tapGesture";
-import { applySuggestion, suggestFormula, type FormulaSuggestResult } from "../../core/markdown/formulaSuggest";
+import {
+  applySuggestion,
+  autoFunctionInsert,
+  autoRangeRef,
+  colLetter,
+  suggestFormula,
+  type FormulaSuggestResult,
+} from "../../core/markdown/formulaSuggest";
 import {
   CURRENCIES,
   columnCurrency,
@@ -210,6 +217,10 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
     return Array.from(out, (t) => t ?? "");
   };
   const header = headerTexts();
+  // Formül yazarken (= ile başlayınca) tabloda sütun harfi ve satır numarası görünür (LOM-99).
+  const coordsWrap = cellEl.closest<HTMLElement>(".cm-tablewrap");
+  const syncCoords = () => coordsWrap?.classList.toggle("is-formula", input.value.trimStart().startsWith("="));
+  syncCoords();
 
   // Başlık hücresinde: kutunun altında para birimi şeridi (LOM-89). Seçim not satırına yazılır.
   let strip: HTMLElement | null = null;
@@ -337,6 +348,24 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
     fitHeight();
     refreshSuggest();
   };
+  // Excel'deki otomatik toplam gibi (LOM-99): aktif öğe toplu fonksiyonsa ve hücrenin
+  // üstünde/solunda sayı dizisi varsa "TOPLA(B2:B5)" yazar. Uygulandıysa true.
+  const applyAutoRange = (): boolean => {
+    const it = current?.items[active];
+    if (!current || !it || it.kind !== "fn" || !it.aggregate) return false;
+    if (!isLive(view)) return false;
+    const block = tableBlockFrom(view.state, headerFrom);
+    if (!block) return false;
+    const ref = autoRangeRef(block.rows, row, col);
+    if (!ref) return false;
+    const res = applySuggestion(input.value, current.replaceFrom, current.replaceTo, autoFunctionInsert(it.label, ref));
+    input.value = res.text;
+    input.setSelectionRange(res.caret, res.caret);
+    fitHeight();
+    refreshSuggest();
+    syncCoords();
+    return true;
+  };
   function refreshSuggest(): void {
     if (dismissedText !== null) {
       if (input.value === dismissedText) {
@@ -430,6 +459,7 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
     window.removeEventListener("scroll", onScroll, true);
     suggest.remove();
     strip?.remove();
+    coordsWrap?.classList.remove("is-formula");
   };
 
   function finish(save: boolean, refocus = true): void {
@@ -464,6 +494,8 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
     if (!suggestOpen() || e.isComposing) return;
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       setActive(active + (e.key === "ArrowDown" ? 1 : -1));
+    } else if (e.key === "Tab" && !e.shiftKey && applyAutoRange()) {
+      // Toplu fonksiyon + Tab: üstteki (yoksa soldaki) sayı aralığı kendiliğinden (LOM-99).
     } else if ((e.key === "Enter" || e.key === "Tab") && !e.shiftKey) {
       if (!activeChanges()) return;
       applyActive();
@@ -530,6 +562,7 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
     fitHeight();
     placeStrip();
     refreshSuggest();
+    syncCoords();
   });
   input.addEventListener("click", () => refreshSuggest());
   // Ok/Home/End ile imleç kayınca liste imlecin yeni yerine göre yenilensin.
@@ -753,6 +786,9 @@ class TableWidget extends WidgetType {
       el.dataset.col = String(col);
       el.dataset.row = String(row);
       el.dataset.raw = text;
+      // Formül yazarken görünen koordinatlar (LOM-99): başlıkta harf, ilk sütunda satır no.
+      if (row === -1) el.dataset.letter = colLetter(col);
+      if (col === 0) el.dataset.rowno = String(row + 2);
       // Para birimli sütun (LOM-89): ekranda "212.500 ₺"; kaynak (dataset.raw) aynen kalır.
       const cur = columnCurrency(this.meta, col);
       if (result?.formula) {
