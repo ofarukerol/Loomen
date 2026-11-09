@@ -83,6 +83,8 @@ eq("cihaz adı", [deviceName("Mozilla (Macintosh; Intel Mac OS X)"), deviceName(
 // kimlik, görev koruma, ISO toleransı
 eq("deterministik id", sessionId("focus", 1_700_000_000_000), "focus-1700000000000");
 check("görev korunur", preserveTask({ ...act, task: null }, { ...act, task: "Rapor" }).task === "Rapor");
+check("görev boşta temizlenir", preserveTask({ ...act, phase: "idle", endsAt: null, task: null }, { ...act, phase: "idle", endsAt: null, task: "Rapor" }).task === null);
+check("farklı koşuda görev taşınmaz", preserveTask({ ...act, endsAt: 5, task: null }, { ...act, endsAt: 9, task: "Rapor" }).task === null);
 check("yerel görev ezilmez", preserveTask({ ...act, task: "A" }, { ...act, task: "B" }).task === "A");
 const iso = "2026-11-03T10:00:00.000Z", isoMs = Date.parse(iso);
 const warns: unknown[] = [];
@@ -98,7 +100,10 @@ parseSessions('{"id":"a","mode":"zzz","start":1,"end":2}\nbozuk\n');
 check("atılan satırda uyarı", warns.length === 1);
 warns.length = 0;
 parseActive('{"phase":"x"}');
-check("atılan aktif.json'da uyarı", warns.length === 1);
+parseActive('{"phase":"x"}');
+check("aynı bozuk içerik için tek uyarı", warns.length === 1);
+const pd = parseActive(JSON.stringify({ phase: "focus", updatedAt: 1, endsAt: null, pausedRemainingMs: iso, focusMin: 25, shortMin: 5, longMin: 15 }));
+check("süre alanında ISO kabul edilmez", pd?.pausedRemainingMs === null);
 console.warn = origWarn;
 
 // vault IO: hata yayılır, boş sayılmaz

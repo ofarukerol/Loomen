@@ -49,7 +49,17 @@ export function toMs(x: unknown): number | null {
   }
   return null;
 }
-const numOrNull = (x: unknown): number | null => toMs(x);
+/** Süre alanları yalnız sayı; ISO tarihi süre değildir. */
+const durOrNull = (x: unknown): number | null => (isNum(x) ? x : null);
+
+const warned = new Set<string>();
+/** Aynı bozuk içerik için yoklama başına değil, bir kez uyar. */
+function warnOnce(key: string, msg: string): void {
+  if (warned.has(key)) return;
+  if (warned.size > 50) warned.clear();
+  warned.add(key);
+  console.warn(msg);
+}
 
 /** Deterministik oturum kimliği: iki cihaz aynı fazı kaydederse aynı id çıkar. */
 export function sessionId(mode: PomoSession["mode"], end: number): string {
@@ -58,7 +68,9 @@ export function sessionId(mode: PomoSession["mode"], end: number): string {
 
 /** Yazılacak aktif durumda, uzaktaki dosyada zaten olan görev adını koru (null ile ezme). */
 export function preserveTask(a: PomoActive, existing: PomoActive | null): PomoActive {
-  return a.task == null && existing?.task != null ? { ...a, task: existing.task } : a;
+  // Yalnız aynı koşu (aynı faz + aynı bitiş) ve boşta değilse; yoksa görev temizlenir.
+  const same = !!existing && a.phase !== "idle" && existing.phase === a.phase && existing.endsAt === a.endsAt;
+  return a.task == null && same && existing!.task != null ? { ...a, task: existing!.task } : a;
 }
 
 /** aktif.json metnini doğrula; bozuk/yarım ise null. */
@@ -67,27 +79,27 @@ export function parseActive(text: string): PomoActive | null {
   try {
     o = JSON.parse(text);
   } catch {
-    console.warn("Pomodoro aktif.json: bozuk JSON, atlandı");
+    warnOnce(text, "Pomodoro aktif.json: bozuk JSON, atlandı");
     return null;
   }
   if (!o || typeof o !== "object") {
-    console.warn("Pomodoro aktif.json: nesne değil, atlandı");
+    warnOnce(text, "Pomodoro aktif.json: nesne değil, atlandı");
     return null;
   }
   const r = o as Record<string, unknown>;
   const updatedAt = toMs(r.updatedAt);
   if (!PHASES.includes(r.phase as SyncPhase) || updatedAt == null) {
-    console.warn("Pomodoro aktif.json: geçersiz faz/updatedAt, atlandı");
+    warnOnce(text, "Pomodoro aktif.json: geçersiz faz/updatedAt, atlandı");
     return null;
   }
   if (!isNum(r.focusMin) || !isNum(r.shortMin) || !isNum(r.longMin)) {
-    console.warn("Pomodoro aktif.json: geçersiz süre alanları, atlandı");
+    warnOnce(text, "Pomodoro aktif.json: geçersiz süre alanları, atlandı");
     return null;
   }
-  const endsAt = numOrNull(r.endsAt);
-  const pausedRemainingMs = numOrNull(r.pausedRemainingMs);
+  const endsAt = toMs(r.endsAt);
+  const pausedRemainingMs = durOrNull(r.pausedRemainingMs);
   if ((r.endsAt != null && endsAt == null) || (r.pausedRemainingMs != null && pausedRemainingMs == null)) {
-    console.warn("Pomodoro aktif.json: sayıya çevrilemeyen alan null sayıldı");
+    warnOnce(text, "Pomodoro aktif.json: sayıya çevrilemeyen alan null sayıldı");
   }
   return {
     v: 1,

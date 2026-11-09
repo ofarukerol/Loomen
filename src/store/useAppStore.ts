@@ -1029,6 +1029,7 @@ let pomoUpdatedAt = 0; // yerelin bildiği son durum anı (son yazan kazanır)
 let pomoApplying = false; // uzaktan benimserken yankı yazması olmasın
 let pomoReady = false; // ilk yoklama bitmeden yazma yok (açılışta uzaktaki yeni durumu ezmeyiz)
 let pomoSig = "";
+let pomoPushPending = false; // aktif.json yazımı okuma hatasıyla yarım kaldı; yoklamada yeniden dene
 let pomoQueue: Promise<unknown> = Promise.resolve();
 /** Benimsenen (başka cihazın başlattığı) sayacın bitiş anı: bitince oturumu o cihaz yazar. */
 let pomoAdoptedEnd: number | null = null;
@@ -1060,8 +1061,19 @@ function pomoPushActive(): void {
   pomoUpdatedAt = Math.max(pomoUpdatedAt + 1, a.updatedAt);
   a.updatedAt = pomoUpdatedAt;
   const be = backend;
-  // Uzaktaki görev adı korunur (okuma hatasında yazılmaz, enqueue uyarır).
-  pomoEnqueue(async () => writeActive(be, preserveTask(a, await readActive(be))));
+  // Uzaktaki görev adı (aynı koşuysa) korunur. Okuma hatasında sessizce atlamayız: bekleyen
+  // işaretlenir, bir sonraki yoklamada yeniden denenir.
+  pomoPushPending = false;
+  pomoEnqueue(async () => {
+    let existing;
+    try {
+      existing = await readActive(be);
+    } catch (e) {
+      if (be === backend) pomoPushPending = true;
+      throw e;
+    }
+    await writeActive(be, preserveTask(a, existing));
+  });
 }
 
 function pomoRecord(mode: PomoSession["mode"], endsAt: number, minutes: number): void {
@@ -1092,17 +1104,26 @@ function pomoRecord(mode: PomoSession["mode"], endsAt: number, minutes: number):
 /** Kasa değişince eşitleme baştan başlar (ilk yoklamaya kadar yazma yok). */
 function pomoSyncReset(): void {
   pomoReady = false;
+  pomoPushPending = false;
+  pomoPullAgain = true; // uçuştaki yoklama varsa biter bitmez yeni kasayla baştan
   pomoUpdatedAt = 0;
   pomoAdoptedEnd = null;
 }
 
 /** aktif.json + oturumlar.jsonl yokla: yeni uzak durumu benimse, geçmişi birleştir. */
 let pomoPulling = false;
+let pomoPullAgain = false;
 export async function pullPomoFromVault(): Promise<void> {
-  if (pomoPulling) return;
+  if (pomoPulling) {
+    pomoPullAgain = true; // uçuştaki yoklama bitince bir kez daha
+    return;
+  }
   pomoPulling = true;
   try {
-    await pullPomoOnce();
+    do {
+      pomoPullAgain = false;
+      await pullPomoOnce();
+    } while (pomoPullAgain);
   } finally {
     pomoPulling = false;
   }
@@ -1110,6 +1131,7 @@ export async function pullPomoFromVault(): Promise<void> {
 
 async function pullPomoOnce(): Promise<void> {
   const be = backend;
+  const vault = useAppStore.getState().vaultPath; // kasa değişimi sonrası yanlış anahtar okunmasın
   try {
     const remote = await readActive(be);
     if (be !== backend) return;
@@ -1133,13 +1155,14 @@ async function pullPomoOnce(): Promise<void> {
     pomoSig = timerSignature(pomoTimer(useAppStore.getState()));
 
     let sessions = await readSessions(be);
-    const vault = useAppStore.getState().vaultPath;
+    if (be !== backend) return;
     if (vault && !pomoReady && be.appendText) {
       // Tek seferlik: yerel geçmiş günlükte yoksa sabit kimlikli sentetik oturum olarak eklenir.
       try {
         if (!localStorage.getItem(pomoImportKey(vault))) {
           const imp = importLocalHistory(useAppStore.getState().pomoHistory, dailyFocusCounts(sessions));
           await appendSessions(be, imp);
+          if (be !== backend) return;
           sessions = mergeSessions(sessions, imp);
           localStorage.setItem(pomoImportKey(vault), "1");
         }
@@ -1147,6 +1170,7 @@ async function pullPomoOnce(): Promise<void> {
         console.warn("Pomodoro geçmişi içe aktarılamadı:", e);
       }
     }
+    if (be !== backend) return;
     const cur = useAppStore.getState().pomoHistory;
     const merged = mergeHistory(cur, dailyFocusCounts(mergeSessions(sessions)));
     const days = Object.keys(merged);
@@ -1154,6 +1178,7 @@ async function pullPomoOnce(): Promise<void> {
       useAppStore.setState({ pomoHistory: merged });
     }
     pomoReady = true;
+    if (pomoPushPending) pomoPushActive();
   } catch (e) {
     console.warn("Pomodoro kasadan okunamadı:", e);
   }
