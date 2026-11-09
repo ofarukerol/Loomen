@@ -1029,6 +1029,8 @@ let pomoUpdatedAt = 0; // yerelin bildiği son durum anı (son yazan kazanır)
 let pomoApplying = false; // uzaktan benimserken yankı yazması olmasın
 let pomoReady = false; // ilk yoklama bitmeden yazma yok (açılışta uzaktaki yeni durumu ezmeyiz)
 let pomoSig = "";
+/** backend ile birlikte (aynı yerde) ayarlanan kasa anahtarı; vaultPath'e güvenilmez (arada await var). */
+let pomoVaultKey: string | null = null;
 let pomoPushPending = false; // aktif.json yazımı okuma hatasıyla yarım kaldı; yoklamada yeniden dene
 let pomoQueue: Promise<unknown> = Promise.resolve();
 /** Benimsenen (başka cihazın başlattığı) sayacın bitiş anı: bitince oturumu o cihaz yazar. */
@@ -1102,7 +1104,8 @@ function pomoRecord(mode: PomoSession["mode"], endsAt: number, minutes: number):
 }
 
 /** Kasa değişince eşitleme baştan başlar (ilk yoklamaya kadar yazma yok). */
-function pomoSyncReset(): void {
+function pomoSyncReset(vaultKey: string | null): void {
+  pomoVaultKey = vaultKey;
   pomoReady = false;
   pomoPushPending = false;
   pomoPullAgain = true; // uçuştaki yoklama varsa biter bitmez yeni kasayla baştan
@@ -1131,7 +1134,7 @@ export async function pullPomoFromVault(): Promise<void> {
 
 async function pullPomoOnce(): Promise<void> {
   const be = backend;
-  const vault = useAppStore.getState().vaultPath; // kasa değişimi sonrası yanlış anahtar okunmasın
+  const vault = pomoVaultKey; // backend ile birlikte ayarlanır (vaultPath geç güncellenir)
   try {
     const remote = await readActive(be);
     if (be !== backend) return;
@@ -1150,6 +1153,7 @@ async function pullPomoOnce(): Promise<void> {
         pomoApplying = false;
       }
       pomoUpdatedAt = remote!.updatedAt;
+      pomoPushPending = false; // daha yeni uzak durum benimsendi; eski yerel durumu yeniden yazma
       pomoAdoptedEnd = patch.pomoRunning ? patch.pomoEndsAt : patch.pomoBreakRunning ? patch.pomoBreakEndsAt : null;
     }
     pomoSig = timerSignature(pomoTimer(useAppStore.getState()));
@@ -3102,7 +3106,7 @@ export const useAppStore = create<AppState>()(
         await get().switchVault(vaults[0].path);
       } else {
         backend = createSampleBackend();
-        pomoSyncReset();
+        pomoSyncReset(null);
         claimSrsSettings();
         unwatch?.();
         unwatch = null;
@@ -3253,7 +3257,7 @@ export const useAppStore = create<AppState>()(
           // AI arama önbelleği kasaya özeldir — başka kasanın parçaları taşınmasın.
           if (isSwitch) resetIndex();
           backend = next;
-          pomoSyncReset();
+          pomoSyncReset(target);
           // Tekrar ayarını notlardan ÖNCE oku (LOM-71): uzun ilk yüklemede Tekrar kapalı görünmesin.
           claimSrsSettings();
           localStorage.setItem(VAULT_KEY, target);
