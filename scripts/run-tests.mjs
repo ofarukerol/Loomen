@@ -68,6 +68,7 @@ const suites = [
   ["src/core/__test__/tableFormulaTest.ts", []],
   ["src/core/__test__/formulaSuggestTest.ts", []],
   ["src/core/__test__/tableCurrencyTest.ts", []],
+  ["src/core/__test__/tableFormatTest.ts", []],
   ["src/core/__test__/libraryTest.ts", []],
   ["src/core/__test__/libraryNoteTest.ts", []],
   ["src/core/__test__/libraryLinkTest.ts", []],

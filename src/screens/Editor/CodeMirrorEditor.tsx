@@ -195,6 +195,13 @@ const cmTheme = EditorView.theme({
     textAlign: "end",
     fontVariantNumeric: "tabular-nums",
   },
+  // Tabloda biçim (LOM-98): hizalama, kalın, italik. Para birimi kuralından SONRA gelir ki
+  // açıkça seçilen hiza para biriminin sağa yaslamasını yensin (aynı özgüllük, sonraki kazanır).
+  ".cm-table th.is-align-left, .cm-table td.is-align-left": { textAlign: "start" },
+  ".cm-table th.is-align-center, .cm-table td.is-align-center": { textAlign: "center" },
+  ".cm-table th.is-align-right, .cm-table td.is-align-right": { textAlign: "end" },
+  ".cm-table th.is-bold, .cm-table td.is-bold": { fontWeight: "700" },
+  ".cm-table th.is-italic, .cm-table td.is-italic": { fontStyle: "italic" },
   // Başlıkta sütunun para birimi simgesi.
   ".cm-table th .cm-table__curbadge": {
     marginInlineStart: "6px",

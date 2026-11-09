@@ -8,6 +8,7 @@
 
 /** Kod bloğu çiti: ``` veya ~~~ (en fazla 3 boşluk girintili). */
 import { isTableMetaLine, parseTableMeta, type TableMeta } from "../../core/markdown/tableMeta";
+import { parseSeparatorAlign, type Align } from "../../core/markdown/tableStyle";
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
@@ -30,6 +31,11 @@ export interface TableBlock {
   metaLine: number | null;
   /** Not satırından okunan ayarlar (para birimi); not satırı yoksa null. */
   meta: TableMeta | null;
+  /**
+   * Sütun hizaları (LOM-98), ayraç satırından (`:---:` orta, `:---` sol, `---:` sağ, `---` null).
+   * Başlık hücre sayısına null ile tamamlanır/kırpılır.
+   */
+  align: (Align | null)[];
 }
 
 /** Tablonun not satırı dahil son satırı (0-tabanlı). */
@@ -150,7 +156,9 @@ export function findTables(lines: string[]): TableBlock[] {
         metaLine = m;
         meta = parseTableMeta(lines[m]);
       }
-      out.push({ headerLine: i, endLine, header: cells, rows, metaLine, meta });
+      const align = parseSeparatorAlign(lines[i + 1]).slice(0, cols);
+      while (align.length < cols) align.push(null);
+      out.push({ headerLine: i, endLine, header: cells, rows, metaLine, meta, align });
       i = (metaLine ?? endLine) + 1;
       continue;
     }

@@ -34,11 +34,22 @@ import {
   formatCurrency,
   isCurrencyCode,
   moveMetaColumn,
+  moveMetaRow,
   serializeTableMeta,
   setColumnCurrency,
   type CurrencyCode,
   type TableMeta,
 } from "../../core/markdown/tableMeta";
+import {
+  applyFormat,
+  effectiveCellStyle,
+  setSeparatorAlign,
+  styleClasses,
+  styleKey,
+  type Align,
+  type FormatAction,
+  type StyleTarget,
+} from "../../core/markdown/tableStyle";
 
 /**
  * Canlı önizlemede (düzenleme modu) GFM tablolarını gerçek tablo olarak gösterir ve
@@ -110,6 +121,79 @@ function writeTableMeta(view: EditorView, headerFrom: number, col: number, code:
   }
 }
 
+/**
+ * Biçim çubuğundaki bir tıklamayı dosyaya yazar (LOM-98, tek dispatch). Sütun hizası ayraç
+ * satırına (`:---:`), satır/hücre biçimi ve kalın/italik not satırının `bicim` bölümüne gider.
+ * Not satırı yoksa tablonun altına eklenir, saklanacak bir şey kalmazsa silinir (LOM-89 kalıbı).
+ * Hücre metinleri değişmez.
+ */
+function writeTableFormat(view: EditorView, headerFrom: number, target: StyleTarget, action: FormatAction): void {
+  if (!isLive(view)) return;
+  const block = tableBlockFrom(view.state, headerFrom);
+  if (!block) return;
+  const res = applyFormat({ meta: block.meta, colAlign: block.align, target, action });
+  const changes: { from: number; to: number; insert: string }[] = [];
+  // Ayraç satırı (yalnız sütun hizası değiştiyse).
+  if (target.kind === "col" && (res.colAlign[target.col] ?? null) !== (block.align[target.col] ?? null)) {
+    const sep = view.state.doc.line(block.headerLine + 2);
+    const next = setSeparatorAlign(sep.text, target.col, res.colAlign[target.col] ?? null);
+    if (next !== sep.text) changes.push({ from: sep.from, to: sep.to, insert: next });
+  }
+  // Not satırı.
+  const text = serializeTableMeta(res.meta);
+  const end = view.state.doc.line(block.endLine + 1);
+  if (block.metaLine != null) {
+    const metaLine = view.state.doc.line(block.metaLine + 1);
+    if (text === null) changes.push({ from: end.to, to: metaLine.to, insert: "" });
+    else if (text !== metaLine.text) changes.push({ from: metaLine.from, to: metaLine.to, insert: text });
+  } else if (text !== null) {
+    changes.push({ from: end.to, to: end.to, insert: `\n${text}` });
+  }
+  if (changes.length) view.dispatch({ changes });
+}
+
+/**
+ * Şerit düğmesine basma: fare basınca hemen, dokunmatikte parmak yerinde kalkınca (şerit erken
+ * kalkarsa dokunuş alttaki hücreye düşerdi). Odak düzenleme kutusunda kalsın diye pointerdown
+ * ve mousedown'da preventDefault (blur → finish kutuyu seçimden önce kapatırdı).
+ */
+function onStripPress(btn: HTMLElement, fn: () => void): void {
+  const tap = createTapTracker();
+  btn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isTapInput(e.pointerType)) {
+      fn();
+      return;
+    }
+    tap.down(e.pointerId, e.clientX, e.clientY, e.timeStamp);
+  });
+  btn.addEventListener("mousedown", (e) => e.preventDefault());
+  btn.addEventListener("pointermove", (e) => {
+    if (isTapInput(e.pointerType)) tap.move(e.pointerId, e.clientX, e.clientY);
+  });
+  btn.addEventListener("pointerup", (e) => {
+    if (!isTapInput(e.pointerType)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (tap.up(e.pointerId, e.clientX, e.clientY, e.timeStamp)) fn();
+  });
+  btn.addEventListener("pointercancel", (e) => tap.cancel(e.pointerId));
+}
+
+type FormatScope = "cell" | "row" | "col";
+/** Biçim çubuğunda son seçilen kapsam (oturum boyunca hatırlanır; varsayılan Hücre). */
+let lastFormatScope: FormatScope = "cell";
+
+// Hizalama simgeleri: üç yatay çizgi (sabit metin, kullanıcı verisi içermez).
+const ALIGN_ICONS: Record<Align, string> = {
+  left: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M2 8h8M2 12.5h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>',
+  center:
+    '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M4 8h8M3 12.5h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>',
+  right:
+    '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M6 8h8M4 12.5h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>',
+};
+
 /** Bir hücrenin kaynak metindeki içerik aralığı (iki boru arası), yoksa null. */
 function cellContentRange(
   state: EditorState,
@@ -169,7 +253,11 @@ function caretBelowTable(view: EditorView, headerFrom: number): void {
  * Hücre elemanının data-* alanlarından konumunu okur; böylece Tab ile komşu hücreye
  * geçerken (dispatch sonrası DOM yenilenir) taze eleman üzerinden devam edilebilir.
  */
-function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?: boolean } = {}): void {
+function openCellEditor(
+  view: EditorView,
+  cellEl: HTMLElement,
+  opts: { viaTouch?: boolean; caretEnd?: boolean } = {}
+): void {
   const headerFrom = Number(cellEl.dataset.tableFrom);
   const row = Number(cellEl.dataset.row);
   const col = Number(cellEl.dataset.col);
@@ -197,7 +285,9 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
   };
   fitHeight();
   input.focus();
-  input.select();
+  // Biçim tıklamasından sonra yeniden açılınca metin seçili kalmasın (sonraki tuş silerdi).
+  if (opts.caretEnd) input.setSelectionRange(input.value.length, input.value.length);
+  else input.select();
 
   // Formül öneri listesi (LOM-88): "=" ve harf yazınca fonksiyon ve sütun harfi önerir.
   const suggest = document.createElement("div");
@@ -222,27 +312,138 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
   const syncCoords = () => coordsWrap?.classList.toggle("is-formula", input.value.trimStart().startsWith("="));
   syncCoords();
 
-  // Başlık hücresinde: kutunun altında para birimi şeridi (LOM-89). Seçim not satırına yazılır.
-  let strip: HTMLElement | null = null;
+  // Kutunun altında tek yüzen şerit (.cm-table-strip): üstte her hücre için biçim satırı
+  // (LOM-98), başlık hücresinde altta para birimi satırı (LOM-89). İkisi aynı kapsayıcıda
+  // alt alta durur, birbirinin üstüne binmez.
+  const strip = document.createElement("div");
+  strip.className = "cm-table-strip";
   const placeStrip = () => {
-    if (!strip) return;
     const box = input.getBoundingClientRect();
     const vw = window.visualViewport?.width ?? window.innerWidth;
+    const vh = window.visualViewport?.height ?? window.innerHeight;
     const w = strip.offsetWidth;
     strip.style.left = `${Math.max(4, Math.min(box.left, vw - w - 4))}px`;
-    strip.style.top = `${box.bottom + 2}px`;
+    const h = strip.offsetHeight; // sola yerleşince ölç (sarma yüksekliği değişebilir)
+    // Alta sığmazsa (hücre ekranın altında) kutunun üstüne açılır.
+    const below = box.bottom + 2;
+    strip.style.top = `${below + h > vh - 4 && box.top - h - 2 >= 4 ? box.top - h - 2 : below}px`;
   };
+  // Biçim seçilince: hücre metni kaydedilir, biçim yazılır, aynı hücre yeniden açılır
+  // (dispatch sonrası widget DOM'u yenilenir; hücre bir sonraki karede yeniden sorgulanır).
+  const reopenSame = () => {
+    requestAnimationFrame(() => {
+      if (!isLive(view)) return;
+      const sel = `.cm-tablewrap[data-table-from="${headerFrom}"] [data-row="${row}"][data-col="${col}"]`;
+      const el = view.dom.querySelector<HTMLElement>(sel);
+      if (el) openCellEditor(view, el, { viaTouch: opts.viaTouch, caretEnd: true });
+      else view.focus();
+    });
+  };
+
+  // Biçim satırı (LOM-98): kapsam (Hücre/Satır/Sütun) + sola/ortaya/sağa + kalın + italik.
+  const format = document.createElement("div");
+  format.className = "cm-table-format";
+  format.setAttribute("role", "toolbar");
+  format.setAttribute("aria-label", i18n.t("tableFormat.label"));
+  const targetOf = (scope: FormatScope): StyleTarget =>
+    scope === "col" ? { kind: "col", col } : scope === "row" ? { kind: "row", row } : { kind: "cell", row, col };
+  const scopeBtns: { scope: FormatScope; btn: HTMLButtonElement }[] = [];
+  const actionBtns: { action: FormatAction; btn: HTMLButtonElement }[] = [];
+  // Düğmelerin basılı durumu: seçili kapsamdaki hedefin, tıklamanın değiştireceği değeri
+  // (applyFormat ile aynı anlam). Hiza: sütunda ayraç satırı, satır/hücrede kendi ayarı.
+  // Kalın/italik: hücrede kalıtılan dahil etkin değer, satır/sütunda kendi ayarı.
+  const refreshFormat = () => {
+    const block = tableBlockFrom(view.state, headerFrom);
+    const meta = block?.meta ?? null;
+    const colAlign = block?.align ?? [];
+    const target = targetOf(lastFormatScope);
+    const own = meta?.style?.[styleKey(target)];
+    const eff = effectiveCellStyle(colAlign, meta, row, col);
+    for (const { scope, btn } of scopeBtns) {
+      const on = scope === lastFormatScope;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", String(on));
+    }
+    for (const { action, btn } of actionBtns) {
+      let on: boolean;
+      if (action.type === "align") {
+        on = (target.kind === "col" ? colAlign[col] ?? null : own?.align ?? null) === action.align;
+      } else {
+        const prop = action.type === "bold" ? "bold" : "italic";
+        on = target.kind === "cell" ? eff[prop] : own?.[prop] ?? false;
+      }
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", String(on));
+    }
+  };
+  const scopes: { scope: FormatScope; key: string }[] = [
+    { scope: "cell", key: "tableFormat.scopeCell" },
+    { scope: "row", key: "tableFormat.scopeRow" },
+    { scope: "col", key: "tableFormat.scopeColumn" },
+  ];
+  for (const sc of scopes) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cm-table-format__scope";
+    btn.textContent = i18n.t(sc.key);
+    btn.title = `${i18n.t("tableFormat.scopeLabel")}: ${i18n.t(sc.key)}`;
+    onStripPress(btn, () => {
+      lastFormatScope = sc.scope;
+      refreshFormat();
+    });
+    scopeBtns.push({ scope: sc.scope, btn });
+    format.appendChild(btn);
+  }
+  const sep = document.createElement("span");
+  sep.className = "cm-table-format__sep";
+  sep.setAttribute("aria-hidden", "true");
+  format.appendChild(sep);
+  const actions: { action: FormatAction; title: string; html?: string; text?: string }[] = [
+    { action: { type: "align", align: "left" }, title: i18n.t("tableFormat.alignLeft"), html: ALIGN_ICONS.left },
+    { action: { type: "align", align: "center" }, title: i18n.t("tableFormat.alignCenter"), html: ALIGN_ICONS.center },
+    { action: { type: "align", align: "right" }, title: i18n.t("tableFormat.alignRight"), html: ALIGN_ICONS.right },
+    { action: { type: "bold" }, title: i18n.t("tableFormat.bold"), text: i18n.t("tableFormat.boldShort") },
+    {
+      action: { type: "italic" },
+      title: i18n.t("tableFormat.italic"),
+      text: i18n.t("tableFormat.italicShort"),
+    },
+  ];
+  for (const a of actions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cm-table-format__btn";
+    if (a.html) btn.innerHTML = a.html;
+    else btn.textContent = a.text ?? "";
+    // Düğmenin kendisi ne yaptığını göstersin: K kalın, İ italik.
+    if (a.action.type === "bold") btn.style.fontWeight = "700";
+    if (a.action.type === "italic") btn.style.fontStyle = "italic";
+    btn.title = a.title;
+    btn.setAttribute("aria-label", a.title);
+    onStripPress(btn, () => {
+      const target = targetOf(lastFormatScope);
+      finish(true, false);
+      writeTableFormat(view, headerFrom, target, a.action);
+      reopenSame();
+    });
+    actionBtns.push({ action: a.action, btn });
+    format.appendChild(btn);
+  }
+  refreshFormat();
+  strip.appendChild(format);
+
+  // Başlık hücresinde: para birimi satırı (LOM-89). Seçim not satırına yazılır.
   if (row === -1) {
     const curRaw = cellEl.dataset.currency ?? "";
     const cur: CurrencyCode | null = isCurrencyCode(curRaw) ? curRaw : null;
-    strip = document.createElement("div");
-    strip.className = "cm-table-currency";
-    strip.setAttribute("role", "group");
-    strip.setAttribute("aria-label", i18n.t("tableCurrency.label"));
+    const currency = document.createElement("div");
+    currency.className = "cm-table-currency";
+    currency.setAttribute("role", "group");
+    currency.setAttribute("aria-label", i18n.t("tableCurrency.label"));
     const label = document.createElement("span");
     label.className = "cm-table-currency__label";
     label.textContent = i18n.t("tableCurrency.label");
-    strip.appendChild(label);
+    currency.appendChild(label);
     const options: { code: CurrencyCode | null; text: string; title: string }[] = [
       { code: null, text: i18n.t("tableCurrency.none"), title: i18n.t("tableCurrency.noneTitle") },
       ...CURRENCIES.map((c) => ({ code: c.code, text: c.symbol, title: i18n.t(`tableCurrency.${c.code}`) })),
@@ -255,39 +456,17 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
       btn.title = o.title;
       btn.setAttribute("aria-label", o.title);
       btn.setAttribute("aria-pressed", String(o.code === cur));
-      // Odak textarea'da kalsın (blur → finish kutuyu seçimden önce kapatırdı): pointerdown'da
-      // preventDefault. Seçince başlık metni kaydedilir, sonra not satırı yazılır. Fare basınca
-      // seçer; dokunmatikte parmak kalkınca (şerit erken kalkarsa dokunuş alttaki hücreye düşerdi).
-      const choose = () => {
+      // Seçince başlık metni kaydedilir, sonra not satırı yazılır.
+      onStripPress(btn, () => {
         finish(true);
         if (o.code !== cur) writeTableMeta(view, headerFrom, col, o.code);
-      };
-      const tap = createTapTracker();
-      btn.addEventListener("pointerdown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!isTapInput(e.pointerType)) {
-          choose();
-          return;
-        }
-        tap.down(e.pointerId, e.clientX, e.clientY, e.timeStamp);
       });
-      btn.addEventListener("mousedown", (e) => e.preventDefault());
-      btn.addEventListener("pointermove", (e) => {
-        if (isTapInput(e.pointerType)) tap.move(e.pointerId, e.clientX, e.clientY);
-      });
-      btn.addEventListener("pointerup", (e) => {
-        if (!isTapInput(e.pointerType)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        if (tap.up(e.pointerId, e.clientX, e.clientY, e.timeStamp)) choose();
-      });
-      btn.addEventListener("pointercancel", (e) => tap.cancel(e.pointerId));
-      strip.appendChild(btn);
+      currency.appendChild(btn);
     }
-    document.body.appendChild(strip);
-    placeStrip();
+    strip.appendChild(currency);
   }
+  document.body.appendChild(strip);
+  placeStrip();
 
   let current: FormulaSuggestResult | null = null;
   let active = 0;
@@ -296,6 +475,8 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
   const suggestOpen = () => !suggest.hidden && current !== null && current.items.length > 0;
   const hideSuggest = () => {
     suggest.hidden = true;
+    strip.style.display = "";
+    placeStrip();
     current = null;
     input.removeAttribute("aria-activedescendant");
   };
@@ -440,6 +621,8 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
       suggest.appendChild(item);
     });
     suggest.hidden = false;
+    // Öneri listesi kutunun altındaki şeridin yerini kullanır: liste açıkken şerit gizlenir.
+    strip.style.display = "none";
     placeSuggest();
     setActive(0);
   }
@@ -458,7 +641,7 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
     window.removeEventListener("resize", onScroll);
     window.removeEventListener("scroll", onScroll, true);
     suggest.remove();
-    strip?.remove();
+    strip.remove();
     coordsWrap?.classList.remove("is-formula");
   };
 
@@ -560,9 +743,9 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
       return;
     }
     fitHeight();
-    placeStrip();
     refreshSuggest();
     syncCoords();
+    placeStrip();
   });
   input.addEventListener("click", () => refreshSuggest());
   // Ok/Home/End ile imleç kayınca liste imlecin yeni yerine göre yenilensin.
@@ -582,7 +765,8 @@ function openCellEditor(view: EditorView, cellEl: HTMLElement, opts: { viaTouch?
   if (opts.viaTouch) bindTimer = setTimeout(bindClose, 500);
   else bindClose();
   // Hücrede zaten formül varsa bir kez dene (tümü seçiliyken liste açılmaz, seçim korunur).
-  if (orig.trim().startsWith("=")) refreshSuggest();
+  // Biçim düğmesinden sonra yeniden açılışta liste açılmaz: şerit görünür kalsın, üst üste biçim uygulanabilsin.
+  if (orig.trim().startsWith("=") && !opts.caretEnd) refreshSuggest();
 }
 
 /** Sürüklemenin başlaması için gereken en az kayma (px); altı tıklama sayılır. */
@@ -596,7 +780,9 @@ class TableWidget extends WidgetType {
     readonly header: string[],
     readonly rows: string[][],
     /** Tablonun not satırı (para birimi, LOM-89); yoksa null. */
-    readonly meta: TableMeta | null = null
+    readonly meta: TableMeta | null = null,
+    /** Sütun hizaları ayraç satırından (LOM-98); eq'te karşılaştırılır ki yalnız ayraç değişince de yenilensin. */
+    readonly align: (Align | null)[] = []
   ) {
     super();
   }
@@ -606,7 +792,8 @@ class TableWidget extends WidgetType {
       o.from === this.from &&
       JSON.stringify(o.header) === JSON.stringify(this.header) &&
       JSON.stringify(o.rows) === JSON.stringify(this.rows) &&
-      JSON.stringify(o.meta) === JSON.stringify(this.meta)
+      JSON.stringify(o.meta) === JSON.stringify(this.meta) &&
+      JSON.stringify(o.align) === JSON.stringify(this.align)
     );
   }
 
@@ -652,13 +839,18 @@ class TableWidget extends WidgetType {
         const full = this.header.map((_, i) => arr[i] ?? 0);
         colWidths.set(this.from, moveItem(full, from, to));
       }
-      // Para birimi de sütunla birlikte taşınır (LOM-89): not satırı aynı dispatch'te yazılır.
-      const block = tableBlockFrom(view.state, this.from);
-      if (block && block.metaLine != null) {
-        const metaLine = view.state.doc.line(block.metaLine + 1);
-        const text = serializeTableMeta(moveMetaColumn(block.meta, from, to, block.header.length));
-        if (text !== null && text !== metaLine.text) changes.push({ from: metaLine.from, to: metaLine.to, insert: text });
-      }
+    }
+    // Para birimi (LOM-89) ve biçim (LOM-98) taşınan sütun/satırla gider: not satırı aynı
+    // dispatch'te yazılır. Sütun hizası ayraç satırında olduğu için moveTableColumn ile zaten gider.
+    const block = tableBlockFrom(view.state, this.from);
+    if (block && block.metaLine != null) {
+      const metaLine = view.state.doc.line(block.metaLine + 1);
+      const moved =
+        axis === "col"
+          ? moveMetaColumn(block.meta, from, to, block.header.length)
+          : moveMetaRow(block.meta, from, to, block.rows.length);
+      const text = serializeTableMeta(moved);
+      if (text !== null && text !== metaLine.text) changes.push({ from: metaLine.from, to: metaLine.to, insert: text });
     }
     view.dispatch({ changes });
   }
@@ -789,6 +981,9 @@ class TableWidget extends WidgetType {
       // Formül yazarken görünen koordinatlar (LOM-99): başlıkta harf, ilk sütunda satır no.
       if (row === -1) el.dataset.letter = colLetter(col);
       if (col === 0) el.dataset.rowno = String(row + 2);
+      // Biçim (LOM-98): hücre > satır > sütun; metin ve formül değişmez, yalnız sınıf eklenir.
+      const fmt = styleClasses(effectiveCellStyle(this.align, this.meta, row, col));
+      if (fmt.length) el.classList.add(...fmt);
       // Para birimli sütun (LOM-89): ekranda "212.500 ₺"; kaynak (dataset.raw) aynen kalır.
       const cur = columnCurrency(this.meta, col);
       if (result?.formula) {
@@ -944,7 +1139,7 @@ function buildTables(state: EditorState): DecorationSet {
     builder.add(
       from,
       to,
-      Decoration.replace({ widget: new TableWidget(from, block.header, block.rows, block.meta), block: true })
+      Decoration.replace({ widget: new TableWidget(from, block.header, block.rows, block.meta, block.align), block: true })
     );
   }
   return builder.finish();

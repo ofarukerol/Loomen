@@ -1571,6 +1571,20 @@
     "EUR": "اليورو",
     "GBP": "الجنيه الإسترليني"
   },
+  "tableFormat": {
+    "label": "التنسيق",
+    "scopeLabel": "تطبيق على",
+    "scopeCell": "خلية",
+    "scopeRow": "صف",
+    "scopeColumn": "عمود",
+    "alignLeft": "محاذاة لليسار",
+    "alignCenter": "توسيط",
+    "alignRight": "محاذاة لليمين",
+    "bold": "عريض",
+    "italic": "مائل",
+    "boldShort": "ع",
+    "italicShort": "م"
+  },
   "library": {
     "title": "المكتبة",
     "add": "إضافة كتاب",

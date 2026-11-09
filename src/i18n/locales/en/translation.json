@@ -1543,6 +1543,20 @@
     "EUR": "Euro",
     "GBP": "British pound"
   },
+  "tableFormat": {
+    "label": "Format",
+    "scopeLabel": "Apply to",
+    "scopeCell": "Cell",
+    "scopeRow": "Row",
+    "scopeColumn": "Column",
+    "alignLeft": "Align left",
+    "alignCenter": "Center",
+    "alignRight": "Align right",
+    "bold": "Bold",
+    "italic": "Italic",
+    "boldShort": "B",
+    "italicShort": "I"
+  },
   "library": {
     "title": "Library",
     "add": "Add book",

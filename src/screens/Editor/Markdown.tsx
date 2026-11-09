@@ -7,6 +7,7 @@ import { ImageEmbed, parseImageLine } from "./ImageEmbed";
 import i18n from "../../i18n";
 import { evaluateTable, formatFormulaResult } from "../../core/markdown/tableFormula";
 import { columnCurrency, formatCellDisplay, formatCurrency, isTableMetaLine, parseTableMeta } from "../../core/markdown/tableMeta";
+import { effectiveCellStyle, parseSeparatorAlign, styleClasses } from "../../core/markdown/tableStyle";
 
 interface Props {
   content: string;
@@ -161,6 +162,8 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
     if (trimmed.includes("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
       const header = splitTableRow(line);
       const cols = header.length;
+      // Sütun hizası (LOM-98) standart ayraç satırında: :--- / :---: / ---:
+      const colAlign = parseSeparatorAlign(lines[i + 1]);
       i += 2; // başlık + ayraç satırlarını atla
       const rows: string[][] = [];
       while (i < lines.length && lines[i].trim() !== "" && lines[i].includes("|")) {
@@ -173,13 +176,18 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
       const meta = i < lines.length && isTableMetaLine(lines[i]) ? parseTableMeta(lines[i++]) : null;
       // Formül hücreleri (LOM-79): okuma modunda da sonuç gösterilir; dosyada formül kalır.
       const results = evaluateTable(header, rows);
+      // Biçim sınıfları (LOM-98): hücre > satır > sütun; başlık satırı -1.
+      const fmt = (row: number, col: number, base = ""): string | undefined => {
+        const cls = [base, ...styleClasses(effectiveCellStyle(colAlign, meta, row, col))].filter(Boolean).join(" ");
+        return cls || undefined;
+      };
       blocks.push(
         <div className="lo-tablewrap lo-scroll" key={k()}>
           <table className="lo-table">
             <thead>
               <tr>
                 {header.map((c, ci) => (
-                  <th key={ci}>{inlineNodes(c, onLink, k())}</th>
+                  <th key={ci} className={fmt(-1, ci)}>{inlineNodes(c, onLink, k())}</th>
                 ))}
               </tr>
             </thead>
@@ -193,9 +201,11 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
                       return (
                         <td
                           key={ci}
-                          className={
+                          className={fmt(
+                            ri,
+                            ci,
                             "lo-table__formula" + (res.error ? " is-error" : "") + (cur && !res.error ? " lo-table__currency" : "")
-                          }
+                          )}
                           title={res.error ? `${res.formula} — ${i18n.t(`tableFormula.${res.error}`)}` : res.formula}
                         >
                           {res.error
@@ -210,12 +220,12 @@ export function Markdown({ content, onLink, onToggleTask }: Props) {
                     const shown = formatCellDisplay(c, cur, i18n.language);
                     if (shown !== null) {
                       return (
-                        <td key={ci} className="lo-table__currency">
+                        <td key={ci} className={fmt(ri, ci, "lo-table__currency")}>
                           {shown}
                         </td>
                       );
                     }
-                    return <td key={ci}>{inlineNodes(c, onLink, k())}</td>;
+                    return <td key={ci} className={fmt(ri, ci)}>{inlineNodes(c, onLink, k())}</td>;
                   })}
                 </tr>
               ))}

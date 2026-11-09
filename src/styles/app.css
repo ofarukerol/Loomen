@@ -966,6 +966,80 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   font-weight: 600;
 }
 .lo-app.is-mobile .cm-table-currency__opt { min-width: 40px; height: 36px; }
+/* Hücre kutusunun altındaki biçim çubuğu (LOM-98): biçim satırı + (başlıkta) para birimi satırı. */
+.cm-table-strip {
+  position: fixed;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  max-width: calc(100vw - 8px);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--sh3);
+  padding: 4px 6px;
+  font-size: 13px;
+}
+/* Kapsayıcının içindeki para birimi satırı kendi başına yüzmez. */
+.cm-table-strip .cm-table-currency {
+  position: static;
+  z-index: auto;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 4px 0 0;
+}
+.cm-table-format {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.cm-table-format__label {
+  color: var(--fg3);
+  padding-inline-end: 4px;
+  white-space: nowrap;
+}
+.cm-table-format__sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 2px;
+  background: var(--line);
+}
+.cm-table-format__scope,
+.cm-table-format__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--fg1);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.cm-table-format__btn { padding: 0 6px; }
+.cm-table-format__btn svg { width: 16px; height: 16px; display: block; }
+.cm-table-format__scope:hover,
+.cm-table-format__btn:hover { background: var(--line-soft); }
+.cm-table-format__scope.is-active,
+.cm-table-format__btn.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.lo-app.is-mobile .cm-table-format__scope,
+.lo-app.is-mobile .cm-table-format__btn { min-width: 40px; height: 36px; }
+.lo-app.is-mobile .cm-table-format__btn svg { width: 18px; height: 18px; }
 .cm-table-suggest {
   position: fixed;
   z-index: 1001;
@@ -1036,6 +1110,17 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   text-align: end;
   font-variant-numeric: tabular-nums;
 }
+/* Tabloda biçim (LOM-98): hücre > satır > sütun; currency kuralından SONRA ki seçilen hiza onu yensin. */
+.lo-table th.is-align-left,
+.lo-table td.is-align-left { text-align: start; }
+.lo-table th.is-align-center,
+.lo-table td.is-align-center { text-align: center; }
+.lo-table th.is-align-right,
+.lo-table td.is-align-right { text-align: end; }
+.lo-table th.is-bold,
+.lo-table td.is-bold { font-weight: 700; }
+.lo-table th.is-italic,
+.lo-table td.is-italic { font-style: italic; }
 .lo-prose ul { margin: 0 0 18px; padding-inline-start: 22px; font-size: 15px; line-height: 1.75; color: var(--fg1); }
 .lo-wiki {
   color: var(--accent);

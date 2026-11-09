@@ -1543,6 +1543,20 @@
     "EUR": "Euro",
     "GBP": "İngiliz sterlini"
   },
+  "tableFormat": {
+    "label": "Biçim",
+    "scopeLabel": "Uygula",
+    "scopeCell": "Hücre",
+    "scopeRow": "Satır",
+    "scopeColumn": "Sütun",
+    "alignLeft": "Sola yasla",
+    "alignCenter": "Ortala",
+    "alignRight": "Sağa yasla",
+    "bold": "Kalın",
+    "italic": "İtalik",
+    "boldShort": "K",
+    "italicShort": "İ"
+  },
   "library": {
     "title": "Kütüphane",
     "add": "Kitap ekle",
