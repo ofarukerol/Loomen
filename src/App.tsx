@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAppStore, ACCENTS } from "./store/useAppStore";
+import { useAppStore, ACCENTS, pullPomoFromVault } from "./store/useAppStore";
 import { applyDir } from "./i18n";
 import { useIsMobile } from "./hooks/useIsMobile";
 import { Ribbon } from "./components/Ribbon";
@@ -116,6 +116,23 @@ export default function App() {
       window.removeEventListener("focus", catchUp);
     };
   }, [tickPomo, tickBreak]);
+
+  // Pomodoro kasa eşitlemesi: aktif.json / oturumlar.jsonl'ı ~8 sn'de bir ve pencereye dönünce yokla
+  // (başka cihaz — Kokpit ya da öteki Loomen — sayacı başlattıysa aynısı burada görünür).
+  useEffect(() => {
+    const pull = () => {
+      if (document.visibilityState === "visible") void pullPomoFromVault();
+    };
+    pull();
+    const id = setInterval(pull, 8000);
+    document.addEventListener("visibilitychange", pull);
+    window.addEventListener("focus", pull);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", pull);
+      window.removeEventListener("focus", pull);
+    };
+  }, []);
 
   // Gün değişimi: "bugün / geciken" kovaları ve sayaçlar yükleme anındaki tarihe göre
   // hesaplanır. Uygulama gece yarısını açık geçirirse (ya da uykudan ertesi gün dönerse)

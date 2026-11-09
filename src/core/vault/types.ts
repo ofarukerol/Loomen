@@ -96,4 +96,11 @@ export interface VaultBackend {
    * (LOM-54). Adlar diskteki biçimiyle döner (macOS'ta NFD olabilir).
    */
   listDir?(dir: string): Promise<DirEntry[]>;
+
+  /**
+   * Dosyanın sonuna ekle (yoksa oluştur; üst klasör garanti edilir). Yalnız-ekle günlükler için
+   * (Pomodoro oturumları): iki cihaz aynı anda yazsa da diğerinin satırı ezilmez. Yoksa çağıran
+   * oku-birleştir-yaz yoluna düşer.
+   */
+  appendText?(path: string, text: string): Promise<void>;
 }

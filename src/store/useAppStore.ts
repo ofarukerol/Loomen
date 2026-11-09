@@ -254,6 +254,11 @@ import {
   type ReaderPrefs,
   type ShelfFilter,
 } from "../core/library";
+import {
+  adoptPatch, dailyFocusCounts, deviceName, hasNearTwin, importLocalHistory, mergeHistory, mergeSessions,
+  shouldAdopt, timerSignature, toActive, type LocalTimer, type PomoSession,
+} from "../core/pomodoro/pomoSync";
+import { appendSessions, readActive, readSessions, writeActive } from "../core/pomodoro/pomoVaultIO";
 import { findKindleClippings, readClippingsText } from "../core/library/kindleDevice";
 import {
   clockFinish as readClockFinish,
@@ -1015,6 +1020,131 @@ export async function notifyError(msg: string, kind: "error" | "info" = "error")
   }
   if (typeof alert === "function") alert(msg);
   else console.error(msg);
+}
+
+// ---- Pomodoro kasa eşitlemesi (sözleşme: core/pomodoro/pomoSync.ts) ----
+// Sayaç değişince `.loomen/pomodoro/aktif.json` yazılır, biten oturum oturumlar.jsonl'a eklenir;
+// başka cihazın (Kokpit/diğer Loomen) daha yeni durumu yoklamayla benimsenir.
+let pomoUpdatedAt = 0; // yerelin bildiği son durum anı (son yazan kazanır)
+let pomoApplying = false; // uzaktan benimserken yankı yazması olmasın
+let pomoReady = false; // ilk yoklama bitmeden yazma yok (açılışta uzaktaki yeni durumu ezmeyiz)
+let pomoSig = "";
+let pomoQueue: Promise<unknown> = Promise.resolve();
+/** Benimsenen (başka cihazın başlattığı) sayacın bitiş anı: bitince oturumu o cihaz yazar. */
+let pomoAdoptedEnd: number | null = null;
+const pomoDevice = deviceName(typeof navigator !== "undefined" ? navigator.userAgent : "");
+const pomoImportKey = (vault: string) => `loomen.pomoImported:${vault}`;
+
+function pomoTimer(s: AppState): LocalTimer {
+  return {
+    running: s.pomoRunning,
+    endsAt: s.pomoEndsAt,
+    remaining: s.pomoRemaining,
+    breakActive: s.pomoBreakActive,
+    breakRunning: s.pomoBreakRunning,
+    breakEndsAt: s.pomoBreakEndsAt,
+    breakRemaining: s.pomoBreakRemaining,
+    breakLong: s.pomoBreakLong,
+    focusMin: s.pomo.focusMin,
+    shortMin: s.pomo.shortBreak,
+    longMin: s.pomo.longBreak,
+  };
+}
+
+function pomoEnqueue(job: () => Promise<unknown>): void {
+  pomoQueue = pomoQueue.then(job).catch((e) => console.warn("Pomodoro eşitleme hatası:", e));
+}
+
+function pomoPushActive(): void {
+  const a = toActive(pomoTimer(useAppStore.getState()), Date.now(), pomoDevice);
+  pomoUpdatedAt = Math.max(pomoUpdatedAt + 1, a.updatedAt);
+  a.updatedAt = pomoUpdatedAt;
+  const be = backend;
+  pomoEnqueue(() => writeActive(be, a));
+}
+
+function pomoRecord(mode: PomoSession["mode"], endsAt: number, minutes: number): void {
+  const be = backend;
+  const adopted = pomoAdoptedEnd === endsAt;
+  const s: PomoSession = {
+    id: crypto.randomUUID(),
+    mode,
+    start: endsAt - minutes * 60000,
+    end: endsAt,
+    seconds: minutes * 60,
+    device: pomoDevice,
+    task: null,
+  };
+  if (!adopted) {
+    pomoEnqueue(() => appendSessions(be, [s]));
+    return;
+  }
+  // Başka cihazın başlattığı sayaç: oturumu o yazar; biraz bekle, yazmadıysa (kapalıysa) biz yazarız.
+  pomoAdoptedEnd = null;
+  setTimeout(() => {
+    pomoEnqueue(async () => {
+      if (!hasNearTwin(await readSessions(be), s)) await appendSessions(be, [s]);
+    });
+  }, 10000);
+}
+
+/** Kasa değişince eşitleme baştan başlar (ilk yoklamaya kadar yazma yok). */
+function pomoSyncReset(): void {
+  pomoReady = false;
+  pomoUpdatedAt = 0;
+  pomoAdoptedEnd = null;
+}
+
+/** aktif.json + oturumlar.jsonl yokla: yeni uzak durumu benimse, geçmişi birleştir. */
+export async function pullPomoFromVault(): Promise<void> {
+  const be = backend;
+  try {
+    const remote = await readActive(be);
+    if (be !== backend) return;
+    if (shouldAdopt(remote, pomoUpdatedAt)) {
+      const now = Date.now();
+      const patch = adoptPatch(remote!, now);
+      const { focusMin, shortBreak, longBreak, ...fields } = patch;
+      pomoApplying = true;
+      try {
+        useAppStore.setState((s) => ({
+          ...fields,
+          pomo: { ...s.pomo, focusMin, shortBreak, longBreak },
+          pomoPhase: "work",
+        }));
+      } finally {
+        pomoApplying = false;
+      }
+      pomoUpdatedAt = remote!.updatedAt;
+      pomoAdoptedEnd = patch.pomoRunning ? patch.pomoEndsAt : patch.pomoBreakRunning ? patch.pomoBreakEndsAt : null;
+    }
+    pomoSig = timerSignature(pomoTimer(useAppStore.getState()));
+
+    let sessions = await readSessions(be);
+    const vault = useAppStore.getState().vaultPath;
+    if (vault && !pomoReady) {
+      // Tek seferlik: yerel geçmiş günlükte yoksa sabit kimlikli sentetik oturum olarak eklenir.
+      try {
+        if (!localStorage.getItem(pomoImportKey(vault))) {
+          const imp = importLocalHistory(useAppStore.getState().pomoHistory, dailyFocusCounts(sessions));
+          await appendSessions(be, imp);
+          sessions = mergeSessions(sessions, imp);
+          localStorage.setItem(pomoImportKey(vault), "1");
+        }
+      } catch (e) {
+        console.warn("Pomodoro geçmişi içe aktarılamadı:", e);
+      }
+    }
+    const cur = useAppStore.getState().pomoHistory;
+    const merged = mergeHistory(cur, dailyFocusCounts(mergeSessions(sessions)));
+    const days = Object.keys(merged);
+    if (days.length !== Object.keys(cur).length || days.some((d) => merged[d] !== cur[d])) {
+      useAppStore.setState({ pomoHistory: merged });
+    }
+    pomoReady = true;
+  } catch (e) {
+    console.warn("Pomodoro kasadan okunamadı:", e);
+  }
 }
 
 const FOCUS_MIN = 25;
@@ -2765,6 +2895,7 @@ export const useAppStore = create<AppState>()(
       // (gece yarısını aşan seans, başladığı değil bittiği güne yazılır).
       const day = s.pomoEndsAt != null ? localDay(new Date(s.pomoEndsAt)) : todayISO();
       const pomoHistory = { ...s.pomoHistory, [day]: (s.pomoHistory[day] ?? 0) + 1 };
+      if (s.pomoEndsAt != null) pomoRecord("focus", s.pomoEndsAt, s.pomo.focusMin);
       set({
         pomoCompleted: completed,
         pomoRunning: false,
@@ -2788,6 +2919,9 @@ export const useAppStore = create<AppState>()(
       }
       // Mola bitti → kaybolur. Uzun moladan sonra tur sayacını sıfırla.
       if (s.pomoSound) playChime("break-end");
+      if (s.pomoBreakEndsAt != null) {
+        pomoRecord(s.pomoBreakLong ? "long" : "short", s.pomoBreakEndsAt, s.pomoBreakLong ? s.pomo.longBreak : s.pomo.shortBreak);
+      }
       set({
         pomoBreakActive: false,
         pomoBreakRunning: false,
@@ -2931,6 +3065,7 @@ export const useAppStore = create<AppState>()(
         await get().switchVault(vaults[0].path);
       } else {
         backend = createSampleBackend();
+        pomoSyncReset();
         claimSrsSettings();
         unwatch?.();
         unwatch = null;
@@ -3081,6 +3216,7 @@ export const useAppStore = create<AppState>()(
           // AI arama önbelleği kasaya özeldir — başka kasanın parçaları taşınmasın.
           if (isSwitch) resetIndex();
           backend = next;
+          pomoSyncReset();
           // Tekrar ayarını notlardan ÖNCE oku (LOM-71): uzun ilk yüklemede Tekrar kapalı görünmesin.
           claimSrsSettings();
           localStorage.setItem(VAULT_KEY, target);
@@ -6058,3 +6194,13 @@ export function useModalLayer(open = true): void {
     return () => add(-1);
   }, [open]);
 }
+
+// Pomodoro sayacı yerelde değişince (başlat/duraklat/atla/bitir/sıfırla/ayar) kasaya yaz.
+// Kalan saniye tik'leri imzayı değiştirmez; uzaktan benimsenen durum yankılanmaz.
+useAppStore.subscribe((s) => {
+  if (pomoApplying || !pomoReady) return;
+  const sig = timerSignature(pomoTimer(s));
+  if (sig === pomoSig) return;
+  pomoSig = sig;
+  pomoPushActive();
+});

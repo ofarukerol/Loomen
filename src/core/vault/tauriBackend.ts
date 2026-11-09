@@ -115,6 +115,12 @@ export function createTauriBackend(root: string): VaultBackend {
       await writeFile(abs(p), data);
     },
     exists: async (p) => exists(abs(p)),
+    appendText: async (p, text) => {
+      const target = abs(p);
+      const dir = safeRel(p).split("/").slice(0, -1).join("/");
+      if (dir) await mkdir(abs(dir), { recursive: true });
+      return serial(target, () => writeTextFile(target, text, { append: true }));
+    },
     ensureDir: async (d) => {
       if (d) await mkdir(abs(d), { recursive: true });
     },
