@@ -32,10 +32,12 @@ kitap-girdisi/
 
 Kaynaklar ayardaki sırayla, dosyalar tek tek işlenir. Olmayan kaynak klasörleri
 atlanır; bilinmeyen kaynak, yanlış erişim bölümü, boş girdi ve sembolik bağlantı
-reddedilir. Yol bileşenleri güvenli taşıma için yalnız ASCII harf, rakam, nokta,
-alt çizgi ve tire kabul eder; ilk karakter harf veya rakamdır. Sonraki kaynak alma
-aracı yerel dosya adlarını buna göre üretmelidir. Kitap adı ve diğer üst bilgiler
-bu aşamanın kapsamına girmez. Girdi ile çıktı ayrı, iç içe olmayan klasörlerdir.
+reddedilir. Dosya ve klasör adlarında Türkçe/Arapça dahil Unicode harfler,
+rakamlar, birleştirme işaretleri, boşluk, nokta, alt çizgi ve tire kabul edilir;
+ilk karakter harf veya rakamdır. Adlar değiştirilmeden korunur. Geçersiz yol
+hatasında ilgili yol gösterilir. Normal `.DS_Store` ve `._` ile başlayan Mac
+yardımcı dosyaları atlanır ve sayıları bildirilir; diğer gizli dosyalar veya
+bağlantılar sessizce atlanmaz. Kaynak, depo ve çekim adları yine ASCII kullanır. Girdi ile çıktı ayrı, iç içe olmayan klasörlerdir.
 
 ## Çıktı ve devam
 

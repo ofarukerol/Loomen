@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 const fail = (message) => { throw new Error(message); };
 const segment = (s) => typeof s === 'string' && /^[a-z0-9][a-z0-9._-]*$/i.test(s) && s !== '..';
 function relative(s) {
-  if (typeof s !== 'string' || !s || s.includes('\\') || s.split('/').some(p => !segment(p))) fail('Geçersiz göreli yol.');
+  if (typeof s !== 'string' || !s || s.includes('\\') || s.split('/').some(p => !/^[\p{L}\p{N}][\p{L}\p{N}\p{M} ._-]*$/u.test(p))) fail(`Geçersiz göreli yol: ${JSON.stringify(s)}`);
   return s;
 }
 export function validateLayout(layout) {
@@ -72,12 +72,16 @@ async function directories(root, rel) {
     if (!stat.isDirectory() || stat.isSymbolicLink()) fail('Çıktı klasörü bağlantı olamaz.');
   }
 }
-async function walk(root, prefix = '') {
+async function walk(root, prefix = '', skipped = []) {
   const result = [];
   for (const item of (await fs.readdir(path.join(root, prefix), { withFileTypes: true })).sort((a,b) => a.name.localeCompare(b.name, 'en'))) {
     const rel = prefix ? `${prefix}/${item.name}` : item.name;
+    if (item.isFile() && (item.name === '.DS_Store' || item.name.startsWith('._'))) {
+      skipped.push(rel);
+      continue;
+    }
     relative(rel);
-    if (item.isDirectory()) result.push(...await walk(root, rel));
+    if (item.isDirectory()) result.push(...await walk(root, rel, skipped));
     else if (item.isFile()) result.push(rel);
     else fail('Sembolik bağlantı veya özel dosya kabul edilmez.');
   }
@@ -104,8 +108,10 @@ export async function prepare({ layout, input, output, id, resume = false }) {
     validatePlan(plan);
     if (plan.id !== id || json(plan.layout) !== json(layout)) fail('Devam için aynı çekim ve düzen gerekli.');
   } else {
-    const files = [];
-    for (const file of await walk(input)) {
+    const files = [], skipped = [];
+    const inputs = await walk(input, '', skipped);
+    if (skipped.length) console.info(`Mac yardımcı dosyaları atlandı: ${skipped.length}`);
+    for (const file of inputs) {
       const [source, visibility, ...rest] = file.split('/');
       if (!layout.sources.includes(source) || !['public', 'private'].includes(visibility) || !rest.length) fail(`Beklenmeyen girdi yolu: ${file}`);
       files.push({ file, source, visibility, ...await digest(await safeFile(input, file)) });

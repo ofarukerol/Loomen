@@ -96,3 +96,34 @@ test('Çıktıdaki bağlantı üzerinden dışarı yazılmaz', async t => {
   await fs.symlink(path.join(args.output, 'saved'), folder);
   await assert.rejects(prepare({ ...args, resume: true }), /bağlantı olamaz/);
 });
+test('Türkçe, Arapça ve birleşik harfli yollar korunur; Mac yardımcı dosyaları sayılarak atlanır', async t => {
+  const args = await fixture(t);
+  const names = ['gutenberg/public/Öyküler/İstanbul kitabı.epub', 'openiti/private/الكتاب.txt', 'gutenberg/public/O\u0308yku.txt'];
+  for (const file of [...names, '.DS_Store', 'openiti/.DS_Store', 'openiti/private/._الكتاب.txt']) {
+    await fs.mkdir(path.dirname(path.join(args.input, file)), { recursive: true });
+    await fs.writeFile(path.join(args.input, file), 'Kurgusal içerik');
+  }
+  const messages = [];
+  t.mock.method(console, 'info', message => messages.push(message));
+  const dir = await prepare(args), plan = await verify(dir);
+  assert.deepEqual(messages, ['Mac yardımcı dosyaları atlandı: 3']);
+  assert.equal(plan.files.length, 5);
+  const list = JSON.parse(await fs.readFile(path.join(dir, 'uploads.json')));
+  for (const file of names) {
+    assert.ok(plan.files.some(entry => entry.file === file));
+    assert.ok(list.some(entry => entry.key.endsWith(`/${file}`)));
+    assert.equal(await fs.readFile(path.join(dir, 'files', file), 'utf8'), 'Kurgusal içerik');
+  }
+  await prepare({ ...args, resume: true });
+});
+test('Geçersiz dosya adı hata mesajında gösterilir', async t => {
+  const args = await fixture(t);
+  const file = 'gutenberg/public/.hidden.epub';
+  await fs.writeFile(path.join(args.input, file), 'Kurgusal içerik');
+  await assert.rejects(prepare(args), error => error.message.includes(file));
+});
+test('Mac yardımcı dosyası adındaki bağlantı atlanmaz', async t => {
+  const args = await fixture(t);
+  await fs.symlink(path.join(args.input, 'openiti/private/source.txt'), path.join(args.input, '._book'));
+  await assert.rejects(prepare(args), /Geçersiz göreli yol/);
+});
