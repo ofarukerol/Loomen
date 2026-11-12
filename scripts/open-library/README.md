@@ -48,7 +48,10 @@ Nesne yolu `<önek>/snapshots/<çekim>/<kaynak>/<public|private>/<dosya>` biçim
 Yeni çekimde yeni ad kullanılır; eski çekimle aynı ad verilirse işlem durur.
 Kayıtlar ve tamamlanan kopyalar yeniden yazılmaz. Büyük dosyaların özeti akışla
 hesaplanır; tüm kitap belleğe alınmaz. Çıktı için kitapların toplam boyutu kadar
-ve en büyük dosya için geçici boş alan gerekir.
+ve en büyük dosya için geçici boş alan gerekir. Çıktı diski sabit bağlantı
+(hard link) desteklemelidir; macOS'un APFS diski uygundur. exFAT/FAT gibi bunu
+desteklemeyen disklerde hazırlık çalışmaz; çıktıyı destekleyen yerel diske al.
+Girdi diski için bu şart yoktur. Hazırlık testleri `npm test` içinde de çalışır.
 
 Kesinti sonrası aynı girdiyi ve ayarı kullan:
 

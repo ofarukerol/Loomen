@@ -24,6 +24,7 @@ const vault = process.argv[2] ?? join(root, "demo-vault");
 
 /** Testler: [dosya, ek argümanlar]. Kaynağı yoksa atlanır (dalda olmayan modüller). */
 const suites = [
+  ["scripts/open-library/prepare.test.mjs", []],
   ["src/core/__test__/coreTest.ts", []],
   ["src/core/__test__/recurrenceTest.ts", []],
   ["src/core/__test__/planDayTest.ts", []],
@@ -98,6 +99,13 @@ for (const [src, args] of suites) {
   const name = src.split("/").pop().replace(/\.ts$/, "");
   if (args === null) {
     console.log(`\n⏭  ${name} atlandı (kasa klasörü yok: ${vault})`);
+    continue;
+  }
+  if (src.endsWith('.test.mjs')) {
+    console.log(`\n── ${name} ──`);
+    const run = spawnSync(process.execPath, ['--test', join(root, src), ...args], { cwd: root, stdio: 'inherit' });
+    ran++;
+    if (run.status !== 0) failed++;
     continue;
   }
   const out = join(outDir, `${name}.mjs`);

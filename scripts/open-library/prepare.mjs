@@ -108,6 +108,11 @@ export async function prepare({ layout, input, output, id, resume = false }) {
     validatePlan(plan);
     if (plan.id !== id || json(plan.layout) !== json(layout)) fail('Devam için aynı çekim ve düzen gerekli.');
   } else {
+    // Girdileri okumadan çakışmayı bildir; alttaki mkdir yarış durumunu da korur.
+    try {
+      await fs.lstat(dir);
+      throw Object.assign(new Error(`Çekim adı zaten kullanılıyor: ${id}`), { code: 'EEXIST' });
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
     const files = [], skipped = [];
     const inputs = await walk(input, '', skipped);
     if (skipped.length) console.info(`Mac yardımcı dosyaları atlandı: ${skipped.length}`);

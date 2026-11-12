@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import vm from 'node:vm';
+import { createRequire } from 'node:module';
 import { prepare, verify, validateLayout } from './prepare.mjs';
 
 const layout = { version: 1, targets: { public: { bucket: 'example-public', prefix: 'books' }, private: { bucket: 'example-private', prefix: 'archive' } }, sources: ['openiti', 'gutenberg'] };
@@ -126,4 +128,59 @@ test('Mac yardımcı dosyası adındaki bağlantı atlanmaz', async t => {
   const args = await fixture(t);
   await fs.symlink(path.join(args.input, 'openiti/private/source.txt'), path.join(args.input, '._book'));
   await assert.rejects(prepare(args), /Geçersiz göreli yol/);
+});
+
+test('Çekim adı çakışması girdi taranmadan reddedilir ve eski kayıt korunur', async t => {
+  const args = await fixture(t), dir = await prepare(args);
+  const before = await fs.readFile(path.join(dir, 'manifest.json'));
+  // Bu ad tarama yapılsaydı geçersiz yol hatası verecekti.
+  await fs.writeFile(path.join(args.input, '.hidden'), 'Kurgusal içerik');
+  await assert.rejects(prepare(args), { code: 'EEXIST' });
+  assert.deepEqual(await fs.readFile(path.join(dir, 'manifest.json')), before);
+});
+
+test('K7: Ağ, dış komut ve izin değiştirme araçları olmadan hazırlık ve doğrulama tamamlanır', async t => {
+  const args = await fixture(t);
+  const require = createRequire(import.meta.url);
+  // Yalnız yerel hazırlığın ihtiyaç duyduğu araçlar verilir. Ağ/servis SDK'ları,
+  // dış komutlar ve dosya izinlerini değiştiren işlemler bu ortamda kullanılamaz.
+  const localFs = Object.fromEntries(['lstat', 'writeFile', 'link', 'readFile', 'unlink',
+    'mkdir', 'readdir', 'realpath', 'copyFile'].map(name => [name, fs[name]]));
+  const allowed = {
+    'node:crypto': require('node:crypto'),
+    'node:fs': { createReadStream: require('node:fs').createReadStream },
+    'node:fs/promises': Object.freeze(localFs),
+    'node:path': path,
+    'node:url': require('node:url'),
+  };
+  const context = vm.createContext({
+    exports: {}, Buffer, console,
+    process: { argv: [] },
+    require(name) {
+      assert.ok(Object.hasOwn(allowed, name), `Çevrimdışı sınırın dışındaki araç: ${name}`);
+      return allowed[name];
+    },
+  }, { codeGeneration: { strings: false, wasm: false } });
+  // Kontrolün gerçekten kapalı olduğunu da dene; dışarı hiçbir çağrı yapılmaz.
+  for (const code of ["require('node:https')", "require('node:child_process')",
+    "require('@aws-sdk/client-s3')", "fetch('https://example.invalid')",
+    "require('node:fs/promises').chmod('/unused', 511)",
+    "require('node:fs/promises').chown('/unused', 0, 0)"]) {
+    assert.throws(() => vm.runInContext(code, context));
+  }
+  const source = await fs.readFile(new URL('./prepare.mjs', import.meta.url), 'utf8');
+  // Modülü async sarmalda çalıştır; üst düzey await ve komut satırı koşulu korunur.
+  // Tanınmayan yeni import sözdizimi derlenmez, test sessizce geçmez.
+  const body = source
+    .replace(/^import \{ (.+) \} from '([^']+)';$/gm, "const { $1 } = require('$2');")
+    .replace(/^import \* as (\w+) from '([^']+)';$/gm, "const $1 = require('$2');")
+    .replace(/^import (\w+) from '([^']+)';$/gm, "const $1 = require('$2');")
+    .replace(/^export /gm, '')
+    .replaceAll('import.meta.url', JSON.stringify(new URL('./prepare.mjs', import.meta.url).href));
+  const isolated = await vm.runInContext(`(async () => { ${body}\nreturn { prepare, verify }; })()`, context);
+  const dir = await isolated.prepare(args);
+  const plan = await isolated.verify(dir);
+  assert.equal(plan.files.length, 2);
+  await isolated.prepare({ ...args, resume: true });
+  assert.equal((await isolated.verify(dir)).files.length, 2);
 });
