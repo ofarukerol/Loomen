@@ -26,6 +26,7 @@ const vault = process.argv[2] ?? join(root, "demo-vault");
 const suites = [
   ["scripts/open-library/prepare.test.mjs", []],
   ["scripts/open-library/intake.test.mjs", []],
+  ["scripts/open-library/curate.test.mjs", []],
   ["src/core/__test__/coreTest.ts", []],
   ["src/core/__test__/recurrenceTest.ts", []],
   ["src/core/__test__/planDayTest.ts", []],

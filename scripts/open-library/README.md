@@ -120,12 +120,59 @@ Alımdan sonra `input` klasörü hazırlık aracına verilir:
 node scripts/open-library/prepare.mjs prepare scripts/open-library/layout.example.json /yerel/alim/input /yerel/kitap-ciktisi 2026-11-12-01
 ```
 
+## Ayıklama
+
+`curate.mjs` alınan kitapları yükleme hazırlığından önce elden geçirir. Çevrimdışıdır;
+ağ, yükleme ve silme yoktur. Bekleyen (held) kitaplara dokunmaz.
+
+```sh
+node scripts/open-library/curate.mjs run scripts/open-library/sources.example.json /yerel/alim /yerel/ayiklanmis
+```
+
+Çıktı klasörü alım klasörüyle iç içe olamaz. İçinde:
+
+- `input/<kaynak>/<public|private>/` kitap dosyaları, kapaklar (`<id>.cover.<uzantı>`) ve
+  hazırlık aracının girdisi. Dönüştürülen Arapça kitap `<id>.epub` olur.
+- `books/<kaynak>/<id>.json` her kitabın kaydı: başlık, yazar, dil, bölüm, dosya, boyut,
+  SHA-256, kaynak dosyanın özeti, dönüştürüldü mü, kapak dosyası ve türü (hazır / üretildi).
+- `reports/broken.json` bozuk dosyalar ve gerekçeleri; `reports/duplicates.json` elenen
+  tekrarlar ve kalan kopya; `reports/editions.json` aynı adlı ama içeriği farklı baskılar.
+
+**Bozuk dosya:** kesik ya da açılmayan e-kitap, yanlış işaretli e-kitap, okuma sırasında eksik
+dosyası olan e-kitap, şifreli (DRM) e-kitap, geçersiz UTF-8 metin, web hata sayfası, başlığı ya da
+sonu olmayan PDF ve tanınmayan biçim. Bunlar çıktıya girmez, nedeniyle raporlanır.
+
+**Tekrar kuralı:** yalnız dosyası birebir aynı ya da metni aynı olan (satır sonu ve boşluk farkı
+sayılmaz) kitaplardan biri kalır. Önce açık aday kapalıdan, sonra kaynak sırasında öndeki, sonra
+küçük kimlik kalır. Aynı adlı ama içeriği farklı baskılar ve çeviriler elenmez, yalnız
+`editions.json`'da gruplanır. Harekeli ve harekesiz metin farklı baskıdır.
+
+**Arapça:** harflerinin çoğu Arapça olan `.txt` dosyası sağdan sola EPUB 3'e çevrilir (dil `ar`,
+`page-progression-direction="rtl"`). OpenITI başlığı, sayfa ve kilometre taşı işaretleri atılır;
+harekeler ve metnin kendisi değiştirilmez. Başlık sırası: alım kaydı, metindeki başlık, kimlik.
+Özgün `.txt` alım klasöründe kalır; çıktıya yalnız e-kitap girer. Diğer metinler çevrilmez.
+
+**Kapak:** e-kitabın içinde kapak varsa o, yanına ayrı dosya olarak konur (e-kitabın içine
+dokunulmaz). Yoksa başlık ve yazarlı sade bir SVG şablon kapak üretilir; yazı tipi gömülmez.
+Kapaklar `prepare.mjs` için sıradan dosyadır; kitap ile kapağı ayırmak için `books/` kaydı kullanılır.
+
+**Kesintiden devam:** aynı komut yeniden çalıştırılır. Kaydı ve sağlam dosyası olan kitap atlanır,
+dosyalara dokunulmaz. Çıktıda dosya eksik ya da bozuksa, ya da yayımlanmış bir kitap sonradan
+tekrar çıkıyorsa (örneğin yeni alınan bir kitap onu geride bıraktıysa) işlem durur; hiçbir şey
+taşınmaz ya da silinmez, yeni çıktı klasörü kullanılır. Raporlar her çalışmada baştan yazılır.
+
+Sonra hazırlık aracına `çıktı/input` verilir:
+
+```sh
+node scripts/open-library/prepare.mjs prepare scripts/open-library/layout.example.json /yerel/ayiklanmis/input /yerel/kitap-ciktisi 2026-11-12-01
+```
+
 ## Sonraki işe teslim
 
-Kaynak alma artık `intake.mjs` ile yapılıyor; gerçek toplu alım iMac'te elle
-çalıştırılır. Bozuk ve kaynaklar arası tekrar eden dosyaları ayırma, Arapça EPUB
-dönüştürme ve kapaklar 2/4, yazar ve kategori eşleme 3/4, yükleme paketi ve kaynak
-raporları 4/4 işidir. Bu araçlar yayın hakkına karar vermez. Gerçek yükleme
+Kaynak alma `intake.mjs`, bozuk ve tekrar ayıklama, Arapça EPUB dönüştürme ve
+kapaklar (2/4) `curate.mjs` ile yapılıyor; gerçek toplu çalıştırma iMac'te elle yapılır.
+Yazar ve kategori eşleme 3/4 işidir ve kitap kayıtlarını (`books/`) kullanır; yükleme paketi
+ve kaynak raporları 4/4 işidir. Bu araçlar yayın hakkına karar vermez. Gerçek yükleme
 öncesi mevcut depo adları ve erişim düzeni ayrıca doğrulanmalı, yer tutucular
 değiştirilmeli ve çekim yeniden doğrulanmalıdır. Gerçek yükleme, Keşfet ekranı,
 Drive yedeği ve aylık görev bu parçaya dahil değildir.
