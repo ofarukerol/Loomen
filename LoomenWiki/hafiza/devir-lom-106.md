@@ -1,11 +1,12 @@
 ---
 name: LOM-106 — Açık Kitaplık 1/4: kaynakları alma ve lisans ayrımı
-description: Testler kaldı: Açık kaynaklardan kitapları sabit sırayla alan, her kitabın lisansına göre açık aday / kapalı arşiv / bekleyen diye ayıran ve kesilince kaldığı yerden süren bir alım aracı, mevcut hazırlık aracının yanına eklenir.
+description: Açık kaynaklardan kitapları sabit sırayla alan, her kitabın lisansına göre açık aday / kapalı arşiv / bekleyen diye ayıran ve kesilince kaldığı yerden süren bir alım aracı, mevcut hazırlık aracının yanına eklenir.
 type: project
 proje: loomen
-kaynak: kart LOM-106 · dal fix/LOM-106 · commit yok · test koşusu 7f768c3d-2c3b-46a8-936e-460a1ac16e19 (Air)
-guven: iddia
-durum: gelistirildi
+kaynak: kart LOM-106 · dal fix/LOM-106 · Loomen@fdfa86e65721ed90471d86dca7c6c26b1d021b75 · test koşusu 3c28d2a3-cd88-4992-a422-58fe6549284a (Air)
+guven: dogrulandi
+durum: test_gecti
+dogrulama_tarihi: 2026-11-12
 ---
 
 # LOM-106 — Açık Kitaplık 1/4: kaynakları alma ve lisans ayrımı
@@ -42,15 +43,16 @@ Açık kaynaklardan kitapları sabit sırayla alan, her kitabın lisansına gör
 
 ## Test
 
-Testler KALDI; iş doğrulanmadı.
+Testler geçti.
 
-> Eksik kanıt komutları ön planda koşturuldu. Alım testleri 11 geçti, hazırlık testleri 14 geçti, hiçbiri atlanmadı ya da kalmadı. Tip denetimi ve tam paket önceki test sonucu kullanıldı (kod değişmedi). Canlı doğrulama insana kaldı. Kokpit: `gecti=true` ama özet bir kontrolün koşmadığını söylüyor: "Alım testleri 11 geçti, hazırlık testleri 14 geçti, hiçbiri atlanmadı ya da kalmadı". O kontrolü koşt
+> Alım aracı testleri (11/11) ve hazırlık aracı testleri (14/14) geçti. Tam paket (npm test) ve tip denetimi hatasız bitti. Canlı doğrulama insana kaldı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-106`
-- Test koşusu: `7f768c3d-2c3b-46a8-936e-460a1ac16e19` (Air)
+- Commit: `Loomen@fdfa86e65721ed90471d86dca7c6c26b1d021b75`
+- Test koşusu: `3c28d2a3-cd88-4992-a422-58fe6549284a` (Air)
 
 ## Durum
 
-Dalda geliştirildi; testten GEÇMEDİ. Bitmiş iş gibi kullanma.
+Dalda geliştirildi ve testten geçti. `main`'e birleştirilmedi, kullanıcıya yayınlanmadı.
