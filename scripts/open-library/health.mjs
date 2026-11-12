@@ -32,6 +32,9 @@ const firstText = (xml, tag) => {
 };
 const FONT_OBFUSCATION = ['http://www.idpf.org/2008/embedding', 'http://ns.adobe.com/pdf/enc#RC'];
 
+// Kapak gerçekten resim mi: JPEG, PNG, GIF, WebP ya da SVG başlığı.
+const IMAGE_MAGIC = [/^\xff\xd8\xff/, /^\x89PNG\r\n\x1a\n/, /^GIF8[79]a/, /^RIFF[\s\S]{4}WEBP/, /^\s*(<\?xml[\s\S]*?\?>\s*)?<svg\b/i];
+
 const inspectEpub = (bytes) => {
   let zip;
   try { zip = readZip(bytes); } catch (e) {
@@ -60,21 +63,25 @@ const inspectEpub = (bytes) => {
       return joined.startsWith('../') ? null : joined;
     };
     const manifest = new Map();
-    for (const m of (opf.match(/<manifest\b[\s\S]*?<\/manifest>/i)?.[0] ?? '').matchAll(/<item\b[^>]*>/gi)) {
+    for (const m of (opf.match(/<(?:[\w.-]+:)?manifest\b[\s\S]*?<\/(?:[\w.-]+:)?manifest>/i)?.[0] ?? '').matchAll(/<(?:[\w.-]+:)?item\b[^>]*>/gi)) {
       const a = attrs(m[0]);
       if (a.id && a.href) manifest.set(a.id, { id: a.id, href: a.href, type: a['media-type'] ?? '', properties: a.properties ?? '' });
     }
-    const spineXml = opf.match(/<spine\b[^>]*>([\s\S]*?)<\/spine>/i)?.[1] ?? '';
-    const spine = [...spineXml.matchAll(/<itemref\b[^>]*>/gi)].map(m => attrs(m[0]).idref).filter(Boolean);
+    const spineXml = opf.match(/<(?:[\w.-]+:)?spine\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?spine>/i)?.[1] ?? '';
+    const spine = [...spineXml.matchAll(/<(?:[\w.-]+:)?itemref\b[^>]*>/gi)].map(m => attrs(m[0]).idref).filter(Boolean);
     if (!spine.length) return { ok: false, reason: 'Okuma sırası (spine) boş.' };
     for (const idref of spine) if (!manifest.has(idref)) return { ok: false, reason: `Okuma sırasındaki kayıt dosya listesinde yok: ${idref}` };
     const paths = new Map();
+    const inSpine = new Set(spine);
     for (const item of manifest.values()) {
       if (/^[a-z][a-z0-9+.-]*:/i.test(item.href)) continue; // uzak adres
       const p = resolve(item.href);
-      if (!p || !zip.has(p)) return { ok: false, reason: `Dosya listesinde yazılı dosya arşivde yok: ${item.href}` };
-      zip.read(p); // CRC ve boyut denetimi
-      paths.set(item.id, p);
+      if (inSpine.has(item.id)) {
+        // Okuma sırasındaki dosya eksik ya da bozuksa kitap bozuktur.
+        if (!p || !zip.has(p)) return { ok: false, reason: `Okuma sırasındaki dosya arşivde yok: ${item.href}` };
+        zip.read(p); // CRC ve boyut denetimi
+        paths.set(item.id, p);
+      } else if (p && zip.has(p)) paths.set(item.id, p); // yazı tipi, kullanılmayan resim: eksikse okumayı bozmaz
     }
     const texts = [];
     for (const idref of spine) {
@@ -85,12 +92,17 @@ const inspectEpub = (bytes) => {
     let cover = null;
     let coverItem = [...manifest.values()].find(i => /(^|\s)cover-image(\s|$)/.test(i.properties));
     if (!coverItem) {
-      for (const m of opf.matchAll(/<meta\b[^>]*>/gi)) {
+      for (const m of opf.matchAll(/<(?:[\w.-]+:)?meta\b[^>]*>/gi)) {
         const a = attrs(m[0]);
         if (a.name === 'cover' && manifest.has(a.content)) { coverItem = manifest.get(a.content); break; }
       }
     }
-    if (coverItem && /^image\//i.test(coverItem.type) && paths.has(coverItem.id)) cover = { path: paths.get(coverItem.id), mediaType: coverItem.type.toLowerCase() };
+    if (coverItem && /^image\//i.test(coverItem.type) && paths.has(coverItem.id)) {
+      try {
+        const head = zip.read(paths.get(coverItem.id));
+        if (IMAGE_MAGIC.some(re => re.test(head.subarray(0, 64).toString('latin1')))) cover = { path: paths.get(coverItem.id), mediaType: coverItem.type.toLowerCase() };
+      } catch (e) { if (!(e instanceof ZipError)) throw e; } // bozuk kapak: kitap sağlam, kapak üretilir
+    }
     return { ok: true, meta: {
       title: firstText(opf, 'dc:title'), creator: firstText(opf, 'dc:creator'), language: firstText(opf, 'dc:language'),
       cover, spineText: texts.join('\n'),

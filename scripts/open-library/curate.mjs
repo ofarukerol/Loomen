@@ -34,10 +34,15 @@ async function directories(root, rel) {
   return current;
 }
 /** Üstüne yazmaz: geçici dosya + link. Hedef varsa baytlar aynıysa geçer (kesinti sonrası), değilse durur. */
+// Geçici dosyalar input/ dışında, çıktı kökündeki .tmp/ klasöründe durur; hazırlık aracı oraya bakmaz.
+async function tempFile(root) {
+  const dir = await directories(root, '.tmp');
+  return path.join(dir, `${randomUUID()}.partial`);
+}
 async function publish(root, rel, data) {
   const dir = await directories(root, path.posix.dirname(rel));
   const file = path.join(dir, path.posix.basename(rel));
-  const tmp = `${file}.${randomUUID()}.partial`;
+  const tmp = await tempFile(root);
   await fs.writeFile(tmp, data, { flag: 'wx' });
   try { await fs.link(tmp, file); }
   catch (e) {
@@ -48,7 +53,7 @@ async function publish(root, rel, data) {
 async function replaceText(root, rel, text) {
   const dir = await directories(root, path.posix.dirname(rel));
   const file = path.join(dir, path.posix.basename(rel));
-  const tmp = `${file}.${randomUUID()}.partial`;
+  const tmp = await tempFile(root);
   await fs.writeFile(tmp, text, { flag: 'wx' });
   await fs.rename(tmp, file);
 }
@@ -81,6 +86,7 @@ export async function curate({ rules, work, output, log = () => {} }) {
   work = await fs.realpath(work);
   await fs.mkdir(output, { recursive: true });
   output = await fs.realpath(output);
+  await fs.rm(path.join(output, '.tmp'), { recursive: true, force: true }); // önceki kesintiden kalan yarım geçici dosyalar
   if (output === work || output.startsWith(work + path.sep) || work.startsWith(output + path.sep)) fail('Alım ve çıktı klasörleri iç içe olamaz.');
 
   // 1. Kayıtlar: yalnız public/private, kaynak sırası ve kimlik sırasıyla.
@@ -113,6 +119,8 @@ export async function curate({ rules, work, output, log = () => {} }) {
   // 2. Tekrarlar.
   const { kept, dropped } = groupDuplicates(items, rules.order);
   for (const { item, keptBy } of dropped) {
+    const leftovers = (await listDir(path.join(output, `input/${item.source}/${item.decision}`))).filter(n => n.startsWith(`${item.id}.`));
+    if (leftovers.length) fail(`${item.key}: çıktıda bu kimlikle dosya kalmış (${leftovers[0]}) ama kitap artık tekrar çıkıyor (${keptBy.key} kalıyor). Hiçbir dosya silinmedi; yeni bir çıktı klasörü kullan.`);
     if (await exists(path.join(output, `books/${item.source}/${item.id}.json`)))
       fail(`${item.key}: çıktıda yayımlanmış kitap artık tekrar çıkıyor (${keptBy.key} kalıyor). Hiçbir dosya taşınmadı ya da silinmedi; yeni bir çıktı klasörü kullan.`);
   }
@@ -134,7 +142,7 @@ export async function curate({ rules, work, output, log = () => {} }) {
       let converted = false, cover = null, coverSvg = null;
       if (item.arabic) {
         const parsed = parseArabicText(new TextDecoder('utf-8').decode(bytes));
-        if (!parsed.chapters.length) fail(`${item.key}: Arapça metinden okunabilir bölüm çıkmadı.`);
+        if (!parsed.chapters.length) { broken.push({ key: item.key, reason: 'Arapça metinden okunabilir bölüm çıkmadı.' }); summary.broken++; continue; }
         title = title || parsed.title || item.id;
         author = author || parsed.author;
         language = 'ar';

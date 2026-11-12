@@ -317,3 +317,48 @@ test('(12) Zip yaz-oku turu, belirlenimlilik ve CRC hatası', () => {
   assert.throws(() => readZip(zip.subarray(0, zip.length - 10)), /Zip sonu/);
   assert.throws(() => readZip(Buffer.from('zip değil, yeterince uzun bir metin dosyası olsun')), /Zip sonu/);
 });
+
+function epubWith({ opf, extra = [], encryption = null }) {
+  return writeZip([
+    { name: 'mimetype', data: 'application/epub+zip' },
+    { name: 'META-INF/container.xml', data: '<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>' },
+    ...(encryption ? [{ name: 'META-INF/encryption.xml', data: encryption }] : []),
+    { name: 'OEBPS/content.opf', data: opf },
+    { name: 'OEBPS/c1.xhtml', data: '<html><body><p>Kurgusal metin.</p></body></html>' },
+    ...extra,
+  ]);
+}
+const OPF = (manifest, p = '') => `<?xml version="1.0"?><${p}package xmlns="http://www.idpf.org/2007/opf" version="3.0"><${p}metadata><dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">K</dc:title></${p}metadata><${p}manifest>${manifest}</${p}manifest><${p}spine><${p}itemref idref="c1"/></${p}spine></${p}package>`;
+
+test('(13) Okumayı etkilemeyen eksik dosya ve ön ekli etiket kitabı bozmaz; boş dosya ve DRM bozuk sayılır', async t => {
+  const c = await setup(t);
+  const item = '<item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>';
+  await c.add(
+    { source: 'gutenberg', id: 'yazi', ext: 'epub', bytes: epubWith({ opf: OPF(`${item}<item id="f" href="font.ttf" media-type="font/ttf"/>`) }) },
+    { source: 'gutenberg', id: 'onek', ext: 'epub', bytes: epubWith({ opf: OPF(item.replace('<item', '<opf:item'), 'opf:') }) },
+    { source: 'gutenberg', id: 'kapak', ext: 'epub', bytes: epubWith({ opf: OPF(`${item}<item id="cv" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>`), extra: [{ name: 'OEBPS/cover.jpg', data: 'resim degil' }] }) },
+    { source: 'gutenberg', id: 'drm', ext: 'epub', bytes: epubWith({ opf: OPF(item), encryption: '<encryption><EncryptedData><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes128-cbc"/></EncryptedData></encryption>' }) },
+    { source: 'wikisource', id: 'bos', ext: 'txt', bytes: Buffer.from('boş değil') },
+  );
+  const s = await c.run();
+  assert.equal(s.ready, 4);
+  assert.equal(s.broken, 1);
+  const broken = await readJson(path.join(c.out, 'reports/broken.json'));
+  assert.deepEqual(broken.map(b => b.key), ['gutenberg:drm']);
+  assert.match(broken[0].reason, /DRM/);
+  assert.equal(inspect(Buffer.alloc(0), 'epub').ok, false);
+  assert.match(inspect(Buffer.alloc(0), 'txt').reason, /boş/);
+  const book = await readJson(path.join(c.out, 'books/gutenberg/kapak.json'));
+  assert.equal(book.cover.type, 'üretildi'); // resim olmayan kapak kullanılmaz
+  assert.ok(!(await files(c.out, 'input')).some(f => f.endsWith('.partial')));
+});
+
+test('(14) Kesintiden kalan geçici dosya input dışında kalır ve sonraki çalışmada temizlenir', async t => {
+  const c = await setup(t);
+  await c.add({ source: 'gutenberg', id: 'g1', ext: 'epub', bytes: makeEpub() });
+  await fs.mkdir(path.join(c.out, '.tmp'), { recursive: true });
+  await fs.writeFile(path.join(c.out, '.tmp/eski.partial'), 'yarım');
+  await c.run();
+  assert.ok(!(await files(c.out)).some(f => f.endsWith('.partial')));
+  assert.ok(!(await files(c.out, 'input')).some(f => f.includes('.tmp')));
+});
