@@ -2840,6 +2840,39 @@ button.lo-stat.is-clickable:hover { transform: translateY(-1px); box-shadow: var
   display: flex; align-items: center; justify-content: center;
 }
 
+/* Senkron uzun süredir olmadı / yapılamıyor şeridi (LOM-105). Yapı .lo-writebar ile aynı;
+   eskime uyarı rengiyle, hata kırmızıyla. Dar ekranda metin sarılır, düğmeler alta iner. */
+.lo-syncbar {
+  display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+  max-width: 100%; box-sizing: border-box; overflow: hidden;
+  padding: 8px 12px; font-size: 13px; color: var(--fg1);
+  background: var(--line-soft);
+  border-bottom: 1px solid var(--line);
+  border-inline-start: 3px solid var(--accent);
+}
+.lo-syncbar--error { background: var(--danger-bg); border-inline-start-color: var(--danger); }
+.lo-syncbar__head { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.lo-syncbar__icon { color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+.lo-syncbar--error .lo-syncbar__icon { color: var(--danger); }
+.lo-syncbar__text {
+  flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.lo-syncbar__sub { font-size: 12px; color: var(--fg2); }
+.lo-syncbar__detail {
+  display: block; font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap;
+  word-break: break-all; max-height: 120px; overflow: auto; color: var(--fg3); user-select: text;
+}
+.lo-syncbar__detail[hidden] { display: none; }
+.lo-syncbar__actions { display: flex; flex-wrap: wrap; gap: 6px; padding-inline-start: 24px; }
+.lo-syncbar__btn {
+  height: 28px; padding: 0 10px; flex-shrink: 0;
+  border: none; background: transparent; border-radius: 7px; color: var(--fg2); cursor: pointer;
+  font: inherit; font-size: 12px;
+}
+.lo-syncbar__btn:hover:not(:disabled) { background: var(--line-soft); color: var(--accent); }
+.lo-syncbar__btn:disabled { opacity: 0.5; cursor: default; }
+
 /* Tekrar ayarları okunamadı uyarısı (LOM-71): Ayarlar ve Tekrar ekranında anahtarın yerinde. */
 .lo-srsgate { padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
 .lo-srsgate__head { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }

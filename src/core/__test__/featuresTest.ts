@@ -143,7 +143,9 @@ check("Asistan bölümünde eski açma satırı yok", !ai.includes('t("ai.enable
 check("Tekrar bölümünde eski açma satırı yok", !review.includes('t("review.set.enable")') && !review.includes("cfg.enabled"));
 
 const app = src("src/App.tsx");
-check("Yedekleme kapalıyken otomatik eşitleme yok", /if \(!ghOn \|\| !ghAutoSync/.test(app));
+// GitHub otomatik senkronu App.tsx'ten useAutoSync kancasına taşındı (LOM-105).
+const autoSyncHook = src("src/hooks/useAutoSync.ts");
+check("Yedekleme kapalıyken otomatik eşitleme yok", /if \(!ghOn \|\| !ghAutoSync/.test(autoSyncHook));
 check("Takvim kapalıyken otomatik eşitleme yok", /if \(!gcalOn \|\| !gcalAutoSync/.test(app));
 check("Şerit: alışkanlık düğmesi yalnız açıkken", /habitsOn && btn\("habits"/.test(src("src/components/Ribbon.tsx")));
 check("Telefon menüsü: Alışkanlıklar yalnız açıkken", /habitsOn && \(\s*<button className="lo-mtop__item" onClick=\{onHabits\}/.test(src("src/components/MobileTopBar.tsx")));

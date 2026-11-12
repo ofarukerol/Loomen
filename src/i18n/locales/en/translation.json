@@ -441,7 +441,7 @@
     "lastSync": "Last sync:",
     "never": "never",
     "autoSync": "Auto sync",
-    "autoSyncSub": "Push/pull every 3 minutes while connected.",
+    "autoSyncSub": "Push/pull on launch, when the app comes to the front and every 3 minutes while open.",
     "needVault": "Select a vault folder first (Settings → Vault).",
     "pushed": "Pushed ✓",
     "pulledPushed": "Pulled + pushed ✓",
@@ -971,7 +971,7 @@
         "sync": {
           "h": "Sync and backup",
           "list": [
-            "If \"Auto sync\" is on, it sends and fetches every 3 minutes while connected.",
+            "If \"Auto sync\" is on, it sends and fetches when the app opens, when it comes to the front and every 3 minutes while open. If there is no sync for a long time, a warning appears at the top.",
             "Loomen has no server of its own. Your notes are plain files, so you can also sync them with iCloud Drive, Syncthing or Git.",
             "Backing up the vault folder means backing up all your data."
           ]
@@ -1335,6 +1335,14 @@
     "closeUnsaved": "Your last change could not be saved — close anyway?",
     "closeAnyway": "Close anyway",
     "keepOpen": "Keep open"
+  },
+  "syncBar": {
+    "stale": "No sync for a long time",
+    "failed": "Sync is failing",
+    "lastSync": "Last sync: {{when}}",
+    "never": "never",
+    "retry": "Sync now",
+    "details": "Details"
   },
   "writeBar": {
     "notSaved": "Latest changes not saved · {{n}} attempts",

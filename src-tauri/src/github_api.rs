@@ -15,8 +15,12 @@ const API: &str = "https://api.github.com";
 /// HTTP istemcisi. Kurulum başarısız olabilir (TLS kökleri okunamazsa); panik yerine
 /// hata döner, çağıran komut bunu arayüze mesaj olarak iletir.
 fn http() -> Result<reqwest::Client, String> {
+    // Zaman aşımı (LOM-105): yanıt vermeyen mobil bağlantı senkronu sonsuza kadar kilitlemesin.
+    // Toplam süre büyük ek dosyası yavaş hatta yüklenebilsin diye cömert tutuldu.
     reqwest::Client::builder()
         .user_agent(UA)
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .timeout(std::time::Duration::from_secs(120))
         .build()
         .map_err(|e| format!("http istemcisi kurulamadı: {e}"))
 }

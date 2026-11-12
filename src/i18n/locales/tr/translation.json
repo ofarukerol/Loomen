@@ -463,7 +463,7 @@
     "lastSync": "Son senkron:",
     "never": "hiç",
     "autoSync": "Otomatik senkron",
-    "autoSyncSub": "Bağlıyken her 3 dakikada bir gönder/çek.",
+    "autoSyncSub": "Açılışta, öne gelince ve açıkken her 3 dakikada bir gönder/çek.",
     "needVault": "Önce bir kasa klasörü seç (Ayarlar → Kasa).",
     "pushed": "Gönderildi ✓",
     "pulledPushed": "Çekildi + gönderildi ✓",
@@ -993,7 +993,7 @@
         "sync": {
           "h": "Senkron ve yedek",
           "list": [
-            "\"Otomatik senkron\" açıksa bağlıyken her 3 dakikada bir gönderir ve çeker.",
+            "\"Otomatik senkron\" açıksa uygulama açılınca, öne gelince ve açıkken her 3 dakikada bir gönderir ve çeker. Uzun süre senkron olmazsa üstte uyarı çıkar.",
             "Loomen'in kendi sunucusu yoktur. Notların düz dosya olduğu için iCloud Drive, Syncthing ya da Git ile de eşitleyebilirsin.",
             "Kasa klasörünü yedeklemek, bütün verini yedeklemek demektir."
           ]
@@ -1335,6 +1335,14 @@
     "closeUnsaved": "Son değişiklik kaydedilemedi — yine de kapatılsın mı?",
     "closeAnyway": "Yine de kapat",
     "keepOpen": "Açık kalsın"
+  },
+  "syncBar": {
+    "stale": "Uzun süredir senkron olmadı",
+    "failed": "Senkron yapılamıyor",
+    "lastSync": "Son senkron: {{when}}",
+    "never": "hiç",
+    "retry": "Şimdi dene",
+    "details": "Ayrıntılar"
   },
   "writeBar": {
     "notSaved": "Son değişiklikler kaydedilmedi · {{n}} deneme",

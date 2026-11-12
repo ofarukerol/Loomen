@@ -11,6 +11,7 @@ import { MobileBar } from "./components/MobileBar";
 import { MobileTopBar } from "./components/MobileTopBar";
 import { WriteErrorBar } from "./components/WriteErrorBar";
 import { VaultOpenErrorBar } from "./components/VaultOpenErrorBar";
+import { SyncStaleBar } from "./components/SyncStaleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { MobileUpdateBanner } from "./components/MobileUpdateBanner";
 import { MobileDrawer, MobileTabsSheet } from "./components/MobileDrawer";
@@ -31,6 +32,7 @@ import { TaskDetail } from "./screens/Planner/TaskDetail";
 import { GitHubDeviceModal } from "./screens/Settings/GitHubSync";
 import { SharePickDialog } from "./screens/Library/SharePickDialog";
 import { useShareIntake } from "./hooks/useShareIntake";
+import { useAutoSync } from "./hooks/useAutoSync";
 
 export default function App() {
   const { i18n } = useTranslation();
@@ -62,13 +64,8 @@ export default function App() {
   const bootstrap = useAppStore((s) => s.bootstrap);
   const newNote = useAppStore((s) => s.newNote);
   const newTab = useAppStore((s) => s.newTab);
-  const ghAutoSync = useAppStore((s) => s.ghAutoSync);
-  const ghToken = useAppStore((s) => s.ghToken);
-  const ghRepo = useAppStore((s) => s.ghRepo);
-  const ghSync = useAppStore((s) => s.ghSync);
   const gcalAutoSync = useAppStore((s) => s.gcalAutoSync);
   // Özellik kartı kapalıysa otomatik eşitleme kurulmaz; bağlantı yerinde kalır (LOM-82).
-  const ghOn = useAppStore((s) => s.features.github);
   const gcalOn = useAppStore((s) => s.features.calendar);
   const gcalTokens = useAppStore((s) => s.gcalTokens);
   const gcalSync = useAppStore((s) => s.gcalSync);
@@ -155,12 +152,8 @@ export default function App() {
     };
   }, [reloadVault]);
 
-  // Otomatik senkron: bağlıyken ve açıkken periyodik push/pull (3 dk).
-  useEffect(() => {
-    if (!ghOn || !ghAutoSync || !ghToken || !ghRepo) return;
-    const id = setInterval(() => void ghSync(), 3 * 60 * 1000);
-    return () => clearInterval(id);
-  }, [ghOn, ghAutoSync, ghToken, ghRepo, ghSync]);
+  // GitHub otomatik senkronu: açılışta, öne gelince ve açıkken 3 dk'da bir (LOM-105).
+  useAutoSync();
 
   // Google Takvim otomatik senkron: bağlıyken açılışta hemen bir kez, sonra her 5 dk push/pull.
   useEffect(() => {
@@ -338,6 +331,8 @@ export default function App() {
         <WriteErrorBar />
         {/* Kasa açılamadı uyarısı: pencere yerine tek şerit (LOM-23). */}
         <VaultOpenErrorBar />
+        {/* Senkron uzun süredir olmadı / yapılamıyor uyarısı (LOM-105). */}
+        <SyncStaleBar />
         {/* Yeni sürüm şeridi: yalnız masaüstü; App Store/mobil derlemede güncelleme yok (LOM-31). */}
         <UpdateBanner enabled={!platformMobile} />
         <div className="lo-main">

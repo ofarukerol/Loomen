@@ -444,6 +444,8 @@ interface AppState {
   ghSyncing: boolean;
   ghLastSync: string | null; // ISO
   ghStatus: string | null; // son durum/hata mesajı
+  ghLastAttempt: number | null; // son senkron denemesinin başı (ms, kalıcı değil; LOM-105)
+  ghSyncFailed: boolean; // son deneme hata verdi (kalıcı değil; uyarı şeridi için)
   ghAutoSync: boolean;
   ghBaseSha: string | null; // mobil API senkronunda son senkron commit'i (3-yönlü birleştirme temeli)
 
@@ -1208,6 +1210,9 @@ const DEFAULT_MOBILE_VAULT = "vault";
 
 // Modül seviyesi: serileştirilemeyen backend + watcher (store dışında tutulur).
 let backend: VaultBackend = createSampleBackend();
+// Süren GitHub senkronu (LOM-105): açılış, öne gelme, sayaç ve düğme aynı anda tetiklese de
+// tek senkron koşar; sonraki çağrılar aynı promise'i bekler.
+let ghSyncInFlight: Promise<void> | null = null;
 let unwatch: (() => void) | null = null;
 /** Tekrar verisi hangi kasa için yüklendi (kasa değişince baştan okunur). */
 let srsVault: string | null = null;
@@ -2541,6 +2546,8 @@ export const useAppStore = create<AppState>()(
     ghSyncing: false,
     ghLastSync: null,
     ghStatus: null,
+    ghLastAttempt: null,
+    ghSyncFailed: false,
     ghAutoSync: false,
     ghBaseSha: null,
     platformMobile: false,
@@ -4161,59 +4168,77 @@ export const useAppStore = create<AppState>()(
       else set({ ghRepo: repo });
       set({ ghBaseSha: null }); // yeni repo → senkron temeli sıfırlanır (tam 3-yönlü ilk senkron)
     },
-    ghSync: async () => {
-      const s = get();
-      if (!s.ghToken || !s.ghRepo) {
-        set({ ghStatus: "Bağlantı ve depo gerekli" });
-        return;
-      }
-      if (!s.vaultPath) {
-        set({ ghStatus: "needVault" });
-        return;
-      }
-      set({ ghSyncing: true, ghStatus: null });
-      // Açık notun son yazılanları önce diske: senkron diski okur, yazılmamış metin gönderilmez.
-      await flushDraft();
-      // Bekleyen kalınan yer de önce kitap kaydına (LOM-92): senkron diski okur, 2 sn gecikmeyle
-      // bekleyen konum yazılmamışsa gönderilmez ve son saniyelerin ilerlemesi kaybolurdu.
-      await get().libraryFlushPosition();
-      try {
-        if (s.platformMobile) {
-          // Mobil: git2 yok → GitHub REST (Git Data API) ile senkron.
-          const [owner, repo] = s.ghRepo.full_name.split("/");
-          const branch = s.ghRepo.default_branch || "main";
-          const res = await gh.apiSync(s.vaultPath, owner, repo, branch, s.ghToken, s.ghBaseSha);
-          set({
-            ghSyncing: false,
-            ghLastSync: new Date().toISOString(),
-            ghBaseSha: res.base_sha,
-            ghStatus: res.merged.length
-              ? `merged:${res.merged.length}`
-              : res.pulled
-                ? "pulledPushed"
-                : "pushed",
-          });
-          await get().reloadVault();
-        } else {
-          // Masaüstü: git2 tabanlı senkron.
-          const login = s.ghUser?.login ?? "loomen";
-          const res = await gh.sync(
-            s.vaultPath,
-            s.ghRepo.clone_url,
-            s.ghToken,
-            login,
-            `${login}@users.noreply.github.com`
-          );
-          set({
-            ghSyncing: false,
-            ghLastSync: new Date().toISOString(),
-            ghStatus: res.merged.length ? `merged:${res.merged.length}` : res.pulled ? "pulledPushed" : "pushed",
-          });
-          await get().reloadVault();
+    ghSync: () => {
+      if (ghSyncInFlight) return ghSyncInFlight;
+      const run = async () => {
+        const s = get();
+        if (!s.ghToken || !s.ghRepo) {
+          set({ ghStatus: "Bağlantı ve depo gerekli" });
+          return;
         }
-      } catch (e) {
-        set({ ghSyncing: false, ghStatus: String(e) });
-      }
+        if (!s.vaultPath) {
+          set({ ghStatus: "needVault" });
+          return;
+        }
+        set({ ghSyncing: true, ghStatus: null, ghLastAttempt: Date.now() });
+        // Senkron bitti mi: sonra gelen kasa yenilemesi hata verirse senkron başarısız sayılmaz.
+        let synced = false;
+        try {
+          // Açık notun son yazılanları önce diske: senkron diski okur, yazılmamış metin gönderilmez.
+          await flushDraft();
+          // Bekleyen kalınan yer de önce kitap kaydına (LOM-92): senkron diski okur, 2 sn gecikmeyle
+          // bekleyen konum yazılmamışsa gönderilmez ve son saniyelerin ilerlemesi kaybolurdu.
+          await get().libraryFlushPosition();
+          if (s.platformMobile) {
+            // Mobil: git2 yok → GitHub REST (Git Data API) ile senkron.
+            const [owner, repo] = s.ghRepo.full_name.split("/");
+            const branch = s.ghRepo.default_branch || "main";
+            const res = await gh.apiSync(s.vaultPath, owner, repo, branch, s.ghToken, s.ghBaseSha);
+            set({
+              ghSyncing: false,
+              ghSyncFailed: false,
+              ghLastSync: new Date().toISOString(),
+              ghBaseSha: res.base_sha,
+              ghStatus: res.merged.length
+                ? `merged:${res.merged.length}`
+                : res.pulled
+                  ? "pulledPushed"
+                  : "pushed",
+            });
+            synced = true;
+            await get().reloadVault();
+          } else {
+            // Masaüstü: git2 tabanlı senkron.
+            const login = s.ghUser?.login ?? "loomen";
+            const res = await gh.sync(
+              s.vaultPath,
+              s.ghRepo.clone_url,
+              s.ghToken,
+              login,
+              `${login}@users.noreply.github.com`
+            );
+            set({
+              ghSyncing: false,
+              ghSyncFailed: false,
+              ghLastSync: new Date().toISOString(),
+              ghStatus: res.merged.length ? `merged:${res.merged.length}` : res.pulled ? "pulledPushed" : "pushed",
+            });
+            synced = true;
+            await get().reloadVault();
+          }
+        } catch (e) {
+          console.error("GitHub senkronu başarısız", e);
+          set({ ghSyncing: false, ghSyncFailed: !synced, ghStatus: String(e) });
+        } finally {
+          // Hangi yoldan çıkılırsa çıkılsın düğmeler kilitli kalmasın.
+          if (get().ghSyncing) set({ ghSyncing: false });
+        }
+      };
+      const p = run().finally(() => {
+        if (ghSyncInFlight === p) ghSyncInFlight = null;
+      });
+      ghSyncInFlight = p;
+      return p;
     },
     ghSetAutoSync: (ghAutoSync) => set({ ghAutoSync }),
 
