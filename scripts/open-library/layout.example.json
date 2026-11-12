@@ -4,5 +4,5 @@
     "public": { "bucket": "REPLACE-public-library", "prefix": "books" },
     "private": { "bucket": "REPLACE-private-archive", "prefix": "archive" }
   },
-  "sources": ["openiti", "gutenberg", "standard-ebooks", "wikisource"]
+  "sources": ["openiti", "standard-ebooks", "gutenberg", "wikisource", "hindawi", "shamela"]
 }

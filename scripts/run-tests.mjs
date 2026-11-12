@@ -25,6 +25,7 @@ const vault = process.argv[2] ?? join(root, "demo-vault");
 /** Testler: [dosya, ek argümanlar]. Kaynağı yoksa atlanır (dalda olmayan modüller). */
 const suites = [
   ["scripts/open-library/prepare.test.mjs", []],
+  ["scripts/open-library/intake.test.mjs", []],
   ["src/core/__test__/coreTest.ts", []],
   ["src/core/__test__/recurrenceTest.ts", []],
   ["src/core/__test__/planDayTest.ts", []],

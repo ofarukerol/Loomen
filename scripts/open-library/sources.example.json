@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "order": ["openiti", "standard-ebooks", "gutenberg", "wikisource", "hindawi", "shamela"],
+  "sources": {
+    "openiti": { "delayMs": 1000 },
+    "standard-ebooks": { "delayMs": 1000 },
+    "gutenberg": { "delayMs": 2000 },
+    "wikisource": { "delayMs": 1000 },
+    "hindawi": { "delayMs": 2000, "requiresVerified": true },
+    "shamela": { "forcePrivate": true, "localOnly": true }
+  },
+  "licenses": {
+    "open": ["public-domain", "cc0", "cc-by", "cc-by-sa"],
+    "restricted": ["cc-by-nc", "cc-by-nc-sa", "cc-by-nd", "cc-by-nc-nd"]
+  }
+}

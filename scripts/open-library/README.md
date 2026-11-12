@@ -69,12 +69,65 @@ Kesintiden kalan rastgele adlı `.partial` dosyaları yükleme listesine girmez 
 otomatik silinmez. Güvenilir, yalnız bu iş için ayrılmış yerel klasörler kullan;
 çalışma sırasında dosya ve klasörleri başka bir işlemle değiştirme.
 
+## Kaynak alma
+
+`intake.mjs` kitapları açık kaynaklardan alır ve lisansa göre üç bölüme ayırır.
+Bu araç yayımlamaz ve hiçbir yere yüklemez. `sources.example.json` içindeki lisans
+tablosu yalnız aday ayırır; **yayın kararı değildir**, hangi lisansın yayımlanacağına
+Ömer karar verir.
+
+Kaynak sırası sabittir ve kurallardan gelir: OpenITI, Standard Ebooks, Gutenberg,
+Vikikaynak, Hindawi, Şamile. Her kaynak için liste klasöründe bir `<kaynak>.jsonl`
+dosyası olur; listesi olmayan kaynak atlanır, sırada olmayan kaynak adı işlemi
+durdurur. Her satır bir kitaptır:
+
+```json
+{"id":"kitap-1","title":"Örnek","url":"https://…","ext":"epub","license":"Public Domain","evidenceUrl":"https://…","verified":false}
+```
+
+`url` yerine `localPath` (yerel dosya) verilebilir. Kimlik ASCII harf, rakam,
+nokta, alt çizgi ve tire içerir; aynı kimlik iki kez geçerse liste reddedilir.
+Bütün listeler indirmeden önce denetlenir.
+
+```sh
+node scripts/open-library/intake.mjs run scripts/open-library/sources.example.json /yerel/listeler /yerel/alim
+node scripts/open-library/intake.mjs status /yerel/alim
+```
+
+Üç bölüm:
+
+- **Açık aday** `input/<kaynak>/public/`: lisans açık listede ve kanıt adresi var.
+- **Kapalı arşiv** `input/<kaynak>/private/`: lisans kısıtlı listede ya da kaynak her zaman kapalı.
+- **Bekleyen** `held/<kaynak>/`: lisans yazılmamış, tabloda yok ya da kanıtı eksik.
+  Bekleyenler hazırlık girdisinin dışındadır; hiçbir çekime girmez.
+
+Şamile kitapları üzerinde açık lisans yazsa bile kapalı arşive gider ve yalnız
+yerel dosyadan alınır; adresli Şamile maddesi reddedilir. Hindawi kitabı lisans adı,
+kanıt adresi ve elle verilmiş `"verified": true` olmadan bekler.
+
+Ağ yalnız https'tir (yönlendirme sonrası da); kaynak başına istekler arası bekleme,
+üç deneme ve zaman aşımı vardır. Her kitap için `records/` altında lisans, kanıt,
+karar, gerekçe, boyut ve SHA-256 kaydı, `ledger.jsonl` defterinde bir satır tutulur.
+
+Kesintiden sonra aynı komut yeniden çalıştırılır: kaydı ve sağlam dosyası olan kitap
+yeniden indirilmez. Kaydı olup dosyası eksik ya da bozuk kitapta, ya da kurallar
+değişince bölümü değişecek kitapta işlem durur; dosyalar taşınmaz, üstüne yazılmaz.
+Yarım indirmeler `partial/` klasöründe kalır, çıktıya girmez ve kendiliğinden silinmez.
+
+Alımdan sonra `input` klasörü hazırlık aracına verilir:
+
+```sh
+node scripts/open-library/prepare.mjs prepare scripts/open-library/layout.example.json /yerel/alim/input /yerel/kitap-ciktisi 2026-11-12-01
+```
+
 ## Sonraki işe teslim
 
-Kaynak alma işi indirilen dosyaları bu girdi düzenine koyacak; hak durumuna göre
-açık veya kapalı bölümü seçecek. Bu araç yayın hakkına karar vermez. Gerçek yükleme
+Kaynak alma artık `intake.mjs` ile yapılıyor; gerçek toplu alım iMac'te elle
+çalıştırılır. Bozuk ve kaynaklar arası tekrar eden dosyaları ayırma, Arapça EPUB
+dönüştürme ve kapaklar 2/4, yazar ve kategori eşleme 3/4, yükleme paketi ve kaynak
+raporları 4/4 işidir. Bu araçlar yayın hakkına karar vermez. Gerçek yükleme
 öncesi mevcut depo adları ve erişim düzeni ayrıca doğrulanmalı, yer tutucular
-değiştirilmeli ve çekim yeniden doğrulanmalıdır. Gerçek yükleme, kaynakların toplu
-alınması, Keşfet ekranı, Drive yedeği ve aylık görev bu parçaya dahil değildir.
+değiştirilmeli ve çekim yeniden doğrulanmalıdır. Gerçek yükleme, Keşfet ekranı,
+Drive yedeği ve aylık görev bu parçaya dahil değildir.
 SHA-256 yerel bozulmayı bulur; imza veya kötü niyetli kayıt değişikliğine karşı
 özgünlük kanıtı değildir. Girdi ve tamamlanmış çekim birlikte korunmalıdır.
