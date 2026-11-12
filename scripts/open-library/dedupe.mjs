@@ -1,17 +1,11 @@
 // Açık kitaplık: tekrar ayıklama. Saf modül.
-// Yalnız dosya özeti ya da sadeleştirilmiş metin özeti aynı olanlar tekrardır.
-// Harf ve harekeler sadeleştirmede SİLİNMEZ: harekeli baskı ayrı baskıdır. Başlık eşleşmesi eleme sebebi olmaz.
+// Yalnız dosya özeti (SHA-256) aynı olanlar tekrardır. Başlık, yazar ya da metin benzerliği eleme sebebi olmaz.
 import { createHash } from 'node:crypto';
 
 const sha = (data) => createHash('sha256').update(data).digest('hex');
-/** BOM, satır sonu ve boşluk tekleştirilir; başka hiçbir şey değişmez (normalize yok). */
-export const simplifyText = (text) => text.replace(/^﻿/, '').replace(/\r\n?/g, '\n').replace(/\s+/g, ' ').trim();
-
-export function contentKey(bytes, ext, meta) {
-  const kind = String(ext).toLowerCase();
-  const text = kind === 'txt' ? meta?.text : kind === 'epub' ? meta?.spineText : undefined;
-  const simple = typeof text === 'string' ? simplifyText(text) : '';
-  return simple ? `text:${sha(simple)}` : `file:${sha(bytes)}`;
+/** Yalnız dosya baytları birebir aynıysa tekrar: metin sadeleştirmesiyle birleştirme yok. */
+export function contentKey(bytes) {
+  return `file:${sha(bytes)}`;
 }
 
 /**
@@ -40,7 +34,7 @@ export function groupDuplicates(items, order) {
     const [winner, ...rest] = group;
     kept.push(winner);
     for (const item of rest) {
-      dropped.push({ item, keptBy: winner, reason: item.sha256 === winner.sha256 ? 'Dosya birebir aynı.' : 'Metin aynı (yalnız satır sonu ya da boşluk farkı).' });
+      dropped.push({ item, keptBy: winner, reason: 'Dosya birebir aynı.' });
     }
   }
   const index = (x) => `${order.indexOf(x.source)}:${x.id}`;

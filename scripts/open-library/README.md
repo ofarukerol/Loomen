@@ -142,8 +142,8 @@ node scripts/open-library/curate.mjs run scripts/open-library/sources.example.js
 dosyası olan e-kitap, şifreli (DRM) e-kitap, geçersiz UTF-8 metin, web hata sayfası, başlığı ya da
 sonu olmayan PDF ve tanınmayan biçim. Bunlar çıktıya girmez, nedeniyle raporlanır.
 
-**Tekrar kuralı:** yalnız dosyası birebir aynı ya da metni aynı olan (satır sonu ve boşluk farkı
-sayılmaz) kitaplardan biri kalır. Önce açık aday kapalıdan, sonra kaynak sırasında öndeki, sonra
+**Tekrar kuralı:** yalnız dosyası birebir aynı (aynı SHA-256) olan kitaplardan biri kalır;
+metin benzerliği ya da başlık eşleşmesi eleme sebebi değildir. Önce açık aday kapalıdan, sonra kaynak sırasında öndeki, sonra
 küçük kimlik kalır. Aynı adlı ama içeriği farklı baskılar ve çeviriler elenmez, yalnız
 `editions.json`'da gruplanır. Harekeli ve harekesiz metin farklı baskıdır.
 
