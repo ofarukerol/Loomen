@@ -47,7 +47,7 @@ Kitapları iMac’te kaynak sırasıyla işleyen, lisansları ayıran, yazar ve 
 
 Testler KALDI; iş doğrulanmadı.
 
-> Derleme ve tip denetimleri geçti; npx tsc --noEmit -p tsconfig.json hatasız tamamlandı. Genel testte 64 dosya geçti. Kitaplık testleri ayrı ayrı da geçti: kaynak alma 15, hazırlama 10, katalog 8 ve okuma kontrolü 9; atlanan yok. Gerçek koleksiyon henüz işlenmediği için yüzde 90 doluluk ve 20 gerçek kitap doğrulanmış değil. Canlı doğrulama insana kaldı.
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
