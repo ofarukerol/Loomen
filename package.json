@@ -10,6 +10,7 @@
     "tauri": "tauri",
     "test": "node scripts/run-tests.mjs",
     "typecheck": "tsc --noEmit",
+    "typecheck:open-library": "tsc -p tools/open-library/tsconfig.json",
     "win-test:build": "tauri build --no-bundle --config src-tauri/tauri.test.conf.json"
   },
   "dependencies": {
@@ -38,6 +39,7 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2",
     "@types/d3-force": "^3.0.10",
+    "@types/node": "22.20.5",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",

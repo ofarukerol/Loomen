@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "status": "draft",
+  "note": "İlk Türkçe ağaç taslağıdır. İslami başlıklar Şamile tasnifinin genel ayrımlarını rehber alır; kaynak eşlemeleri insan onayı olmadan kullanılmaz.",
+  "categories": [
+    { "id": "islam", "label": "İslam", "parentId": null },
+    { "id": "islam.kuran", "label": "Kur’an ilimleri ve tefsir", "parentId": "islam" },
+    { "id": "islam.hadis", "label": "Hadis ve hadis ilimleri", "parentId": "islam" },
+    { "id": "islam.akaid", "label": "Akaid ve kelam", "parentId": "islam" },
+    { "id": "islam.fikih", "label": "Fıkıh ve fıkıh usulü", "parentId": "islam" },
+    { "id": "islam.siyer", "label": "Siyer ve İslam tarihi", "parentId": "islam" },
+    { "id": "islam.ahlak", "label": "Ahlak ve tasavvuf", "parentId": "islam" },
+    { "id": "edebiyat", "label": "Edebiyat", "parentId": null },
+    { "id": "edebiyat.roman", "label": "Roman ve öykü", "parentId": "edebiyat" },
+    { "id": "edebiyat.siir", "label": "Şiir", "parentId": "edebiyat" },
+    { "id": "dil", "label": "Dil ve sözlükler", "parentId": null },
+    { "id": "tarih", "label": "Tarih", "parentId": null },
+    { "id": "biyografi", "label": "Biyografi", "parentId": null },
+    { "id": "felsefe", "label": "Felsefe", "parentId": null },
+    { "id": "bilim", "label": "Bilim", "parentId": null },
+    { "id": "toplum", "label": "Toplum ve kültür", "parentId": null }
+  ],
+  "mappings": [
+    { "source": "shamela", "tag": "التفسير", "categoryId": "islam.kuran" },
+    { "source": "shamela", "tag": "الحديث", "categoryId": "islam.hadis" },
+    { "source": "shamela", "tag": "العقيدة", "categoryId": "islam.akaid" },
+    { "source": "shamela", "tag": "الفقه", "categoryId": "islam.fikih" },
+    { "source": "openiti", "tag": "Tafsir", "categoryId": "islam.kuran" },
+    { "source": "openiti", "tag": "Hadith", "categoryId": "islam.hadis" },
+    { "source": "standard-ebooks", "tag": "Fiction", "categoryId": "edebiyat.roman" },
+    { "source": "gutenberg", "tag": "Poetry", "categoryId": "edebiyat.siir" },
+    { "source": "wikisource", "tag": "Tarih", "categoryId": "tarih" },
+    { "source": "hindawi", "tag": "فلسفة", "categoryId": "felsefe" }
+  ]
+}
