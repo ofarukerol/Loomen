@@ -3,7 +3,7 @@ name: LOM-102 — Açık Kitaplık: kaynakları alma, katalog (yazar, kategori, 
 description: Testler kaldı: Kitapları iMac’te kaynak sırasıyla işleyen, lisansları ayıran, yazar ve kategorileri birleştiren hazırlık işi dört alt karta bölünsün.
 type: project
 proje: loomen
-kaynak: kart LOM-102 · dal fix/LOM-102 · commit yok · test koşusu 0dd18e7d-b1ef-4e3f-a56f-0578959134dc (iMac)
+kaynak: kart LOM-102 · dal fix/LOM-102 · commit yok · test koşusu c0a1cc7a-87eb-4207-984a-dd590651571e (iMac)
 guven: iddia
 durum: gelistirildi
 ---
@@ -47,12 +47,12 @@ Kitapları iMac’te kaynak sırasıyla işleyen, lisansları ayıran, yazar ve 
 
 Testler KALDI; iş doğrulanmadı.
 
-> Derleme, tip denetimi ve genel test paketi geçti. Değişen dört test dosyasında sırasıyla 15, 10, 8 ve 9 test geçti; hiçbiri atlanmadı. İlk test denemesinde kullanılan seçenek bazı TypeScript ifadelerini desteklemedi; uygun seçenekle kontroller geçti. Gerçek kitapların alınması, yüzde 90 doluluk ve 20 gerçek kitabın açılması henüz doğrulanmadı. Canlı doğrulama insana kaldı. Kokpit: `gecti=true` ama
+> Derleme, uygulamanın tip denetimi ve tüm testler geçti. Dört kitaplık dosyasında sırasıyla 15, 10, 8 ve 9 kontrol geçti; atlanan yok. Kitap hazırlama araçlarının ayrı tip denetimi Node tanımları bulunamadığı için tamamlanamadı; bağımlılık kurulumu onay gerektiriyor. Gerçek koleksiyon henüz işlenmedi.
 
 ## Kanıt
 
 - Dal: `fix/LOM-102`
-- Test koşusu: `0dd18e7d-b1ef-4e3f-a56f-0578959134dc` (iMac)
+- Test koşusu: `c0a1cc7a-87eb-4207-984a-dd590651571e` (iMac)
 
 ## Durum
 
