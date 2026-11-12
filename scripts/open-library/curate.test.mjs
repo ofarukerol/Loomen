@@ -104,7 +104,7 @@ test('(1) Bozuk dosyalar gerekçesiyle ayrılır, çıktıya girmez', async t =>
   assert.ok(inputs.every(f => /gutenberg\/public\/iyi\./.test(f)), inputs.join(', '));
 });
 
-test('(2) Aynı dosya ve yalnız boşluğu farklı metin tekrar sayılır', async t => {
+test('(2) Yalnız birebir aynı dosya tekrar sayılır; boşluğu farklı metin ayrı kalır', async t => {
   const c = await setup(t);
   const epub = makeEpub();
   await c.add(
@@ -114,14 +114,14 @@ test('(2) Aynı dosya ve yalnız boşluğu farklı metin tekrar sayılır', asyn
     { source: 'wikisource', id: 'w2', ext: 'txt', bytes: Buffer.from('﻿Merhaba   dünya\r\nikinci satır\r\n') },
   );
   const s = await c.run();
-  assert.equal(s.ready, 2);
+  assert.equal(s.ready, 3);
   const dups = await readJson(path.join(c.out, 'reports/duplicates.json'));
   const pairs = Object.fromEntries(dups.map(d => [d.dropped, d.kept]));
-  assert.deepEqual(pairs, { 'gutenberg:g1': 'standard-ebooks:e1', 'wikisource:w2': 'wikisource:w1' });
+  assert.deepEqual(pairs, { 'gutenberg:g1': 'standard-ebooks:e1' });
   assert.ok(await has(path.join(c.out, 'input/standard-ebooks/public/e1.epub')));
   assert.ok(!await has(path.join(c.out, 'input/gutenberg/public/g1.epub')));
   assert.ok(await has(path.join(c.out, 'input/wikisource/public/w1.txt')));
-  assert.ok(!await has(path.join(c.out, 'input/wikisource/public/w2.txt')));
+  assert.ok(await has(path.join(c.out, 'input/wikisource/public/w2.txt')));
 });
 
 test('(3) Aynı adlı farklı baskı ve çeviri ayrı kitap kalır', async t => {

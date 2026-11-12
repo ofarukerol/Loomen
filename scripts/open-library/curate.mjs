@@ -104,7 +104,7 @@ export async function curate({ rules, work, output, log = () => {} }) {
       const arabic = ext === 'txt' && isArabicText(meta.text);
       items.push({
         key: record.key, source, id: record.id, decision: record.decision, sha256: record.sha256, ext, record, arabic,
-        contentKey: contentKey(bytes, ext, meta),
+        contentKey: contentKey(bytes),
         meta: { title: meta.title ?? '', creator: meta.creator ?? '', language: meta.language ?? '', cover: meta.cover ?? null },
       });
     }
