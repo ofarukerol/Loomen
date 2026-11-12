@@ -33,12 +33,12 @@ async function directories(root, rel) {
   }
   return current;
 }
-/** Üstüne yazmaz: geçici dosya + link. Hedef varsa baytlar aynıysa geçer (kesinti sonrası), değilse durur. */
 // Geçici dosyalar input/ dışında, çıktı kökündeki .tmp/ klasöründe durur; hazırlık aracı oraya bakmaz.
 async function tempFile(root) {
   const dir = await directories(root, '.tmp');
   return path.join(dir, `${randomUUID()}.partial`);
 }
+/** Üstüne yazmaz: geçici dosya + link. Hedef varsa baytlar aynıysa geçer (kesinti sonrası), değilse durur. */
 async function publish(root, rel, data) {
   const dir = await directories(root, path.posix.dirname(rel));
   const file = path.join(dir, path.posix.basename(rel));
