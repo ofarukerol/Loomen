@@ -183,7 +183,8 @@ node scripts/open-library/catalog.mjs run scripts/open-library/catalog.example.j
 
 **Çıktı** (her çalışmada baştan, aynı girdi aynı baytı verir): `authors.json`, `catalog.json`,
 `reports/author-review.json`, `reports/pending-suggestions.json`, `reports/uncategorized.json`,
-`reports/summary.json` (kategori başına açık ve kapalı kitap sayısı ayrı).
+`reports/summary.json` (kategori başına açık ve kapalı kitap sayısı ayrı). Kapalı arşiv kitabı `catalog.json` içinde `decision: "private"` ile işaretli kalır;
+sayımda açık kitaplarla karışmaz.
 
 **Yazarlar:** harf büyüklüğü, aksan, noktalama, "Soyad, Ad" sırası, Arapçada hareke ve elif
 biçimi farkı tek yazar sayılır. Başka hiçbir benzerlik birleştirmez. **Emin olunmayan yazar

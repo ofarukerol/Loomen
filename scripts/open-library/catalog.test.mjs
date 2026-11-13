@@ -224,3 +224,13 @@ test('(14) Çıktı klasörü girdiyle iç içe ise reddedilir', async t => {
   await assert.rejects(c.run({ output: c.decisions }), /iç içe/);
   await assert.rejects(fs.lstat(path.join(c.curated, 'cikti')));
 });
+
+test('(15) Kapalı arşiv kitabı "private" işaretli kalır ve açık sayıma girmez', async t => {
+  const config = { overrides: { 'kaynak-a:1': 'diger', 'kaynak-a:2': 'diger' } };
+  const c = await setup(t, { config, books: [{ id: '1', author: 'A B', decision: 'public' }, { id: '2', author: 'C D', decision: 'private' }] });
+  const s = await c.run();
+  const cat = await c.out_('catalog.json');
+  assert.equal(idOf(cat, 'kaynak-a:1').decision, 'public');
+  assert.equal(idOf(cat, 'kaynak-a:2').decision, 'private');
+  assert.deepEqual(s.byCategory, { diger: { public: 1, private: 1 } });
+});
