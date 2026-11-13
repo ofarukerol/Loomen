@@ -57,9 +57,14 @@ async function openEpub(reader, bytes) {
   const zip = reader.readZip(bytes);
   const s = reader.parseEpub(zip);
   if (!s.spine.length) throw new Error('Okuma sırasında bölüm yok.');
-  const first = s.spine.find(x => x.linear) ?? s.spine[0];
-  const text = plain(zip.readText(first.path));
-  if (!text) throw new Error(`İlk bölümde okunacak metin yok (${first.path}).`);
+  // İlk bölüm çoğu zaman yalnız kapak resmidir; yazısı olan ilk bölüm aranır.
+  const order = [...s.spine.filter(x => x.linear), ...s.spine.filter(x => !x.linear)];
+  for (const item of order) {
+    let html;
+    try { html = zip.readText(item.path); } catch { continue; }
+    if (plain(html)) return;
+  }
+  throw new Error('Hiçbir bölümde okunacak metin yok.');
 }
 async function openPdf(bytes) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');

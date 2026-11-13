@@ -219,8 +219,9 @@ export async function pack({ layout, rules, intake, curated, catalog, output, id
 
   // 4. Paket dosyaları.
   const rowOf = new Map(rows.map(r => [r.key, r]));
+  const uploadOf = new Map(uploadRows.map(x => [`${x.owner}|${x.file}`, x]));
   const objectOf = (b, f) => {
-    const u = uploadRows.find(x => x.owner === b.key && x.file === f.file.slice('input/'.length));
+    const u = uploadOf.get(`${b.key}|${f.file.slice('input/'.length)}`);
     return { bucket: u.bucket, key: u.key, size: f.size, sha256: f.sha256 };
   };
   const list = (decision) => ({

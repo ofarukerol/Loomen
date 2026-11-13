@@ -278,3 +278,25 @@ test('(10) Yirmiden az kitapta sonuç yirmi kitap kontrolü gibi gösterilmez', 
   assert.match(md, /20 kitaptan az kitap var; 5 kitabın hepsi denendi\. Bu, 20 kitap kontrolü sayılmaz/);
   assert.ok(!/Rastgele seçilen 20 kitap/.test(md));
 });
+
+test('(6b) İlk bölümü yalnız kapak resmi olan EPUB açılır; hiç yazısı olmayan açılmaz', async t => {
+  const c = await setup(t);
+  const mk = (chapters) => {
+    const items = chapters.map((_, i) => `<item id="c${i}" href="c${i}.xhtml" media-type="application/xhtml+xml"/>`).join('');
+    const refs = chapters.map((_, i) => `<itemref idref="c${i}"/>`).join('');
+    const opf = `<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">x</dc:identifier><dc:title>K</dc:title><dc:language>tr</dc:language></metadata><manifest>${items}</manifest><spine>${refs}</spine></package>`;
+    return writeZip([
+      { name: 'mimetype', data: 'application/epub+zip' },
+      { name: 'META-INF/container.xml', data: '<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>' },
+      { name: 'OEBPS/content.opf', data: opf },
+      ...chapters.map((h, i) => ({ name: `OEBPS/c${i}.xhtml`, data: h })),
+    ]);
+  };
+  const cover = '<html><body><img src="kapak.jpg" alt=""/></body></html>';
+  const a = path.join(c.root, 'kapakli.epub'), b = path.join(c.root, 'bos.epub');
+  await fs.writeFile(a, mk([cover, '<html><body><p>Gerçek metin.</p></body></html>']));
+  await fs.writeFile(b, mk([cover]));
+  const res = await checkBooks([{ key: 'a:kapakli', path: a, ext: 'epub' }, { key: 'a:bos', path: b, ext: 'epub' }]);
+  assert.equal(res[0].opened, true);
+  assert.equal(res[1].opened, false); assert.ok(res[1].reason);
+});
