@@ -3,7 +3,7 @@ name: LOM-110 — Not içinde metin seçince tekrar kartı ve bağlantı için s
 description: Notta metin seçilince üstünde küçük bir seçenek çubuğu çıkacak; buradan açılan pencerelerle seçili metin tekrar kartına ya da başka bir nota bağlantıya çevrilecek, elle yazılan işaretler aynen çalışmaya devam edecek.
 type: project
 proje: loomen
-kaynak: kart LOM-110 · dal fix/LOM-110 · Loomen@e153c79ff8d0c5534faee5f0131d5964eeb77ccf · test koşusu c9e10084-a85f-4906-8c45-71e855eab8a2 (Excalibur)
+kaynak: kart LOM-110 · dal fix/LOM-110 · Loomen@86649593939565af64d3a7f6add44210ff62ba9e · test koşusu 5b627eb9-9f39-4703-a638-18be719d3ed9 (Excalibur)
 guven: dogrulandi
 durum: test_gecti
 dogrulama_tarihi: 2026-11-13
@@ -50,13 +50,13 @@ Notta metin seçilince üstünde küçük bir seçenek çubuğu çıkacak; burad
 
 Testler geçti.
 
-> Tip denetimi, derleme ve tam test takımı (71 dosya, yeni selectionBarTest dahil) temiz geçti. Canlı doğrulama insana kaldı.
+> Tip denetimi, tam test takımı (71 dosya, seçim çubuğu testi dahil) ve derleme temiz geçti. Canlı doğrulama insana kaldı.
 
 ## Kanıt
 
 - Dal: `fix/LOM-110`
-- Commit: `Loomen@e153c79ff8d0c5534faee5f0131d5964eeb77ccf`
-- Test koşusu: `c9e10084-a85f-4906-8c45-71e855eab8a2` (Excalibur)
+- Commit: `Loomen@86649593939565af64d3a7f6add44210ff62ba9e`
+- Test koşusu: `5b627eb9-9f39-4703-a638-18be719d3ed9` (Excalibur)
 
 ## Durum
 
