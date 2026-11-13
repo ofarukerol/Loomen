@@ -212,14 +212,66 @@ listesinde bekler. Onay vermek için `approvals.jsonl` dosyasına satır eklenir
 kategori gösteriyorsa onay geçerlidir. Bilinmeyen kitap, ağaçta olmayan kategori ve aynı kitaba
 iki onay hata verir; kuralla zaten yerleşmiş kitaba gelen satır uyarıyla yok sayılır.
 
+## Yükleme paketi ve rapor
+
+`package.mjs` ayıklanmış kitapları ve kataloğu yüklemeye hazır pakete çevirir ve kaynak bazında
+sonuç raporu yazar. Ağ, yükleme ve silme yoktur; girdi klasörlerine hiçbir şey yazılmaz.
+
+```sh
+node scripts/open-library/package.mjs run <düzen.json> <kurallar.json> <alım> <ayıklanmış> <katalog> <çıktı> <çekim> --mode sample|full [--seed <değer>] [--resume]
+```
+
+**Girdiler:** düzen (`layout.example.json`), kurallar (`sources.example.json`), `intake.mjs` çalışma
+klasörü (alım), `curate.mjs` çıktısı (ayıklanmış), `catalog.mjs` çıktısı (katalog). `--mode` zorunludur,
+varsayılanı yoktur. Çıktı klasörü girdilerle iç içe olamaz. Önce hiçbir şey yazmadan tutarlılık
+denetimi yapılır: katalogdaki kitaplar ile kitap kayıtları birebir aynı mı, her kitabın açık/kapalı
+kararı katalogda, kitap kaydında ve alım kaydında aynı mı, her kitap ve kapak dosyası kayıttaki boyut ve
+SHA-256 ile uyuşuyor mu, ayıklanmış girdide kitaba ya da kapağa ait olmayan dosya var mı. Biri tutmazsa
+araç durur ve hiçbir şey yazmaz (eski bir katalogla yeni ayıklamayı karıştırmak bu yüzden durur).
+Sonra `prepare.mjs` ile çekim üretilir, doğrulanır ve yükleme listesi kitap kayıtlarıyla karşılaştırılır.
+
+**Paket klasörü:** `<çıktı>/<çekim>/package/`
+- `books.public.json`, `books.private.json`: kitap başına anahtar, başlık, yazar kimliği, kategori,
+  dil, kitap dosyasının ve kapağın depo adı, nesne yolu, boyutu ve SHA-256'sı. Kapalı kitap açık
+  listede ve açık depoda hiçbir durumda yer almaz (çapraz denetim bunu yazımdan önce doğrular).
+- `authors.json` (katalogdan olduğu gibi kopya) ve `categories.tr.json` (kategori ağacı).
+  Dikkat: `authors.json` kapalı arşivdeki kitapların yazarlarını da içerir; açık depoya olduğu gibi
+  yüklenmemeli, yükleme işinde açık kitaplara göre süzülmeli.
+- `report.<kip>.json` / `report.<kip>.md` ve `reader-check.<kip>.json`.
+
+Var olan bir dosyanın üstüne sessizce yazılmaz: baytlar aynıysa geçilir, farklıysa durulur. Aynı
+çekim adıyla yeniden çalıştırmak için `--resume` gerekir; sonuç aynı baytlardır.
+
+**Rapor:** kaynak sırasıyla her kaynak için gelen kitap, açık / kapalı / bekleyen, bekleme
+gerekçeleri, bozuk (gerekçesiyle), tekrar elenen ve pakete giren sayısı; toplamda açık ve kapalı
+için ayrı yazarı belli ve kategorisi belli kitap oranı, onay bekleyen öneri ve kategorisiz kitap
+sayısı. Sayım kitap kayıtlarından yapılır; kapak dosyaları kitap sayılmaz. Onaysız öneri sayıma girmez.
+
+**Örnek / gerçek kip:** rapor iki sabit bölüm taşır, "Örnek deneme" ve "Gerçek toplu işlem".
+`--mode sample` yalnız ilkini doldurur, başa "Bu bir örnek denemedir; tam koleksiyonun sonucu
+değildir." uyarısı konur; öteki bölüm "henüz çalıştırılmadı" yazar. `--mode full` tersini yapar.
+Dosya adı kipi taşır, bir kip öteki kipin raporunu değiştirmez. Örnek denemeyi ve gerçek işlemi
+ayrı çekim adlarıyla çalıştır; küçük örneği tam koleksiyonun sonucu gibi sunma.
+
+**Yirmi kitap kontrolü:** pakete giren kitaplardan tohumlu rastgele 20 tanesi seçilir (tohum
+`--seed`, verilmezse çekim adı; raporda yazılır, aynı tohum aynı seçimi verir). EPUB'lar Loomen
+okuyucusunun kendi kodundan geçirilir (`src/core/library/zip.ts` ve `epub.ts`: arşiv, kitap yapısı,
+okuma sırasındaki ilk bölümün metni); PDF'ler pdf.js ile açılıp ilk sayfası alınır. Okuyucunun
+açmadığı biçim (düz metin gibi) "açılmadı" sayılır ve nedeni yazılır; pakette bu biçimde kaç kitap
+olduğu da raporda görünür. Pakette 20'den az kitap varsa hepsi denenir ve rapor bunun 20 kitap
+kontrolü olmadığını açıkça yazar. Bu kontrol **uygulama ekranında elle açmanın yerini tutmaz**.
+Okuyucu kodu TypeScript olduğundan esbuild ile derlenir; bu kontrol için depoda `npm install`
+yapılmış olmalıdır (diğer araçlar paket istemez).
+
 ## Sonraki işe teslim
 
 Kaynak alma `intake.mjs`, bozuk ve tekrar ayıklama, Arapça EPUB dönüştürme ve
-kapaklar (2/4) `curate.mjs` ile yapılıyor; gerçek toplu çalıştırma iMac'te elle yapılır.
-Yazar ve kategori eşleme (3/4) `catalog.mjs` ile bitti. Kalan iş yükleme paketi ve kaynak
-raporlarıdır (4/4); o iş `authors.json` ile `catalog.json` dosyalarını kullanacak. Bu araçlar yayın hakkına karar vermez. Gerçek yükleme
-öncesi mevcut depo adları ve erişim düzeni ayrıca doğrulanmalı, yer tutucular
-değiştirilmeli ve çekim yeniden doğrulanmalıdır. Gerçek yükleme, Keşfet ekranı,
-Drive yedeği ve aylık görev bu parçaya dahil değildir.
+kapaklar (2/4) `curate.mjs` ile, yazar ve kategori eşleme (3/4) `catalog.mjs` ile,
+yükleme paketi ve kaynak raporu (4/4) `package.mjs` ile bitti. Testler yalnız kurgusal
+örnekle koştu. Kalan iş: gerçek toplu çalıştırma (iMac'te, elle; paket, rapor ve yirmi kitap
+kontrolü orada çalıştırılıp sonuçlara bakılır), gerçek yükleme ve depo adları ile erişim
+düzeninin doğrulanması (yer tutucular değiştirilmeli, çekim yeniden doğrulanmalı). Bu araçlar
+yayın hakkına karar vermez. Gerçek yükleme, Keşfet ekranı, Drive yedeği ve aylık görev bu
+parçaya dahil değildir.
 SHA-256 yerel bozulmayı bulur; imza veya kötü niyetli kayıt değişikliğine karşı
 özgünlük kanıtı değildir. Girdi ve tamamlanmış çekim birlikte korunmalıdır.
