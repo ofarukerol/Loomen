@@ -2,6 +2,9 @@
 // git2/openssl gerektirmez. Dosya bazlı 3-yönlü birleştirme (base = son senkron commit'i):
 // çakışan metinler satır bazlı otomatik birleşir, örtüşen parçada yeni taraf kazanır ve kaybeden
 // tarafın tam dosyası `.loomen/cakisma-gecmisi/` altına yedeklenir (LOM-51, bkz. sync_merge.rs).
+// Kapsam (LOM-104): yerel, uzak ve base listelerine aynı kural (`in_scope`) uygulanır; noktayla
+// başlayan yollar (.gitignore, .github/...) eşitlenmez ve uzakta olduğu gibi kalır. Yeni ağaç uzak
+// head ağacının üstüne (base_tree) yalnız değişen/silinen girdilerle kurulur.
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -157,6 +160,63 @@ fn plan_merge(
     plan
 }
 
+/// Senkron kapsamı (LOM-104) — yerel, uzak ve base listeleri için TEK kural.
+/// Noktayla başlayan herhangi bir yol parçası kapsam dışıdır (.git, .trash, .gitignore,
+/// .github/...); tek istisna kökteki `.loomen` klasörü (çakışma yedekleri, LOM-51).
+/// Kapsam dışı uzak dosyalara dokunulmaz: ne indirilir ne silinir.
+fn in_scope(rel: &str) -> bool {
+    rel.split('/')
+        .enumerate()
+        .all(|(i, seg)| !seg.starts_with('.') || (i == 0 && seg == ".loomen"))
+}
+
+/// Uzak/base listesinden kapsam dışı yolları çıkarır (yerel liste `read_local`da aynı kuralla süzülür).
+fn retain_in_scope(files: &mut BTreeMap<String, String>) {
+    files.retain(|p, _| in_scope(p));
+}
+
+/// Yeni ağaç için gönderilecek fark: ağdan bağımsız, test edilebilir karar kısmı (LOM-104).
+/// Ağaç uzak head ağacının üstüne (base_tree) kurulur; bu yüzden yalnız değişenler yollanır,
+/// listede olmayan (kapsam dışı dahil) uzak girdiler olduğu gibi kalır.
+#[derive(Debug, Default, PartialEq)]
+struct TreeDelta {
+    /// Yerelde yeni ya da uzaktakinden farklı olan yollar: blob olarak gönderilir.
+    upload: Vec<String>,
+    /// Süzülmüş uzakta olup yerelde olmayan yollar: `sha: null` ile silinir.
+    deletes: Vec<String>,
+}
+
+impl TreeDelta {
+    fn changed(&self) -> bool {
+        !self.upload.is_empty() || !self.deletes.is_empty()
+    }
+}
+
+/// `remote` kapsam süzgecinden geçmiş olmalı; `local_sha` birleşmiş yerelin yol→blob sha haritası.
+fn plan_tree(remote: &BTreeMap<String, String>, local_sha: &BTreeMap<String, String>) -> TreeDelta {
+    let upload = local_sha
+        .iter()
+        .filter(|(p, sha)| remote.get(*p) != Some(*sha))
+        .map(|(p, _)| p.clone())
+        .collect();
+    let deletes = remote.keys().filter(|p| !local_sha.contains_key(*p)).cloned().collect();
+    TreeDelta { upload, deletes }
+}
+
+/// Ağaç girdileri: (yol, yeni blob sha) yazılır, silinenler `sha: null` ile kaldırılır.
+fn tree_entries(blobs: &[(String, String)], deletes: &[String]) -> Vec<Value> {
+    let mut entries: Vec<Value> = blobs
+        .iter()
+        .map(|(p, sha)| json!({ "path": p, "mode": "100644", "type": "blob", "sha": sha }))
+        .collect();
+    entries.extend(
+        deletes
+            .iter()
+            .map(|p| json!({ "path": p, "mode": "100644", "type": "blob", "sha": Value::Null })),
+    );
+    entries
+}
+
 /// Dosyayı atomik yaz: aynı klasörde yan dosya, sonra rename (yarım dosya kalmaz).
 fn atomic_write(full: &Path, content: &[u8]) -> Result<(), String> {
     if let Some(parent) = full.parent() {
@@ -191,8 +251,9 @@ fn disk_sha(full: &Path) -> Option<String> {
     std::fs::read(full).ok().map(|b| git_blob_sha(&b))
 }
 
-/// Yerel kasadaki tüm dosyaları oku (rel yol -> içerik). Gizli (.) klasörler atlanır (.git/.trash);
-/// tek istisna `.loomen` (çakışma yedekleri): senkronlanır, ama not listesinde görünmez (LOM-51).
+/// Yerel kasadaki tüm dosyaları oku (rel yol -> içerik). Kapsam `in_scope` ile belirlenir (LOM-104):
+/// gizli (.) yollar atlanır (.git/.trash/.gitignore); tek istisna kökteki `.loomen` (çakışma
+/// yedekleri): senkronlanır, ama not listesinde görünmez (LOM-51).
 /// Okunamayan klasör/dosya HATA döner (LOM-61): eksik yerel liste, o notların "yerelde
 /// silinmiş" sayılıp uzaktan da çıkarılmasına yol açardı. Bilerek atlanan yol hata değildir.
 fn read_local(root: &Path) -> Result<BTreeMap<String, Vec<u8>>, String> {
@@ -209,11 +270,14 @@ fn read_local(root: &Path) -> Result<BTreeMap<String, Vec<u8>>, String> {
         let entries = std::fs::read_dir(dir).map_err(|e| dir_err(root, dir, e))?;
         for e in entries {
             let e = e.map_err(|e| dir_err(root, dir, e))?;
-            let name = e.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') && !(dir == root && name == ".loomen") {
+            let p = e.path();
+            let child = match p.strip_prefix(root) {
+                Ok(r) => r.to_string_lossy().replace('\\', "/"),
+                Err(_) => continue,
+            };
+            if !in_scope(&child) {
                 continue;
             }
-            let p = e.path();
             if p.is_dir() {
                 walk(root, &p, out)?;
             } else {
@@ -221,8 +285,7 @@ fn read_local(root: &Path) -> Result<BTreeMap<String, Vec<u8>>, String> {
                     format!("Yerel not okunamadı: {} ({e}); senkron durduruldu, notlara dokunulmadı", rel(root, &p))
                 };
                 let bytes = std::fs::read(&p).map_err(|e| file_err(e.to_string()))?;
-                let r = p.strip_prefix(root).map_err(|e| file_err(e.to_string()))?;
-                out.insert(r.to_string_lossy().replace('\\', "/"), bytes);
+                out.insert(child, bytes);
             }
         }
         Ok(())
@@ -343,9 +406,22 @@ async fn create_blob(c: &reqwest::Client, token: &str, o: &str, r: &str, content
     v["sha"].as_str().map(String::from).ok_or_else(|| "blob sha yok".into())
 }
 
-async fn create_tree(c: &reqwest::Client, token: &str, o: &str, r: &str, entries: Vec<Value>) -> Result<String, String> {
+/// `base_tree` verilirse ağaç onun üstüne kurulur: listede olmayan girdiler (kapsam dışı dosyalar,
+/// dosya izinleri, alt modüller) olduğu gibi kalır (LOM-104). Boş depoda None: tam liste gönderilir.
+async fn create_tree(
+    c: &reqwest::Client,
+    token: &str,
+    o: &str,
+    r: &str,
+    base_tree: Option<&str>,
+    entries: Vec<Value>,
+) -> Result<String, String> {
     let url = format!("{API}/repos/{o}/{r}/git/trees");
-    let v = gh_send(c, token, reqwest::Method::POST, &url, json!({ "tree": entries })).await?;
+    let body = match base_tree {
+        Some(bt) => json!({ "base_tree": bt, "tree": entries }),
+        None => json!({ "tree": entries }),
+    };
+    let v = gh_send(c, token, reqwest::Method::POST, &url, body).await?;
     v["sha"].as_str().map(String::from).ok_or_else(|| "tree sha yok".into())
 }
 
@@ -484,24 +560,31 @@ pub async fn github_api_sync(
 
     // 2) Uzak head + tree dosyaları. Okuma hatası senkronu DURDURUR (LOM-11): eksik
     //    uzak liste, yereldeki notların "uzakta silinmiş" sayılıp silinmesine yol açardı.
+    //    Uzak ve base kapsam süzgecinden geçer (LOM-104): kapsam dışı yollar plana hiç girmez.
     let head = head_sha(&c, &token, o, r, br).await?;
-    let remote: BTreeMap<String, String> = match &head {
+    let head_tree: Option<String> = match &head {
         Some(sha) => match commit_tree(&c, &token, o, r, sha).await? {
-            Some(ts) => tree_files(&c, &token, o, r, &ts).await?,
+            Some(ts) => Some(ts),
             None => return Err("GitHub'daki son kayıt okunamadı; senkron durduruldu, notlara dokunulmadı".into()),
         },
+        None => None,
+    };
+    let mut remote: BTreeMap<String, String> = match &head_tree {
+        Some(ts) => tree_files(&c, &token, o, r, ts).await?,
         None => BTreeMap::new(),
     };
+    retain_in_scope(&mut remote);
 
     // 3) Base tree (varsa). Base commit uzakta artık yoksa (geçmiş yeniden yazılmış) boş
     //    base ile devam edilir: silme olmaz, farklar çakışma kopyası olur. Ağ hatası DURDURUR.
-    let base: BTreeMap<String, String> = match &base_sha {
+    let mut base: BTreeMap<String, String> = match &base_sha {
         Some(sha) => match commit_tree(&c, &token, o, r, sha).await? {
             Some(ts) => tree_files(&c, &token, o, r, &ts).await?,
             None => BTreeMap::new(),
         },
         None => BTreeMap::new(),
     };
+    retain_in_scope(&mut base);
 
     // Güvenlik: son senkronda dosya vardı ama uzak dal artık yok/boş → yereli toplu silmek
     // yerine dur. (Depo silinip yeniden açılmış ya da yanlış depo seçilmiş olabilir.)
@@ -555,29 +638,23 @@ pub async fn github_api_sync(
     }
     let (pulled, pushed) = (plan.pulled + merged.len(), plan.pushed);
 
-    // 6) Birleşmiş yerel state'ten yeni tree + commit + ref
-    let mut entries: Vec<Value> = vec![];
-    let mut changed_for_push = false;
-    for (p, content) in &local {
-        let bsha = git_blob_sha(content);
-        let sha = if remote.get(p) == Some(&bsha) {
-            bsha // uzakta zaten var → blob oluşturma
-        } else {
-            changed_for_push = true;
-            create_blob(&c, &token, o, r, content).await?
-        };
-        entries.push(json!({ "path": p, "mode": "100644", "type": "blob", "sha": sha }));
-    }
-    for p in remote.keys() {
-        if !local.contains_key(p) {
-            changed_for_push = true; // uzakta olup yerelde olmayan → silinmiş
-        }
-    }
+    // 6) Birleşmiş yerel state'ten yeni tree + commit + ref. Ağaç uzak head ağacının üstüne
+    //    kurulur; yalnız değişen ve silinen (kapsam içi) girdiler gönderilir (LOM-104).
+    let merged_sha: BTreeMap<String, String> =
+        local.iter().map(|(k, v)| (k.clone(), git_blob_sha(v))).collect();
+    let delta = plan_tree(&remote, &merged_sha);
 
-    let new_base = if !changed_for_push {
+    let new_base = if !delta.changed() {
         head.clone()
     } else {
-        let tree_sha = create_tree(&c, &token, o, r, entries).await?;
+        let mut blobs: Vec<(String, String)> = Vec::with_capacity(delta.upload.len());
+        for p in &delta.upload {
+            if let Some(content) = local.get(p) {
+                blobs.push((p.clone(), create_blob(&c, &token, o, r, content).await?));
+            }
+        }
+        let entries = tree_entries(&blobs, &delta.deletes);
+        let tree_sha = create_tree(&c, &token, o, r, head_tree.as_deref(), entries).await?;
         let parents: Vec<String> = head.iter().cloned().collect();
         let commit = create_commit(&c, &token, o, r, "Loomen senkron", &tree_sha, &parents).await?;
         set_ref(&c, &token, o, r, br, &commit, head.is_some()).await?;
@@ -797,6 +874,136 @@ mod tests {
         let (_, enc) = name.split_once("__").unwrap();
         use base64::engine::general_purpose::URL_SAFE_NO_PAD;
         assert_eq!(URL_SAFE_NO_PAD.decode(enc).unwrap(), "Klasör/Not.md".as_bytes());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ---------- LOM-104: gizli dosyalar uzaktan silinmez ----------
+
+    fn scoped(items: &[(&str, &str)]) -> BTreeMap<String, String> {
+        let mut x = m(items);
+        retain_in_scope(&mut x);
+        x
+    }
+
+    const GIZLI: [&str; 2] = [".gitignore", ".github/workflows/example.yml"];
+
+    #[test]
+    fn kapsam_kurali_tek_yerde() {
+        for p in ["Not.md", "Klasör/Not.md", ".loomen/cakisma-gecmisi/S/N.md"] {
+            assert!(in_scope(p), "{p} kapsam içinde olmalı");
+        }
+        for p in [
+            ".gitignore",
+            ".github/workflows/example.yml",
+            ".trash/x",
+            "Klasör/.gizli/N.md",
+            ".loomen/.gizli/x",
+            "Klasör/.loomen/x",
+        ] {
+            assert!(!in_scope(p), "{p} kapsam dışında olmalı");
+        }
+    }
+
+    #[test]
+    fn gizli_uzak_dosyalar_planda_silinmez_yazilmaz() {
+        let uzak = [(".gitignore", "g"), (".github/workflows/example.yml", "w"), ("Not.md", "n")];
+        let remote = scoped(&uzak);
+        let base = scoped(&uzak);
+        let local = scoped(&[("Not.md", "n")]);
+        let plan = plan_merge(&remote, &local, &base);
+        assert_eq!(plan, MergePlan::default());
+        assert_eq!(plan.pushed, 0);
+    }
+
+    #[test]
+    fn agac_girdilerinde_gizli_yol_yok_degisiklik_yok() {
+        let remote = scoped(&[(".gitignore", "g"), (".github/workflows/example.yml", "w"), ("Not.md", "n")]);
+        let delta = plan_tree(&remote, &m(&[("Not.md", "n")]));
+        assert_eq!(delta, TreeDelta::default());
+        assert!(!delta.changed());
+        let entries = tree_entries(&[], &delta.deletes);
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn iki_ardisik_esitlemede_gizli_dosyalar_degismez() {
+        let uzak_ham = [(".gitignore", "g"), (".github/workflows/example.yml", "w"), ("Not.md", "n")];
+        // 1. tur: base yok, yerel boş → yalnız not çekilir.
+        let remote = scoped(&uzak_ham);
+        let plan = plan_merge(&remote, &m(&[]), &m(&[]));
+        assert_eq!(plan.writes, vec![("Not.md".to_string(), "n".to_string())]);
+        assert!(plan.deletes.is_empty() && plan.merges.is_empty());
+        for g in GIZLI {
+            assert!(!plan.writes.iter().any(|(p, _)| p == g), "{g} indirilmemeli");
+        }
+        let local_after = m(&[("Not.md", "n")]);
+        assert!(!plan_tree(&remote, &local_after).changed(), "1. tur yeni kayıt açmamalı");
+        // 2. tur: base = uzak (ilk turun sonucu), hiçbir şey değişmedi.
+        let base = scoped(&uzak_ham);
+        let plan = plan_merge(&scoped(&uzak_ham), &local_after, &base);
+        assert_eq!(plan, MergePlan::default());
+        let delta = plan_tree(&scoped(&uzak_ham), &local_after);
+        assert_eq!(delta, TreeDelta::default());
+        assert!(tree_entries(&[], &delta.deletes).is_empty());
+    }
+
+    #[test]
+    fn yerelde_silinen_not_agactan_null_ile_kalkar() {
+        let uzak = [(".gitignore", "g"), (".github/workflows/example.yml", "w"), ("X.md", "x"), ("Kal.md", "k")];
+        let remote = scoped(&uzak);
+        let local = m(&[("Kal.md", "k")]);
+        let plan = plan_merge(&remote, &local, &scoped(&uzak));
+        assert_eq!(plan.pushed, 1);
+        let delta = plan_tree(&remote, &local);
+        assert_eq!(delta.deletes, vec!["X.md".to_string()]);
+        assert!(delta.upload.is_empty());
+        let entries = tree_entries(&[], &delta.deletes);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0]["path"], "X.md");
+        assert!(entries[0]["sha"].is_null());
+        assert_eq!(entries[0]["mode"], "100644");
+        assert_eq!(entries[0]["type"], "blob");
+        for g in GIZLI {
+            assert!(!entries.iter().any(|e| e["path"] == g), "{g} silinmemeli");
+        }
+    }
+
+    #[test]
+    fn yedek_klasoru_agaca_blob_olarak_girer() {
+        let p = ".loomen/cakisma-gecmisi/S/N.md";
+        let remote = scoped(&[(".gitignore", "g"), ("Not.md", "n")]);
+        let local = m(&[("Not.md", "n"), (p, "y")]);
+        let delta = plan_tree(&remote, &local);
+        assert_eq!(delta.upload, vec![p.to_string()]);
+        assert!(delta.deletes.is_empty());
+        let entries = tree_entries(&[(p.to_string(), "yeni".to_string())], &delta.deletes);
+        assert_eq!(entries, vec![json!({ "path": p, "mode": "100644", "type": "blob", "sha": "yeni" })]);
+    }
+
+    #[test]
+    fn degisen_not_yuklenir_ayni_not_yuklenmez() {
+        let remote = scoped(&[("A.md", "1"), ("B.md", "2")]);
+        let delta = plan_tree(&remote, &m(&[("A.md", "1"), ("B.md", "yeni"), ("C.md", "3")]));
+        assert_eq!(delta.upload, vec!["B.md".to_string(), "C.md".to_string()]);
+        assert!(delta.deletes.is_empty());
+    }
+
+    #[test]
+    fn diskteki_gizli_dosya_yerel_listeye_girmez() {
+        let dir = std::env::temp_dir().join(format!("loomen-lom104-read-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join(".github/workflows")).unwrap();
+        std::fs::create_dir_all(dir.join("Klasör/.gizli")).unwrap();
+        std::fs::create_dir_all(dir.join(".loomen/.gizli")).unwrap();
+        std::fs::write(dir.join(".gitignore"), "g").unwrap();
+        std::fs::write(dir.join(".github/workflows/example.yml"), "w").unwrap();
+        std::fs::write(dir.join("Klasör/.gizli/N.md"), "x").unwrap();
+        std::fs::write(dir.join(".loomen/.gizli/x"), "x").unwrap();
+        std::fs::write(dir.join("Klasör/Not.md"), "n").unwrap();
+        let files = read_local(&dir).unwrap();
+        let keys: Vec<&str> = files.keys().map(|k| k.as_str()).collect();
+        assert_eq!(keys, vec!["Klasör/Not.md"]);
+        assert!(files.keys().all(|k| in_scope(k)));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
