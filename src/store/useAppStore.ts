@@ -102,6 +102,12 @@ import {
 } from "../core/layout/sideCards";
 import { DEFAULT_FEATURES, normalizeFeatures, type FeatureFlags, type FeatureId } from "../core/settings/features";
 import {
+  normalizeModulesInstalled,
+  normalizeModulesView,
+  type ModulesInstalled,
+  type ModulesView,
+} from "../core/settings/modules";
+import {
   DEFAULT_SETTINGS as SRS_DEFAULTS,
   PRESETS as SRS_PRESETS,
   appendLog,
@@ -284,7 +290,7 @@ export interface PendingShare {
 }
 
 export type Theme = "light" | "dark";
-export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help" | "assistant" | "review" | "habits" | "library" | "reader";
+export type Screen = "planner" | "editor" | "graph" | "reports" | "settings" | "draw" | "newtab" | "help" | "assistant" | "review" | "habits" | "library" | "reader" | "modules";
 export type PlannerLayout = "timeline" | "board";
 export type Lang = "tr" | "en" | "ar";
 export type EditorTab = "daily" | "proje" | "fikirler";
@@ -369,6 +375,12 @@ interface AppState {
   /** Ayarlar üstündeki özellik kartları (LOM-82): Yedekleme, Takvim, Alışkanlık açık mı; kalıcı.
    *  Tekrar `srsSettings.enabled`, Asistan `aiEnabled` olarak ayrıca tutulur. */
   features: FeatureFlags;
+  /** Modüller sayfası görünümü (LOM-112): ızgara / liste; kalıcı. */
+  modulesView: ModulesView;
+  /** Bir kez kurulan ya da elle açılıp kapatılan modüller (LOM-112); kalıcı. */
+  modulesInstalled: ModulesInstalled;
+  /** Modüller sayfasında açık detay (LOM-112); kalıcı değil. */
+  moduleDetailId: FeatureId | null;
   focusExpanded: boolean;
 
   // Vault
@@ -635,6 +647,12 @@ interface AppState {
   resetSideCardOrder: () => void;
   /** Özellik kartının düğmesi (LOM-82). Kapatmak veri/bağlantı silmez. */
   setFeatureOn: (id: FeatureId, on: boolean) => void;
+  /** Modüller sayfası görünümü (LOM-112). */
+  setModulesView: (v: ModulesView) => void;
+  /** Modül detayını aç/kapat (LOM-112); id verilince Modüller ekranına geçer. */
+  moduleOpenDetail: (id: FeatureId | null) => void;
+  /** Kur (LOM-112): modülü kurulu sayar ve açar. Tekrar ayarı okunmadıysa bir şey yapmaz. */
+  installModule: (id: FeatureId) => void;
   setFocusExpanded: (v: boolean) => void;
   goToDayNote: () => Promise<void>;
   goToDate: (date: Date) => Promise<void>;
@@ -2507,6 +2525,9 @@ export const useAppStore = create<AppState>()(
     leftWidth: LEFT_PANEL_DEFAULT,
     sideCardOrder: [...DEFAULT_SIDE_CARD_ORDER],
     features: { ...DEFAULT_FEATURES },
+    modulesView: "grid",
+    modulesInstalled: {},
+    moduleDetailId: null,
     focusExpanded: false,
 
     vaultPath: null,
@@ -2853,6 +2874,10 @@ export const useAppStore = create<AppState>()(
         // Kapatılınca açık alışkanlık detayı kalmasın; yeniden açınca liste görünsün.
         if (id === "habits" && !on) set({ habitDetailId: null });
       }
+      // Elle açılıp kapatılan modül kurulu sayılır: Kur'a geri dönmez (LOM-112).
+      if (!get().modulesInstalled[id]) set({ modulesInstalled: { ...get().modulesInstalled, [id]: true } });
+      // Pasife alınan modülün detayı açıksa liste görünsün.
+      if (!on && get().moduleDetailId === id) set({ moduleDetailId: null });
       // Kapatılan özelliğin ekranı o an açıksa Planner'a dön.
       const screenOf: Partial<Record<FeatureId, Screen[]>> = {
         habits: ["habits"],
@@ -2864,6 +2889,14 @@ export const useAppStore = create<AppState>()(
         if (id === "library") get().libraryCloseReader();
         set({ screen: "planner" });
       }
+    },
+    setModulesView: (v) => set({ modulesView: normalizeModulesView(v) }),
+    moduleOpenDetail: (id) => (id ? set({ moduleDetailId: id, screen: "modules" }) : set({ moduleDetailId: null })),
+    installModule: (id) => {
+      const s = get();
+      // Tekrar ayarı okunmadan yazılmaz (LOM-71); kart Kur düğmesini bu durumda kilitler.
+      if (id === "review" && s.srsSettingsStatus !== "ready") return;
+      s.setFeatureOn(id, true);
     },
     setFocusExpanded: (focusExpanded) => set({ focusExpanded }),
     todayNotePath: () => todayDailyPath(),
@@ -5980,6 +6013,12 @@ export const useAppStore = create<AppState>()(
             p.sideCardOrder === undefined ? current.sideCardOrder : normalizeSideCardOrder(p.sideCardOrder),
           // Özellik bayrakları (LOM-82): bozuk/eksik alan varsayılana (açık) döner.
           features: p.features === undefined ? current.features : normalizeFeatures(p.features),
+          // Modüller sayfası (LOM-112): bozuk görünüm ızgaraya, bozuk kurulu listesi boşa döner.
+          modulesView: p.modulesView === undefined ? current.modulesView : normalizeModulesView(p.modulesView),
+          modulesInstalled:
+            p.modulesInstalled === undefined
+              ? current.modulesInstalled
+              : normalizeModulesInstalled(p.modulesInstalled),
         };
       },
       onRehydrateStorage: () => (state) => {
@@ -6032,6 +6071,8 @@ export const useAppStore = create<AppState>()(
         leftWidth: s.leftWidth,
         sideCardOrder: s.sideCardOrder,
         features: s.features,
+        modulesView: s.modulesView,
+        modulesInstalled: s.modulesInstalled,
         backlinksCollapsed: s.backlinksCollapsed,
         onThisDayCollapsed: s.onThisDayCollapsed,
         pomo: s.pomo,

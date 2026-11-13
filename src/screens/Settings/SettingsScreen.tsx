@@ -1,10 +1,10 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
+import { ArrowRight, Puzzle } from "lucide-react";
 import { isChecking, progressPercent, runUpdateCheck, runUpdateInstall, updateStore, updateSupported } from "../../core/updater";
 import { useAppStore, ACCENTS, type Lang, type EditorSettings } from "../../store/useAppStore";
 import { AiSettings } from "./AiSettings";
-import { FeatureCards } from "./FeatureCards";
 import { ReviewSettings } from "./ReviewSettings";
 import { GitHubSync } from "./GitHubSync";
 import { GoogleCalendarSync } from "./GoogleCalendarSync";
@@ -119,6 +119,7 @@ export function SettingsScreen() {
   const aiEnabled = useAppStore((s) => s.aiEnabled);
   const srsReady = useAppStore((s) => s.srsSettingsStatus === "ready");
   const srsEnabled = useAppStore((s) => s.srsSettings.enabled);
+  const setScreen = useAppStore((s) => s.setScreen);
 
   const editorRows: { key: keyof EditorSettings; label: string }[] = [
     { key: "livePreview", label: t("settings.livePreview") },
@@ -139,8 +140,20 @@ export function SettingsScreen() {
       <div className="lo-set__inner">
         <h1 className="lo-set__title">{t("settings.title")}</h1>
 
-        {/* Özellikleri açıp kapatma — en üstte, görsel kartlarla (LOM-82). */}
-        <FeatureCards />
+        {/* Özellik kartları Modüller sayfasına taşındı (LOM-112); burada ona giden tek satır kalır. */}
+        <div className="lo-card lo-set__row lo-set__modlink" data-modules-link>
+          <span className="lo-set__modlinkicon" aria-hidden="true">
+            <Puzzle size={18} strokeWidth={1.9} />
+          </span>
+          <div className="lo-set__modlinktext">
+            <div className="lo-set__rowtitle">{t("modules.settingsLink")}</div>
+            <div className="lo-set__rowsub">{t("modules.settingsLinkSub")}</div>
+          </div>
+          <button type="button" className="lo-btn" onClick={() => setScreen("modules")}>
+            <span>{t("modules.open")}</span>
+            <ArrowRight size={15} strokeWidth={2} className="lo-mod__flip" />
+          </button>
+        </div>
 
         {/* Görünüm */}
         <Section label={t("settings.appearance")}>

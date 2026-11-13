@@ -26,6 +26,7 @@ import { HelpScreen } from "./screens/Help/HelpScreen";
 import { AssistantScreen } from "./screens/Assistant/AssistantScreen";
 import { ReviewScreen } from "./screens/Review/ReviewScreen";
 import { HabitsScreen } from "./screens/Habits/HabitsScreen";
+import { ModulesScreen } from "./screens/Modules/ModulesScreen";
 import { LibraryScreen } from "./screens/Library/LibraryScreen";
 import { ReaderScreen } from "./screens/Library/ReaderScreen";
 import { TaskDetail } from "./screens/Planner/TaskDetail";
@@ -52,6 +53,8 @@ export default function App() {
   const platformMobile = useAppStore((s) => s.platformMobile);
   const habitDetailId = useAppStore((s) => s.habitDetailId);
   const habitOpenDetail = useAppStore((s) => s.habitOpenDetail);
+  const moduleDetailId = useAppStore((s) => s.moduleDetailId);
+  const moduleOpenDetail = useAppStore((s) => s.moduleOpenDetail);
   const libraryCloseReader = useAppStore((s) => s.libraryCloseReader);
 
   // Mobil (dar ekran / iOS-Android): sol/sağ panel + üst sekme şeridi yerine alt bar + drawer.
@@ -249,6 +252,8 @@ export default function App() {
   if (screen !== "planner") closers.push(() => setScreen("planner"));
   // Alışkanlık ayrıntısı ekranın üstünde bir katman: geri önce listeye döner.
   if (screen === "habits" && habitDetailId) closers.push(() => habitOpenDetail(null));
+  // Modül detayı (LOM-112): geri tuşu önce listeye döner.
+  if (screen === "modules" && moduleDetailId) closers.push(() => moduleOpenDetail(null));
   // Okuyucu da bir katman: geri kitabın açıldığı ekrana (raf ya da not) döner (LOM-83).
   if (screen === "reader") closers.push(() => libraryCloseReader());
   if (selectedTask) closers.push(() => selectTask(null));
@@ -347,6 +352,7 @@ export default function App() {
           {screen === "assistant" && <AssistantScreen />}
           {screen === "review" && <ReviewScreen />}
           {screen === "habits" && <HabitsScreen />}
+          {screen === "modules" && <ModulesScreen />}
           {screen === "library" && <LibraryScreen />}
           {screen === "reader" && <ReaderScreen />}
         </div>

@@ -56,9 +56,19 @@ Hedef: kodun %85'ten fazlası masaüstü ve mobilde ortak.
 - Plan "ağ yok" diyordu; isteğe bağlı GitHub eşitleme ve Google Takvim bağlantısı eklendi. Çekirdek yine ağsız çalışır; bağlantılar kullanıcı açarsa devreye girer.
 
 ## Ayarlar: özellik kartları (LOM-82)
-- Ayarlar'ın en üstünde altı kart: Yedekleme (GitHub), Takvim, Tekrar, Asistan, Alışkanlık Takibi, Kütüphane (LOM-83) (`src/screens/Settings/FeatureCards.tsx`, kimlik ve kural `src/core/settings/features.ts`). Her kartta ad, açıklama, durum (bağlı mı, kaç kart/sağlayıcı/alışkanlık) ve açma/kapama düğmesi.
+- **Kartlar LOM-112 ile Modüller sayfasına taşındı;** `FeatureCards.tsx` kaldırıldı, Ayarlar'da yerine Modüller'e giden tek satır var. Aşağıdaki bayrak ve gizleme kuralları aynen geçerli.
+- Eskiden Ayarlar'ın en üstünde altı kart: Yedekleme (GitHub), Takvim, Tekrar, Asistan, Alışkanlık Takibi, Kütüphane (LOM-83) (kimlik ve kural `src/core/settings/features.ts`). Her kartta ad, açıklama, durum (bağlı mı, kaç kart/sağlayıcı/alışkanlık) ve açma/kapama düğmesi.
 - Bayraklar: Yedekleme, Takvim, Alışkanlık, Kütüphane `features` olarak `loomen.settings` kaydında (varsayılan hepsi açık; bozuk/eksik alan açığa döner). Tekrar kasadaki ayar dosyasındaki `enabled`, Asistan `aiEnabled` — ikinci kopya tutulmaz.
 - Kapalıyken: o özelliğin Ayarlar bölümü çizilmez. Yedekleme/Takvim kapalıysa otomatik eşitleme kurulmaz, gezgin alt şeridi yerel kasa gibi görünür. Alışkanlık kapalıysa şerit düğmesi, telefon menüsü maddesi ve sağ blok kartı gizlenir. Kütüphane kapalıysa şerit düğmesi ve telefon menüsü maddesi gizlenir; açık okuyucu kapanır, nottaki kitap bağlantısı "Kütüphane kapalı" der. Kapatılan özelliğin ekranı açıksa Planner'a dönülür.
 - Kapatmak veri silmez: GitHub/Google bağlantısı, anahtar zinciri, kasadaki alışkanlık ve tekrar dosyaları yerinde kalır.
 - Tekrar ayarı okunmadan (yükleniyor/okunamadı) kartın düğmesi kilitlidir, okunamadıysa kartta Yeniden dene çıkar (LOM-71 koruması).
 - Testi: `src/core/__test__/featuresTest.ts`.
+
+## Modüller sayfası (LOM-112)
+- Sol şeritte (Yardım'ın üstünde, her zaman) ve telefonda ⋮ menüsünde Modüller; ekran `screen: "modules"` (`src/screens/Modules/`). Sol gezgin ve sağ blok bu ekranda yok (Ayarlar gibi tam genişlik).
+- Altı modül LOM-82 özellik kimlikleridir (`FEATURE_IDS`); ızgara ya da liste görünümü seçilir. Açık/kapalı bilgisi yine `features`, `srsSettings.enabled`, `aiEnabled`'dan okunur; ikinci kopya yok.
+- **Kurulu sayılma:** kayıtlı `modulesInstalled[id]` true YA DA modül şu an açık (`src/core/settings/modules.ts`). Tekrar kasadan geç okunduğu için bu bilgi kayıt açılırken değil, her çizimde türetilir. Kur düğmesi `installModule` → `setFeatureOn(id, true)`; `setFeatureOn` her elle açma/kapamada bayrağı yazar, pasife alınan modül Kur'a dönmez. Kaldırma (Kur'un tersi) yok.
+- Kalıcı: `modulesView`, `modulesInstalled` (`loomen.settings`, açılışta temizlenir). Açık detay (`moduleDetailId`) kalıcı değil; pasife alınınca kapanır, telefonda geri tuşu önce detayı kapatır.
+- Detay yalnız kurulu ve aktif modülde: Yedekleme → `GitHubSync`, Takvim → `GoogleCalendarSync`, Tekrar → `ReviewSettings`, Asistan → `AiSettings` (Ayarlar'daki bileşenlerin aynısı, 680px sütunda); Alışkanlık ve Kütüphane'de kendi ekranını açan bilgi kartı.
+- Tekrar ayarı okunmadan Kur ve anahtar kilitli (LOM-71). Her modülün sabit rengi `data-tone` ile alışkanlık paletinden (`--hab-*`) gelir.
+- Ayarlar'daki GitHub, Takvim, Tekrar ve Asistan bölümleri şimdilik yerinde. Testi: `src/core/__test__/modulesTest.ts`.

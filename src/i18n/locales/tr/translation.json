@@ -16,7 +16,8 @@
     "assistant": "Asistan",
     "review": "Tekrar",
     "habit": "Alışkanlıklar",
-    "library": "Kütüphane"
+    "library": "Kütüphane",
+    "modules": "Modüller"
   },
   "reports": {
     "title": "Raporlar",
@@ -1799,5 +1800,24 @@
     "searchPlaceholder": "Not ara",
     "noResult": "Not bulunamadı",
     "stale": "Metin değişti, yeniden seç."
+  },
+  "modules": {
+    "title": "Modüller",
+    "sub": "Loomen'i kendine göre kur. Kullanacağın modülü kur, istemediğini pasife al; verilerin silinmez.",
+    "summary": "{{total}} modülden {{active}} aktif",
+    "viewGrid": "Izgara",
+    "viewList": "Liste",
+    "install": "Kur",
+    "active": "Aktif",
+    "passive": "Pasif",
+    "notInstalled": "Kurulmadı",
+    "open": "Aç",
+    "back": "Modüller",
+    "details": "Ayrıntılar",
+    "openScreen": "Ekranı aç",
+    "settingsLink": "Modüller",
+    "settingsLinkSub": "Yedekleme, Takvim, Tekrar, Asistan, Alışkanlık ve Kütüphane artık Modüller sayfasında.",
+    "lockedHint": "Ayar okunuyor, birazdan hazır.",
+    "openHint": "Bu modülün kendi ekranı var; oradan kullanmaya devam et."
   }
 }

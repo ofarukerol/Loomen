@@ -1,4 +1,4 @@
-// Ayarlar özellik kartları testi (LOM-82): bayraklar, temizleme, kaynak çözümü, üç dilde metinler
+// Ayarlar özellik kartları testi (LOM-82; kartlar LOM-112 ile Modüller sayfasına taşındı): bayraklar, temizleme, kaynak çözümü, üç dilde metinler
 // ve ekranların koşullu çizimi (kaynak denetimi).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -123,9 +123,11 @@ const root = process.cwd(); // run-tests depo kökünden koşturur
 const src = (p: string) => readFileSync(join(root, p), "utf8");
 const settings = src("src/screens/Settings/SettingsScreen.tsx");
 const titleAt = settings.indexOf('className="lo-set__title"');
-const cardsAt = settings.indexOf("<FeatureCards />");
+const linkAt = settings.indexOf("data-modules-link");
 const firstSection = settings.indexOf("<Section", titleAt);
-check("Ayarlar: özellik kartları başlığın altında, ilk bölümden önce", titleAt > 0 && cardsAt > titleAt && cardsAt < firstSection);
+// Özellik kartları Modüller sayfasına taşındı (LOM-112): Ayarlar'da yerine tek bağlantı satırı.
+check("Ayarlar: FeatureCards yok", !settings.includes("FeatureCards"));
+check("Ayarlar: Modüller bağlantı satırı başlığın altında, ilk bölümden önce", titleAt > 0 && linkAt > titleAt && linkAt < firstSection);
 check("Ayarlar: GitHub bölümü yalnız açıkken", /features\.github && <GitHubSync \/>/.test(settings));
 check("Ayarlar: Takvim bölümü yalnız açıkken", /features\.calendar && <GoogleCalendarSync \/>/.test(settings));
 check("Ayarlar: Asistan bölümü yalnız açıkken", /aiEnabled && <AiSettings \/>/.test(settings));

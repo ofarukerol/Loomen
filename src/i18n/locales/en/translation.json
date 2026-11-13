@@ -13,7 +13,8 @@
     "assistant": "Assistant",
     "review": "Review",
     "habit": "Habits",
-    "library": "Library"
+    "library": "Library",
+    "modules": "Modules"
   },
   "reports": {
     "title": "Reports",
@@ -1799,5 +1800,24 @@
     "searchPlaceholder": "Search notes",
     "noResult": "No note found",
     "stale": "The text changed, select it again."
+  },
+  "modules": {
+    "title": "Modules",
+    "sub": "Shape Loomen your way. Install the modules you need, switch off the rest; your data stays.",
+    "summary": "{{active}} of {{total}} modules active",
+    "viewGrid": "Grid",
+    "viewList": "List",
+    "install": "Install",
+    "active": "Active",
+    "passive": "Inactive",
+    "notInstalled": "Not installed",
+    "open": "Open",
+    "back": "Modules",
+    "details": "Details",
+    "openScreen": "Open screen",
+    "settingsLink": "Modules",
+    "settingsLinkSub": "Backup, Calendar, Review, Assistant, Habits and Library now live on the Modules page.",
+    "lockedHint": "Reading settings, ready in a moment.",
+    "openHint": "This module has its own screen; continue there."
   }
 }

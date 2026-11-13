@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PanelLeft, BookOpen, CalendarDays, MoreVertical, SquarePen, Sprout, BookMarked } from "lucide-react";
+import { PanelLeft, BookOpen, CalendarDays, MoreVertical, SquarePen, Sprout, BookMarked, Puzzle } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 
 /**
@@ -23,11 +23,11 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
   // Ekran bazlı toggle: planner'dayken günlük notu aç; başka her yerdeyken planner'a (ana sayfa) dön.
   const isPlanner = screen === "planner";
   const inEditor = screen === "editor";
-  // Alışkanlık Takibi kapalıysa menüde Alışkanlıklar yok (LOM-82); menü boş kalırsa ⋮ de gizlenir.
+  // Alışkanlık Takibi kapalıysa menüde Alışkanlıklar yok (LOM-82).
   const habitsOn = useAppStore((s) => s.features.habits);
   // Kütüphane de aynı kural (LOM-83).
   const libraryOn = useAppStore((s) => s.features.library);
-  const hasMenu = inEditor || habitsOn || libraryOn;
+  // Menüde Modüller her zaman var (LOM-112), bu yüzden ⋮ hep görünür.
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -61,6 +61,10 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
     setScreen("library");
     setMenuOpen(false);
   };
+  const onModules = () => {
+    setScreen("modules");
+    setMenuOpen(false);
+  };
 
   return (
     <div className="lo-mtop">
@@ -84,7 +88,6 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
           )}
         </button>
 
-        {hasMenu && (
         <div className="lo-mtop__menu" ref={menuRef}>
           <button
             className={"lo-mtop__btn" + (menuOpen ? " is-active" : "")}
@@ -116,10 +119,13 @@ export function MobileTopBar({ onMenu }: { onMenu: () => void }) {
                   <span>{t("ribbon.library")}</span>
                 </button>
               )}
+              <button className="lo-mtop__item" onClick={onModules} role="menuitem" data-mtop-modules>
+                <Puzzle size={16} strokeWidth={1.9} />
+                <span>{t("ribbon.modules")}</span>
+              </button>
             </div>
           )}
         </div>
-        )}
       </div>
     </div>
   );
