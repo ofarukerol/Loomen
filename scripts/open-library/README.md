@@ -200,7 +200,7 @@ kişi olduğunu biliyorsan çifti `separate` listesine yaz; listeye bir daha dü
 **Kategoriler:** ağaç `categories.tr.json` dosyasındadır; adlar koddan bağımsız değiştirilebilir
 (`id` ASCII ve benzersiz kalır). İslami Eserler dalı Şamile'nin tasnifini rehber alır ve her
 düğümde Arapça başlığı `shamela` alanında taşır; bu başlıklar elle yazılmıştır, Şamile'den
-çekilmemiştir. Kitap şu sırayla yerleşir: ayardaki elle atama (`overrides`), ipucundaki Şamile
+çekilmemiştir. Birden çok başlık `/` ile ayrılır. Gerçek toplu çalıştırmadan önce listeyi Şamile'nin güncel kategori listesiyle bir kez yan yana koy; eşleşmeyen başlıkla gelen kitap `uncategorized.json` listesine düşer. Kitap şu sırayla yerleşir: ayardaki elle atama (`overrides`), ipucundaki Şamile
 başlığı, kaynak başına konu kuralı (`subjectRules`). Tahmin ya da başlıktan çıkarım yoktur;
 eşleşmeyen kitap `uncategorized.json` listesinde kalır (yapay zekâya verilecek liste budur).
 

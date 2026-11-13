@@ -234,3 +234,26 @@ test('(15) Kapalı arşiv kitabı "private" işaretli kalır ve açık sayıma g
   assert.equal(idOf(cat, 'kaynak-a:2').decision, 'private');
   assert.deepEqual(s.byCategory, { diger: { public: 1, private: 1 } });
 });
+
+test('(16) Şamile\'nin ek başlıkları (kıraat, fırkalar, ensab, kütüb-i sünne) ağaçta yerini bulur', async t => {
+  const heads = ['التجويد والقراءات', 'الفرق والردود', 'الأنساب', 'كتب السنة', 'علوم القرآن وأصول التفسير', 'الدواوين الشعرية', 'الرقائق والآداب والأذكار'];
+  const books = heads.map((_, i) => ({ id: String(i), author: `Yazar ${i}` }));
+  const c = await setup(t, { books, hints: { 'kaynak-a': heads.map((h, i) => ({ id: String(i), sourceCategory: h })) } });
+  const s = await c.run();
+  const cat = await c.out_('catalog.json');
+  assert.deepEqual(heads.map((_, i) => idOf(cat, `kaynak-a:${i}`).category), [
+    'islami-kiraat-tecvid', 'islami-firak', 'islami-ensab', 'islami-hadis-metinleri', 'islami-kuran-ilimleri', 'islami-edebiyat-belagat', 'islami-ahlak-tasavvuf',
+  ]);
+  assert.equal(s.uncategorized, 0);
+});
+
+test('(17) Binlerce yazarda karşılaştırma makul sürede biter ve benzer yazımı yine yakalar', async t => {
+  const books = Array.from({ length: 6000 }, (_, i) => ({ id: String(i), author: `Yazar${i.toString(36)} Soyad${((i * 7919) % 10007).toString(36)}` }));
+  books.push({ id: 'x1', author: 'Selim Kuru' }, { id: 'x2', author: 'Selim Kuri' });
+  const c = await setup(t, { books });
+  const started = Date.now();
+  await c.run();
+  assert.ok(Date.now() - started < 30000, 'çok yavaş');
+  const review = await c.out_('reports/author-review.json');
+  assert.ok(review.some(r => [r.aName, r.bName].includes('Selim Kuru') && [r.aName, r.bName].includes('Selim Kuri')));
+});

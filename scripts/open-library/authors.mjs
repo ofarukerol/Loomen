@@ -79,6 +79,72 @@ function doubts(ka, kb) {
   return reasons;
 }
 
+const REASON_ORDER = [
+  'Yazımlar bir iki harf farklı.',
+  'Biri baş harf kısaltması gibi görünüyor.',
+  'Yalnız el-/al-/ibn/bin öneki farklı.',
+  'Arapça ى/ي ya da ة/ه harfi farklı.',
+  'Birinin sözcükleri ötekinin içinde geçiyor.',
+  'Yalnız vefat tarihi eki farklı.',
+];
+
+/**
+ * Tüm çiftleri denemek yerine, doubts() kurallarının her biri için ortak bir "kova" kullanır;
+ * yalnız aynı kovaya düşen anahtarlar çift olarak denenir. Kurallar aynı kalır, sonuç aynıdır.
+ * @returns {Set<number>} i * keys.length + j (i < j)
+ */
+function candidatePairs(keys) {
+  const n = keys.length, out = new Set();
+  const addAll = (list) => {
+    for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) {
+      const i = Math.min(list[a], list[b]), j = Math.max(list[a], list[b]);
+      if (i !== j) out.add(i * n + j);
+    }
+  };
+  const bucket = (fn) => {
+    const m = new Map();
+    keys.forEach((k, i) => {
+      for (const b of [].concat(fn(k))) {
+        if (!b) continue;
+        let l = m.get(b); if (!l) m.set(b, l = []);
+        if (l[l.length - 1] !== i) l.push(i);
+      }
+    });
+    for (const l of m.values()) if (l.length > 1) addAll(l);
+  };
+  // Bir iki harf farkı: en çok 2 harf silinmiş biçimlerden biri ortaksa aday.
+  bucket((k) => {
+    if (k.length < 3) return [];
+    const seen = new Set([k]);
+    for (let a = 0; a < k.length; a++) {
+      const d1 = k.slice(0, a) + k.slice(a + 1);
+      seen.add(d1);
+      for (let b = 0; b < d1.length; b++) seen.add(d1.slice(0, b) + d1.slice(b + 1));
+    }
+    return [...seen];
+  });
+  // Baş harf kısaltması: aynı sözcük sayısı ve aynı baş harfler.
+  // Çiftin en az bir tarafında tek harfli sözcük olmalı; yalnız o adlar kovadakilerle denenir.
+  const sig = (k) => { const t = k.split(' '); return t.length >= 2 ? t.map(x => x[0]).join('') + '|' + t.length : ''; };
+  const bySig = new Map();
+  keys.forEach((k, i) => { const g = sig(k); if (g) { let l = bySig.get(g); if (!l) bySig.set(g, l = []); l.push(i); } });
+  keys.forEach((k, i) => {
+    if (!k.split(' ').some(x => x.length === 1)) return;
+    for (const j of bySig.get(sig(k)) ?? []) if (j !== i) out.add(Math.min(i, j) * n + Math.max(i, j));
+  });
+  bucket((k) => { const p = stripPrefixes(k.split(' ')); return p.length ? p.join(' ') : ''; });
+  bucket((k) => foldArabic(k));
+  bucket((k) => { const d = stripDate(k.split(' ')); return d.length ? d.join(' ') : ''; });
+  // Sözcük kümesi: küçük kümenin en seyrek sözcüğünü taşıyan anahtarlar aday.
+  const posting = new Map(), tokens = keys.map(k => [...new Set(k.split(' '))]);
+  tokens.forEach((ts, i) => ts.forEach(t => { let l = posting.get(t); if (!l) posting.set(t, l = []); l.push(i); }));
+  tokens.forEach((ts, i) => {
+    const rare = ts.reduce((best, t) => (posting.get(t).length < posting.get(best).length ? t : best), ts[0]);
+    for (const j of posting.get(rare)) if (j !== i) out.add(Math.min(i, j) * n + Math.max(i, j));
+  });
+  return out;
+}
+
 const MULTI = /;|&|\sve\s|\sand\s/i;
 const SPLIT = /\s*(?:;|&|\sve\s|\sand\s)\s*/i;
 
@@ -131,16 +197,21 @@ export function mergeAuthors(books, aliases = [], separate = []) {
   }
   const rows = [];
   const row = (a, b, reason) => rows.push({ aId: a.id, aName: a.name, bId: b ? b.id : null, bName: b ? b.name : null, reason });
-  for (let i = 0; i < list.length; i++) {
-    for (let j = i + 1; j < list.length; j++) {
-      const a = list[i], b = list[j], found = new Set();
-      for (const ka of a.keys) for (const kb of b.keys) {
-        if (apart.has(`${ka}\u0000${kb}`)) continue;
-        for (const r of doubts(ka, kb)) found.add(r);
-      }
-      if (found.size) { const [lo, hi] = a.id < b.id ? [a, b] : [b, a]; row(lo, hi, [...found].join(' ')); }
-    }
+  const keys = [...new Set(list.flatMap(a => a.keys))].sort(byId);
+  const owner = new Map(list.flatMap(a => a.keys.map(k => [k, a])));
+  const found = new Map();
+  for (const code of candidatePairs(keys)) {
+    const ka = keys[Math.floor(code / keys.length)], kb = keys[code % keys.length];
+    const a = owner.get(ka), b = owner.get(kb);
+    if (a === b || apart.has(`${ka}\u0000${kb}`)) continue;
+    const reasons = doubts(ka, kb);
+    if (!reasons.length) continue;
+    const [lo, hi] = a.id < b.id ? [a, b] : [b, a];
+    const id = `${lo.id}\u0000${hi.id}`;
+    let f = found.get(id); if (!f) found.set(id, f = { lo, hi, reasons: new Set() });
+    for (const r of reasons) f.reasons.add(r);
   }
+  for (const { lo, hi, reasons } of found.values()) row(lo, hi, [...reasons].sort((x, y) => REASON_ORDER.indexOf(x) - REASON_ORDER.indexOf(y)).join(' '));
   const byKey = new Map();
   for (const a of list) for (const k of a.keys) byKey.set(k, a);
   for (const a of list) {
