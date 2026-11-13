@@ -24,6 +24,7 @@ import { ReviewCardDialog } from "./ReviewCardDialog";
 import { LinkNoteDialog } from "./LinkNoteDialog";
 import {
   barVisible,
+  canLink,
   canMakeCard,
   linkReplacement,
   linkTargetFor,
@@ -203,6 +204,9 @@ export function EditorScreen() {
       inTable: selectionInTable(viewRef.current?.state.doc.toString() ?? draft, sel.from, sel.to),
       editing,
     });
+  const barCard = showBar && canMakeCard(srsSettings, activeNote);
+  // Çok satırlı seçim bağlantı olamaz (satırlar birleşir, işaretler silinirdi).
+  const barLink = showBar && !!sel && canLink(sel.text);
   const openSelDialog = (kind: SelDialog["kind"]) => {
     if (!sel) return;
     setSelDialog({ kind, path: activeNote, from: sel.from, to: sel.to, text: sel.text });
@@ -425,11 +429,12 @@ export function EditorScreen() {
         />
       )}
 
-      {showBar && sel && (
+      {showBar && sel && (barCard || barLink) && (
         <SelectionBar
           rect={sel.rect}
           touch={isMobile || platformMobile}
-          showCard={canMakeCard(srsSettings, activeNote)}
+          showCard={barCard}
+          showLink={barLink}
           onCard={() => openSelDialog("card")}
           onLink={() => openSelDialog("link")}
         />

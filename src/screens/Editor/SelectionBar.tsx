@@ -11,12 +11,14 @@ export function SelectionBar({
   rect,
   touch,
   showCard,
+  showLink,
   onCard,
   onLink,
 }: {
   rect: { top: number; bottom: number; left: number; right: number };
   touch: boolean;
   showCard: boolean;
+  showLink: boolean;
   onCard: () => void;
   onLink: () => void;
 }) {
@@ -40,7 +42,7 @@ export function SelectionBar({
       touch,
     });
     setPos({ left: p.left, top: p.top });
-  }, [rect.top, rect.bottom, rect.left, touch, showCard]);
+  }, [rect.top, rect.bottom, rect.left, touch, showCard, showLink]);
 
   return (
     <div
@@ -61,10 +63,12 @@ export function SelectionBar({
           {t("selbar.makeCard")}
         </button>
       )}
-      <button type="button" className="lo-selbar__btn" onClick={onLink}>
-        <Link2 size={14} strokeWidth={1.9} aria-hidden />
-        {t("selbar.addLink")}
-      </button>
+      {showLink && (
+        <button type="button" className="lo-selbar__btn" onClick={onLink}>
+          <Link2 size={14} strokeWidth={1.9} aria-hidden />
+          {t("selbar.addLink")}
+        </button>
+      )}
     </div>
   );
 }

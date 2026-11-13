@@ -53,8 +53,12 @@ const LIST_PREFIX = /^\s*[-*+]\s+/;
 export function planCardInsert(doc: string, from: number, to: number, front: string, back: string): TextEdit | null {
   const line = cardLine(front, back);
   if (line == null) return null;
-  const a = Math.max(0, Math.min(from, to, doc.length));
-  const b = Math.max(0, Math.min(Math.max(from, to), doc.length));
+  let a = Math.max(0, Math.min(from, to, doc.length));
+  let b = Math.max(0, Math.min(Math.max(from, to), doc.length));
+  // Baştaki/sondaki boşluk ve satır sonu sayılmaz: üç tıklama satırı satır sonuyla birlikte
+  // seçer; o zaman da satır kendi yerinde karta dönmeli, kart alttaki bloğa kaymamalı.
+  while (b > a && /\s/.test(doc[b - 1])) b--;
+  while (a < b && /\s/.test(doc[a])) a++;
   const sel = doc.slice(a, b);
 
   const lineStart = doc.lastIndexOf("\n", a - 1) + 1;
@@ -85,6 +89,16 @@ export function planCardInsert(doc: string, from: number, to: number, front: str
   }
   const plan = computeBlockInsert(doc, b, line);
   return { from: plan.from, to: plan.from, insert: plan.insert, caret: plan.caret };
+}
+
+/**
+ * Seçim bağlantı yapılabilir mi: baştaki/sondaki boşluk atıldıktan sonra tek satır olmalı.
+ * Çok satırlı seçimi tek bağlantı etiketine çevirmek satırları birleştirir ve köşeli
+ * parantez/dikey çizgi gibi işaretleri siler; bu yüzden düğme gizlenir.
+ */
+export function canLink(selected: string): boolean {
+  const s = selected.trim();
+  return s !== "" && !s.includes("\n");
 }
 
 /** Bağlantı metni: etiket hedefle aynıysa [[hedef]], değilse [[hedef|etiket]]. */

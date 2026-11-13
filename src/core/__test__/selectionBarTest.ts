@@ -11,6 +11,7 @@ import {
   canMakeCard,
   cardLine,
   filterNotes,
+  canLink,
   linkReplacement,
   linkTargetFor,
   placeBar,
@@ -120,6 +121,27 @@ eq("cardLine: boş arka null", cardLine("x", "\n"), null);
   eq("plan: imleç kart satırının sonunda", e.caret, 6 + "Başkent :: Ankara".length);
 }
 
+{
+  // Üç tıklama: satır, sonundaki satır sonuyla birlikte seçilir.
+  const doc = "Giriş\nBaşkent neresi\n# Başlık\nmetin\n";
+  const from = doc.indexOf("Başkent");
+  const to = doc.indexOf("# Başlık");
+  const text = doc.slice(from, to);
+  const out = apply(doc, planCardInsert(doc, from, to, text, "Ankara"));
+  eq("plan: üç tıklama (satır sonu dahil) satırı karta çevirir", out, "Giriş\nBaşkent neresi :: Ankara\n# Başlık\nmetin\n");
+}
+{
+  const doc = "- Elma\n| A |\n| --- |\n| 1 |\n";
+  const to = doc.indexOf("| A");
+  const out = apply(doc, planCardInsert(doc, 2, to, "Elma\n", "apple"));
+  eq("plan: üç tıklamalı liste maddesi tablo altına kaymaz", out, "- Elma :: apple\n| A |\n| --- |\n| 1 |\n");
+}
+{
+  const doc = "Para bir\r\nsonra\r\n";
+  const out = apply(doc, planCardInsert(doc, 0, 10, "Para bir\r\n", "x"));
+  eq("plan: CRLF satır sonu dahil seçim", out, "Para bir :: x\r\nsonra\r\n");
+}
+
 // — Üretilen satır elle yazılmış kartla aynı —
 {
   const s = sel("[Başkent neresi]\n");
@@ -147,6 +169,11 @@ eq("link: takma ad", wikiLinkText("Proje X", "bu proje"), "[[Proje X|bu proje]]"
 eq("link: yasak karakterler atılır", wikiLinkText("Not", "a [b] | c"), "[[Not|a b c]]");
 eq("link: çok satır tek satır", wikiLinkText("Not", "bir\niki\r\n üç"), "[[Not|bir iki üç]]");
 eq("link: yalnız yasak karakter → hedef", wikiLinkText("Not", "[|]"), "[[Not]]");
+eq("canLink: tek satır", canLink("bir kelime"), true);
+eq("canLink: üç tıklama (sonda satır sonu) tek satır", canLink("satır\n"), true);
+eq("canLink: çok satır kapalı", canLink("bir\niki"), false);
+eq("canLink: liste maddeleri kapalı", canLink("- [ ] a\n- [ ] b"), false);
+eq("canLink: boş kapalı", canLink(" \n "), false);
 eq("link: baştaki/sondaki boşluk dışarıda", linkReplacement(" kelime ", "Not"), " [[Not|kelime]] ");
 {
   const [l] = parseWikiLinks(wikiLinkText("Klasör/Not", "şu not"));
