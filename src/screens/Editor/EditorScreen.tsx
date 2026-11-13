@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, BookOpen, SquarePen, Link2 } from "lucide-react";
 import type { EditorView } from "@codemirror/view";
-import { useAppStore } from "../../store/useAppStore";
+import { notifyError, useAppStore } from "../../store/useAppStore";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { useIsNarrow } from "../../hooks/useIsNarrow";
 import { useFlushOnExit } from "../../hooks/useFlushOnExit";
 import { Markdown } from "./Markdown";
-import { CodeMirrorEditor } from "./CodeMirrorEditor";
+import { CodeMirrorEditor, type EditorSelectionInfo } from "./CodeMirrorEditor";
 import { BacklinksPanel } from "./BacklinksPanel";
 import { EditorToolbar } from "./EditorToolbar";
 import { EditorContextMenu } from "./EditorContextMenu";
@@ -17,6 +17,28 @@ import { VoiceRecorder } from "./VoiceRecorder";
 import { firstSectionCaret } from "./noteCaret";
 import { editorRootClass } from "./editorLayout";
 import { firstHeading } from "../../core/markdown/autoTitle";
+import { resolveLink } from "../../core/markdown/links";
+import type { VaultNote } from "../../core/vault/types";
+import { SelectionBar } from "./SelectionBar";
+import { ReviewCardDialog } from "./ReviewCardDialog";
+import { LinkNoteDialog } from "./LinkNoteDialog";
+import {
+  barVisible,
+  canMakeCard,
+  linkReplacement,
+  linkTargetFor,
+  planCardInsert,
+  selectionInTable,
+} from "./selectionActions";
+
+/** Seçim çubuğundan açılan pencere: düğmeye basıldığı andaki seçim yakalanır (LOM-110). */
+interface SelDialog {
+  kind: "card" | "link";
+  path: string;
+  from: number;
+  to: number;
+  text: string;
+}
 
 function breadcrumb(path: string): string[] {
   const segs = path.split("/");
@@ -49,9 +71,21 @@ export function EditorScreen() {
   const autoNameNote = useAppStore((s) => s.autoNameNote);
   const backlinksCollapsed = useAppStore((s) => s.backlinksCollapsed);
   const toggleBacklinks = useAppStore((s) => s.toggleBacklinks);
+  const srsSettings = useAppStore((s) => s.srsSettings);
+  const platformMobile = useAppStore((s) => s.platformMobile);
 
   const viewRef = useRef<EditorView | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; via: "mouse" | "touch" } | null>(null);
+  // Seçim çubuğu (LOM-110): editörün bildirdiği güncel seçim ve çubuktan açılan pencere.
+  const [sel, setSel] = useState<EditorSelectionInfo | null>(null);
+  const [selDialog, setSelDialog] = useState<SelDialog | null>(null);
+  const selDialogRef = useRef<SelDialog | null>(null);
+  selDialogRef.current = selDialog;
+  // Not değişince ya da okuma moduna geçince çubuk ve pencere kapanır.
+  useEffect(() => {
+    setSel(null);
+    setSelDialog(null);
+  }, [activeNote, editing]);
   // Mobil Bağlantılar sheet'i (masaüstünde yan panel; mobilde 288px panel editörü ezdiği
   // için alttan sheet). Not değişince kapanır (bağlantıya dokununca doğal kapanış).
   const [blSheetOpen, setBlSheetOpen] = useState(false);
@@ -83,6 +117,9 @@ export function EditorScreen() {
     if (!editing || !activeNote) return;
     if (autoNameTimer.current) clearTimeout(autoNameTimer.current);
     autoNameTimer.current = setTimeout(() => {
+      // Seçim penceresi açıkken adlandırma beklesin: editör yeniden kurulur ve pencere kapanırdı.
+      // Pencere yazınca taslak değişir, zamanlayıcı yeniden kurulur.
+      if (selDialogRef.current) return;
       const view = viewRef.current;
       const h = firstHeading(draft);
       if (!h) return;
@@ -154,6 +191,78 @@ export function EditorScreen() {
     restore.live = true;
   }
   const initialCaret = restore ? restore.pos : isDaily ? firstSectionCaret(draft) : undefined;
+
+  // — Seçim çubuğu (LOM-110) —
+  const showBar =
+    !!sel &&
+    !ctxMenu &&
+    !selDialog &&
+    barVisible({
+      empty: sel.from === sel.to,
+      text: sel.text,
+      inTable: selectionInTable(viewRef.current?.state.doc.toString() ?? draft, sel.from, sel.to),
+      editing,
+    });
+  const openSelDialog = (kind: SelDialog["kind"]) => {
+    if (!sel) return;
+    setSelDialog({ kind, path: activeNote, from: sel.from, to: sel.to, text: sel.text });
+    setSel(null);
+  };
+  /** Pencere açıkken metin değiştiyse (senkron, başka cihaz) eski konuma yazılmaz. */
+  const liveView = (d: SelDialog): EditorView | null => {
+    const view = viewRef.current;
+    const st = useAppStore.getState();
+    if (!view || !st.editing || st.activeNote !== d.path || view.state.sliceDoc(d.from, d.to) !== d.text) {
+      void notifyError(t("selbar.stale"), "info");
+      return null;
+    }
+    return view;
+  };
+  const saveCard = async (front: string, back: string) => {
+    const d = selDialogRef.current;
+    if (!d) return;
+    const view = liveView(d);
+    if (!view) return;
+    const plan = planCardInsert(view.state.doc.toString(), d.from, d.to, front, back);
+    if (!plan) return;
+    view.dispatch({
+      changes: { from: plan.from, to: plan.to, insert: plan.insert },
+      selection: { anchor: plan.caret },
+      scrollIntoView: true,
+    });
+    // Mobilde odak verilmez: klavye kendiliğinden açılmasın.
+    if (!isMobile) view.focus();
+    // Kart satırı hemen diske yazılsın ve Tekrar kartları bu notu görsün (yeni yazma yolu yok:
+    // kayıt saveNote'tan, kart toplama srsLoad'dan geçer).
+    await saveNote();
+    const st = useAppStore.getState();
+    if (st.srsLoaded) {
+      try {
+        await st.srsLoad();
+      } catch (e) {
+        console.error("[selbar] Tekrar kartları tazelenemedi:", e);
+      }
+    }
+  };
+  const pickLink = (note: VaultNote) => {
+    const d = selDialogRef.current;
+    setSelDialog(null);
+    if (!d) return;
+    const view = liveView(d);
+    if (!view) return;
+    const insert = linkReplacement(d.text, linkTargetFor(note, useAppStore.getState().notes));
+    view.dispatch({
+      changes: { from: d.from, to: d.to, insert },
+      selection: { anchor: d.from + insert.length },
+      scrollIntoView: true,
+    });
+    if (!isMobile) view.focus();
+  };
+  // Bağlantı, aynı adlı notlarda uzantısız yolla yazılır; okuma modunda da notla çözülür.
+  const openLink = (target: string) => {
+    const note = resolveLink(target, useAppStore.getState().notes);
+    openNote(note ? note.path : target);
+  };
 
   // Okuma moduna geçerken son hâli kaydet (okuma güncel içeriği göstersin).
   const toggleMode = async () => {
@@ -274,6 +383,7 @@ export function EditorScreen() {
                 lineNumbers={lineNumbers}
                 onView={(v) => (viewRef.current = v)}
                 onContextMenu={(x, y, via) => setCtxMenu({ x, y, via })}
+                onSelection={setSel}
                 initialCaret={initialCaret}
                 focusOnMount={restore ? restore.focus : true}
               />
@@ -282,7 +392,7 @@ export function EditorScreen() {
             <div className="lo-editor__preview lo-editor__preview--clickedit" onClick={enterEditFromReading}>
               <Markdown
                 content={content}
-                onLink={(name) => openNote(name)}
+                onLink={openLink}
                 onToggleTask={(line) => void toggleTask(`${activeNote}:${line}`)}
               />
             </div>
@@ -312,6 +422,31 @@ export function EditorScreen() {
           openedBy={ctxMenu.via}
           getView={() => viewRef.current}
           onClose={() => setCtxMenu(null)}
+        />
+      )}
+
+      {showBar && sel && (
+        <SelectionBar
+          rect={sel.rect}
+          touch={isMobile || platformMobile}
+          showCard={canMakeCard(srsSettings, activeNote)}
+          onCard={() => openSelDialog("card")}
+          onLink={() => openSelDialog("link")}
+        />
+      )}
+      {selDialog?.kind === "card" && (
+        <ReviewCardDialog
+          initialFront={selDialog.text}
+          onSave={saveCard}
+          onClose={() => setSelDialog(null)}
+        />
+      )}
+      {selDialog?.kind === "link" && (
+        <LinkNoteDialog
+          text={selDialog.text}
+          currentPath={selDialog.path}
+          onPick={pickLink}
+          onClose={() => setSelDialog(null)}
         />
       )}
 

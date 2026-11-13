@@ -23,6 +23,18 @@ interface Props {
   /** Kurulunca odak alsın mı (varsayılan evet; mobilde zaten almaz). Otomatik adlandırma
    *  sonrası yeniden kurulumda önceki odak durumu korunur (LOM-76). */
   focusOnMount?: boolean;
+  /** Seçim değişince (LOM-110): boş olmayan seçimin aralığı, metni ve ekrandaki kutusu;
+   *  seçim boşsa, editör odağı kaybedince ya da not kaydırılınca null. Fareyle sürükleme
+   *  sürerken bildirilmez, fare bırakılınca bildirilir. */
+  onSelection?: (s: EditorSelectionInfo | null) => void;
+}
+
+export interface EditorSelectionInfo {
+  from: number;
+  to: number;
+  text: string;
+  /** Seçimin ekrandaki kutusu (görünür pencereye göre px). */
+  rect: { top: number; bottom: number; left: number; right: number };
 }
 
 // Token'larımıza dayalı sözdizimi vurgusu (light/dark otomatik — var() kullanır).
@@ -83,6 +95,8 @@ const cmTheme = EditorView.theme({
   ".cm-h5": { fontSize: "1.02em", fontWeight: "700", paddingTop: "10px" },
   ".cm-h6": { fontSize: "1em", fontWeight: "700", color: "var(--fg2)", paddingTop: "8px" },
   ".cm-wikilink": { color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px" },
+  // İmleç başka satırdayken bağlantıya dokununca not açılır (LOM-110).
+  ".cm-wikilink[data-target]": { cursor: "pointer" },
   // Kütüphane (LOM-83): kitap bağlantısı ve çizim işaret satırı.
   ".cm-booklink": { color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: "2px" },
   ".cm-booklink[data-href]": { cursor: "pointer" },
@@ -278,6 +292,7 @@ export function CodeMirrorEditor({
   onContextMenu,
   initialCaret,
   focusOnMount = true,
+  onSelection,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const platformMobile = useAppStore((s) => s.platformMobile);
@@ -292,6 +307,8 @@ export function CodeMirrorEditor({
   onCtxRef.current = onContextMenu;
   const onViewRef = useRef(onView);
   onViewRef.current = onView;
+  const onSelRef = useRef(onSelection);
+  onSelRef.current = onSelection;
 
   useEffect(() => {
     if (!ref.current) return;
@@ -308,6 +325,66 @@ export function CodeMirrorEditor({
       pressTimer = null;
       pressAt = null;
     };
+
+    // Seçim bildirimi (LOM-110). Konum ölçümü CodeMirror'ın güncelleme döngüsü içinde yapılamaz
+    // (yerleşim okuması yasak); bir sonraki kareye ertelenir. Fareyle sürükleme sürerken
+    // bildirilmez: çubuk seçim büyüdükçe zıplamasın, fare bırakılınca bir kez çıksın.
+    let mouseDragging = false;
+    let selFrame: number | null = null;
+    let lastSent: string | null = null;
+    let viewForSel: EditorView | null = null;
+    const sendSel = (info: EditorSelectionInfo | null) => {
+      const key = info ? `${info.from}:${info.to}:${info.rect.top}:${info.rect.left}` : null;
+      if (key === lastSent) return;
+      lastSent = key;
+      onSelRef.current?.(info);
+    };
+    const reportSel = () => {
+      if (!onSelRef.current) return;
+      if (selFrame != null) cancelAnimationFrame(selFrame);
+      selFrame = requestAnimationFrame(() => {
+        selFrame = null;
+        const v = viewForSel;
+        if (!v || mouseDragging) return;
+        const r = v.state.selection.main;
+        if (r.empty || !v.hasFocus) return sendSel(null);
+        const a = v.coordsAtPos(r.from, 1);
+        const b = v.coordsAtPos(r.to, -1);
+        if (!a || !b) return sendSel(null); // seçim görünür alanın dışında
+        sendSel({
+          from: r.from,
+          to: r.to,
+          text: v.state.sliceDoc(r.from, r.to),
+          rect: {
+            top: Math.min(a.top, b.top),
+            bottom: Math.max(a.bottom, b.bottom),
+            left: Math.min(a.left, b.left),
+            right: Math.max(a.right, b.right),
+          },
+        });
+      });
+    };
+    const hideSel = () => {
+      if (selFrame != null) cancelAnimationFrame(selFrame);
+      selFrame = null;
+      sendSel(null);
+    };
+    const onWinPointerUp = () => {
+      if (!mouseDragging) return;
+      mouseDragging = false;
+      reportSel();
+    };
+    // Not kaydırılınca çubuk kaybolur (K2). Editörün kendi kaydırıcısı ya da onu saran
+    // kaydırma kutusu — ikisi de yakalanır.
+    const onAnyScroll = (e: Event) => {
+      const v = viewForSel;
+      const t = e.target;
+      if (!v || lastSent == null || !(t instanceof Node)) return;
+      if (t === v.scrollDOM || t.contains(v.dom)) hideSel();
+    };
+    window.addEventListener("pointerup", onWinPointerUp);
+    window.addEventListener("pointercancel", onWinPointerUp);
+    document.addEventListener("scroll", onAnyScroll, true);
 
     const exts = [
       history(),
@@ -335,7 +412,14 @@ export function CodeMirrorEditor({
           return true;
         },
         pointerdown: (e) => {
-          if (e.pointerType === "mouse" || !onCtxRef.current) return false;
+          if (e.pointerType === "mouse") {
+            if (e.button === 0) {
+              mouseDragging = true;
+              hideSel();
+            }
+            return false;
+          }
+          if (!onCtxRef.current) return false;
           cancelPress();
           const { clientX: x, clientY: y } = e;
           pressAt = { x, y };
@@ -363,6 +447,7 @@ export function CodeMirrorEditor({
       }),
       EditorView.updateListener.of((u) => {
         if (u.docChanged) onChangeRef.current(u.state.doc.toString());
+        if (u.docChanged || u.selectionSet || u.focusChanged || u.geometryChanged) reportSel();
       }),
     ];
     if (lineNumbers) exts.push(lineNumbersExt());
@@ -385,9 +470,16 @@ export function CodeMirrorEditor({
     // Yazmak için nota dokunmak yeterli.
     if (!mobileRef.current && focusOnMount) view.focus();
     if (caret != null) view.dispatch({ effects: EditorView.scrollIntoView(caret, { y: "center" }) });
+    viewForSel = view;
     onViewRef.current?.(view);
     return () => {
       cancelPress();
+      if (selFrame != null) cancelAnimationFrame(selFrame);
+      window.removeEventListener("pointerup", onWinPointerUp);
+      window.removeEventListener("pointercancel", onWinPointerUp);
+      document.removeEventListener("scroll", onAnyScroll, true);
+      viewForSel = null;
+      if (lastSent != null) onSelRef.current?.(null);
       onViewRef.current?.(null);
       view.destroy();
     };

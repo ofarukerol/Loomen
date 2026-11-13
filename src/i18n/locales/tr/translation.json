@@ -1784,5 +1784,20 @@
       "addError": "Alıntı eklenemedi: {{detail}}",
       "badImage": "Bu görsel açılamadı. JPEG ya da PNG bir fotoğrafla yeniden deneyin."
     }
+  },
+  "selbar": {
+    "barLabel": "Seçim seçenekleri",
+    "makeCard": "Tekrar kartı yap",
+    "addLink": "Bağlantı ver",
+    "cardTitle": "Tekrar kartı yap",
+    "front": "Ön yüz",
+    "back": "Arka yüz",
+    "backPlaceholder": "Cevabı yaz",
+    "save": "Kaydet",
+    "cancel": "Vazgeç",
+    "linkTitle": "Bağlantı ver",
+    "searchPlaceholder": "Not ara",
+    "noResult": "Not bulunamadı",
+    "stale": "Metin değişti, yeniden seç."
   }
 }

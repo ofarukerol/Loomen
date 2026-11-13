@@ -15,6 +15,7 @@ import { ImageEmbed, parseImageLine, type ImageRef } from "./ImageEmbed";
 import { createTauriBackend, isTauri } from "../../core/vault";
 import { useAppStore } from "../../store/useAppStore";
 import { findBookLinks, isHighlightMarkerLine } from "../../core/library/links";
+import { normalizeLinkTarget, resolveLink } from "../../core/markdown/links";
 
 /** Obsidian "Canlı Önizleme" benzeri: markdown işaretlerini aktif satır dışında gizle, biçimle. */
 
@@ -163,6 +164,26 @@ const bookLinkClick = EditorView.domEventHandlers({
   },
 });
 
+/**
+ * İmleç başka satırdayken wiki bağlantısına dokununca hedef notu aç (LOM-110). Bağlantı
+ * kasadaki notla çözülür (ad, uzantısız yol, harf katlama); bulunamazsa olağan imleç
+ * yerleştirme sürer.
+ */
+const wikiLinkClick = EditorView.domEventHandlers({
+  mousedown(event) {
+    if (event.button !== 0 || event.shiftKey || event.altKey) return false;
+    const el = (event.target as HTMLElement | null)?.closest?.(".cm-wikilink[data-target]");
+    const target = el?.getAttribute("data-target");
+    if (!target) return false;
+    const st = useAppStore.getState();
+    const note = resolveLink(target, st.notes);
+    if (!note) return false;
+    event.preventDefault();
+    void st.openNote(note.path);
+    return true;
+  },
+});
+
 function buildDecos(view: EditorView): DecorationSet {
   const { state } = view;
   const cursorLine = state.doc.lineAt(state.selection.main.head).number;
@@ -239,11 +260,26 @@ function buildDecos(view: EditorView): DecorationSet {
       const stop = start + m[0].length;
       const line = state.doc.lineAt(start);
       if (embedLines.has(line.number)) continue; // embed satırı — widget hallediyor
-      out.push({ from: start + 2, to: stop - 2, deco: Decoration.mark({ class: "cm-wikilink" }) });
-      if (line.number !== cursorLine) {
-        out.push({ from: start, to: start + 2, deco: HIDE });
-        out.push({ from: stop - 2, to: stop, deco: HIDE });
+      const away = line.number !== cursorLine;
+      if (!away) {
+        out.push({ from: start + 2, to: stop - 2, deco: Decoration.mark({ class: "cm-wikilink" }) });
+        continue;
       }
+      // İmleç başka satırdayken [[hedef|etiket]] yalnız etiketiyle görünür (LOM-110); dokununca
+      // hedef not açılır. Gömü (![[…]]) ve aynı nota başlık çapası tıklanabilir olmaz.
+      const inner = m[1];
+      const pipe = inner.indexOf("|");
+      const labelFrom = pipe >= 0 && pipe < inner.length - 1 ? start + 2 + pipe + 1 : start + 2;
+      const embed = start > line.from && state.doc.sliceString(start - 1, start) === "!";
+      const target = normalizeLinkTarget(inner);
+      const attrs = !embed && target ? { "data-target": target } : undefined;
+      out.push({ from: start, to: labelFrom, deco: HIDE });
+      out.push({
+        from: labelFrom,
+        to: stop - 2,
+        deco: Decoration.mark({ class: "cm-wikilink", ...(attrs ? { attributes: attrs } : {}) }),
+      });
+      out.push({ from: stop - 2, to: stop, deco: HIDE });
     }
   }
 
@@ -346,4 +382,4 @@ const livePreviewPlugin = ViewPlugin.fromClass(
 );
 
 /** Canlı önizleme uzantısı: dekorasyonlar + panodan resim yapıştırma. */
-export const livePreview: Extension = [livePreviewPlugin, imagePaste, bookLinkClick];
+export const livePreview: Extension = [livePreviewPlugin, imagePaste, bookLinkClick, wikiLinkClick];

@@ -5540,3 +5540,79 @@ html[lang="ar"] .lo-hab-side__head { letter-spacing: 0; }
 }
 .lo-ai__qchip:hover:not(:disabled), .lo-ai__qchip:focus-visible { border-color: var(--accent); color: var(--fg1); }
 .lo-ai__qchip:disabled { opacity: 0.55; cursor: default; }
+
+/* — Seçim çubuğu (LOM-110): notta metin seçilince seçimin üstünde çıkan şerit — */
+.lo-selbar {
+  position: fixed;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+  max-width: calc(100vw - 8px);
+  padding: 3px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--sh3);
+  font-size: 13px;
+}
+.lo-selbar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding-block: 0;
+  padding-inline: 10px;
+  font: inherit;
+  white-space: nowrap;
+  color: var(--fg1);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.lo-selbar__btn:hover { background: var(--accent-soft); color: var(--accent); }
+.lo-selbar__btn + .lo-selbar__btn { border-inline-start: 1px solid var(--line-soft); border-start-start-radius: 0; border-end-start-radius: 0; }
+.lo-app.is-mobile .lo-selbar__btn { min-height: 36px; }
+@media (max-width: 768px) { .lo-selbar__btn { min-height: 36px; } }
+
+/* — Seçimden Tekrar kartı penceresi — */
+.lo-selcard,
+.lo-sellink {
+  width: 460px; max-width: 100%; padding: 20px 20px 16px; display: flex; flex-direction: column; gap: 10px;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--sh3);
+}
+.lo-selcard__title,
+.lo-sellink__title { margin: 0; font-size: 16px; font-weight: 600; color: var(--fg1); }
+.lo-selcard__label { font-size: 12.5px; font-weight: 600; color: var(--fg2); }
+.lo-selcard__area,
+.lo-sellink__search {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; font: inherit; font-size: 14px; line-height: 1.55; color: var(--fg1);
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-md);
+}
+.lo-selcard__area { resize: vertical; min-height: 56px; }
+.lo-selcard__area:focus,
+.lo-sellink__search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.lo-selcard__actions,
+.lo-sellink__actions { display: flex; justify-content: flex-end; gap: 8px; margin-block-start: 4px; }
+.lo-selcard__actions .lo-btn,
+.lo-sellink__actions .lo-btn { min-height: 38px; }
+
+/* — Seçime bağlantı penceresi — */
+.lo-sellink__quote {
+  margin: 0; padding: 8px 12px; max-height: 90px; overflow-y: auto; font-size: 13.5px; line-height: 1.55; color: var(--fg2);
+  border-inline-start: 3px solid var(--accent); background: var(--bg-sunken); border-radius: var(--radius-sm);
+}
+.lo-sellink__list {
+  list-style: none; margin: 0; padding: 4px; max-height: 280px; overflow-y: auto;
+  border: 1px solid var(--line-soft); border-radius: var(--radius-md);
+}
+.lo-sellink__item {
+  display: flex; align-items: center; gap: 8px; min-height: 36px; padding-block: 4px; padding-inline: 10px;
+  border-radius: 8px; cursor: pointer; color: var(--fg1); font-size: 14px;
+}
+.lo-sellink__item.is-active { background: var(--accent-soft); color: var(--accent); }
+.lo-sellink__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lo-sellink__folder { flex-shrink: 1; min-width: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--fg3); }
+.lo-sellink__empty { padding: 14px 10px; font-size: 13px; color: var(--fg3); }

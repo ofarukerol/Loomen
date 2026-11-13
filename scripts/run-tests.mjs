@@ -46,6 +46,7 @@ const suites = [
   ["src/core/__test__/aiTest.ts", []],
   ["src/core/__test__/editorTest.ts", []],
   ["src/core/__test__/ctxMenuTest.ts", []],
+  ["src/core/__test__/selectionBarTest.ts", []],
   ["src/core/__test__/mobileTest.ts", []],
   ["src/core/__test__/writeErrorTest.ts", []],
   ["src/core/__test__/atomicWriteTest.ts", []],

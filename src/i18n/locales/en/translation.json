@@ -1784,5 +1784,20 @@
       "addError": "Could not add the quote: {{detail}}",
       "badImage": "This image could not be opened. Try again with a JPEG or PNG photo."
     }
+  },
+  "selbar": {
+    "barLabel": "Selection options",
+    "makeCard": "Make review card",
+    "addLink": "Add link",
+    "cardTitle": "Make review card",
+    "front": "Front",
+    "back": "Back",
+    "backPlaceholder": "Type the answer",
+    "save": "Save",
+    "cancel": "Cancel",
+    "linkTitle": "Add link",
+    "searchPlaceholder": "Search notes",
+    "noResult": "No note found",
+    "stale": "The text changed, select it again."
   }
 }
