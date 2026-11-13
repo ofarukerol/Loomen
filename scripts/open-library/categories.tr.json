@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "tree": [
+    {
+      "id": "islami", "ad": "İslami Eserler", "children": [
+        { "id": "islami-akaid", "ad": "Akaid", "shamela": "العقيدة" },
+        { "id": "islami-tefsir", "ad": "Tefsir", "shamela": "التفسير" },
+        { "id": "islami-kuran-ilimleri", "ad": "Kur'an İlimleri", "shamela": "علوم القرآن" },
+        { "id": "islami-hadis-metinleri", "ad": "Hadis Metinleri", "shamela": "متون الحديث" },
+        { "id": "islami-hadis-serhleri", "ad": "Hadis Şerhleri", "shamela": "شروح الحديث" },
+        { "id": "islami-hadis-usulu", "ad": "Hadis Usulü", "shamela": "علوم الحديث" },
+        {
+          "id": "islami-fikih", "ad": "Fıkıh", "shamela": "الفقه", "children": [
+            { "id": "islami-fikih-hanefi", "ad": "Hanefî", "shamela": "الفقه الحنفي" },
+            { "id": "islami-fikih-maliki", "ad": "Mâlikî", "shamela": "الفقه المالكي" },
+            { "id": "islami-fikih-safii", "ad": "Şâfiî", "shamela": "الفقه الشافعي" },
+            { "id": "islami-fikih-hanbeli", "ad": "Hanbelî", "shamela": "الفقه الحنبلي" },
+            { "id": "islami-fikih-genel", "ad": "Genel Fıkıh", "shamela": "الفقه العام" }
+          ]
+        },
+        { "id": "islami-fikih-usulu", "ad": "Fıkıh Usulü", "shamela": "أصول الفقه" },
+        { "id": "islami-fetvalar", "ad": "Fetvalar", "shamela": "الفتاوى" },
+        { "id": "islami-siyer", "ad": "Siyer", "shamela": "السيرة النبوية" },
+        { "id": "islami-teracim-tabakat", "ad": "Terâcim ve Tabakat", "shamela": "التراجم والطبقات" },
+        { "id": "islami-tarih", "ad": "İslam Tarihi", "shamela": "التاريخ" },
+        { "id": "islami-ahlak-tasavvuf", "ad": "Ahlak ve Tasavvuf", "shamela": "الرقائق والآداب" },
+        { "id": "islami-arap-dili", "ad": "Arap Dili", "shamela": "كتب اللغة / النحو والصرف" },
+        { "id": "islami-edebiyat-belagat", "ad": "Edebiyat ve Belagat", "shamela": "الأدب والبلاغة" },
+        { "id": "islami-mantik-kelam", "ad": "Mantık ve Kelam", "shamela": "علم الكلام / المنطق" }
+      ]
+    },
+    {
+      "id": "edebiyat", "ad": "Edebiyat", "children": [
+        { "id": "edebiyat-roman", "ad": "Roman" },
+        { "id": "edebiyat-hikaye", "ad": "Hikâye" },
+        { "id": "edebiyat-siir", "ad": "Şiir" },
+        { "id": "edebiyat-tiyatro", "ad": "Tiyatro" },
+        { "id": "edebiyat-deneme-mektup", "ad": "Deneme ve Mektup" },
+        { "id": "edebiyat-halk", "ad": "Halk Edebiyatı ve Masal" }
+      ]
+    },
+    {
+      "id": "tarih", "ad": "Tarih", "children": [
+        { "id": "tarih-genel", "ad": "Genel Tarih" },
+        { "id": "tarih-osmanli", "ad": "Osmanlı ve Türk Tarihi" },
+        { "id": "tarih-anilar", "ad": "Anı ve Biyografi" },
+        { "id": "tarih-seyahat", "ad": "Seyahatname ve Coğrafya" }
+      ]
+    },
+    {
+      "id": "felsefe", "ad": "Felsefe ve Düşünce", "children": [
+        { "id": "felsefe-genel", "ad": "Felsefe" },
+        { "id": "felsefe-toplum", "ad": "Toplum ve Siyaset" },
+        { "id": "felsefe-din", "ad": "Din Bilimleri" },
+        { "id": "felsefe-psikoloji", "ad": "Psikoloji ve Eğitim" }
+      ]
+    },
+    {
+      "id": "dil", "ad": "Dil ve Sözlük", "children": [
+        { "id": "dil-sozluk", "ad": "Sözlük" },
+        { "id": "dil-gramer", "ad": "Dilbilgisi ve Dil Öğrenimi" }
+      ]
+    },
+    {
+      "id": "bilim", "ad": "Bilim", "children": [
+        { "id": "bilim-doga", "ad": "Doğa Bilimleri" },
+        { "id": "bilim-matematik", "ad": "Matematik ve Astronomi" },
+        { "id": "bilim-tip", "ad": "Tıp ve Sağlık" },
+        { "id": "bilim-teknik", "ad": "Teknik ve Uygulamalı" }
+      ]
+    },
+    {
+      "id": "sanat", "ad": "Sanat", "children": [
+        { "id": "sanat-gorsel", "ad": "Görsel Sanatlar" },
+        { "id": "sanat-muzik", "ad": "Müzik" },
+        { "id": "sanat-hat", "ad": "Hat ve Süsleme" }
+      ]
+    },
+    {
+      "id": "cocuk", "ad": "Çocuk ve Gençlik", "children": [
+        { "id": "cocuk-hikaye", "ad": "Çocuk Hikâyeleri" },
+        { "id": "cocuk-genclik", "ad": "Gençlik" }
+      ]
+    },
+    { "id": "diger", "ad": "Diğer" }
+  ]
+}

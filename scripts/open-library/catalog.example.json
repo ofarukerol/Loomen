@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "authorAliases": [
+    { "id": "yazar-kurgusal-1", "name": "Kurgusal Yazar", "variants": ["Yazar, Kurgusal", "كاتب خيالي"] }
+  ],
+  "separate": [["Ali Kurgusal", "Ali Kurgusel"]],
+  "subjectRules": {
+    "ornek-kaynak": { "Short stories": "edebiyat-hikaye", "Poetry": "edebiyat-siir" }
+  },
+  "overrides": { "ornek-kaynak:kitap-1": "diger" }
+}

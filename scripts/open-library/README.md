@@ -167,12 +167,56 @@ Sonra hazırlık aracına `çıktı/input` verilir:
 node scripts/open-library/prepare.mjs prepare scripts/open-library/layout.example.json /yerel/ayiklanmis/input /yerel/kitap-ciktisi 2026-11-12-01
 ```
 
+## Yazarlar ve kategoriler
+
+`catalog.mjs` ayıklanmış kitapları yazarlara ve Türkçe kategorilere bağlar. Çevrimdışıdır;
+ağ ve yükleme yoktur, girdi klasörlerine hiçbir şey yazılmaz ya da silinmez.
+
+```sh
+node scripts/open-library/catalog.mjs run scripts/open-library/catalog.example.json /yerel/ayiklanmis /yerel/katalog --hints /yerel/ipuclari --decisions /yerel/kararlar
+```
+
+**Girdi:** `ayıklanmış klasör` (yalnız `books/<kaynak>/<id>.json` okunur); isteğe bağlı
+`--hints` klasöründe `<kaynak>.jsonl` (satır: `id`, `subjects`, `sourceCategory`); isteğe bağlı
+`--decisions` klasöründe `suggestions.jsonl` ve `approvals.jsonl`. Ayar dosyası için
+`catalog.example.json` örnektir. Çıktı klasörü girdilerle iç içe olamaz.
+
+**Çıktı** (her çalışmada baştan, aynı girdi aynı baytı verir): `authors.json`, `catalog.json`,
+`reports/author-review.json`, `reports/pending-suggestions.json`, `reports/uncategorized.json`,
+`reports/summary.json` (kategori başına açık ve kapalı kitap sayısı ayrı).
+
+**Yazarlar:** harf büyüklüğü, aksan, noktalama, "Soyad, Ad" sırası, Arapçada hareke ve elif
+biçimi farkı tek yazar sayılır. Başka hiçbir benzerlik birleştirmez. **Emin olunmayan yazar
+birleştirilmez, `author-review.json` gözden geçir listesine düşer:** bir iki harf farkı, baş harf
+kısaltması, el-/al-/ibn/bin farkı, ى/ي ve ة/ه farkı, bir adın ötekinin içinde geçmesi, vefat
+tarihi eki, birden çok yazarlı görünen ad. Yazarı boş kitap hiçbir yazara bağlanmaz.
+
+**Eş ad tablosu:** iki yazımın aynı kişi olduğunu bildiğinde (örneğin Latin ve Arapça yazım)
+ayar dosyasındaki `authorAliases` listesine `{ "id": "sabit-kimlik", "name": "Görünen ad",
+"variants": ["Yazım 1", "Yazım 2"] }` satırı ekle. `id` bir kez yazılır ve değişmez. İki ayrı
+kişi olduğunu biliyorsan çifti `separate` listesine yaz; listeye bir daha düşmez.
+
+**Kategoriler:** ağaç `categories.tr.json` dosyasındadır; adlar koddan bağımsız değiştirilebilir
+(`id` ASCII ve benzersiz kalır). İslami Eserler dalı Şamile'nin tasnifini rehber alır ve her
+düğümde Arapça başlığı `shamela` alanında taşır; bu başlıklar elle yazılmıştır, Şamile'den
+çekilmemiştir. Kitap şu sırayla yerleşir: ayardaki elle atama (`overrides`), ipucundaki Şamile
+başlığı, kaynak başına konu kuralı (`subjectRules`). Tahmin ya da başlıktan çıkarım yoktur;
+eşleşmeyen kitap `uncategorized.json` listesinde kalır (yapay zekâya verilecek liste budur).
+
+**Yapay zekâ önerisi:** araç yapay zekâyı çağırmaz; öneriyi `suggestions.jsonl` dosyasından
+okur (`{ "key": "kaynak:id", "category": "kategori-id", "by": "kim", "note": "..." }`). **Onaysız
+öneri yayına ve sayıma girmez;** kitabın kategorisi boş kalır, öneri `pending-suggestions.json`
+listesinde bekler. Onay vermek için `approvals.jsonl` dosyasına satır eklenir:
+`{ "key": "kaynak:id", "category": "kategori-id", "approvedBy": "ad" }`. Onay öneriden farklı
+kategori gösteriyorsa onay geçerlidir. Bilinmeyen kitap, ağaçta olmayan kategori ve aynı kitaba
+iki onay hata verir; kuralla zaten yerleşmiş kitaba gelen satır uyarıyla yok sayılır.
+
 ## Sonraki işe teslim
 
 Kaynak alma `intake.mjs`, bozuk ve tekrar ayıklama, Arapça EPUB dönüştürme ve
 kapaklar (2/4) `curate.mjs` ile yapılıyor; gerçek toplu çalıştırma iMac'te elle yapılır.
-Yazar ve kategori eşleme 3/4 işidir ve kitap kayıtlarını (`books/`) kullanır; yükleme paketi
-ve kaynak raporları 4/4 işidir. Bu araçlar yayın hakkına karar vermez. Gerçek yükleme
+Yazar ve kategori eşleme (3/4) `catalog.mjs` ile bitti. Kalan iş yükleme paketi ve kaynak
+raporlarıdır (4/4); o iş `authors.json` ile `catalog.json` dosyalarını kullanacak. Bu araçlar yayın hakkına karar vermez. Gerçek yükleme
 öncesi mevcut depo adları ve erişim düzeni ayrıca doğrulanmalı, yer tutucular
 değiştirilmeli ve çekim yeniden doğrulanmalıdır. Gerçek yükleme, Keşfet ekranı,
 Drive yedeği ve aylık görev bu parçaya dahil değildir.
