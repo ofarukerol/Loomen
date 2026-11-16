@@ -1,3 +1,4 @@
+import { EditorSelection, type EditorState, type TransactionSpec } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { findFenceBlocks, findTables } from "./tableModel";
 
@@ -69,14 +70,22 @@ export const strike = (v: EditorView) => wrap(v, "~~");
 export const highlight = (v: EditorView) => wrap(v, "==");
 export const inlineCode = (v: EditorView) => wrap(v, "`");
 
-/** Seçili satırlara başı ekle/kaldır. */
-function setLinePrefix(v: EditorView, prefix: string, opts: { toggle?: boolean; headingReset?: boolean } = {}) {
-  const r = v.state.selection.main;
-  const a = v.state.doc.lineAt(r.from);
-  const b = v.state.doc.lineAt(r.to);
+/**
+ * Seçili satırlara baş ekle/kaldır — saf işlem tanımı (test edilebilir).
+ * İmleç eklenen başın SAĞINA geçer: satır başındaki imleç eşleme sırasında varsayılan olarak
+ * eklemenin soluna yapışır ("|- [ ]"), bu yüzden seçim elle sağa eşlenir.
+ */
+export function linePrefixSpec(
+  state: EditorState,
+  prefix: string,
+  opts: { toggle?: boolean; headingReset?: boolean } = {},
+): TransactionSpec {
+  const r = state.selection.main;
+  const a = state.doc.lineAt(r.from);
+  const b = state.doc.lineAt(r.to);
   const changes: { from: number; to?: number; insert: string }[] = [];
   for (let n = a.number; n <= b.number; n++) {
-    const line = v.state.doc.line(n);
+    const line = state.doc.line(n);
     if (prefix === "") {
       const m = line.text.match(/^#{1,6}\s+/);
       if (m) changes.push({ from: line.from, to: line.from + m[0].length, insert: "" });
@@ -89,7 +98,23 @@ function setLinePrefix(v: EditorView, prefix: string, opts: { toggle?: boolean; 
       changes.push({ from: line.from, to: line.from + resetLen, insert: prefix });
     }
   }
-  v.dispatch({ changes });
+  const set = state.changes(changes);
+  // Değişen baş bölgesinin içindeki imleç (ör. "## " silinip "# " yazılırken satır başındaki)
+  // o bölgenin sonuna taşınır; diğerleri olağan eşlenir.
+  const mapPos = (p: number) => {
+    const c = changes.find((c) => p >= c.from && p <= (c.to ?? c.from));
+    return set.mapPos(c ? c.to ?? c.from : p, 1);
+  };
+  const selection = EditorSelection.create(
+    state.selection.ranges.map((r) => EditorSelection.range(mapPos(r.anchor), mapPos(r.head))),
+    state.selection.mainIndex,
+  );
+  return { changes: set, selection };
+}
+
+/** Seçili satırlara başı ekle/kaldır. */
+function setLinePrefix(v: EditorView, prefix: string, opts: { toggle?: boolean; headingReset?: boolean } = {}) {
+  v.dispatch(linePrefixSpec(v.state, prefix, opts));
   focus(v);
 }
 

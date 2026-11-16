@@ -29,7 +29,7 @@ import {
   needsTrailingBlankLine,
   ensureTrailingBlankLine,
 } from "../../screens/Editor/tableModel";
-import { computeBlockInsert } from "../../screens/Editor/editorCommands";
+import { computeBlockInsert, linePrefixSpec } from "../../screens/Editor/editorCommands";
 import { firstSectionCaret } from "../../screens/Editor/noteCaret";
 import { isNarrowEditor, NARROW_EDITOR_PX } from "../../screens/Editor/editorLayout";
 import { createTapTracker, isTapInput, TAP_MAX_MS, TAP_SLOP_PX } from "../../screens/Editor/tapGesture";
@@ -521,6 +521,27 @@ console.log("\n=== 10. Hücre dokunuşu (tapGesture) ===");
   t.down(1, 100, 100, 0);
   check("İlk kalkış açar", t.up(1, 100, 100, 100));
   check("İkinci kalkış açmaz (sıfırlandı)", !t.up(1, 100, 100, 150));
+}
+
+// ── Satır başı ekleme: imleç eklenen başın sağına geçer ──
+{
+  const run = (doc: string, anchor: number, prefix: string, opts = {}, head = anchor) => {
+    const st = EditorState.create({ doc, selection: { anchor, head } });
+    return st.update(linePrefixSpec(st, prefix, opts)).state;
+  };
+  let s = run("", 0, "- [ ] ", { toggle: true });
+  check("Boş satıra yapılacak: metin '- [ ] '", s.doc.toString() === "- [ ] ");
+  check("Boş satıra yapılacak: imleç sonda", s.selection.main.head === 6);
+  s = run("abc", 0, "- ", { toggle: true });
+  check("Satır başındaki imleç madde işaretinin sağına geçer", s.selection.main.head === 2);
+  s = run("abc", 2, "- ", { toggle: true });
+  check("Satır ortasındaki imleç yerini korur", s.selection.main.head === 4);
+  s = run("- [ ] abc", 9, "- [ ] ", { toggle: true });
+  check("Tekrar basınca kutu kalkar", s.doc.toString() === "abc" && s.selection.main.head === 3);
+  s = run("## eski", 0, "# ", { headingReset: true });
+  check("Başlık seviyesi değişir, imleç sağda", s.doc.toString() === "# eski" && s.selection.main.head === 2);
+  s = run("a\nb", 0, "- ", { toggle: true }, 3);
+  check("Çok satırlı seçim iki satıra da ekler", s.doc.toString() === "- a\n- b");
 }
 
 console.log(`\n${fails === 0 ? "✅ TÜM TESTLER GEÇTİ" : `❌ ${fails} test başarısız`}`);
