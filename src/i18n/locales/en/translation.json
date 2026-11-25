@@ -485,6 +485,8 @@
     "autoSyncSub": "Push/pull every 5 minutes while connected.",
     "needVault": "Pick a vault folder first (Settings → Vault).",
     "needAuth": "Connect your Google account first.",
+    "authExpired": "Google connection expired. Sync is not running; disconnect and connect again.",
+    "partial": "Sync incomplete: {{detail}}",
     "agendaTitle": "Google Calendar"
   },
   "graph": {

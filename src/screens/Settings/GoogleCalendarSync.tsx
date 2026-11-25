@@ -17,6 +17,7 @@ function statusText(t: (k: string) => string, status: string | null): string | n
   if (!status) return null;
   if (status === "synced") return t("gcal.synced");
   if (status === "needVault") return t("gcal.needVault");
+  if (status === "authExpired") return t("gcal.authExpired");
   if (status === "needAuth") return t("gcal.needAuth");
   if (status === "noClientId") return t("gcal.noClientId");
   return status; // ham hata
@@ -82,7 +83,7 @@ export function GoogleCalendarSync() {
                   {t("gcal.noClientId")}
                 </div>
               )}
-              {status && status !== "noClientId" && <div className="lo-gh__status">{statusText(t, status)}</div>}
+              {status && status !== "noClientId" && <div className={status === "authExpired" ? "lo-gh__warn" : "lo-gh__status"}>{statusText(t, status)}</div>}
             </div>
             <button className="lo-gh__connect" disabled={!hasCreds || connecting} onClick={() => void connect()}>
               {connecting ? (
@@ -142,7 +143,7 @@ export function GoogleCalendarSync() {
                 <div className="lo-set__rowsub">
                   {t("gcal.lastSync")} {lastSync ? new Date(lastSync).toLocaleString(i18n.language) : t("gcal.never")}
                 </div>
-                {status && <div className="lo-gh__status">{statusText(t, status)}</div>}
+                {status && <div className={status === "authExpired" ? "lo-gh__warn" : "lo-gh__status"}>{statusText(t, status)}</div>}
                 {!vaultPath && <div className="lo-gh__warn">{t("gcal.needVault")}</div>}
               </div>
               <button className="lo-gh__connect" disabled={!vaultPath || syncing} onClick={() => void sync()}>

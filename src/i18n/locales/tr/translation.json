@@ -507,6 +507,8 @@
     "autoSyncSub": "Bağlıyken her 5 dakikada bir gönder/çek.",
     "needVault": "Önce bir kasa klasörü seç (Ayarlar → Kasa).",
     "needAuth": "Önce Google hesabını bağla.",
+    "authExpired": "Google bağlantısı koptu. Eşitleme yapılamıyor; çıkış yapıp yeniden bağlan.",
+    "partial": "Eşitleme yarım kaldı: {{detail}}",
     "agendaTitle": "Google Takvim"
   },
   "graph": {

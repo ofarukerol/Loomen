@@ -80,6 +80,7 @@ import {
   type GEvent,
 } from "../core/google";
 import { secretSet, secretGet, secretDelete, encodeGoogle, decodeGoogle, type SecretName } from "../core/secrets";
+import { isGcalAuthError, gcalSyncStatus, shouldSkipOrphanDelete } from "../core/gcalSyncState";
 import { gcalEventTasks, gcalEventIdOf, isGcalTaskFile, patchDescriptionItem } from "../core/gcalItems";
 import { chatStream, cancelChat, testProvider, aiKeys } from "../core/ai/llm";
 import { newProviderId, DEFAULT_MODEL, type AiProvider, type AiMessage, type ProviderKind } from "../core/ai/types";
@@ -1403,6 +1404,8 @@ function gcalPullWindow(): { timeMin: string; timeMax: string } {
  * o çekmenin getirdiği (yazmadan önceki) liste uygulanmaz; yoksa madde eski haline döner.
  */
 let gcalEventsGen = 0;
+/** Çalışan Google eşitlemesi (LOM-117): çakışan çağrılar bunu bekler. */
+let gcalSyncInFlight: Promise<void> | null = null;
 
 /** Görev yamasından takvim maddesine düşen parça: yalnız (boş olmayan) metin. */
 function gcalTextPatch(patch: TaskPatch): { text: string } | null {
@@ -1464,6 +1467,9 @@ export const useAppStore = create<AppState>()(
    * editöre ESKİ metin konuyor ve sonraki autosave onu diske geri yazıyordu.
    */
   let loadSeq = 0;
+  // Görevlerin en son okunduğu kasa arka ucu. Kasa açılırken vaultPath okumadan sonra
+  // yazıldığı için yol değil arka uç nesnesi karşılaştırılır.
+  let tasksLoadedBackend: unknown = null;
 
   async function loadFromBackend() {
     const src = backend;
@@ -1472,6 +1478,7 @@ export const useAppStore = create<AppState>()(
     const { tasks, notes, contents } = await loadVaultData(src);
     if (backend !== src) return; // arada kasa değişti → eski kasanın verisini yazma
     if (bu !== loadSeq) return; // daha yeni bir okuma başladı → bu sonuç bayat
+    tasksLoadedBackend = src; // görevler artık bu kasa için okundu (Google eşitlemesi buna bakar)
     const s = get();
     const patch: Partial<AppState> = {
       parsedTasks: tasks,
@@ -2432,8 +2439,20 @@ export const useAppStore = create<AppState>()(
         : await gcal.refresh(tok.refresh_token);
       set({ gcalTokens: next, gcalExpiresAt: Date.now() + next.expires_in * 1000 });
       return next.access_token;
-    } catch {
-      return tok.access_token; // refresh başarısız → eldekiyle dene (401 ise sync hatayı yüzeye taşır)
+    } catch (e) {
+      if (isGcalAuthError(e)) {
+        // Refresh token ölü (invalid_grant): eski access token ile devam etmek sessiz hataya yol açar.
+        set({ gcalStatus: "authExpired" });
+        return null;
+      }
+      // Geçici (ağ) hata: token hâlâ geçerliyse onunla devam; süresi dolmuşsa 401'e çarpıp yetki
+      // hatası sanılmasın → null (authExpired işaretlenmez, çağıran geçici/kısmi durum gösterir).
+      const stillValid = s.gcalExpiresAt != null && Date.now() < s.gcalExpiresAt;
+      if (!stillValid) {
+        set({ gcalStatus: i18n.t("gcal.partial", { detail: errText(e) }) });
+        return null;
+      }
+      return tok.access_token;
     }
   }
 
@@ -2469,7 +2488,7 @@ export const useAppStore = create<AppState>()(
     if (!patch) return;
     const token = await ensureGcalAccess();
     if (!token) {
-      await notifyError(i18n.t("gcal.needAuth"));
+      await notifyError(i18n.t(get().gcalStatus === "authExpired" ? "gcal.authExpired" : "gcal.needAuth"));
       return;
     }
     const calId = get().gcalCalendarId ?? "primary";
@@ -2480,6 +2499,7 @@ export const useAppStore = create<AppState>()(
       const { timeMin, timeMax } = gcalPullWindow();
       events = (await gcal.listEvents(token, calId, timeMin, timeMax)).filter((e) => !e.loomen);
     } catch (e) {
+      if (isGcalAuthError(e)) set({ gcalStatus: "authExpired" });
       await notifyError(i18n.t("errors.gcalItem", { detail: errText(e) }));
       return;
     }
@@ -2501,6 +2521,7 @@ export const useAppStore = create<AppState>()(
     try {
       await gcal.upsertEvent(token, calId, ev.id, { description: next });
     } catch (e) {
+      if (isGcalAuthError(e)) set({ gcalStatus: "authExpired" });
       await notifyError(i18n.t("errors.gcalItem", { detail: errText(e) }));
       return;
     }
@@ -4318,82 +4339,129 @@ export const useAppStore = create<AppState>()(
       return gcal.listCalendars(token);
     },
     gcalSelectCalendar: (id, name) => set({ gcalCalendarId: id, gcalCalendarName: name }),
-    gcalSync: async () => {
-      const token = await ensureGcalAccess();
-      if (!token) {
-        set({ gcalStatus: "needAuth" });
-        return;
-      }
-      const s0 = get();
-      const vault = s0.vaultPath;
-      if (!vault) {
-        set({ gcalStatus: "needVault" });
-        return;
-      }
-      const calId = s0.gcalCalendarId ?? "primary";
-      set({ gcalSyncing: true, gcalStatus: null });
-      try {
-        const tz = localTimeZone();
-        // PUSH: tarihli + tamamlanmamış görevler → etkinlik (oluştur/güncelle).
-        const desired = s0.parsedTasks.filter((t) => t.due && !t.done && t.description.trim());
-        const prevMap = s0.gcalMap[vault] ?? {};
-        const nextMap: Record<string, string> = {};
-        const desiredKeys = new Set<string>(); // istenen tüm anahtarlar (başarısız upsert dahil)
-        for (const t of desired) {
-          const key = `${t.file}::${t.description}`;
-          if (desiredKeys.has(key)) continue; // aynı dosyada birebir aynı görev → tek etkinlik
-          desiredKeys.add(key);
-          const payload = taskToEventPayload({
-            summary: t.description,
-            due: t.due!,
-            time: t.time,
-            loomenKey: key,
-            timeZone: tz,
-          });
-          try {
-            const res = await gcal.upsertEvent(token, calId, prevMap[key] ?? null, payload);
-            nextMap[key] = res.id;
-          } catch {
-            // Güncellenecek etkinlik silinmişse (404/410) → yeniden oluştur.
-            try {
-              const res = await gcal.upsertEvent(token, calId, null, payload);
-              nextMap[key] = res.id;
-            } catch {
-              // Geçici hata → eski eşlemeyi koru ki yetim-silme bu etkinliği silmesin / kopya açılmasın.
-              if (prevMap[key]) nextMap[key] = prevMap[key];
-            }
+    gcalSync: () => {
+      // Çakışan çağrılar (aralık, bağlanma, açılış) birlikte koşmaz: çalışan sözü paylaşılır.
+      if (gcalSyncInFlight) return gcalSyncInFlight;
+      gcalSyncInFlight = (async () => {
+        const prevStatus = get().gcalStatus;
+        const token = await ensureGcalAccess();
+        if (!token) {
+          if (get().gcalStatus === "authExpired") {
+            if (prevStatus !== "authExpired") await notifyError(i18n.t("gcal.authExpired"));
+          } else if (!get().gcalTokens) {
+            set({ gcalStatus: "needAuth" });
           }
+          return;
         }
-        // Yetim etkinlikleri sil: yalnızca artık İSTENMEYEN anahtarlar (başarısız upsert'ler değil).
-        for (const [key, id] of Object.entries(prevMap)) {
-          if (!desiredKeys.has(key)) {
-            try {
-              await gcal.deleteEvent(token, calId, id);
-            } catch {
-              /* yoksay */
-            }
-          }
+        const s0 = get();
+        const vault = s0.vaultPath;
+        if (!vault) {
+          set({ gcalStatus: "needVault" });
+          return;
         }
-        // PULL: bugünden +30 gün etkinlikleri çek (kendi görevlerimizi hariç tut).
-        const { timeMin, timeMax } = gcalPullWindow();
-        const gen = gcalEventsGen;
-        let events: GEvent[] | null = null;
+        // Görevler bu kasa için okunmadan çalışma: parsedTasks boşken yetim-silme bütün etkinlikleri silerdi.
+        if (tasksLoadedBackend !== backend) return;
+        const calId = s0.gcalCalendarId ?? "primary";
+        set({ gcalSyncing: true, gcalStatus: null });
         try {
-          events = (await gcal.listEvents(token, calId, timeMin, timeMax)).filter((e) => !e.loomen);
-        } catch {
-          /* pull başarısız → push sonucu yine de kaydedilir; eldeki etkinlikler/maddeler kalır */
+          const tz = localTimeZone();
+          // PUSH: tarihli + tamamlanmamış görevler → etkinlik (oluştur/güncelle).
+          const desired = s0.parsedTasks.filter((t) => t.due && !t.done && t.description.trim());
+          const prevMap = s0.gcalMap[vault] ?? {};
+          const nextMap: Record<string, string> = {};
+          const desiredKeys = new Set<string>(); // istenen tüm anahtarlar (başarısız upsert dahil)
+          let pushFailed = 0;
+          let firstPushError: string | null = null;
+          let authAbort = false;
+          for (const t of desired) {
+            const key = `${t.file}::${t.description}`;
+            if (desiredKeys.has(key)) continue; // aynı dosyada birebir aynı görev → tek etkinlik
+            desiredKeys.add(key);
+            const payload = taskToEventPayload({
+              summary: t.description,
+              due: t.due!,
+              time: t.time,
+              loomenKey: key,
+              timeZone: tz,
+            });
+            try {
+              const res = await gcal.upsertEvent(token, calId, prevMap[key] ?? null, payload);
+              nextMap[key] = res.id;
+            } catch (e1) {
+              if (isGcalAuthError(e1)) {
+                pushFailed++;
+                firstPushError ??= String(e1);
+                authAbort = true;
+                break;
+              }
+              // Güncellenecek etkinlik silinmişse (404/410) → yeniden oluştur.
+              try {
+                const res = await gcal.upsertEvent(token, calId, null, payload);
+                nextMap[key] = res.id;
+              } catch (e2) {
+                pushFailed++;
+                firstPushError ??= String(e2);
+                // Geçici hata → eski eşlemeyi koru ki yetim-silme bu etkinliği silmesin / kopya açılmasın.
+                if (prevMap[key]) nextMap[key] = prevMap[key];
+                if (isGcalAuthError(e2)) {
+                  authAbort = true;
+                  break;
+                }
+              }
+            }
+          }
+          // Yetki hatasında denenmeyen anahtarların eşlemesi korunur; hiçbir şey silinmez, çekme atlanır.
+          if (authAbort) for (const [k, id] of Object.entries(prevMap)) if (!(k in nextMap)) nextMap[k] = id;
+          // Yetim etkinlikleri sil: yalnızca artık İSTENMEYEN anahtarlar (başarısız upsert'ler değil).
+          // Güvenlik ağı: istenen liste boşken eski eşleme doluysa silme, eşlemeyi koru.
+          const skipOrphans = authAbort || shouldSkipOrphanDelete(desiredKeys.size, Object.keys(prevMap).length);
+          if (!authAbort && skipOrphans)
+            for (const [k, id] of Object.entries(prevMap)) if (!(k in nextMap)) nextMap[k] = id;
+          for (const [key, id] of skipOrphans ? [] : Object.entries(prevMap)) {
+            if (!desiredKeys.has(key)) {
+              try {
+                await gcal.deleteEvent(token, calId, id);
+              } catch {
+                /* yoksay */
+              }
+            }
+          }
+          // PULL: bugünden +30 gün etkinlikleri çek (kendi görevlerimizi hariç tut).
+          const { timeMin, timeMax } = gcalPullWindow();
+          const gen = gcalEventsGen;
+          let events: GEvent[] | null = null;
+          let pullError: string | null = null;
+          if (!authAbort) {
+            try {
+              events = (await gcal.listEvents(token, calId, timeMin, timeMax)).filter((e) => !e.loomen);
+            } catch (e) {
+              pullError = String(e);
+              // push sonucu yine de kaydedilir; eldeki etkinlikler/maddeler kalır
+            }
+          }
+          const res = gcalSyncStatus({
+            pushTotal: desiredKeys.size,
+            pushFailed,
+            firstPushError,
+            pullError,
+          });
+          set((s) => ({
+            gcalSyncing: false,
+            ...(res.code === "synced" ? { gcalLastSync: new Date().toISOString() } : {}),
+            gcalStatus: res.code === "partial" ? i18n.t("gcal.partial", { detail: res.detail ?? "" }) : res.code,
+            gcalMap: { ...s.gcalMap, [vault]: nextMap },
+          }));
+          if (res.code === "authExpired" && prevStatus !== "authExpired")
+            await notifyError(i18n.t("gcal.authExpired"));
+          // Çekme sürerken bir madde Google'a yazıldıysa bu (daha eski) liste uygulanmaz.
+          if (events && gen === gcalEventsGen) applyGcalEvents(events);
+        } catch (e) {
+          set({ gcalSyncing: false, gcalStatus: String(e) });
         }
-        set((s) => ({
-          gcalSyncing: false,
-          gcalLastSync: new Date().toISOString(),
-          gcalStatus: "synced",
-          gcalMap: { ...s.gcalMap, [vault]: nextMap },
-        }));
-        // Çekme sürerken bir madde Google'a yazıldıysa bu (daha eski) liste uygulanmaz.
-        if (events && gen === gcalEventsGen) applyGcalEvents(events);
-      } catch (e) {
-        set({ gcalSyncing: false, gcalStatus: String(e) });
-      }
+      })().finally(() => {
+        gcalSyncInFlight = null;
+      });
+      return gcalSyncInFlight;
     },
     gcalSetAutoSync: (gcalAutoSync) => set({ gcalAutoSync }),
 
