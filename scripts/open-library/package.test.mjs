@@ -10,7 +10,7 @@ import { catalog } from './catalog.mjs';
 import { verify } from './prepare.mjs';
 import { pack } from './package.mjs';
 import { buildReport, renderReport } from './report.mjs';
-import { checkBooks, pickSample } from './reader-check.mjs';
+import { checkBooks, pickSample, setPdfjsLoader } from './reader-check.mjs';
 import { writeZip } from './zip.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -180,7 +180,7 @@ test('(6) Bozulmuş EPUB ve düz metin "açılmadı" diye nedeniyle çıkar', as
   const res = await checkBooks([{ key: 'a:bozuk', path: bad, ext: 'epub' }, { key: 'a:duz', path: txt, ext: 'txt' }, { key: 'a:iyi', path: ok, ext: 'epub' }]);
   assert.equal(res[0].opened, false); assert.ok(res[0].reason.length > 0);
   assert.equal(res[1].opened, false); assert.match(res[1].reason, /açmıyor/);
-  assert.equal(res[2].opened, true);
+  assert.equal(res[2].opened, true, res[2].reason);
   // PDF: geçerli ilk sayfa açılır, bozuk dosya nedenle reddedilir.
   const pdf = path.join(c.root, 'a.pdf'), badPdf = path.join(c.root, 'b.pdf');
   const objs = ['<</Type/Catalog/Pages 2 0 R>>', '<</Type/Pages/Kids[3 0 R]/Count 1>>', '<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>'];
@@ -191,8 +191,19 @@ test('(6) Bozulmuş EPUB ve düz metin "açılmadı" diye nedeniyle çıkar', as
   await fs.writeFile(pdf, body);
   await fs.writeFile(badPdf, 'pdf değil');
   const p = await checkBooks([{ key: 'a:pdf', path: pdf, ext: 'pdf' }, { key: 'a:bpdf', path: badPdf, ext: 'pdf' }]);
-  assert.equal(p[0].opened, true);
+  assert.equal(p[0].opened, true, p[0].reason);
   assert.equal(p[1].opened, false); assert.ok(p[1].reason);
+});
+
+test('(6c) pdf.js yüklenemezse kitap suçlanmaz, ortam hatası yukarı çıkar', async t => {
+  const c = await setup(t);
+  const pdf = path.join(c.root, 'a.pdf');
+  await fs.writeFile(pdf, '%PDF-1.4\n');
+  t.after(() => setPdfjsLoader());
+  setPdfjsLoader(async () => { throw Object.assign(new Error("Cannot find package 'pdfjs-dist'"), { code: 'ERR_MODULE_NOT_FOUND' }); });
+  await assert.rejects(checkBooks([{ key: 'a:pdf', path: pdf, ext: 'pdf' }]), /pdfjs-dist bulunamadı/);
+  setPdfjsLoader(async () => { throw new TypeError('process.getBuiltinModule is not a function'); });
+  await assert.rejects(checkBooks([{ key: 'a:pdf', path: pdf, ext: 'pdf' }]), /Node 22\.13/);
 });
 
 test('(7) Örnek kipte uyarı var, gerçek bölüm "henüz çalıştırılmadı"; kip verilmezse hata', async t => {

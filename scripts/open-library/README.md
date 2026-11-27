@@ -7,7 +7,7 @@ gerçek adların veya açık/kapalı erişimin doğrulandığı anlamına gelmez
 
 ## Kullanım
 
-iMac'te Node.js 20 veya üzeri yeterlidir; ek paket kurulmaz. Repo kökünden:
+iMac'te Node.js 20 veya üzeri yeterlidir; ek paket kurulmaz (yalnız yirmi kitap kontrolündeki PDF denemesi depoda `npm install` ile gelen pdfjs-dist ve onun istediği Node 22.13+ ister). Repo kökünden:
 
 ```sh
 node --test scripts/open-library/prepare.test.mjs
@@ -261,7 +261,7 @@ açmadığı biçim (düz metin gibi) "açılmadı" sayılır ve nedeni yazılı
 olduğu da raporda görünür. Pakette 20'den az kitap varsa hepsi denenir ve rapor bunun 20 kitap
 kontrolü olmadığını açıkça yazar. Bu kontrol **uygulama ekranında elle açmanın yerini tutmaz**.
 Okuyucu kodu TypeScript olduğundan esbuild ile derlenir; bu kontrol için depoda `npm install`
-yapılmış olmalıdır (diğer araçlar paket istemez).
+yapılmış olmalıdır (diğer araçlar paket istemez). PDF kontrolü ayrıca pdfjs-dist'i ve onun istediği Node 22.13+ (ya da 24+) sürümünü gerektirir; bunlar yoksa araç kitabı "açılmadı" diye suçlamaz, eksik ortamı söyleyen bir hatayla durur.
 
 ## Sonraki işe teslim
 

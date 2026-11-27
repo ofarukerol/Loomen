@@ -1,7 +1,8 @@
 // Açık kitaplık 4/4: okuyucu kontrolü. Kitapları Loomen okuyucusunun KENDİ açma koduyla dener
 // (src/core/library/zip.ts ve epub.ts; PDF için pdfjs-dist). Ağ yok; hiçbir dosya değişmez.
 // Okuyucu kodu TypeScript olduğundan esbuild'in JS API'siyle derlenir (run-tests.mjs'teki gibi);
-// bu yüzden depoda `npm install` yapılmış olmalıdır.
+// bu yüzden depoda `npm install` yapılmış olmalıdır. PDF kontrolü pdfjs-dist ister; o da Node 22.13+
+// (ya da 24+) ister. Bunlar yoksa kitap suçlanmaz: ortam hatası fırlatılır.
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
@@ -28,6 +29,26 @@ export function pickSample(keys, count, seed) {
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
   return pool.slice(0, n).sort();
+}
+
+/** Ortam eksiği (paket ya da Node sürümü); kitabın kusuru değildir, checkBooks bunu yukarı iletir. */
+export class EnvironmentError extends Error {
+  constructor(message, cause) { super(message, { cause }); this.name = 'EnvironmentError'; this.environment = true; }
+}
+
+const defaultPdfjsLoader = () => import('pdfjs-dist/legacy/build/pdf.mjs');
+let pdfjsLoader = defaultPdfjsLoader;
+/** Yalnız testler için: pdf.js yükleyicisini değiştirir; verilmezse gerçeğine döner. */
+export function setPdfjsLoader(fn) { pdfjsLoader = fn ?? defaultPdfjsLoader; }
+
+async function loadPdfjs() {
+  try { return await pdfjsLoader(); }
+  catch (e) {
+    const missing = e?.code === 'ERR_MODULE_NOT_FOUND' || e?.code === 'MODULE_NOT_FOUND';
+    throw new EnvironmentError(missing
+      ? 'Okuyucu kontrolü için depoda `npm install` yapılmış olmalı (pdfjs-dist bulunamadı).'
+      : `PDF kontrolü için pdfjs-dist yüklenemedi; Node 22.13 ya da üstü gerekir (şu an ${process.version}): ${String(e?.message ?? e).split('\n')[0]}`, e);
+  }
 }
 
 let readerPromise;
@@ -67,7 +88,7 @@ async function openEpub(reader, bytes) {
   throw new Error('Hiçbir bölümde okunacak metin yok.');
 }
 async function openPdf(bytes) {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdfjs = await loadPdfjs();
   const task = pdfjs.getDocument({ data: new Uint8Array(bytes), useWorkerFetch: false, isEvalSupported: false, useSystemFonts: false, verbosity: 0 });
   try {
     const doc = await task.promise;
@@ -92,7 +113,7 @@ export async function checkBooks(files) {
       else await openPdf(bytes);
       results.push({ key: f.key, opened: true });
     } catch (e) {
-      if (/npm install/.test(e.message)) throw e;
+      if (e?.environment || /npm install/.test(e.message)) throw e;
       results.push({ key: f.key, opened: false, reason: String(e.message ?? e).split('\n')[0] });
     }
   }
