@@ -36,7 +36,7 @@ Kitap yükleme aracının okuyucu kontrolünde sağlam PDF'in Air'de 'açılmad�
 
 Testler KALDI; iş doğrulanmadı.
 
-> Planın test komutlarını test kopyasında (Loomen, Node v22.14.0) tek tek ve sonuna kadar koşturdum; hepsi geçti. Paket testi 15/15, npm test 73 test dosyasının tümü yeşil, tip denetimi (npm run typecheck) hatasız. Bozuk PDF denetimi ayrı bir test değil; test (6) içinde yer alıyor: sağlam PDF açılıyor, 'pdf değil' içerikli dosya nedenle reddediliyor, ve bu test geçti. Bu koşuda kod değiştirilmedi. B
+> İş yarıda durduruldu; testler koşmadı.
 
 ## Kanıt
 
