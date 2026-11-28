@@ -1311,6 +1311,8 @@
     "yearsAgo": "{{n}} years ago"
   },
   "errors": {
+    "srsStateUnreadable": "The review progress file is unreadable or corrupt. To avoid data loss it will not be overwritten this session, so card progress will not be saved. Check the file and reopen the vault. Detail: {{detail}}",
+    "srsLogUnreadable": "The review history file could not be read. To avoid data loss, new answers were not written to the history.",
     "writeVault": "Can't write to the vault folder — check its permissions or the disk.",
     "writePermission": "No permission to write to the vault folder — check the folder's permissions.",
     "writeDiskFull": "The disk is full; notes can't be saved. Free up some space and try again.",

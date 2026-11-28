@@ -1311,6 +1311,8 @@
     "yearsAgo": "{{n}} yıl önce"
   },
   "errors": {
+    "srsStateUnreadable": "Tekrar ilerleme dosyası okunamadı ya da bozuk. Verin kaybolmasın diye bu oturumda üstüne yazılmayacak; kartların ilerlemesi kaydedilmeyecek. Dosyayı kontrol edip kasayı yeniden aç. Ayrıntı: {{detail}}",
+    "srsLogUnreadable": "Tekrar geçmiş dosyası okunamadı. Verin kaybolmasın diye geçmişe yeni cevap yazılmadı.",
     "writeVault": "Kasa klasörüne yazılamıyor — izinleri ya da diski kontrol edin.",
     "writePermission": "Kasa klasörüne yazma izni yok — klasörün izinlerini kontrol edin.",
     "writeDiskFull": "Diskte yer kalmadı; notlar kaydedilemiyor. Yer açıp yeniden deneyin.",

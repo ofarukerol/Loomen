@@ -39,6 +39,7 @@ const suites = [
   ["src/core/__test__/srsListViewTest.ts", []],
   ["src/core/__test__/srsSettingsTest.ts", []],
   ["src/core/__test__/srsRebuildTest.ts", []],
+  ["src/core/__test__/srsStoreSafetyTest.ts", []],
   ["src/core/__test__/reviewI18nTest.ts", []],
   ["src/core/__test__/habitTest.ts", []],
   ["src/core/__test__/habitViewTest.ts", []],
