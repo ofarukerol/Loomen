@@ -27,7 +27,7 @@ import {
   DAILY_DIR,
   TODO_HEADING,
 } from "../core/vault";
-import { addDaysISO, isoToLocalDate, dailyDateOfPath } from "../core/vault/dayNav";
+import { addDaysISO, localISO, isoToLocalDate, dailyDateOfPath } from "../core/vault/dayNav";
 import { migrateMobileVaults, rebaseMobileVaultPath, joinPath } from "../core/vault/mobileVaultPath";
 import { rewriteWikiLinks } from "../core/markdown/links";
 import { AUTO_NAME_BASE, autoNameTarget, freeName, isAutoName } from "../core/markdown/autoTitle";
@@ -2308,6 +2308,7 @@ export const useAppStore = create<AppState>()(
 
   // Günlük gezinme durumu (bkz. stepDay): bekleyen gün sayısı + tek döngü bayrağı.
   let stepPending = 0;
+  let stepAbs: Date | null = null; // "Bugün" gibi mutlak hedef; gösterilen günden bağımsız
   let stepRunning = false;
 
   /** Açık not "Günlük/…/YYYY-MM-DD…md" ise yolu, değilse null. */
@@ -2326,17 +2327,40 @@ export const useAppStore = create<AppState>()(
     return path;
   }
 
+  /** Bekleyen gün sürmelerini tek döngüde sırayla işler (stepDay + "Bugün" aynı yolu kullanır). */
+  async function runSteps(): Promise<void> {
+    if (stepRunning) return;
+    stepRunning = true;
+    try {
+      while (stepPending !== 0 || stepAbs) {
+        const n = stepPending;
+        const abs = stepAbs;
+        stepPending = 0;
+        stepAbs = null;
+        const cur = dailyNotePathOf(get().screen === "editor" ? get().activeNote : null);
+        const base = abs ? localISO(abs) : cur && dailyDateOfPath(cur);
+        const target = base ? addDaysISO(base, n) : undefined;
+        const date = target ? isoToLocalDate(target) : undefined;
+        if (date) await openDailyInPlace(date);
+      }
+    } finally {
+      stepRunning = false;
+    }
+  }
+
   /** Günün notunu AÇIK SEKMENİN yerine açar (sabitli sekme korunur, yeni sekme açılır). */
   async function openDailyInPlace(date: Date): Promise<void> {
     const from = get().activeNote;
     const path = await ensureDailyFor(date);
     if (path === from) return;
     await loadFromBackend();
+    // Beklerken kullanıcı başka sekmeye geçtiyse yanlış sekme değiştirilmesin: yalnız normal aç.
+    const switched = get().activeNote !== from;
     const before = get().openTabs;
     await get().openNote(path);
     const st = get();
     // openNote reddedildiyse (taslak yazılamadı) sekmelere dokunma.
-    if (st.activeNote !== path || !from || st.pinnedTabs.includes(from) || !st.openTabs.includes(from)) return;
+    if (switched || st.activeNote !== path || !from || st.pinnedTabs.includes(from) || !st.openTabs.includes(from)) return;
     const next = before.includes(path)
       ? st.openTabs.filter((p) => p !== from)
       : st.openTabs.filter((p) => p !== path).map((p) => (p === from ? path : p));
@@ -2986,24 +3010,12 @@ export const useAppStore = create<AppState>()(
     stepDay: async (delta) => {
       if (!Number.isInteger(delta) || delta === 0) return;
       stepPending += delta;
-      if (stepRunning) return;
-      stepRunning = true;
-      try {
-        while (stepPending !== 0) {
-          const n = stepPending;
-          stepPending = 0;
-          const cur = dailyNotePathOf(get().screen === "editor" ? get().activeNote : null);
-          const base = cur && dailyDateOfPath(cur);
-          const target = base ? addDaysISO(base, n) : undefined;
-          const date = target ? isoToLocalDate(target) : undefined;
-          if (date) await openDailyInPlace(date);
-        }
-      } finally {
-        stepRunning = false;
-      }
+      return runSteps();
     },
     replaceWithDay: async (date) => {
-      await openDailyInPlace(date);
+      stepAbs = date;
+      stepPending = 0;
+      return runSteps();
     },
     setQuick: (quickText) => set({ quickText }),
     selectDay: (selectedDay) => set({ selectedDay }),

@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarDays, ChevronLeft, ChevronRight, Hash } from "lucide-react";
 import { format, getISOWeek } from "date-fns";
 import { tr, enUS, ar } from "date-fns/locale";
 import { useAppStore } from "../../store/useAppStore";
 import { localISO } from "../../core/vault/dayNav";
+import { isTauri } from "../../core/vault";
 
 const LOCALES: Record<string, typeof tr> = { tr, en: enUS, ar };
 
@@ -18,12 +19,24 @@ export function DailyHeader({ noteName }: { noteName: string }) {
   const m = noteName.match(/^(\d{4})-(\d{2})-(\d{2})/);
   const date = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
   const valid = !!date && !Number.isNaN(date.getTime());
+  // "Bugün" gece yarısını geçince bayatlamasın: odak/görünürlük dönüşünde yeniden hesaplanır.
+  const [todayIso, setTodayIso] = useState(() => localISO(new Date()));
+  useEffect(() => {
+    const refresh = () => setTodayIso(localISO(new Date()));
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
   const rtl = i18n.dir(i18n.language) === "rtl";
 
   // Ctrl/⌘+Alt+←/→: önceki/sonraki gün. Alt+ok editörde kelime/satır taşıma olduğu için Mod+Alt
   // seçildi; editör tuşu işlediyse (defaultPrevented) ya da yazı alanındaysak karışmaz.
   useEffect(() => {
-    if (!valid) return;
+    // Yalnız Tauri uygulamasında: tarayıcıda Ctrl/⌘+Alt+ok sekme değiştirir.
+    if (!valid || !isTauri()) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing || !e.altKey || e.shiftKey) return;
       if (!(isMac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)) return;
@@ -45,7 +58,7 @@ export function DailyHeader({ noteName }: { noteName: string }) {
   const day = format(date, "EEEE", { locale });
   const dateStr = format(date, "d MMMM yyyy", { locale });
   const week = getISOWeek(date);
-  const isToday = localISO(date) === localISO(new Date());
+  const isToday = localISO(date) === todayIso;
 
   const mod = isMac ? "⌘⌥" : "Ctrl+Alt+";
   const prevKey = `${mod}${rtl ? "→" : "←"}`;
@@ -81,7 +94,7 @@ export function DailyHeader({ noteName }: { noteName: string }) {
             title={t("editor.backToToday")}
             aria-label={t("editor.backToToday")}
           >
-            {t("planner.today")}
+            {t("editor.today")}
           </button>
         )}
       </div>

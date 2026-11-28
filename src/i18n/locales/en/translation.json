@@ -406,6 +406,7 @@
     "openNote": "Open note: {{date}}"
   },
   "editor": {
+    "today": "Today",
     "dayNav": "Day navigation",
     "prevDay": "Previous day ({{key}})",
     "nextDay": "Next day ({{key}})",

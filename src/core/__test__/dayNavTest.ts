@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { addDaysISO, localISO, isoToLocalDate, dailyDateOfPath } from "../vault/dayNav";
 
 let fail = 0;
@@ -38,6 +39,16 @@ eq("dosya yolundan tarih", dailyDateOfPath("Günlük/2026/11-Kasım/2026-11-28-C
 eq("yalnız ad", dailyDateOfPath("2026-01-05.md"), "2026-01-05");
 eq("tarihsiz not", dailyDateOfPath("Notlar/Toplantı.md"), undefined);
 eq("geçersiz gün adı", dailyDateOfPath("2026-02-31-X.md"), undefined);
+
+// DailyHeader'daki her t("...") anahtarı üç dilde de var olmalı (eksik anahtar ekranda ham yazılır).
+const src = readFileSync("src/screens/Editor/DailyHeader.tsx", "utf8");
+const keys = [...src.matchAll(/\bt\("([^"]+)"/g)].map((m) => m[1]);
+eq("DailyHeader anahtar sayısı > 0", keys.length > 0, true);
+for (const lang of ["tr", "en", "ar"]) {
+  const json = JSON.parse(readFileSync(`src/i18n/locales/${lang}/translation.json`, "utf8"));
+  const missing = keys.filter((k) => typeof k.split(".").reduce((o: any, p) => o?.[p], json) !== "string");
+  eq(`${lang}: DailyHeader anahtarları tam`, missing, []);
+}
 
 if (fail) {
   console.error(`dayNav: ${fail} FAILED`);
