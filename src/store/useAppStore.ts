@@ -1029,6 +1029,15 @@ async function repickFolder(err: VaultOpenError): Promise<void> {
 
 // Kullanıcıya hata bildir (Tauri'de native dialog, web fallback'te alert/console).
 // Dışa açık: editör menüsü panoya erişemeyince "info" türüyle buradan haber verir.
+/** LOM-75: Tekrar dosyası okunamayınca kullanıcıya bir kez (anahtar başına) haber ver. */
+const srsWarned = new Set<string>();
+function warnSrsUnreadable(key: "srsStateUnreadable" | "srsLogUnreadable", detail: string): void {
+  if (srsWarned.has(key)) return;
+  srsWarned.add(key);
+  console.error("[srs]", detail);
+  void notifyError(i18n.t(`errors.${key}`, { detail }));
+}
+
 export async function notifyError(msg: string, kind: "error" | "info" = "error"): Promise<void> {
   try {
     if (isTauri()) {
@@ -4717,7 +4726,9 @@ export const useAppStore = create<AppState>()(
       // yeniden dener). Okunamazsa bellekteki ayar kalır, dosya varsayılan sayılmaz (LOM-71).
       await srsReadSettings();
       const src = backend;
-      const { states: saved, daily } = await loadStates(backend);
+      const { states: saved, daily, error: stateError } = await loadStates(backend);
+      if (stateError) warnSrsUnreadable("srsStateUnreadable", stateError);
+      else srsWarned.delete("srsStateUnreadable");
       const log = await loadLog(backend);
       const sec = avgSeconds(log.slice(-200).map((l) => l.ms));
 
@@ -5977,7 +5988,7 @@ export const useAppStore = create<AppState>()(
       });
 
       await saveStates(backend, states, daily);
-      await appendLog(backend, [log]);
+      if (!(await appendLog(backend, [log]))) warnSrsUnreadable("srsLogUnreadable", "gecmis.jsonl");
     },
 
     srsFreeze: async (id) => {

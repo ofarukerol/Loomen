@@ -45,16 +45,6 @@ export interface SrsData {
 
 export const EMPTY_DATA: SrsData = { states: {}, daily: {}, settings: { ...DEFAULT_SETTINGS } };
 
-async function readJson<T>(backend: VaultBackend, path: string): Promise<T | null> {
-  try {
-    if (!(await backend.exists(path))) return null;
-    const raw = await backend.readNote(path);
-    return raw.trim() ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
 /** Ayar dosyasını okumanın sonucu (LOM-71). "Dosya yok" ile "okunamadı" ayrıdır:
  *  yalnız dosya yokken varsayılan kullanılır; okunamayan dosya varsayılan sayılmaz. */
 export type SettingsRead =
@@ -187,39 +177,100 @@ export async function saveSettings(
   return text;
 }
 
-/** Kart durumlarını ve günlük sayaçları oku. */
-export async function loadStates(
-  backend: VaultBackend,
-): Promise<{ states: Record<string, SrsState>; daily: Record<string, DayCount> }> {
-  const raw = await readJson<StateFile>(backend, STATE_FILE);
-  const states: Record<string, SrsState> = {};
-  if (raw?.cards) for (const c of raw.cards) states[c.id] = c;
-  return { states, daily: raw?.daily ?? {} };
+/**
+ * LOM-75: okunamayan/bozuk durum dosyasının üstüne yazılmaz. "Dosya yok" normaldir (ilk açılış);
+ * "okunamadı" ya da "bozuk" ise o dosya bu oturum boyunca (başarılı bir yeniden okumaya dek)
+ * kilitlenir ve saveStates yazmaz. Kasa başına tutulur.
+ */
+const blockedFiles = new WeakMap<VaultBackend, Map<string, string>>();
+
+/** Bu kasada yazımı kilitli dosyalar (yol → sebep). */
+export function blockedSrsFiles(backend: VaultBackend): Map<string, string> {
+  let m = blockedFiles.get(backend);
+  if (!m) {
+    m = new Map();
+    blockedFiles.set(backend, m);
+  }
+  return m;
 }
 
+/** Bir dosyayı okumanın sonucu: yok / tamam / hata (okunamadı ya da JSON bozuk). */
+type FileRead<T> = { kind: "missing" } | { kind: "ok"; value: T } | { kind: "error"; detail: string; raw: string | null };
+
+async function readJsonSafe<T>(backend: VaultBackend, path: string): Promise<FileRead<T>> {
+  let raw: string;
+  try {
+    if (!(await backend.exists(path))) return { kind: "missing" };
+    raw = await backend.readNote(path);
+  } catch (e) {
+    return { kind: "error", detail: `${path} okunamadı: ${errText(e)}`, raw: null };
+  }
+  if (!raw.trim()) return { kind: "error", detail: `${path} boş`, raw };
+  try {
+    return { kind: "ok", value: JSON.parse(raw.replace(/^\uFEFF/, "")) as T };
+  } catch (e) {
+    return { kind: "error", detail: `${path} bozuk: ${errText(e)}`, raw };
+  }
+}
+
+/**
+ * Kart durumlarını ve günlük sayaçları oku. Dosya yoksa boş başlar; okunamıyor/bozuksa boş döner
+ * ama `error` doludur, dosya yazıma kilitlenir (LOM-75) ve bozuk metin varsa yanına yedeği yazılır.
+ */
+export async function loadStates(
+  backend: VaultBackend,
+): Promise<{ states: Record<string, SrsState>; daily: Record<string, DayCount>; error: string | null }> {
+  const r = await readJsonSafe<StateFile>(backend, STATE_FILE);
+  const blocked = blockedSrsFiles(backend);
+  const states: Record<string, SrsState> = {};
+  if (r.kind === "error") {
+    const first = !blocked.has(STATE_FILE);
+    blocked.set(STATE_FILE, r.detail);
+    if (first && r.raw && r.raw.trim()) {
+      // Yedek yalnız ilk kilitlenmede ve yeni bir dosyaya yazılır; asıl dosyaya dokunulmaz.
+      try {
+        await backend.writeNote(STATE_FILE.replace(/\.json$/, `.bozuk-${Date.now()}.json`), r.raw);
+      } catch {
+        /* yedek yazılamadıysa da asıl dosya yine korunur */
+      }
+    }
+    return { states, daily: {}, error: r.detail };
+  }
+  blocked.delete(STATE_FILE);
+  const file = r.kind === "ok" ? r.value : null;
+  if (file?.cards) for (const c of file.cards) states[c.id] = c;
+  return { states, daily: file?.daily ?? {}, error: null };
+}
+
+/** Kilitliyse (okunamayan dosya) yazmaz ve false döner; yazdıysa true. */
 export async function saveStates(
   backend: VaultBackend,
   states: Record<string, SrsState>,
   daily: Record<string, DayCount>,
-): Promise<void> {
+): Promise<boolean> {
+  if (blockedSrsFiles(backend).has(STATE_FILE)) return false;
   await backend.ensureDir(SRS_DIR);
   const file: StateFile = { v: 1, cards: Object.values(states), daily };
   await backend.writeNote(STATE_FILE, JSON.stringify(file));
+  return true;
 }
 
 /** Cevap kaydını geçmişe ekle. Dosya yalnızca büyür — hiçbir satır silinmez/değişmez.
+ *  Mevcut dosya okunamazsa yazılmaz (LOM-75; yoksa yeni dosya açılır). Yazdıysa true, atladıysa false.
  *  Bu kayıt ileride "senin verine göre ayar öğrenme" için tek girdidir. */
-export async function appendLog(backend: VaultBackend, entries: SrsLog[]): Promise<void> {
-  if (!entries.length) return;
-  await backend.ensureDir(SRS_DIR);
+export async function appendLog(backend: VaultBackend, entries: SrsLog[]): Promise<boolean> {
+  if (!entries.length) return true;
   let prev = "";
   try {
     if (await backend.exists(LOG_FILE)) prev = await backend.readNote(LOG_FILE);
-  } catch {
-    prev = "";
+  } catch (e) {
+    console.error("[srs] Geçmiş dosyası okunamadı, üstüne yazılmadı:", errText(e));
+    return false;
   }
+  await backend.ensureDir(SRS_DIR);
   const add = entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
   await backend.writeNote(LOG_FILE, prev.endsWith("\n") || !prev ? prev + add : prev + "\n" + add);
+  return true;
 }
 
 export async function loadLog(backend: VaultBackend): Promise<SrsLog[]> {
