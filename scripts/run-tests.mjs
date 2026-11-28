@@ -55,6 +55,7 @@ const suites = [
   ["src/core/__test__/inFlightTest.ts", []],
   ["src/core/__test__/writeErrorBarTest.ts", []],
   ["src/core/__test__/autoSyncTest.ts", []],
+  ["src/core/__test__/vaultBaseTest.ts", []],
   ["src/core/__test__/syncStaleBarTest.ts", []],
   ["src/core/__test__/openErrorTest.ts", []],
   ["src/core/__test__/vaultOpenErrorBarTest.ts", []],

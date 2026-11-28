@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { getVaultBase, withVaultBase } from "../core/sync/vaultBase";
 import i18n from "../i18n";
 import type { TaskGroup, Task } from "../data/sampleVault";
 import type { ParsedTask, VaultBackend, VaultNote } from "../core/vault/types";
@@ -333,6 +334,10 @@ export interface VaultEntry {
    * geri alınır. Sandbox dışı derlemelerde ve diğer platformlarda kullanılmaz.
    */
   bookmark?: string;
+  /** Mobil API senkronunda bu kasanın son başarılı senkron commit'i (LOM-114; kasa başına). */
+  baseSha?: string | null;
+  /** `baseSha`nın ait olduğu depo (owner/repo); depo değişince temel yok sayılır. */
+  baseRepo?: string | null;
 }
 
 /** Bir kasanın açık sekme durumu (kasa değişince geri yüklenir). */
@@ -460,7 +465,6 @@ interface AppState {
   ghLastAttempt: number | null; // son senkron denemesinin başı (ms, kalıcı değil; LOM-105)
   ghSyncFailed: boolean; // son deneme hata verdi (kalıcı değil; uyarı şeridi için)
   ghAutoSync: boolean;
-  ghBaseSha: string | null; // mobil API senkronunda son senkron commit'i (3-yönlü birleştirme temeli)
 
   // Platform: mobil mi (Rust cfg(mobile))? Bootstrap'te belirlenir. Mobilde kasa = app-data + GitHub API senkron.
   platformMobile: boolean;
@@ -2591,7 +2595,6 @@ export const useAppStore = create<AppState>()(
     ghLastAttempt: null,
     ghSyncFailed: false,
     ghAutoSync: false,
-    ghBaseSha: null,
     platformMobile: false,
     platformOs: "desktop",
     platformSandboxed: false,
@@ -4201,7 +4204,7 @@ export const useAppStore = create<AppState>()(
       return res.status;
     },
     ghDisconnect: () =>
-      set({ ghToken: null, ghUser: null, ghRepo: null, ghDevice: null, ghStatus: null, ghBaseSha: null }),
+      set({ ghToken: null, ghUser: null, ghRepo: null, ghDevice: null, ghStatus: null }),
     ghLoadRepos: async () => {
       const token = get().ghToken;
       if (!token) return [];
@@ -4220,7 +4223,9 @@ export const useAppStore = create<AppState>()(
       const s = get();
       if (s.vaultPath) get().setVaultRepo(s.vaultPath, repo);
       else set({ ghRepo: repo });
-      set({ ghBaseSha: null }); // yeni repo → senkron temeli sıfırlanır (tam 3-yönlü ilk senkron)
+      // Yeni repo → aktif kasanın senkron temeli sıfırlanır (temel başka repoya ait sayılır, ayrıca silinir).
+      const vp = get().vaultPath;
+      if (vp) set((st) => ({ vaults: withVaultBase(st.vaults, vp, null, null) }));
     },
     ghSync: () => {
       if (ghSyncInFlight) return ghSyncInFlight;
@@ -4247,12 +4252,16 @@ export const useAppStore = create<AppState>()(
             // Mobil: git2 yok → GitHub REST (Git Data API) ile senkron.
             const [owner, repo] = s.ghRepo.full_name.split("/");
             const branch = s.ghRepo.default_branch || "main";
-            const res = await gh.apiSync(s.vaultPath, owner, repo, branch, s.ghToken, s.ghBaseSha);
+            // Temel KASA başına (LOM-114): başka kasanın temeli asla kullanılmaz; yoksa temelsiz (güvenli) senkron.
+            const syncBase = getVaultBase(s.vaults, s.vaultPath, s.ghRepo.full_name);
+            const syncPath = s.vaultPath;
+            const res = await gh.apiSync(s.vaultPath, owner, repo, branch, s.ghToken, syncBase);
             set({
               ghSyncing: false,
               ghSyncFailed: false,
               ghLastSync: new Date().toISOString(),
-              ghBaseSha: res.base_sha,
+              // Sonuç, senkron başladığı kasaya yazılır (süren senkronda kasa değişmiş olabilir).
+              vaults: withVaultBase(get().vaults, syncPath, s.ghRepo.full_name, res.base_sha ?? null),
               ghStatus: res.merged.length
                 ? `merged:${res.merged.length}`
                 : res.pulled
@@ -6167,7 +6176,6 @@ export const useAppStore = create<AppState>()(
         ghRepo: s.ghRepo,
         ghLastSync: s.ghLastSync,
         ghAutoSync: s.ghAutoSync,
-        ghBaseSha: s.ghBaseSha,
         gcalTokens: secretsInKeychain ? null : s.gcalTokens,
         gcalExpiresAt: s.gcalExpiresAt,
         gcalUser: s.gcalUser,
