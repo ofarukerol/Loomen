@@ -428,6 +428,10 @@
     "openNote": "Notu aç: {{date}}"
   },
   "editor": {
+    "dayNav": "Gün gezinme",
+    "prevDay": "Önceki gün ({{key}})",
+    "nextDay": "Sonraki gün ({{key}})",
+    "backToToday": "Bugüne dön",
     "backlinks": "Bağlantılar",
     "backlinksSub": "Bu nota bağlananlar",
     "noBacklinks": "Bu nota bağlanan not yok.",

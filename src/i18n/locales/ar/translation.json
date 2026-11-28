@@ -433,6 +433,10 @@
     "openNote": "فتح الملاحظة: {{date}}"
   },
   "editor": {
+    "dayNav": "التنقل بين الأيام",
+    "prevDay": "اليوم السابق ({{key}})",
+    "nextDay": "اليوم التالي ({{key}})",
+    "backToToday": "العودة إلى اليوم",
     "backlinks": "روابط",
     "backlinksSub": "ملاحظات ترتبط هنا",
     "noBacklinks": "لا ملاحظات ترتبط هنا.",
