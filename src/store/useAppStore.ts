@@ -28,6 +28,7 @@ import {
   DAILY_DIR,
   TODO_HEADING,
 } from "../core/vault";
+import { addDaysISO, localISO, isoToLocalDate, dailyDateOfPath } from "../core/vault/dayNav";
 import { migrateMobileVaults, rebaseMobileVaultPath, joinPath } from "../core/vault/mobileVaultPath";
 import { rewriteWikiLinks } from "../core/markdown/links";
 import { AUTO_NAME_BASE, autoNameTarget, freeName, isAutoName } from "../core/markdown/autoTitle";
@@ -661,6 +662,10 @@ interface AppState {
   setFocusExpanded: (v: boolean) => void;
   goToDayNote: () => Promise<void>;
   goToDate: (date: Date) => Promise<void>;
+  /** Günlük notta ±N gün gez (açık sekmenin notunu değiştirir). Hızlı basışlar birleşir. */
+  stepDay: (delta: number) => Promise<void>;
+  /** Açık sekmenin notunu verilen günün günlük notuyla değiştir ("Bugün" hapı). */
+  replaceWithDay: (date: Date) => Promise<void>;
   createTodayNote: () => Promise<void>;
   todayNotePath: () => string;
   setQuick: (v: string) => void;
@@ -2314,6 +2319,67 @@ export const useAppStore = create<AppState>()(
     return (await drawDone) && noteOk;
   }
 
+  // Günlük gezinme durumu (bkz. stepDay): bekleyen gün sayısı + tek döngü bayrağı.
+  let stepPending = 0;
+  let stepAbs: Date | null = null; // "Bugün" gibi mutlak hedef; gösterilen günden bağımsız
+  let stepRunning = false;
+
+  /** Açık not "Günlük/…/YYYY-MM-DD…md" ise yolu, değilse null. */
+  function dailyNotePathOf(path: string | null): string | null {
+    return path && path.startsWith(`${DAILY_DIR}/`) && dailyDateOfPath(path) ? path : null;
+  }
+
+  /** Günün günlük notunu (yoksa seçili şablonla) oluşturur; yolunu döner. goToDate ile ortak. */
+  async function ensureDailyFor(date: Date): Promise<string> {
+    const path = dailyPathFor(date);
+    if (!(await backend.exists(path))) {
+      const folder = path.split("/").slice(0, -1).join("/");
+      if (folder) await backend.ensureDir(folder);
+      await backend.writeNote(path, await renderDailyTemplate(backend, date, templatePathFor(get().dailyTemplate)));
+    }
+    return path;
+  }
+
+  /** Bekleyen gün sürmelerini tek döngüde sırayla işler (stepDay + "Bugün" aynı yolu kullanır). */
+  async function runSteps(): Promise<void> {
+    if (stepRunning) return;
+    stepRunning = true;
+    try {
+      while (stepPending !== 0 || stepAbs) {
+        const n = stepPending;
+        const abs = stepAbs;
+        stepPending = 0;
+        stepAbs = null;
+        const cur = dailyNotePathOf(get().screen === "editor" ? get().activeNote : null);
+        const base = abs ? localISO(abs) : cur && dailyDateOfPath(cur);
+        const target = base ? addDaysISO(base, n) : undefined;
+        const date = target ? isoToLocalDate(target) : undefined;
+        if (date) await openDailyInPlace(date);
+      }
+    } finally {
+      stepRunning = false;
+    }
+  }
+
+  /** Günün notunu AÇIK SEKMENİN yerine açar (sabitli sekme korunur, yeni sekme açılır). */
+  async function openDailyInPlace(date: Date): Promise<void> {
+    const from = get().activeNote;
+    const path = await ensureDailyFor(date);
+    if (path === from) return;
+    await loadFromBackend();
+    // Beklerken kullanıcı başka sekmeye geçtiyse yanlış sekme değiştirilmesin: yalnız normal aç.
+    const switched = get().activeNote !== from;
+    const before = get().openTabs;
+    await get().openNote(path);
+    const st = get();
+    // openNote reddedildiyse (taslak yazılamadı) sekmelere dokunma.
+    if (switched || st.activeNote !== path || !from || st.pinnedTabs.includes(from) || !st.openTabs.includes(from)) return;
+    const next = before.includes(path)
+      ? st.openTabs.filter((p) => p !== from)
+      : st.openTabs.filter((p) => p !== path).map((p) => (p === from ? path : p));
+    set({ openTabs: next });
+  }
+
   /**
    * Açık notu TERK ETMEDEN önce taslağı diske yazar (LOM-7). Yazma bitene kadar beklenir;
    * bu sırada kullanıcı yazmaya devam ettiyse yeni hali de yazılır. `false` = yazılamadı:
@@ -2945,14 +3011,23 @@ export const useAppStore = create<AppState>()(
     },
     // Takvimden bir güne tıklama — o günün notunu (yoksa seçili şablonla oluşturup) aç.
     goToDate: async (date) => {
-      const path = dailyPathFor(date);
-      if (!(await backend.exists(path))) {
-        const folder = path.split("/").slice(0, -1).join("/");
-        if (folder) await backend.ensureDir(folder);
-        await backend.writeNote(path, await renderDailyTemplate(backend, date, templatePathFor(get().dailyTemplate)));
-      }
+      const path = await ensureDailyFor(date);
       await loadFromBackend();
       get().openNote(path);
+    },
+    // Günlük notta gün gün gezinme. Not YOKSA takvim/Bugün ile aynı yolla (şablonlu) oluşturulur:
+    // uygulamada kaydedilmemiş/tembel not kavramı yok (openNote yalnız diskteki notu açar).
+    // Hızlı basışlar sayaca eklenir; tek döngü hepsini toplayıp yalnız SON güne gider → ara
+    // günlerin boş dosyası oluşmaz ve yarış olmaz. Gün her turda o an gösterilen nottan hesaplanır.
+    stepDay: async (delta) => {
+      if (!Number.isInteger(delta) || delta === 0) return;
+      stepPending += delta;
+      return runSteps();
+    },
+    replaceWithDay: async (date) => {
+      stepAbs = date;
+      stepPending = 0;
+      return runSteps();
     },
     setQuick: (quickText) => set({ quickText }),
     selectDay: (selectedDay) => set({ selectedDay }),

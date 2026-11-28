@@ -406,6 +406,11 @@
     "openNote": "Open note: {{date}}"
   },
   "editor": {
+    "today": "Today",
+    "dayNav": "Day navigation",
+    "prevDay": "Previous day ({{key}})",
+    "nextDay": "Next day ({{key}})",
+    "backToToday": "Back to today",
     "backlinks": "Links",
     "backlinksSub": "Notes that link here",
     "noBacklinks": "No notes link here.",
